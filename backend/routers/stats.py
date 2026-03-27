@@ -6,6 +6,13 @@ from sqlalchemy.orm import Session
 from db.database import get_db
 from db.models import Player, SeasonStat
 from models.stats import CareerStatsResponse, SeasonStats
+from services.advanced_metrics import (
+    calculate_bpm,
+    calculate_win_shares,
+    calculate_vorp,
+    calculate_darko,
+    compute_age_at_season,
+)
 from services.sync_service import sync_player_if_needed
 
 router = APIRouter()
@@ -56,7 +63,43 @@ def _stat_to_dict(stat: SeasonStat) -> dict:
         "vorp": stat.vorp,
         "pie": stat.pie,
         "pace": stat.pace,
+        "darko": stat.darko,
+        "epm": stat.epm,
+        "rapm": stat.rapm,
     }
+
+
+def _backfill_computed_metrics(db: Session, stats: List[SeasonStat], player: Player) -> bool:
+    """Fill in BPM, WS, VORP, DARKO for rows that were synced before these
+    formulas existed. Returns True if any rows were updated."""
+    dirty = False
+    for stat in stats:
+        if stat.bpm is not None and stat.ws is not None and stat.darko is not None:
+            continue
+
+        row = {
+            "per": stat.per,
+            "gp": stat.gp or 1,
+            "min_total": stat.min_total or 0,
+            "stl_pg": stat.stl_pg or 0,
+            "blk_pg": stat.blk_pg or 0,
+            "usg_pct": stat.usg_pct,
+        }
+
+        if stat.bpm is None and stat.per is not None:
+            stat.bpm = calculate_bpm(row)
+            stat.ws = calculate_win_shares(stat.bpm, stat.min_total or 0)
+            stat.vorp = calculate_vorp(stat.bpm, stat.min_total or 0, stat.gp or 0)
+            dirty = True
+
+        if stat.darko is None and stat.per is not None:
+            age = compute_age_at_season(player.birth_date, stat.season)
+            stat.darko = calculate_darko(age, stat.per, stat.ts_pct, stat.usg_pct)
+            dirty = True
+
+    if dirty:
+        db.commit()
+    return dirty
 
 
 def _compute_career_totals(seasons: list) -> dict:
@@ -91,17 +134,33 @@ def _compute_career_totals(seasons: list) -> dict:
     totals["efg_pct"] = calculate_efg_pct(totals["fgm"], totals["fg3m"], totals["fga"])
     totals["per"] = calculate_per_simplified(totals)
 
+    # Career WS = sum of season WS values
+    ws_values = [s.get("ws") for s in seasons if s.get("ws") is not None]
+    totals["ws"] = round(sum(ws_values), 1) if ws_values else None
+
+    # Career BPM = minutes-weighted average across seasons
+    bpm_seasons = [(s["bpm"], s.get("min_total", 0)) for s in seasons if s.get("bpm") is not None]
+    if bpm_seasons:
+        total_mp = sum(mp for _, mp in bpm_seasons)
+        totals["bpm"] = round(sum(b * mp for b, mp in bpm_seasons) / total_mp, 1) if total_mp else None
+    else:
+        totals["bpm"] = None
+
+    # Career VORP = sum of season VORP values
+    vorp_values = [s.get("vorp") for s in seasons if s.get("vorp") is not None]
+    totals["vorp"] = round(sum(vorp_values), 1) if vorp_values else None
+
     totals["season"] = "Career"
     totals["team_abbreviation"] = ""
     totals["usg_pct"] = None
-    totals["bpm"] = None
     totals["off_rating"] = None
     totals["def_rating"] = None
     totals["net_rating"] = None
-    totals["ws"] = None
-    totals["vorp"] = None
     totals["pie"] = None
     totals["pace"] = None
+    totals["darko"] = None
+    totals["epm"] = None
+    totals["rapm"] = None
 
     return totals
 
@@ -127,6 +186,9 @@ def career_stats(player_id: int, db: Session = Depends(get_db)):
         .order_by(SeasonStat.season)
         .all()
     )
+
+    # Backfill computed metrics for players synced before BPM/WS/DARKO were implemented
+    _backfill_computed_metrics(db, regular_stats, player)
 
     seasons = [_stat_to_dict(s) for s in regular_stats]
     playoff_seasons = [_stat_to_dict(s) for s in playoff_stats]

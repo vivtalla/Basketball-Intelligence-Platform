@@ -5,6 +5,7 @@ import PlayerHeader from "./PlayerHeader";
 import StatTable from "./StatTable";
 import RadarChart from "./RadarChart";
 import StatComparisonBar from "./StatComparisonBar";
+import ShotChart from "./ShotChart";
 
 interface PlayerDashboardProps {
   playerId: number;
@@ -64,9 +65,19 @@ export default function PlayerDashboard({ playerId }: PlayerDashboardProps) {
         </div>
       </div>
 
+      {/* Shot Chart */}
+      {careerStats.seasons.length > 0 && (
+        <ShotChart
+          playerId={playerId}
+          seasons={careerStats.seasons.map((s) => s.season).filter(Boolean)}
+          defaultSeason={currentSeason?.season ?? careerStats.seasons[careerStats.seasons.length - 1].season}
+        />
+      )}
+
       <StatTable
         seasons={careerStats.seasons}
         careerTotals={careerStats.career_totals}
+        playoffSeasons={careerStats.playoff_seasons}
       />
     </div>
   );

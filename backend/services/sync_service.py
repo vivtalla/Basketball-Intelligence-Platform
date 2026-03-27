@@ -26,6 +26,7 @@ def _transform_season_row(row: dict) -> dict:
         "gp": row.get("GP", 0),
         "gs": row.get("GS", 0),
         "min_total": row.get("MIN", 0),
+        "age": row.get("PLAYER_AGE") or row.get("AGE"),
         "min_pg": round(row.get("MIN", 0) / gp, 1),
         "pts": row.get("PTS", 0),
         "pts_pg": round(row.get("PTS", 0) / gp, 1),
@@ -168,6 +169,7 @@ def _upsert_season_stat(db: Session, player_id: int, data: dict, is_playoff: boo
         "fgm", "fga", "fg_pct", "fg3m", "fg3a", "fg3_pct", "ftm", "fta", "ft_pct",
         "oreb", "dreb", "pf", "ts_pct", "efg_pct", "usg_pct", "per", "bpm",
         "off_rating", "def_rating", "net_rating", "ws", "vorp", "pie", "pace",
+        "darko", "epm", "rapm",
     ]:
         if key in data:
             setattr(stat, key, data[key])

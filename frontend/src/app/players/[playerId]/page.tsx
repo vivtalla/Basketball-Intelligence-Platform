@@ -1,3 +1,4 @@
+import Link from "next/link";
 import PlayerDashboard from "@/components/PlayerDashboard";
 
 export default async function PlayerPage({
@@ -17,5 +18,17 @@ export default async function PlayerPage({
     );
   }
 
-  return <PlayerDashboard playerId={id} />;
+  return (
+    <div>
+      <div className="mb-4">
+        <Link
+          href="/"
+          className="inline-flex items-center gap-1 text-sm text-gray-500 hover:text-blue-500 dark:text-gray-400 dark:hover:text-blue-400 transition-colors"
+        >
+          ← Back to Home
+        </Link>
+      </div>
+      <PlayerDashboard playerId={id} />
+    </div>
+  );
 }

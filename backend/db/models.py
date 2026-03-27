@@ -105,6 +105,9 @@ class SeasonStat(Base):
     vorp = Column(Float)
     pie = Column(Float)
     pace = Column(Float)
+    darko = Column(Float)
+    epm = Column(Float)
+    rapm = Column(Float)
 
     updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
 

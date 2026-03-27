@@ -116,6 +116,83 @@ def calculate_per_simplified(stats: dict) -> float | None:
     return round(per, 1)
 
 
+def calculate_bpm(stats: dict) -> float | None:
+    """Box Plus/Minus approximation using PER with defensive adjustments.
+
+    Calibrated to Basketball Reference scale: league average ≈ 0,
+    replacement level ≈ -2. Cannot replicate the full Myers formula without
+    team-level context, so treats this as a per-player box-score estimate.
+
+    PER component captures offensive efficiency; stl/blk add defensive credit;
+    usage penalty prevents high-volume inefficient scorers from being overstated.
+    """
+    per = stats.get("per")
+    if per is None:
+        return None
+    gp = stats.get("gp", 0) or 1
+    mp = stats.get("min_total", 0)
+    if mp == 0:
+        return None
+
+    stl_pg = stats.get("stl_pg") or (stats.get("stl", 0) / gp)
+    blk_pg = stats.get("blk_pg") or (stats.get("blk", 0) / gp)
+    usg = stats.get("usg_pct") or 20.0
+
+    bpm = (
+        (per - 15.0) * 0.36              # PER above league average (15)
+        + stl_pg * 0.45                  # steals: strong on-ball defensive indicator
+        + blk_pg * 0.20                  # blocks: rim protection
+        - max(0.0, usg - 20.0) * 0.03   # penalise high usage without efficiency gain
+        - 0.50                           # shift to replacement-level baseline
+    )
+    return round(bpm, 1)
+
+
+def calculate_win_shares(bpm: float | None, mp: float) -> float | None:
+    """Simplified Win Shares approximation derived from BPM and minutes.
+
+    WS ≈ (BPM + 2.0) × (MP / 2400)
+    Calibrated so an average player (BPM = 0) playing full starter minutes
+    (~2400 min/season) contributes ~2 WS — consistent with Basketball Reference
+    norms. Career WS should be summed across seasons.
+    """
+    if bpm is None or mp == 0:
+        return None
+    return round(max((bpm + 2.0) * (mp / 2400.0), -1.0), 1)
+
+
+def compute_age_at_season(birth_date_str: str | None, season: str) -> float | None:
+    """Compute player age on October 1st of the given season year.
+
+    More reliable than the PLAYER_AGE field returned by the NBA API, which
+    is sometimes missing for historical seasons.
+    """
+    if not birth_date_str or not season:
+        return None
+    try:
+        from datetime import datetime
+        # birth_date stored as "1984-12-30T00:00:00" or "1984-12-30"
+        bd = datetime.fromisoformat(birth_date_str.split("T")[0])
+        season_year = int(season.split("-")[0])
+        season_start = datetime(season_year, 10, 1)
+        return round((season_start - bd).days / 365.25, 1)
+    except (ValueError, TypeError, AttributeError):
+        return None
+
+
+def calculate_darko(age: float | None, per: float | None, ts_pct: float | None, usg_pct: float | None) -> float | None:
+    """DARKO: draft-age adjusted impact projection (approximation)."""
+    if age is None or age <= 0 or per is None:
+        return None
+
+    age_factor = max(0, 24 - age) / 5  # younger players score higher
+    ts_factor = ts_pct if ts_pct is not None else 0.5
+    usg_factor = usg_pct if usg_pct is not None else 20.0
+
+    darko_value = (per * 0.15) + (ts_factor * 10 * 0.05) + (age_factor * 6) - (usg_factor * 0.01)
+    return round(darko_value, 2)
+
+
 def calculate_vorp(bpm: float | None, mp: float, team_gp: int) -> float | None:
     """Value Over Replacement Player.
 
@@ -144,25 +221,33 @@ def enrich_season_with_advanced(season_data: dict, advanced_data: dict | None) -
             season_data.get("fg3m", 0),
             season_data.get("fga", 0),
         )
-        season_data["per"] = calculate_per_simplified(season_data)
-        return season_data
+        season_data["epm"] = None
+        season_data["rapm"] = None
+    else:
+        # Use nba_api advanced stats where available
+        season_data["ts_pct"] = advanced_data.get("TS_PCT")
+        season_data["efg_pct"] = advanced_data.get("EFG_PCT")
+        season_data["usg_pct"] = advanced_data.get("USG_PCT")
+        season_data["off_rating"] = advanced_data.get("OFF_RATING")
+        season_data["def_rating"] = advanced_data.get("DEF_RATING")
+        season_data["net_rating"] = advanced_data.get("NET_RATING")
+        season_data["pie"] = advanced_data.get("PIE")
+        season_data["pace"] = advanced_data.get("PACE")
+        season_data["epm"] = None  # requires external CSV import
+        season_data["rapm"] = None  # requires external CSV import
 
-    # Use nba_api advanced stats where available
-    season_data["ts_pct"] = advanced_data.get("TS_PCT")
-    season_data["efg_pct"] = advanced_data.get("EFG_PCT")
-    season_data["usg_pct"] = advanced_data.get("USG_PCT")
-    season_data["off_rating"] = advanced_data.get("OFF_RATING")
-    season_data["def_rating"] = advanced_data.get("DEF_RATING")
-    season_data["net_rating"] = advanced_data.get("NET_RATING")
-    season_data["pie"] = advanced_data.get("PIE")
-    season_data["pace"] = advanced_data.get("PACE")
-
-    # Calculate metrics not provided by the league dash endpoint
+    # Calculated metrics — applied regardless of whether advanced_data is available
     season_data["per"] = calculate_per_simplified(season_data)
-    bpm = advanced_data.get("PLUS_MINUS")  # Use +/- as BPM proxy
-    season_data["bpm"] = round(bpm, 1) if bpm is not None else None
+    season_data["bpm"] = calculate_bpm(season_data)
+    season_data["ws"] = calculate_win_shares(season_data["bpm"], season_data.get("min_total", 0))
     season_data["vorp"] = calculate_vorp(
-        bpm, season_data.get("min_total", 0), season_data.get("gp", 0)
+        season_data["bpm"], season_data.get("min_total", 0), season_data.get("gp", 0)
+    )
+    season_data["darko"] = calculate_darko(
+        season_data.get("age"),
+        season_data.get("per"),
+        season_data.get("ts_pct"),
+        season_data.get("usg_pct"),
     )
 
     return season_data

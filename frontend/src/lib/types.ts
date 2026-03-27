@@ -70,6 +70,9 @@ export interface SeasonStats {
   vorp: number | null;
   pie: number | null;
   pace: number | null;
+  darko: number | null;
+  epm: number | null;
+  rapm: number | null;
 }
 
 export interface CareerStatsResponse {
@@ -78,4 +81,63 @@ export interface CareerStatsResponse {
   seasons: SeasonStats[];
   career_totals: SeasonStats | null;
   playoff_seasons: SeasonStats[];
+}
+
+export interface ShotChartShot {
+  loc_x: number;
+  loc_y: number;
+  shot_made: boolean;
+  shot_type: string;
+  action_type: string;
+  zone_basic: string;
+  zone_area: string;
+  distance: number;
+}
+
+export interface TeamRosterPlayer {
+  player_id: number;
+  full_name: string;
+  position: string;
+  jersey: string;
+  headshot_url: string;
+  season: string | null;
+  pts_pg: number | null;
+  reb_pg: number | null;
+  ast_pg: number | null;
+  per: number | null;
+  bpm: number | null;
+}
+
+export interface TeamRosterResponse {
+  team_id: number;
+  abbreviation: string;
+  name: string;
+  players: TeamRosterPlayer[];
+  synced_count: number;
+}
+
+export interface LeaderboardEntry {
+  rank: number;
+  player_id: number;
+  player_name: string;
+  team_abbreviation: string;
+  headshot_url: string;
+  gp: number;
+  stat_value: number;
+}
+
+export interface LeaderboardResponse {
+  stat: string;
+  season: string;
+  season_type: string;
+  entries: LeaderboardEntry[];
+}
+
+export interface ShotChartResponse {
+  player_id: number;
+  season: string;
+  season_type: string;
+  shots: ShotChartShot[];
+  made: number;
+  attempted: number;
 }

@@ -8,6 +8,7 @@ from nba_api.stats.endpoints import (
     commonplayerinfo,
     leaguedashplayerstats,
     playercareerstats,
+    shotchartdetail,
 )
 from nba_api.stats.static import players as static_players
 
@@ -111,3 +112,40 @@ def get_player_advanced_stats_from_league(
         if player.get("PLAYER_ID") == player_id:
             return player
     return None
+
+
+def get_shot_chart_data(
+    player_id: int, season: str, season_type: str = "Regular Season"
+) -> list[dict]:
+    """Fetch all shot attempts for a player in a given season from NBA.com.
+
+    Returns a list of shot dicts with: loc_x, loc_y, shot_made, shot_type,
+    action_type, zone_basic, zone_area, distance.
+    """
+    _rate_limit()
+    response = shotchartdetail.ShotChartDetail(
+        player_id=player_id,
+        team_id=0,
+        game_id_nullable="",
+        season_nullable=season,
+        season_type_all_star=season_type,
+        context_measure_simple="FGA",
+        timeout=NBA_API_TIMEOUT,
+    )
+    frames = response.get_data_frames()
+    if not frames or frames[0].empty:
+        return []
+    df = frames[0]
+    shots = []
+    for _, row in df.iterrows():
+        shots.append({
+            "loc_x": int(row.get("LOC_X", 0)),
+            "loc_y": int(row.get("LOC_Y", 0)),
+            "shot_made": bool(row.get("SHOT_MADE_FLAG", 0)),
+            "shot_type": str(row.get("SHOT_TYPE", "")),
+            "action_type": str(row.get("ACTION_TYPE", "")),
+            "zone_basic": str(row.get("SHOT_ZONE_BASIC", "")),
+            "zone_area": str(row.get("SHOT_ZONE_AREA", "")),
+            "distance": int(row.get("SHOT_DISTANCE", 0)),
+        })
+    return shots

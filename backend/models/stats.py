@@ -48,6 +48,9 @@ class SeasonStats(BaseModel):
     vorp: Optional[float] = None
     pie: Optional[float] = None
     pace: Optional[float] = None
+    darko: Optional[float] = None
+    epm: Optional[float] = None
+    rapm: Optional[float] = None
 
 
 class CareerStatsResponse(BaseModel):
