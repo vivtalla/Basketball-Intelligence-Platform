@@ -1,11 +1,16 @@
+import logging
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from config import CORS_ORIGINS
-from data.cache import CacheManager
+from db.database import engine
+from db.models import Base
 from routers import players, stats
 
-app = FastAPI(title="Basketball Intelligence Platform", version="0.1.0")
+logging.basicConfig(level=logging.INFO)
+
+app = FastAPI(title="Basketball Intelligence Platform", version="0.2.0")
 
 app.add_middleware(
     CORSMiddleware,
@@ -21,7 +26,7 @@ app.include_router(stats.router, prefix="/api/stats", tags=["stats"])
 
 @app.on_event("startup")
 def startup():
-    CacheManager.initialize()
+    Base.metadata.create_all(bind=engine)
 
 
 @app.get("/api/health")

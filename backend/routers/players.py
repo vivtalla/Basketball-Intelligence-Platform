@@ -1,11 +1,12 @@
 from typing import List
 
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query
+from sqlalchemy.orm import Session
 
-from data.cache import CacheManager
-from data.nba_client import get_player_info, search_players
-from config import CACHE_TTL_PLAYER_BIO
+from data.nba_client import search_players
+from db.database import get_db
 from models.player import PlayerProfile, PlayerSearchResult
+from services.sync_service import sync_player_if_needed
 
 router = APIRouter()
 
@@ -17,16 +18,48 @@ def search(q: str = Query(..., min_length=2, description="Player name to search"
 
 
 @router.get("/{player_id}", response_model=PlayerProfile)
-def get_player(player_id: int):
-    cache_key = f"player_info:{player_id}"
-    cached = CacheManager.get(cache_key)
-    if cached:
-        return PlayerProfile(**cached)
-
+def get_player(player_id: int, db: Session = Depends(get_db)):
     try:
-        data = get_player_info(player_id)
+        player = sync_player_if_needed(db, player_id)
     except Exception as e:
         raise HTTPException(status_code=404, detail=f"Player not found: {e}")
 
-    CacheManager.set(cache_key, data, CACHE_TTL_PLAYER_BIO)
-    return PlayerProfile(**data)
+    team_abbr = ""
+    team_name = ""
+    if player.team:
+        team_abbr = player.team.abbreviation
+        team_name = player.team.name
+
+    return PlayerProfile(
+        id=player.id,
+        full_name=player.full_name,
+        first_name=player.first_name or "",
+        last_name=player.last_name or "",
+        team_name=team_name,
+        team_abbreviation=team_abbr,
+        team_id=player.team_id,
+        jersey=player.jersey or "",
+        position=player.position or "",
+        height=player.height or "",
+        weight=player.weight or "",
+        birth_date=player.birth_date or "",
+        country=player.country or "",
+        school=player.school,
+        draft_year=player.draft_year,
+        draft_round=player.draft_round,
+        draft_number=player.draft_number,
+        from_year=player.from_year,
+        to_year=player.to_year,
+        headshot_url=player.headshot_url or "",
+    )
+
+
+@router.post("/{player_id}/sync")
+def resync_player(player_id: int, db: Session = Depends(get_db)):
+    """Force re-sync a player's data from NBA.com."""
+    from services.sync_service import sync_player
+    try:
+        sync_player(db, player_id)
+        return {"status": "ok", "message": f"Player {player_id} synced"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Sync failed: {e}")

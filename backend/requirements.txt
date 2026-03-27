@@ -4,3 +4,6 @@ nba_api==1.5.2
 pandas==2.0.3
 pydantic==2.10.4
 python-dotenv==1.0.1
+sqlalchemy==2.0.36
+psycopg2-binary==2.9.10
+alembic==1.14.1
