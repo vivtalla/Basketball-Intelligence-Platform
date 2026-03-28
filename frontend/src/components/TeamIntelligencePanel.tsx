@@ -22,6 +22,11 @@ function coverageTone(status: TeamIntelligence["pbp_coverage"]["status"]) {
   return "text-gray-500 bg-gray-100 dark:text-gray-300 dark:bg-gray-800";
 }
 
+function coveragePct(numerator: number, denominator: number) {
+  if (!denominator) return 0;
+  return Math.round((numerator / denominator) * 100);
+}
+
 function LineupMiniCard({
   lineup,
   tone,
@@ -89,6 +94,18 @@ function LeaderRow({ leader, rank }: { leader: TeamImpactLeader; rank: number })
 
 export default function TeamIntelligencePanel({ intelligence }: TeamIntelligencePanelProps) {
   const coverage = intelligence.pbp_coverage;
+  const gameCoveragePct = coveragePct(coverage.synced_games, coverage.eligible_games);
+  const playerCoverageTarget = Math.max(intelligence.impact_leaders.length, coverage.players_with_on_off);
+  const playerCoveragePct = coveragePct(
+    coverage.players_with_on_off + coverage.players_with_scoring_splits,
+    Math.max(1, playerCoverageTarget + coverage.players_with_scoring_splits)
+  );
+  const nextStep =
+    coverage.status === "ready"
+      ? "Coverage is complete. Use lineups and impact leaders to evaluate rotation decisions."
+      : coverage.status === "partial"
+      ? `${coverage.eligible_games - coverage.synced_games} games are still missing from local play-by-play. Finish the season sync, then revisit lineup and on/off sections.`
+      : "This team has no meaningful play-by-play coverage yet. Start from the coverage dashboard and run a season sync before trusting derived insights.";
 
   return (
     <div className="space-y-6">
@@ -143,6 +160,78 @@ export default function TeamIntelligencePanel({ intelligence }: TeamIntelligence
           </div>
           <div className="mt-2 text-sm text-gray-500 dark:text-gray-400">
             {coverage.players_with_on_off} on/off · {coverage.players_with_scoring_splits} split-ready
+          </div>
+        </div>
+      </section>
+
+      <section className="grid gap-4 lg:grid-cols-[1.05fr,0.95fr]">
+        <div className="rounded-[2rem] border border-gray-200 bg-white p-6 dark:border-gray-800 dark:bg-gray-900">
+          <div className="flex items-center justify-between gap-3">
+            <div>
+              <h2 className="text-2xl font-semibold text-gray-900 dark:text-gray-100">
+                Sync Readiness
+              </h2>
+              <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+                A quick read on how safe it is to trust team-level derived metrics for this season.
+              </p>
+            </div>
+            <span className={`rounded-full px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] ${coverageTone(coverage.status)}`}>
+              {coverage.status}
+            </span>
+          </div>
+
+          <div className="mt-5 space-y-4">
+            <div>
+              <div className="flex items-center justify-between gap-3 text-sm text-gray-500 dark:text-gray-400">
+                <span>Game coverage</span>
+                <span className="font-semibold text-gray-900 dark:text-gray-100">
+                  {coverage.synced_games}/{coverage.eligible_games} games
+                </span>
+              </div>
+              <div className="mt-2 h-3 overflow-hidden rounded-full bg-gray-100 dark:bg-gray-800">
+                <div
+                  className="h-full rounded-full bg-blue-500 transition-all"
+                  style={{ width: `${gameCoveragePct}%` }}
+                />
+              </div>
+            </div>
+
+            <div>
+              <div className="flex items-center justify-between gap-3 text-sm text-gray-500 dark:text-gray-400">
+                <span>Derived player signals</span>
+                <span className="font-semibold text-gray-900 dark:text-gray-100">
+                  {coverage.players_with_on_off} on/off · {coverage.players_with_scoring_splits} scoring
+                </span>
+              </div>
+              <div className="mt-2 h-3 overflow-hidden rounded-full bg-gray-100 dark:bg-gray-800">
+                <div
+                  className="h-full rounded-full bg-emerald-500 transition-all"
+                  style={{ width: `${playerCoveragePct}%` }}
+                />
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div className="rounded-[2rem] border border-gray-200 bg-white p-6 dark:border-gray-800 dark:bg-gray-900">
+          <h2 className="text-2xl font-semibold text-gray-900 dark:text-gray-100">
+            Next Move
+          </h2>
+          <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+            Suggested operations step based on current local team coverage.
+          </p>
+          <div className="mt-5 rounded-3xl bg-gray-50 p-5 dark:bg-gray-800/70">
+            <div className="text-xs font-medium uppercase tracking-[0.18em] text-gray-500 dark:text-gray-400">
+              Recommendation
+            </div>
+            <div className="mt-3 text-base leading-7 text-gray-700 dark:text-gray-200">
+              {nextStep}
+            </div>
+            <div className="mt-4 text-sm text-gray-500 dark:text-gray-400">
+              {coverage.status === "ready"
+                ? "Best lineups and impact leaders now have enough support to drive analysis."
+                : "Run more sync work from the coverage board, then use this page to validate lineup and impact changes."}
+            </div>
           </div>
         </div>
       </section>

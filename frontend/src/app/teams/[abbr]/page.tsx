@@ -16,6 +16,12 @@ function formatValue(value: number | null | undefined, digits = 1) {
   return value == null ? "-" : value.toFixed(digits);
 }
 
+function coverageTone(status: "none" | "partial" | "ready") {
+  if (status === "ready") return "text-emerald-700 bg-emerald-50 dark:text-emerald-300 dark:bg-emerald-950/30";
+  if (status === "partial") return "text-amber-700 bg-amber-50 dark:text-amber-300 dark:bg-amber-950/30";
+  return "text-gray-600 bg-gray-100 dark:text-gray-300 dark:bg-gray-800";
+}
+
 type Tab = "intelligence" | "roster" | "analytics" | "lineups";
 
 export default function TeamDetailPage() {
@@ -92,6 +98,11 @@ export default function TeamDetailPage() {
     roster && roster.players.length > 0
       ? Math.round((roster.synced_count / roster.players.length) * 100)
       : 0;
+  const pbpCoverage = intelligence?.pbp_coverage ?? null;
+  const pbpCoveragePct =
+    pbpCoverage && pbpCoverage.eligible_games > 0
+      ? Math.round((pbpCoverage.synced_games / pbpCoverage.eligible_games) * 100)
+      : 0;
 
   if (error) {
     return (
@@ -143,7 +154,7 @@ export default function TeamDetailPage() {
                 </p>
               </div>
 
-              <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+              <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
                 <div className="rounded-2xl bg-gray-50 dark:bg-gray-800 p-4">
                   <div className="text-xs uppercase tracking-[0.18em] text-gray-500 dark:text-gray-400">
                     Active roster
@@ -162,10 +173,32 @@ export default function TeamDetailPage() {
                 </div>
                 <div className="rounded-2xl bg-blue-50 dark:bg-blue-950/40 p-4">
                   <div className="text-xs uppercase tracking-[0.18em] text-blue-600 dark:text-blue-300">
-                    Coverage
+                    Roster coverage
                   </div>
                   <div className="mt-2 text-3xl font-semibold text-blue-700 dark:text-blue-200">
                     {syncCoverage}%
+                  </div>
+                </div>
+                <div className="rounded-2xl bg-gray-50 dark:bg-gray-800 p-4">
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="text-xs uppercase tracking-[0.18em] text-gray-500 dark:text-gray-400">
+                      PBP status
+                    </div>
+                    {pbpCoverage ? (
+                      <span
+                        className={`rounded-full px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.18em] ${coverageTone(pbpCoverage.status)}`}
+                      >
+                        {pbpCoverage.status}
+                      </span>
+                    ) : null}
+                  </div>
+                  <div className="mt-2 text-3xl font-semibold text-gray-900 dark:text-gray-100">
+                    {pbpCoverage ? `${pbpCoveragePct}%` : intelligenceLoading ? "…" : "—"}
+                  </div>
+                  <div className="mt-2 text-sm text-gray-500 dark:text-gray-400">
+                    {pbpCoverage
+                      ? `${pbpCoverage.synced_games}/${pbpCoverage.eligible_games} games tracked`
+                      : "Open the intelligence tab to load derived team coverage."}
                   </div>
                 </div>
               </div>
@@ -193,6 +226,29 @@ export default function TeamDetailPage() {
               <p className="text-sm text-gray-500 dark:text-gray-400">
                 Defaults to the latest synced roster season so intelligence panels open on real local data.
               </p>
+            </div>
+
+            <div className="mt-6 flex flex-wrap items-center gap-3">
+              <Link
+                href="/coverage"
+                className="inline-flex rounded-full border border-gray-200 px-4 py-2 text-sm font-medium text-gray-700 transition-colors hover:border-gray-300 hover:bg-gray-50 dark:border-gray-700 dark:text-gray-200 dark:hover:border-gray-600 dark:hover:bg-gray-800"
+              >
+                Open coverage board
+              </Link>
+              <button
+                type="button"
+                onClick={() => setActiveTab("intelligence")}
+                className="inline-flex rounded-full bg-blue-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-blue-700"
+              >
+                View sync intelligence
+              </button>
+              {pbpCoverage ? (
+                <div className="text-sm text-gray-500 dark:text-gray-400">
+                  {pbpCoverage.status === "ready"
+                    ? "This team is fully ready for lineup and on/off analysis."
+                    : `${pbpCoverage.eligible_games - pbpCoverage.synced_games} games still need play-by-play sync for full team intelligence.`}
+                </div>
+              ) : null}
             </div>
           </div>
         )}

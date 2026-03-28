@@ -2,6 +2,8 @@
 
 import Link from "next/link";
 import { useMemo, useState } from "react";
+import { useSWRConfig } from "swr";
+import { syncPlayerPbp, syncSeasonPbp } from "@/lib/api";
 import { usePbpCoverageDashboard, usePbpCoverageSeasons } from "@/hooks/usePlayerStats";
 
 const DEFAULT_SEASONS = ["2025-26", "2024-25", "2023-24", "2022-23"];
@@ -17,8 +19,23 @@ function pct(numerator: number, denominator: number) {
   return `${Math.round((numerator / denominator) * 100)}%`;
 }
 
+function syncSummary(result: {
+  games_processed: number;
+  games_fetched: number;
+  games_reused: number;
+  games_failed: number;
+  players_updated: number;
+}) {
+  return `${result.games_processed} games processed, ${result.games_fetched} fetched, ${result.games_reused} reused, ${result.games_failed} failed, ${result.players_updated} players updated`;
+}
+
 export default function CoveragePage() {
   const [selectedSeason, setSelectedSeason] = useState<string>("");
+  const [isSeasonSyncing, setIsSeasonSyncing] = useState(false);
+  const [syncMessage, setSyncMessage] = useState<string | null>(null);
+  const [syncError, setSyncError] = useState<string | null>(null);
+  const [syncingPlayerId, setSyncingPlayerId] = useState<number | null>(null);
+  const { mutate } = useSWRConfig();
   const { data: seasonOptions } = usePbpCoverageSeasons();
 
   const seasons = useMemo(() => {
@@ -45,6 +62,72 @@ export default function CoveragePage() {
 
   const teamRows = data?.teams ?? [];
   const playerRows = data?.players ?? [];
+  const focusTeam = useMemo(() => {
+    const ranked = [...teamRows].sort((a, b) => {
+      const aMissing = a.eligible_games - a.synced_games;
+      const bMissing = b.eligible_games - b.synced_games;
+      if (a.status !== b.status) {
+        const rank = { none: 0, partial: 1, ready: 2 } as const;
+        return rank[a.status] - rank[b.status];
+      }
+      if (bMissing !== aMissing) return bMissing - aMissing;
+      return b.players_none - a.players_none;
+    });
+    return ranked[0] ?? null;
+  }, [teamRows]);
+  const focusPlayer = useMemo(() => {
+    const ranked = [...playerRows].sort((a, b) => {
+      const aMissing = a.eligible_games - a.synced_games;
+      const bMissing = b.eligible_games - b.synced_games;
+      if (a.status !== b.status) {
+        const rank = { none: 0, partial: 1, ready: 2 } as const;
+        return rank[a.status] - rank[b.status];
+      }
+      if (bMissing !== aMissing) return bMissing - aMissing;
+      return a.player_name.localeCompare(b.player_name);
+    });
+    return ranked[0] ?? null;
+  }, [playerRows]);
+
+  async function refreshCoverageState(teamAbbreviation?: string | null) {
+    await Promise.all([
+      mutate(`pbp-dashboard-${season}`),
+      mutate("pbp-dashboard-seasons"),
+      teamAbbreviation ? mutate(`team-intelligence-${teamAbbreviation}-${season}`) : Promise.resolve(),
+    ]);
+  }
+
+  async function handleSeasonSync(forceRefresh = false) {
+    setIsSeasonSyncing(true);
+    setSyncError(null);
+    setSyncMessage(null);
+    try {
+      const result = await syncSeasonPbp(season, forceRefresh);
+      setSyncMessage(
+        `${forceRefresh ? "Force refresh completed" : "Season sync completed"} for ${season}: ${syncSummary(result)}.`
+      );
+      await refreshCoverageState();
+    } catch (err) {
+      setSyncError(err instanceof Error ? err.message : "Season sync failed.");
+    } finally {
+      setIsSeasonSyncing(false);
+    }
+  }
+
+  async function handlePlayerSync(playerId: number, teamAbbreviation?: string | null) {
+    setSyncingPlayerId(playerId);
+    setSyncError(null);
+    setSyncMessage(null);
+    try {
+      const result = await syncPlayerPbp(playerId, season);
+      setSyncMessage(`Player sync completed: ${syncSummary(result)}.`);
+      await refreshCoverageState(teamAbbreviation);
+    } catch (err) {
+      setSyncError(err instanceof Error ? err.message : "Player sync failed.");
+    } finally {
+      setSyncingPlayerId(null);
+    }
+  }
 
   return (
     <div className="mx-auto max-w-7xl space-y-8">
@@ -63,30 +146,103 @@ export default function CoveragePage() {
             </p>
           </div>
 
-          <div className="flex items-center gap-3">
-            <label
-              htmlFor="coverage-season"
-              className="text-xs font-medium uppercase tracking-[0.18em] text-gray-500 dark:text-gray-400"
-            >
-              Season
-            </label>
-            <select
-              id="coverage-season"
-              value={season}
-              onChange={(e) => setSelectedSeason(e.target.value)}
-              className="rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm text-gray-700 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-200"
-            >
-              {seasons.map((entry) => (
-                <option key={entry} value={entry}>
-                  {entry}
-                </option>
-              ))}
-            </select>
-            <div className="text-xs text-gray-500 dark:text-gray-400">
-              Suggested: {recommendedSeason}
+          <div className="flex flex-col items-start gap-3 sm:items-end">
+            <div className="flex items-center gap-3">
+              <label
+                htmlFor="coverage-season"
+                className="text-xs font-medium uppercase tracking-[0.18em] text-gray-500 dark:text-gray-400"
+              >
+                Season
+              </label>
+              <select
+                id="coverage-season"
+                value={season}
+                onChange={(e) => setSelectedSeason(e.target.value)}
+                className="rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm text-gray-700 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-200"
+              >
+                {seasons.map((entry) => (
+                  <option key={entry} value={entry}>
+                    {entry}
+                  </option>
+                ))}
+              </select>
+              <div className="text-xs text-gray-500 dark:text-gray-400">
+                Suggested: {recommendedSeason}
+              </div>
+            </div>
+
+            <div className="flex flex-wrap gap-2">
+              <button
+                type="button"
+                onClick={() => handleSeasonSync(false)}
+                disabled={isSeasonSyncing || !season}
+                className="rounded-full bg-blue-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-blue-300 dark:disabled:bg-blue-900/40"
+              >
+                {isSeasonSyncing ? "Syncing season..." : "Sync season PBP"}
+              </button>
+              <button
+                type="button"
+                onClick={() => handleSeasonSync(true)}
+                disabled={isSeasonSyncing || !season}
+                className="rounded-full border border-gray-200 px-4 py-2 text-sm font-medium text-gray-700 transition-colors hover:border-gray-300 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-60 dark:border-gray-700 dark:text-gray-200 dark:hover:border-gray-600 dark:hover:bg-gray-800"
+              >
+                Force refresh
+              </button>
             </div>
           </div>
         </div>
+
+        <div className="mt-6 grid gap-4 lg:grid-cols-[1.1fr,0.9fr]">
+          <div className="rounded-3xl bg-blue-50 p-5 dark:bg-blue-950/30">
+            <div className="text-xs font-medium uppercase tracking-[0.18em] text-blue-700 dark:text-blue-300">
+              Recommended Team Focus
+            </div>
+            <div className="mt-3 text-2xl font-semibold text-gray-900 dark:text-gray-100">
+              {focusTeam ? focusTeam.name : "Waiting for coverage data"}
+            </div>
+            <div className="mt-2 text-sm text-gray-600 dark:text-gray-300">
+              {focusTeam
+                ? `${focusTeam.eligible_games - focusTeam.synced_games} games still missing, with ${focusTeam.players_none} players still at zero derived coverage.`
+                : "Once coverage loads, this panel will point to the highest-value team to unlock next."}
+            </div>
+            {focusTeam ? (
+              <div className="mt-4">
+                <Link
+                  href={`/teams/${focusTeam.abbreviation}`}
+                  className="inline-flex rounded-full bg-white px-4 py-2 text-sm font-medium text-blue-700 transition-colors hover:bg-blue-100 dark:bg-blue-900/40 dark:text-blue-200 dark:hover:bg-blue-900/60"
+                >
+                  Open {focusTeam.abbreviation} team room
+                </Link>
+              </div>
+            ) : null}
+          </div>
+
+          <div className="rounded-3xl border border-gray-200 p-5 dark:border-gray-800">
+            <div className="text-xs font-medium uppercase tracking-[0.18em] text-gray-500 dark:text-gray-400">
+              Next Player Unlock
+            </div>
+            <div className="mt-3 text-2xl font-semibold text-gray-900 dark:text-gray-100">
+              {focusPlayer ? focusPlayer.player_name : "Waiting for coverage data"}
+            </div>
+            <div className="mt-2 text-sm text-gray-500 dark:text-gray-400">
+              {focusPlayer
+                ? `${focusPlayer.team_abbreviation ?? "FA"} · ${focusPlayer.synced_games}/${focusPlayer.eligible_games} games synced · ${focusPlayer.has_on_off ? "on/off ready" : "needs on/off"}`
+                : "Use this to quickly identify the next single-player sync that will raise team coverage."}
+            </div>
+          </div>
+        </div>
+
+        {(syncMessage || syncError) && (
+          <div
+            className={`mt-6 rounded-2xl border px-4 py-3 text-sm ${
+              syncError
+                ? "border-red-200 bg-red-50 text-red-700 dark:border-red-900/60 dark:bg-red-950/20 dark:text-red-200"
+                : "border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-900/60 dark:bg-emerald-950/20 dark:text-emerald-200"
+            }`}
+          >
+            {syncError ?? syncMessage}
+          </div>
+        )}
       </section>
 
       {error && (
@@ -180,6 +336,9 @@ export default function CoveragePage() {
                       <div className="mt-2 text-sm text-gray-500 dark:text-gray-400">
                         {team.players_ready} ready · {team.players_partial} partial · {team.players_none} none
                       </div>
+                      <div className="mt-2 text-sm text-gray-500 dark:text-gray-400">
+                        {team.eligible_games - team.synced_games} games still missing from local PBP coverage.
+                      </div>
                     </div>
                     <div className="grid grid-cols-2 gap-3 text-right text-sm tabular-nums text-gray-600 dark:text-gray-300">
                       <div>
@@ -231,17 +390,19 @@ export default function CoveragePage() {
 
             {!isLoading &&
               playerRows.map((player) => (
-                <Link
+                <div
                   key={`${player.player_id}-${player.season}`}
-                  href={`/players/${player.player_id}`}
-                  className="block rounded-3xl border border-gray-200 p-4 transition-colors hover:border-blue-300 hover:bg-blue-50/50 dark:border-gray-800 dark:hover:border-blue-800 dark:hover:bg-blue-950/20"
+                  className="rounded-3xl border border-gray-200 p-4 dark:border-gray-800"
                 >
                   <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
                     <div className="min-w-0">
                       <div className="flex items-center gap-3">
-                        <div className="truncate text-base font-semibold text-gray-900 dark:text-gray-100">
+                        <Link
+                          href={`/players/${player.player_id}`}
+                          className="truncate text-base font-semibold text-gray-900 transition-colors hover:text-blue-600 dark:text-gray-100 dark:hover:text-blue-300"
+                        >
                           {player.player_name}
-                        </div>
+                        </Link>
                         <span className="text-xs uppercase tracking-[0.18em] text-gray-400 dark:text-gray-500">
                           {player.team_abbreviation ?? "FA"}
                         </span>
@@ -255,27 +416,57 @@ export default function CoveragePage() {
                         {player.has_on_off ? "On/off ready" : "No on/off"} ·{" "}
                         {player.has_scoring_splits ? "Scoring splits ready" : "No scoring splits"}
                       </div>
+                      <div className="mt-2 text-sm text-gray-500 dark:text-gray-400">
+                        {player.eligible_games - player.synced_games} games still missing for full derived coverage.
+                      </div>
                     </div>
-                    <div className="grid grid-cols-2 gap-3 text-right text-sm tabular-nums text-gray-600 dark:text-gray-300">
-                      <div>
-                        <div className="text-[11px] uppercase tracking-[0.18em] text-gray-400 dark:text-gray-500">
-                          Games
+                    <div className="flex flex-col items-start gap-3 lg:items-end">
+                      <div className="grid grid-cols-2 gap-3 text-right text-sm tabular-nums text-gray-600 dark:text-gray-300">
+                        <div>
+                          <div className="text-[11px] uppercase tracking-[0.18em] text-gray-400 dark:text-gray-500">
+                            Games
+                          </div>
+                          <div className="mt-1 font-semibold text-gray-900 dark:text-gray-100">
+                            {player.synced_games}/{player.eligible_games}
+                          </div>
                         </div>
-                        <div className="mt-1 font-semibold text-gray-900 dark:text-gray-100">
-                          {player.synced_games}/{player.eligible_games}
+                        <div>
+                          <div className="text-[11px] uppercase tracking-[0.18em] text-gray-400 dark:text-gray-500">
+                            Updated
+                          </div>
+                          <div className="mt-1 font-semibold text-gray-900 dark:text-gray-100">
+                            {player.last_derived_at ? player.last_derived_at.slice(0, 10) : "—"}
+                          </div>
                         </div>
                       </div>
-                      <div>
-                        <div className="text-[11px] uppercase tracking-[0.18em] text-gray-400 dark:text-gray-500">
-                          Updated
-                        </div>
-                        <div className="mt-1 font-semibold text-gray-900 dark:text-gray-100">
-                          {player.last_derived_at ? player.last_derived_at.slice(0, 10) : "—"}
-                        </div>
-                      </div>
+
+                      {player.status !== "ready" ? (
+                        <button
+                          type="button"
+                          onClick={() => handlePlayerSync(player.player_id, player.team_abbreviation)}
+                          disabled={syncingPlayerId === player.player_id || isSeasonSyncing}
+                          className="rounded-full border border-blue-200 px-4 py-2 text-sm font-medium text-blue-700 transition-colors hover:border-blue-300 hover:bg-blue-50 disabled:cursor-not-allowed disabled:opacity-60 dark:border-blue-900/60 dark:text-blue-200 dark:hover:bg-blue-950/30"
+                        >
+                          {syncingPlayerId === player.player_id ? "Syncing player..." : "Sync player"}
+                        </button>
+                      ) : player.team_abbreviation ? (
+                        <Link
+                          href={`/teams/${player.team_abbreviation}`}
+                          className="text-sm font-medium text-blue-500 transition-colors hover:text-blue-600 dark:hover:text-blue-300"
+                        >
+                          Open team context →
+                        </Link>
+                      ) : (
+                        <Link
+                          href={`/players/${player.player_id}`}
+                          className="text-sm font-medium text-blue-500 transition-colors hover:text-blue-600 dark:hover:text-blue-300"
+                        >
+                          Open player view →
+                        </Link>
+                      )}
                     </div>
                   </div>
-                </Link>
+                </div>
               ))}
           </div>
         </section>
