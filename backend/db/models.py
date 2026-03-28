@@ -196,6 +196,45 @@ class PlayerOnOff(Base):
     player = relationship("Player")
 
 
+class PlayerGameLog(Base):
+    __tablename__ = "player_game_logs"
+    __table_args__ = (
+        UniqueConstraint("player_id", "game_id", "season_type", name="uq_player_game_log"),
+    )
+
+    id          = Column(Integer, primary_key=True, autoincrement=True)
+    player_id   = Column(Integer, ForeignKey("players.id"), nullable=False, index=True)
+    game_id     = Column(String(20), nullable=False)
+    season      = Column(String(7), nullable=False)
+    season_type = Column(String(30), nullable=False, default="Regular Season")
+    game_date   = Column(Date, nullable=True)
+    matchup     = Column(String(30), nullable=True)
+    wl          = Column(String(1), nullable=True)
+    min         = Column(Float, nullable=True)
+    pts         = Column(Integer, nullable=True)
+    reb         = Column(Integer, nullable=True)
+    ast         = Column(Integer, nullable=True)
+    stl         = Column(Integer, nullable=True)
+    blk         = Column(Integer, nullable=True)
+    tov         = Column(Integer, nullable=True)
+    fgm         = Column(Integer, nullable=True)
+    fga         = Column(Integer, nullable=True)
+    fg_pct      = Column(Float, nullable=True)
+    fg3m        = Column(Integer, nullable=True)
+    fg3a        = Column(Integer, nullable=True)
+    fg3_pct     = Column(Float, nullable=True)
+    ftm         = Column(Integer, nullable=True)
+    fta         = Column(Integer, nullable=True)
+    ft_pct      = Column(Float, nullable=True)
+    oreb        = Column(Integer, nullable=True)
+    dreb        = Column(Integer, nullable=True)
+    pf          = Column(Integer, nullable=True)
+    plus_minus  = Column(Integer, nullable=True)
+    synced_at   = Column(DateTime, server_default=func.now())
+
+    player = relationship("Player")
+
+
 class LineupStats(Base):
     __tablename__ = "lineup_stats"
     __table_args__ = (
@@ -212,4 +251,22 @@ class LineupStats(Base):
     drtg = Column(Float)
     plus_minus = Column(Float)
     possessions = Column(Integer)
+    updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
+
+
+class SyncStatus(Base):
+    __tablename__ = "sync_status"
+    __table_args__ = (
+        UniqueConstraint("sync_type", "season", name="uq_sync_type_season"),
+    )
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    sync_type = Column(String(50), nullable=False)   # "players", "game_logs", "pbp"
+    season = Column(String(10), nullable=False)
+    status = Column(String(20), nullable=False, default="pending")  # pending, running, complete, failed
+    records_synced = Column(Integer, default=0)
+    total_records = Column(Integer)
+    started_at = Column(DateTime)
+    completed_at = Column(DateTime)
+    error_message = Column(String(500))
     updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
