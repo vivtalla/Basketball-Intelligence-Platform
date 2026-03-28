@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useState, useMemo } from "react";
 import { usePlayerGameLogs } from "@/hooks/usePlayerStats";
 import type { GameLogEntry } from "@/lib/types";
@@ -236,7 +237,12 @@ export default function GameLogTable({ playerId, season }: GameLogTableProps) {
                       className="border-b border-gray-100 dark:border-gray-700/50 last:border-0 hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors"
                     >
                       <td className="px-4 py-2.5 text-gray-500 dark:text-gray-400 whitespace-nowrap tabular-nums text-xs">
-                        {game.game_date}
+                        <Link
+                          href={`/games/${game.game_id}`}
+                          className="font-medium text-gray-700 transition-colors hover:text-blue-500 dark:text-gray-300 dark:hover:text-blue-400"
+                        >
+                          {game.game_date}
+                        </Link>
                       </td>
                       <td className="px-3 py-2.5 text-gray-700 dark:text-gray-300 whitespace-nowrap text-xs">
                         {game.matchup}

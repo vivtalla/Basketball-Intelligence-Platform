@@ -17,6 +17,7 @@ import type {
   OnOffLeaderboardResult,
   PbpSyncResult,
   GameLogResponse,
+  GameDetailResponse,
   SimilarityResponse,
   LeagueContext,
 } from "./types";
@@ -184,6 +185,10 @@ export async function getPlayerGameLogs(
   return fetchApi<GameLogResponse>(
     `/api/gamelogs/${playerId}?season=${encodeURIComponent(season)}&season_type=${encodeURIComponent(seasonType)}`
   );
+}
+
+export async function getGameDetail(gameId: string): Promise<GameDetailResponse> {
+  return fetchApi<GameDetailResponse>(`/api/games/${encodeURIComponent(gameId)}`);
 }
 
 export async function getBreakouts(
