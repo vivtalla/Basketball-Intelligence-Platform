@@ -229,6 +229,59 @@ export interface OnOffLeaderboardResult {
   players: OnOffLeaderboardEntry[];
 }
 
+export interface GameLogEntry {
+  game_id: string;
+  game_date: string;
+  matchup: string;
+  wl: string;
+  min: number | null;
+  pts: number | null;
+  reb: number | null;
+  ast: number | null;
+  stl: number | null;
+  blk: number | null;
+  tov: number | null;
+  fgm: number | null;
+  fga: number | null;
+  fg_pct: number | null;
+  fg3m: number | null;
+  fg3a: number | null;
+  fg3_pct: number | null;
+  ftm: number | null;
+  fta: number | null;
+  ft_pct: number | null;
+  oreb: number | null;
+  dreb: number | null;
+  pf: number | null;
+  plus_minus: number | null;
+  pts_roll5: number | null;
+  reb_roll5: number | null;
+  ast_roll5: number | null;
+}
+
+export interface GameLogSeasonAverages {
+  pts: number | null;
+  reb: number | null;
+  ast: number | null;
+  stl: number | null;
+  blk: number | null;
+  tov: number | null;
+  fg_pct: number | null;
+  fg3_pct: number | null;
+  ft_pct: number | null;
+  min: number | null;
+  plus_minus: number | null;
+}
+
+export interface GameLogResponse {
+  player_id: number;
+  season: string;
+  season_type: string;
+  games: GameLogEntry[];
+  season_averages: GameLogSeasonAverages;
+  gp: number;
+}
+
 export interface PbpSyncResult {
   status: string;
   season: string;

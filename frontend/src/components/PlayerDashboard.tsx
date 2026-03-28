@@ -7,6 +7,7 @@ import RadarChart from "./RadarChart";
 import CareerArcChart from "./CareerArcChart";
 import ShotChart from "./ShotChart";
 import PlayerPbpInsights from "./PlayerPbpInsights";
+import GameLogTable from "./GameLogTable";
 
 interface PlayerDashboardProps {
   playerId: number;
@@ -72,6 +73,8 @@ export default function PlayerDashboard({ playerId }: PlayerDashboardProps) {
       )}
 
       <PlayerPbpInsights playerId={playerId} season={currentSeason?.season ?? null} />
+
+      <GameLogTable playerId={playerId} season={currentSeason?.season ?? null} />
 
       <StatTable
         seasons={careerStats.seasons}

@@ -13,6 +13,7 @@ import type {
   ClutchStats,
   LineupsResult,
   OnOffLeaderboardResult,
+  GameLogResponse,
 } from "@/lib/types";
 import {
   getPlayerProfile,
@@ -26,6 +27,7 @@ import {
   getPlayerClutch,
   getLineups,
   getOnOffLeaderboard,
+  getPlayerGameLogs,
 } from "@/lib/api";
 
 export function usePlayerProfile(playerId: number | null) {
@@ -116,5 +118,16 @@ export function useOnOffLeaderboard(
   return useSWR<OnOffLeaderboardResult>(
     season ? `on-off-leaderboard-${season}-${minMinutes}-${limit}` : null,
     () => getOnOffLeaderboard(season!, minMinutes, limit)
+  );
+}
+
+export function usePlayerGameLogs(
+  playerId: number | null,
+  season: string | null,
+  seasonType = "Regular Season"
+) {
+  return useSWR<GameLogResponse>(
+    playerId && season ? `game-logs-${playerId}-${season}-${seasonType}` : null,
+    () => getPlayerGameLogs(playerId!, season!, seasonType)
   );
 }

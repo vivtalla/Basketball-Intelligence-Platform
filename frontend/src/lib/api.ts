@@ -12,6 +12,7 @@ import type {
   LineupsResult,
   OnOffLeaderboardResult,
   PbpSyncResult,
+  GameLogResponse,
 } from "./types";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
@@ -157,5 +158,15 @@ export async function syncSeasonPbp(
   return fetchApi<PbpSyncResult>(
     `/api/advanced/sync-season?season=${encodeURIComponent(season)}&force_refresh=${forceRefresh}`,
     { method: "POST" }
+  );
+}
+
+export async function getPlayerGameLogs(
+  playerId: number,
+  season: string,
+  seasonType = "Regular Season"
+): Promise<GameLogResponse> {
+  return fetchApi<GameLogResponse>(
+    `/api/gamelogs/${playerId}?season=${encodeURIComponent(season)}&season_type=${encodeURIComponent(seasonType)}`
   );
 }
