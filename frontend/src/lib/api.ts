@@ -23,6 +23,7 @@ import type {
   GameDetailResponse,
   SimilarityResponse,
   LeagueContext,
+  CareerLeaderboardResponse,
 } from "./types";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
@@ -75,11 +76,17 @@ export async function getLeaderboard(
   stat: string,
   season: string,
   seasonType = "Regular Season",
-  limit = 25
+  limit = 25,
+  team?: string
 ): Promise<LeaderboardResponse> {
-  return fetchApi<LeaderboardResponse>(
-    `/api/leaderboards?stat=${encodeURIComponent(stat)}&season=${encodeURIComponent(season)}&season_type=${encodeURIComponent(seasonType)}&limit=${limit}`
-  );
+  const params = new URLSearchParams({
+    stat,
+    season,
+    season_type: seasonType,
+    limit: String(limit),
+  });
+  if (team) params.set("team", team);
+  return fetchApi<LeaderboardResponse>(`/api/leaderboards?${params.toString()}`);
 }
 
 export async function getPlayerPercentiles(
@@ -258,4 +265,17 @@ export async function getLeagueContext(
   const params = new URLSearchParams({ season });
   if (position) params.set("position", position);
   return fetchApi<LeagueContext>(`/api/stats/context?${params.toString()}`);
+}
+
+export async function getCareerLeaderboard(
+  stat: string,
+  minGp = 15,
+  limit = 25
+): Promise<CareerLeaderboardResponse> {
+  const params = new URLSearchParams({ stat, min_gp: String(minGp), limit: String(limit) });
+  return fetchApi<CareerLeaderboardResponse>(`/api/leaderboards/career?${params.toString()}`);
+}
+
+export async function getLeaderboardTeams(season: string): Promise<string[]> {
+  return fetchApi<string[]>(`/api/leaderboards/teams?season=${encodeURIComponent(season)}`);
 }

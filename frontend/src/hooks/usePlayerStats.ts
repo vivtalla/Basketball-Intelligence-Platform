@@ -24,6 +24,7 @@ import type {
   GameDetailResponse,
   SimilarityResponse,
   LeagueContext,
+  CareerLeaderboardResponse,
 } from "@/lib/types";
 import {
   getPlayerProfile,
@@ -48,6 +49,7 @@ import {
   getGameDetail,
   getSimilarPlayers,
   getLeagueContext,
+  getCareerLeaderboard,
 } from "@/lib/api";
 
 export function usePlayerProfile(playerId: number | null) {
@@ -118,11 +120,12 @@ export function useLeaderboard(
   stat: string,
   season: string,
   seasonType = "Regular Season",
-  limit = 25
+  limit = 25,
+  team = ""
 ) {
   return useSWR<LeaderboardResponse>(
-    stat && season ? `leaderboard-${stat}-${season}-${seasonType}-${limit}` : null,
-    () => getLeaderboard(stat, season, seasonType, limit)
+    stat && season ? `leaderboard-${stat}-${season}-${seasonType}-${limit}-${team}` : null,
+    () => getLeaderboard(stat, season, seasonType, limit, team || undefined)
   );
 }
 
@@ -232,5 +235,16 @@ export function useLeagueContext(season: string | null, position?: string) {
   return useSWR<LeagueContext>(
     season ? `league-context-${season}-${position ?? "all"}` : null,
     () => getLeagueContext(season!, position)
+  );
+}
+
+export function useCareerLeaderboard(
+  stat: string | null,
+  minGp = 15,
+  limit = 25
+) {
+  return useSWR<CareerLeaderboardResponse>(
+    stat ? `career-leaderboard-${stat}-${minGp}-${limit}` : null,
+    () => getCareerLeaderboard(stat!, minGp, limit)
   );
 }

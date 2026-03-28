@@ -1,14 +1,17 @@
 "use client";
 
+import { Suspense } from "react";
 import { useState, useEffect, useMemo, useId } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
 import {
   useLeaderboard,
   useOnOffLeaderboard,
   useLineups,
+  useCareerLeaderboard,
 } from "@/hooks/usePlayerStats";
-import { getAvailableSeasons, syncSeasonPbp } from "@/lib/api";
+import { getAvailableSeasons, syncSeasonPbp, getLeaderboardTeams } from "@/lib/api";
 
 // ─── Stat definitions ────────────────────────────────────────────────────────
 
@@ -16,66 +19,86 @@ const STAT_GROUPS = [
   {
     label: "Scoring",
     options: [
-      { key: "pts_pg", label: "Points Per Game", fmt: "1f" },
-      { key: "fg_pct", label: "Field Goal %", fmt: "pct" },
-      { key: "fg3_pct", label: "3-Point %", fmt: "pct" },
-      { key: "ft_pct", label: "Free Throw %", fmt: "pct" },
-      { key: "ts_pct", label: "True Shooting %", fmt: "pct" },
-      { key: "efg_pct", label: "Effective FG %", fmt: "pct" },
+      { key: "pts_pg", label: "Points Per Game", fmt: "1f", tooltip: "Average points scored per game." },
+      { key: "fg_pct", label: "Field Goal %", fmt: "pct", tooltip: "Percentage of field goal attempts made." },
+      { key: "fg3_pct", label: "3-Point %", fmt: "pct", tooltip: "Percentage of three-point attempts made." },
+      { key: "ft_pct", label: "Free Throw %", fmt: "pct", tooltip: "Percentage of free throw attempts made." },
+      { key: "ts_pct", label: "True Shooting %", fmt: "pct", tooltip: "Shooting efficiency accounting for 2s, 3s, and free throws." },
+      { key: "efg_pct", label: "Effective FG %", fmt: "pct", tooltip: "FG% adjusted for the extra value of three-pointers." },
     ],
   },
   {
     label: "Production",
     options: [
-      { key: "reb_pg", label: "Rebounds Per Game", fmt: "1f" },
-      { key: "ast_pg", label: "Assists Per Game", fmt: "1f" },
-      { key: "stl_pg", label: "Steals Per Game", fmt: "1f" },
-      { key: "blk_pg", label: "Blocks Per Game", fmt: "1f" },
-      { key: "min_pg", label: "Minutes Per Game", fmt: "1f" },
+      { key: "reb_pg", label: "Rebounds Per Game", fmt: "1f", tooltip: "Average rebounds per game." },
+      { key: "ast_pg", label: "Assists Per Game", fmt: "1f", tooltip: "Average assists per game." },
+      { key: "stl_pg", label: "Steals Per Game", fmt: "1f", tooltip: "Average steals per game." },
+      { key: "blk_pg", label: "Blocks Per Game", fmt: "1f", tooltip: "Average blocks per game." },
+      { key: "min_pg", label: "Minutes Per Game", fmt: "1f", tooltip: "Average minutes played per game." },
     ],
   },
   {
     label: "Shot Profile",
     options: [
-      { key: "ftr", label: "Free Throw Rate", fmt: "2f" },
-      { key: "par3", label: "3-Point Attempt Rate", fmt: "2f" },
-      { key: "ast_tov", label: "Assist / Turnover Ratio", fmt: "2f" },
-      { key: "oreb_pct", label: "Offensive Rebound %", fmt: "pct" },
+      { key: "ftr", label: "Free Throw Rate", fmt: "2f", tooltip: "Free throw attempts per field goal attempt — measures drawing fouls." },
+      { key: "par3", label: "3-Point Attempt Rate", fmt: "2f", tooltip: "Fraction of field goal attempts that are three-pointers." },
+      { key: "ast_tov", label: "Assist / Turnover Ratio", fmt: "2f", tooltip: "Assists divided by turnovers — ball security relative to playmaking." },
+      { key: "oreb_pct", label: "Offensive Rebound %", fmt: "pct", tooltip: "Estimated percentage of available offensive rebounds a player grabbed." },
     ],
   },
   {
     label: "Advanced",
     options: [
-      { key: "per", label: "PER", fmt: "1f" },
-      { key: "obpm", label: "OBPM", fmt: "1f" },
-      { key: "dbpm", label: "DBPM", fmt: "1f" },
-      { key: "bpm", label: "BPM", fmt: "1f" },
-      { key: "ws", label: "Win Shares", fmt: "1f" },
-      { key: "vorp", label: "VORP", fmt: "1f" },
-      { key: "usg_pct", label: "Usage Rate", fmt: "pct" },
-      { key: "off_rating", label: "Offensive Rating", fmt: "1f" },
-      { key: "def_rating", label: "Defensive Rating", fmt: "1f" },
-      { key: "net_rating", label: "Net Rating", fmt: "1f" },
-      { key: "pie", label: "PIE", fmt: "pct" },
-      { key: "darko", label: "DARKO", fmt: "2f" },
+      { key: "per", label: "PER", fmt: "1f", tooltip: "Player Efficiency Rating — per-minute production normalized to a league average of 15." },
+      { key: "obpm", label: "OBPM", fmt: "1f", tooltip: "Offensive Box Plus/Minus — offensive contribution per 100 possessions above average." },
+      { key: "dbpm", label: "DBPM", fmt: "1f", tooltip: "Defensive Box Plus/Minus — defensive contribution per 100 possessions above average." },
+      { key: "bpm", label: "BPM", fmt: "1f", tooltip: "Box Plus/Minus — overall impact per 100 possessions above league average." },
+      { key: "ws", label: "Win Shares", fmt: "1f", tooltip: "Estimated wins contributed based on box score production." },
+      { key: "vorp", label: "VORP", fmt: "1f", tooltip: "Value Over Replacement Player — BPM-based value above a replacement-level player." },
+      { key: "usg_pct", label: "Usage Rate", fmt: "pct", tooltip: "Percentage of team possessions used while on the floor." },
+      { key: "off_rating", label: "Offensive Rating", fmt: "1f", tooltip: "Points scored per 100 possessions while on the floor." },
+      { key: "def_rating", label: "Defensive Rating", fmt: "1f", tooltip: "Points allowed per 100 possessions while on the floor." },
+      { key: "net_rating", label: "Net Rating", fmt: "1f", tooltip: "Point differential per 100 possessions while on the floor." },
+      { key: "pie", label: "PIE", fmt: "pct", tooltip: "Player Impact Estimate — share of game events a player positively contributes to." },
+      { key: "darko", label: "DARKO", fmt: "2f", tooltip: "DARKO DPM — probabilistic daily plus/minus estimate." },
     ],
   },
   {
     label: "External",
     options: [
-      { key: "epm", label: "EPM", fmt: "2f" },
-      { key: "rapm", label: "RAPM", fmt: "2f" },
-      { key: "lebron", label: "LEBRON", fmt: "2f" },
-      { key: "raptor", label: "RAPTOR", fmt: "2f" },
-      { key: "pipm", label: "PIPM", fmt: "2f" },
+      { key: "epm", label: "EPM", fmt: "2f", tooltip: "Estimated Plus/Minus (Dunks & Threes) — ridge regression impact metric." },
+      { key: "rapm", label: "RAPM", fmt: "2f", tooltip: "Regularized Adjusted Plus/Minus — impact estimated from possession data." },
+      { key: "lebron", label: "LEBRON", fmt: "2f", tooltip: "Lakers Estimated BRON — BBall Index luck-adjusted impact metric." },
+      { key: "raptor", label: "RAPTOR", fmt: "2f", tooltip: "FiveThirtyEight's Robust Algorithm (Predicts True Outcome Rankings) metric." },
+      { key: "pipm", label: "PIPM", fmt: "2f", tooltip: "Player Impact Plus/Minus (Krishna) — on/off and box score blended metric." },
     ],
   },
 ];
 
 const ALL_OPTIONS = STAT_GROUPS.flatMap((g) => g.options);
 
+// Stats eligible for career aggregation (rate stats that average meaningfully across seasons)
+const CAREER_STAT_KEYS = new Set([
+  "pts_pg", "reb_pg", "ast_pg", "stl_pg", "blk_pg",
+  "bpm", "ws", "vorp", "per", "ts_pct",
+]);
+
+const CAREER_OPTIONS = ALL_OPTIONS.filter((o) => CAREER_STAT_KEYS.has(o.key));
+
+// Context columns always shown alongside the primary stat
+const CONTEXT_COLS = [
+  { key: "pts_pg", label: "Pts", fmt: "1f" },
+  { key: "reb_pg", label: "Reb", fmt: "1f" },
+  { key: "ast_pg", label: "Ast", fmt: "1f" },
+  { key: "ts_pct", label: "TS%", fmt: "pct" },
+  { key: "per", label: "PER", fmt: "1f" },
+  { key: "bpm", label: "BPM", fmt: "1f" },
+] as const;
+
+type ContextKey = typeof CONTEXT_COLS[number]["key"];
+
 function getStatMeta(key: string) {
-  return ALL_OPTIONS.find((o) => o.key === key) ?? { key, label: key, fmt: "1f" };
+  return ALL_OPTIONS.find((o) => o.key === key) ?? { key, label: key, fmt: "1f", tooltip: "" };
 }
 
 function formatStat(value: number, fmt: string): string {
@@ -104,6 +127,10 @@ function toDisplayValue(key: string, storedValue: number): number {
   return isPct(key) ? storedValue * 100 : storedValue;
 }
 
+function getContextValue(entry: { pts_pg: number | null; reb_pg: number | null; ast_pg: number | null; ts_pct: number | null; per: number | null; bpm: number | null }, key: ContextKey): number | null {
+  return entry[key];
+}
+
 // ─── Filter types ─────────────────────────────────────────────────────────────
 
 type Operator = "gte" | "lte";
@@ -119,18 +146,26 @@ const MAX_FILTERS = 3;
 
 // ─── Mode ────────────────────────────────────────────────────────────────────
 
-type BoardMode = "players" | "onoff" | "lineups";
+type BoardMode = "players" | "onoff" | "lineups" | "career";
 
-// ─── Main component ───────────────────────────────────────────────────────────
+// ─── Inner component (uses useSearchParams) ───────────────────────────────────
 
-export default function LeaderboardsPage() {
+function LeaderboardsPageContent() {
   const uid = useId();
+  const router = useRouter();
+  const searchParams = useSearchParams();
 
-  const [mode, setMode] = useState<BoardMode>("players");
-  const [stat, setStat] = useState("pts_pg");
-  const [season, setSeason] = useState("");
-  const [seasonType, setSeasonType] = useState<"Regular Season" | "Playoffs">("Regular Season");
+  // Initialize state from URL params
+  const [mode, setMode] = useState<BoardMode>((searchParams.get("mode") as BoardMode) || "players");
+  const [stat, setStat] = useState(searchParams.get("stat") || "pts_pg");
+  const [careerStat, setCareerStat] = useState(searchParams.get("careerStat") || "pts_pg");
+  const [season, setSeason] = useState(searchParams.get("season") || "");
+  const [seasonType, setSeasonType] = useState<"Regular Season" | "Playoffs">(
+    (searchParams.get("seasonType") as "Regular Season" | "Playoffs") || "Regular Season"
+  );
+  const [teamFilter, setTeamFilter] = useState(searchParams.get("team") || "");
   const [seasons, setSeasons] = useState<string[]>([]);
+  const [teams, setTeams] = useState<string[]>([]);
   const [onOffMinMinutes, setOnOffMinMinutes] = useState(200);
   const [lineupMinMinutes, setLineupMinMinutes] = useState(15);
   const [isSyncingSeason, setIsSyncingSeason] = useState(false);
@@ -149,25 +184,49 @@ export default function LeaderboardsPage() {
     getAvailableSeasons()
       .then((s) => {
         setSeasons(s);
-        if (s.length > 0) setSeason(s[0]);
+        if (s.length > 0 && !searchParams.get("season")) setSeason(s[0]);
       })
       .catch(() => {});
-  }, []);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Fetch team list when season changes
+  useEffect(() => {
+    if (!season) return;
+    getLeaderboardTeams(season)
+      .then(setTeams)
+      .catch(() => setTeams([]));
+  }, [season]);
+
+  // Sync URL state when key params change
+  useEffect(() => {
+    if (!season) return;
+    const params = new URLSearchParams();
+    params.set("mode", mode);
+    params.set("stat", stat);
+    params.set("careerStat", careerStat);
+    params.set("season", season);
+    params.set("seasonType", seasonType);
+    if (teamFilter) params.set("team", teamFilter);
+    router.replace(`?${params.toString()}`, { scroll: false });
+  }, [mode, stat, careerStat, season, seasonType, teamFilter]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Primary leaderboard — fetch larger set when filters are active
   const primaryLimit = filters.length > 0 ? 200 : 25;
-  const playersBoard = useLeaderboard(stat, season, seasonType, primaryLimit);
+  const playersBoard = useLeaderboard(stat, season, seasonType, primaryLimit, teamFilter);
 
   // ── Pre-allocated filter stat hooks (3 slots, null key = no fetch)
   const f0 = filters[0] ?? null;
   const f1 = filters[1] ?? null;
   const f2 = filters[2] ?? null;
 
-  const fData0 = useLeaderboard(f0?.stat ?? "", season, seasonType, 200);
-  const fData1 = useLeaderboard(f1?.stat ?? "", season, seasonType, 200);
-  const fData2 = useLeaderboard(f2?.stat ?? "", season, seasonType, 200);
+  const fData0 = useLeaderboard(f0?.stat ?? "", season, seasonType, 200, teamFilter);
+  const fData1 = useLeaderboard(f1?.stat ?? "", season, seasonType, 200, teamFilter);
+  const fData2 = useLeaderboard(f2?.stat ?? "", season, seasonType, 200, teamFilter);
 
   const filterDataSources = [fData0, fData1, fData2];
+
+  // ── Career leaderboard (always allocated, null stat = no fetch)
+  const careerBoard = useCareerLeaderboard(mode === "career" ? careerStat : null);
 
   // ── On/off and lineup boards
   const onOffBoard = useOnOffLeaderboard(mode === "onoff" ? season : null, onOffMinMinutes, 25);
@@ -207,7 +266,9 @@ export default function LeaderboardsPage() {
       ? playersBoard.isLoading
       : mode === "onoff"
       ? onOffBoard.isLoading
-      : lineupsBoard.isLoading;
+      : mode === "lineups"
+      ? lineupsBoard.isLoading
+      : careerBoard.isLoading;
 
   // ── Filter actions
   function addFilter() {
@@ -248,6 +309,10 @@ export default function LeaderboardsPage() {
 
   const statLabel = getStatMeta(stat).label;
   const statFmt = getStatMeta(stat).fmt;
+  const careerStatMeta = getStatMeta(careerStat);
+
+  // Context columns to display (exclude the one that is already the primary sort stat)
+  const visibleContextCols = CONTEXT_COLS.filter((c) => c.key !== stat);
 
   return (
     <div className="max-w-5xl mx-auto">
@@ -269,7 +334,7 @@ export default function LeaderboardsPage() {
 
       {/* ── Mode tabs ── */}
       <div className="flex flex-wrap gap-2 mb-4">
-        {(["players", "onoff", "lineups"] as BoardMode[]).map((m) => (
+        {(["players", "onoff", "lineups", "career"] as BoardMode[]).map((m) => (
           <button
             key={m}
             onClick={() => setMode(m)}
@@ -279,7 +344,7 @@ export default function LeaderboardsPage() {
                 : "bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-300"
             }`}
           >
-            {m === "players" ? "Player Stats" : m === "onoff" ? "On/Off Impact" : "Top Lineups"}
+            {m === "players" ? "Player Stats" : m === "onoff" ? "On/Off Impact" : m === "lineups" ? "Top Lineups" : "Career Leaders"}
           </button>
         ))}
       </div>
@@ -302,16 +367,30 @@ export default function LeaderboardsPage() {
           </select>
         )}
 
-        <select
-          value={season}
-          onChange={(e) => setSeason(e.target.value)}
-          disabled={seasons.length === 0}
-          className="text-sm border border-gray-200 dark:border-gray-600 rounded-lg px-3 py-2 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50"
-        >
-          {seasons.map((s) => (
-            <option key={s} value={s}>{s}</option>
-          ))}
-        </select>
+        {mode === "career" && (
+          <select
+            value={careerStat}
+            onChange={(e) => setCareerStat(e.target.value)}
+            className="text-sm border border-gray-200 dark:border-gray-600 rounded-lg px-3 py-2 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
+          >
+            {CAREER_OPTIONS.map((opt) => (
+              <option key={opt.key} value={opt.key}>{opt.label}</option>
+            ))}
+          </select>
+        )}
+
+        {mode !== "career" && (
+          <select
+            value={season}
+            onChange={(e) => { setSeason(e.target.value); setTeamFilter(""); }}
+            disabled={seasons.length === 0}
+            className="text-sm border border-gray-200 dark:border-gray-600 rounded-lg px-3 py-2 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50"
+          >
+            {seasons.map((s) => (
+              <option key={s} value={s}>{s}</option>
+            ))}
+          </select>
+        )}
 
         {mode === "players" && (
           <div className="flex rounded-lg overflow-hidden border border-gray-200 dark:border-gray-600 text-sm">
@@ -329,6 +408,20 @@ export default function LeaderboardsPage() {
               </button>
             ))}
           </div>
+        )}
+
+        {/* Team filter — only in players mode */}
+        {mode === "players" && teams.length > 0 && (
+          <select
+            value={teamFilter}
+            onChange={(e) => setTeamFilter(e.target.value)}
+            className="text-sm border border-gray-200 dark:border-gray-600 rounded-lg px-3 py-2 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
+          >
+            <option value="">All Teams</option>
+            {teams.map((t) => (
+              <option key={t} value={t}>{t}</option>
+            ))}
+          </select>
         )}
 
         {mode === "onoff" && (
@@ -353,7 +446,7 @@ export default function LeaderboardsPage() {
           </label>
         )}
 
-        {mode !== "players" && season && (
+        {mode !== "players" && mode !== "career" && season && (
           <button
             onClick={handleSeasonSync}
             disabled={isSyncingSeason}
@@ -520,13 +613,27 @@ export default function LeaderboardsPage() {
                 <th className="text-left text-xs font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500 px-4 py-3 hidden sm:table-cell">Team</th>
                 <th className="text-right text-xs font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500 px-4 py-3 hidden sm:table-cell">GP</th>
                 {/* Primary sort stat */}
-                <th className="text-right text-xs font-semibold uppercase tracking-wider text-blue-500 dark:text-blue-400 px-4 py-3">
+                <th
+                  title={getStatMeta(stat).tooltip}
+                  className="text-right text-xs font-semibold uppercase tracking-wider text-blue-500 dark:text-blue-400 px-4 py-3 bg-blue-50/50 dark:bg-blue-950/20"
+                >
                   {statLabel}
                 </th>
+                {/* Context columns */}
+                {visibleContextCols.map((c) => (
+                  <th
+                    key={c.key}
+                    title={getStatMeta(c.key).tooltip}
+                    className="text-right text-xs font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500 px-4 py-3 hidden lg:table-cell"
+                  >
+                    {c.label}
+                  </th>
+                ))}
                 {/* Extra columns for active filter stats */}
                 {filters.map((f, i) => (
                   <th
                     key={`${uid}-th-${i}`}
+                    title={getStatMeta(f.stat).tooltip}
                     className="text-right text-xs font-semibold uppercase tracking-wider text-amber-500 dark:text-amber-400 px-4 py-3 hidden md:table-cell"
                   >
                     {getStatMeta(f.stat).label}
@@ -548,7 +655,7 @@ export default function LeaderboardsPage() {
 
               {!isLoading && filteredEntries.length === 0 && (
                 <tr>
-                  <td colSpan={5 + filters.length} className="text-center py-12 text-gray-400 dark:text-gray-500 text-sm">
+                  <td colSpan={5 + visibleContextCols.length + filters.length} className="text-center py-12 text-gray-400 dark:text-gray-500 text-sm">
                     {filters.length > 0
                       ? "No players match all filter conditions. Try relaxing a threshold."
                       : "No data available for this combination."}
@@ -589,9 +696,21 @@ export default function LeaderboardsPage() {
                       <td className="px-4 py-3 text-sm text-gray-500 dark:text-gray-400 text-right hidden sm:table-cell">
                         {entry.gp}
                       </td>
-                      <td className="px-4 py-3 text-right font-semibold text-blue-600 dark:text-blue-400 tabular-nums">
+                      <td className="px-4 py-3 text-right font-semibold text-blue-600 dark:text-blue-400 tabular-nums bg-blue-50/50 dark:bg-blue-950/20">
                         {formatStat(entry.stat_value, statFmt)}
                       </td>
+                      {/* Context columns */}
+                      {visibleContextCols.map((c) => {
+                        const v = getContextValue(entry, c.key);
+                        return (
+                          <td
+                            key={c.key}
+                            className="px-4 py-3 text-right text-sm tabular-nums text-gray-500 dark:text-gray-400 hidden lg:table-cell"
+                          >
+                            {v != null ? formatStat(v, c.fmt) : "—"}
+                          </td>
+                        );
+                      })}
                       {/* Filter stat values as extra columns */}
                       {filters.map((f, i) => {
                         const v = filterVals?.[f.stat];
@@ -613,6 +732,77 @@ export default function LeaderboardsPage() {
                     </tr>
                   );
                 })}
+            </tbody>
+          </table>
+        )}
+
+        {/* Career mode */}
+        {mode === "career" && (
+          <table className="w-full">
+            <thead>
+              <tr className="border-b border-gray-200 dark:border-gray-700">
+                <th className="text-left text-xs font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500 px-4 py-3 w-10">#</th>
+                <th className="text-left text-xs font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500 px-4 py-3">Player</th>
+                <th className="text-right text-xs font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500 px-4 py-3 hidden sm:table-cell">Seasons</th>
+                <th className="text-right text-xs font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500 px-4 py-3 hidden sm:table-cell">GP</th>
+                <th
+                  title={careerStatMeta.tooltip}
+                  className="text-right text-xs font-semibold uppercase tracking-wider text-blue-500 dark:text-blue-400 px-4 py-3 bg-blue-50/50 dark:bg-blue-950/20"
+                >
+                  {careerStatMeta.label} (Career Avg)
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              {isLoading && Array.from({ length: 10 }).map((_, i) => (
+                <tr key={i} className="border-b border-gray-100 dark:border-gray-700/50 animate-pulse">
+                  <td className="px-4 py-3"><div className="h-4 w-4 bg-gray-200 dark:bg-gray-700 rounded" /></td>
+                  <td className="px-4 py-3"><div className="h-4 w-40 bg-gray-200 dark:bg-gray-700 rounded" /></td>
+                  <td className="px-4 py-3 hidden sm:table-cell"><div className="h-4 w-10 bg-gray-200 dark:bg-gray-700 rounded ml-auto" /></td>
+                  <td className="px-4 py-3 hidden sm:table-cell"><div className="h-4 w-10 bg-gray-200 dark:bg-gray-700 rounded ml-auto" /></td>
+                  <td className="px-4 py-3"><div className="h-4 w-12 bg-gray-200 dark:bg-gray-700 rounded ml-auto" /></td>
+                </tr>
+              ))}
+              {!isLoading && (careerBoard.data?.entries.length ?? 0) === 0 && (
+                <tr>
+                  <td colSpan={5} className="text-center py-12 text-gray-400 dark:text-gray-500 text-sm">
+                    No career data available. Run bulk import for multiple seasons first.
+                  </td>
+                </tr>
+              )}
+              {!isLoading && careerBoard.data?.entries.map((entry, idx) => (
+                <tr
+                  key={entry.player_id}
+                  className="border-b border-gray-100 dark:border-gray-700/50 last:border-0 hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors"
+                >
+                  <td className="px-4 py-3 text-sm text-gray-400 dark:text-gray-500 font-mono">{idx + 1}</td>
+                  <td className="px-4 py-3">
+                    <Link href={`/players/${entry.player_id}`} className="flex items-center gap-3 group">
+                      <div className="relative w-8 h-8 rounded-full overflow-hidden bg-gray-100 dark:bg-gray-700 shrink-0">
+                        <Image
+                          src={entry.headshot_url}
+                          alt={entry.player_name}
+                          fill
+                          className="object-cover object-top"
+                          onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
+                        />
+                      </div>
+                      <span className="font-medium text-gray-900 dark:text-gray-100 group-hover:text-blue-500 dark:group-hover:text-blue-400 transition-colors">
+                        {entry.player_name}
+                      </span>
+                    </Link>
+                  </td>
+                  <td className="px-4 py-3 text-right text-sm text-gray-500 dark:text-gray-400 hidden sm:table-cell tabular-nums">
+                    {entry.seasons_played}
+                  </td>
+                  <td className="px-4 py-3 text-right text-sm text-gray-500 dark:text-gray-400 hidden sm:table-cell tabular-nums">
+                    {entry.career_gp}
+                  </td>
+                  <td className="px-4 py-3 text-right font-semibold text-blue-600 dark:text-blue-400 tabular-nums bg-blue-50/50 dark:bg-blue-950/20">
+                    {formatStat(entry.stat_value, careerStatMeta.fmt)}
+                  </td>
+                </tr>
+              ))}
             </tbody>
           </table>
         )}
@@ -712,10 +902,20 @@ export default function LeaderboardsPage() {
           ? filters.length > 0
             ? "Filtered from top 200 by primary stat. Players outside top 200 in any filter stat are excluded."
             : 'Min. 15 games played. Use "Regular Season" for current-year comparisons.'
+          : mode === "career"
+          ? "Career averages across all seasons with ≥15 games played. Includes all available seasons in the database."
           : mode === "onoff"
           ? "On/Off requires play-by-play import and minimum on-court minutes threshold."
           : "Lineup ratings are possession-based and filtered by minimum lineup minutes."}
       </p>
     </div>
+  );
+}
+
+export default function LeaderboardsPage() {
+  return (
+    <Suspense fallback={<div className="max-w-5xl mx-auto p-8 text-gray-400">Loading leaderboards...</div>}>
+      <LeaderboardsPageContent />
+    </Suspense>
   );
 }

@@ -148,6 +148,12 @@ export interface LeaderboardEntry {
   headshot_url: string;
   gp: number;
   stat_value: number;
+  pts_pg: number | null;
+  reb_pg: number | null;
+  ast_pg: number | null;
+  ts_pct: number | null;
+  per: number | null;
+  bpm: number | null;
 }
 
 export interface LeaderboardResponse {
@@ -600,4 +606,19 @@ export interface LeagueContext {
   position_group: string | null;
   league_medians: Record<string, number | null>;
   position_medians: Record<string, number | null>;
+}
+
+export interface CareerLeaderboardEntry {
+  rank: number;
+  player_id: number;
+  player_name: string;
+  headshot_url: string;
+  seasons_played: number;
+  career_gp: number;
+  stat_value: number;
+}
+
+export interface CareerLeaderboardResponse {
+  stat: string;
+  entries: CareerLeaderboardEntry[];
 }
