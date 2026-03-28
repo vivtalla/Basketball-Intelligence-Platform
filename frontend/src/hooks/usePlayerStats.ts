@@ -9,6 +9,7 @@ import type {
   TeamSummary,
   TeamRosterResponse,
   TeamAnalytics,
+  TeamIntelligence,
   StandingsEntry,
   BreakoutsResponse,
   PercentileResult,
@@ -30,6 +31,7 @@ import {
   getTeams,
   getTeamRoster,
   getTeamAnalytics,
+  getTeamIntelligence,
   getStandings,
   getBreakouts,
   getPlayerPercentiles,
@@ -184,6 +186,18 @@ export function useTeamAnalytics(
       ? `team-analytics-${teamAbbreviation}-${season}`
       : null,
     () => getTeamAnalytics(teamAbbreviation!, season!)
+  );
+}
+
+export function useTeamIntelligence(
+  teamAbbreviation: string | null,
+  season: string | null
+) {
+  return useSWR<TeamIntelligence>(
+    teamAbbreviation && season
+      ? `team-intelligence-${teamAbbreviation}-${season}`
+      : null,
+    () => getTeamIntelligence(teamAbbreviation!, season!)
   );
 }
 

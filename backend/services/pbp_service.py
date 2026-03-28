@@ -117,7 +117,7 @@ def build_stints(pbp_events: list[dict], box_score: dict) -> list[Stint]:
     stint_start_home = 0
     stint_start_away = 0
 
-    def _close_stint(end_h: int, end_a: int, home_poss: int, away_poss: int):
+    def _close_stint(end_h: int, end_a: int, home_poss: int, away_poss: int, dur_seconds: float):
         if len(home_on_court) == 5 and len(away_on_court) == 5:
             stints.append(Stint(
                 home_players=frozenset(home_on_court),
@@ -128,10 +128,20 @@ def build_stints(pbp_events: list[dict], box_score: dict) -> list[Stint]:
                 end_score_away=end_a,
                 home_possessions=home_poss,
                 away_possessions=away_poss,
+                seconds=max(0.0, dur_seconds),
             ))
 
     home_poss_acc = 0
     away_poss_acc = 0
+
+    # Clock tracking for actual stint duration
+    _stint_start_clock: float | None = None
+    _last_clock: float | None = None
+
+    # FT possession tracking: was there a FGA on the current possession?
+    _poss_had_fga = False
+
+    _LAST_FT_RE = re.compile(r"\b(\d) of \1\b")
 
     def _apply_substitution(lineup: set[int], event: dict, name_map: dict[str, int], current_player_id: int | None):
         sub_type = (event.get("subType") or "").lower()
@@ -167,23 +177,59 @@ def build_stints(pbp_events: list[dict], box_score: dict) -> list[Stint]:
         except (ValueError, TypeError):
             sh, sa = current_score_home, current_score_away
 
-        # Count possessions (field goal attempt, turnover, or final free throw)
+        # Track clock for stint duration (clock counts DOWN within each period)
+        raw_clock = event.get("clock", "")
+        if raw_clock:
+            parsed = _parse_clock_seconds(raw_clock)
+            if parsed > 0 or raw_clock:
+                _last_clock = parsed
+                if _stint_start_clock is None:
+                    _stint_start_clock = parsed
+
+        # Count possessions: FGA, TOV, and last-FT-in-sequence (excluding and-ones)
         if action_type in ("2pt", "3pt"):
             if team_id == home_team_id:
                 home_poss_acc += 1
             else:
                 away_poss_acc += 1
+            _poss_had_fga = True
         elif action_type == "turnover":
             if team_id == home_team_id:
                 home_poss_acc += 1
             else:
                 away_poss_acc += 1
+            _poss_had_fga = False
+        elif action_type == "rebound" and sub_type == "defensive":
+            # Possession changed — reset FGA flag so subsequent FTs on this
+            # new possession are counted correctly (e.g. DREB → foul → FTs)
+            _poss_had_fga = False
+
+        elif action_type == "freethrow":
+            desc = event.get("description") or ""
+            is_last_ft = bool(_LAST_FT_RE.search(desc))
+            is_technical = "technical" in desc.lower()
+            if is_last_ft and not is_technical:
+                if not _poss_had_fga:
+                    # Shooting foul possession — count FT sequence as one possession
+                    if team_id == home_team_id:
+                        home_poss_acc += 1
+                    else:
+                        away_poss_acc += 1
+                # Reset for next possession regardless
+                _poss_had_fga = False
+
+        def _stint_duration() -> float:
+            if _stint_start_clock is not None and _last_clock is not None:
+                return max(0.0, _stint_start_clock - _last_clock)
+            return 0.0
 
         if action_type == "substitution":
             # Close current stint, open new one
-            _close_stint(sh, sa, home_poss_acc, away_poss_acc)
+            _close_stint(sh, sa, home_poss_acc, away_poss_acc, _stint_duration())
             home_poss_acc = 0
             away_poss_acc = 0
+            _poss_had_fga = False
+            _stint_start_clock = _last_clock
 
             # Apply substitution
             if team_id == home_team_id:
@@ -195,10 +241,13 @@ def build_stints(pbp_events: list[dict], box_score: dict) -> list[Stint]:
             stint_start_away = sa
 
         elif action_type == "period":
-            # End of period — close stint, reset
-            _close_stint(sh, sa, home_poss_acc, away_poss_acc)
+            # End of period — close stint, reset clock for new period
+            _close_stint(sh, sa, home_poss_acc, away_poss_acc, _stint_duration())
             home_poss_acc = 0
             away_poss_acc = 0
+            _poss_had_fga = False
+            _stint_start_clock = None  # will be set from first event of next period
+            _last_clock = None
             stint_start_home = sh
             stint_start_away = sa
 
@@ -206,7 +255,12 @@ def build_stints(pbp_events: list[dict], box_score: dict) -> list[Stint]:
         current_score_away = sa
 
     # Close final stint
-    _close_stint(current_score_home, current_score_away, home_poss_acc, away_poss_acc)
+    def _final_duration() -> float:
+        if _stint_start_clock is not None and _last_clock is not None:
+            return max(0.0, _stint_start_clock - _last_clock)
+        return 0.0
+
+    _close_stint(current_score_home, current_score_away, home_poss_acc, away_poss_acc, _final_duration())
 
     return stints
 
@@ -261,11 +315,13 @@ def compute_on_off(stints: list[Stint], team_player_ids: set[int]) -> dict[int, 
                 acc.on_possessions += poss
                 acc.on_team_pts += team_pts
                 acc.on_opp_pts += opp_pts
+                acc.on_seconds += stint.seconds
             else:
                 acc.off_plus_minus += pm
                 acc.off_possessions += poss
                 acc.off_team_pts += team_pts
                 acc.off_opp_pts += opp_pts
+                acc.off_seconds += stint.seconds
 
     return accum
 
@@ -414,6 +470,7 @@ class LineupAccumulator:
     possessions: int = 0
     team_pts: int = 0
     opp_pts: int = 0
+    seconds: float = 0.0
 
 
 def compute_lineup_stats(stints: list[Stint], home_team_id: int) -> dict[str, LineupAccumulator]:
@@ -431,10 +488,12 @@ def compute_lineup_stats(stints: list[Stint], home_team_id: int) -> dict[str, Li
                 acc.possessions += stint.home_possessions
                 acc.team_pts += (stint.end_score_home - stint.start_score_home)
                 acc.opp_pts += (stint.end_score_away - stint.start_score_away)
+                acc.seconds += stint.seconds
             else:
                 acc.plus_minus += stint.away_plus_minus
                 acc.possessions += stint.away_possessions
                 acc.team_pts += (stint.end_score_away - stint.start_score_away)
                 acc.opp_pts += (stint.end_score_home - stint.start_score_home)
+                acc.seconds += stint.seconds
 
     return lineups

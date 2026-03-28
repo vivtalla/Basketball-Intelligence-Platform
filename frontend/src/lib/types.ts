@@ -471,6 +471,61 @@ export interface TeamAnalytics {
   tov_pct_rank: number | null;
 }
 
+export interface TeamRecentGame {
+  game_id: string;
+  game_date: string | null;
+  opponent_abbreviation: string | null;
+  is_home: boolean;
+  result: string;
+  team_score: number | null;
+  opponent_score: number | null;
+  margin: number | null;
+}
+
+export interface TeamPbpCoverage {
+  season: string;
+  eligible_games: number;
+  synced_games: number;
+  players_with_on_off: number;
+  players_with_scoring_splits: number;
+  status: "none" | "partial" | "ready";
+}
+
+export interface TeamImpactLeader {
+  player_id: number;
+  player_name: string;
+  team_abbreviation: string | null;
+  on_off_net: number | null;
+  on_minutes: number | null;
+  bpm: number | null;
+  pts_pg: number | null;
+  clutch_pts: number | null;
+}
+
+export interface TeamIntelligence {
+  team_id: number;
+  abbreviation: string;
+  name: string;
+  season: string;
+  conference: string | null;
+  playoff_rank: number | null;
+  wins: number | null;
+  losses: number | null;
+  win_pct: number | null;
+  l10: string | null;
+  current_streak: string | null;
+  pts_pg: number | null;
+  opp_pts_pg: number | null;
+  diff_pts_pg: number | null;
+  recent_record: string | null;
+  recent_avg_margin: number | null;
+  pbp_coverage: TeamPbpCoverage;
+  impact_leaders: TeamImpactLeader[];
+  best_lineups: LineupStatsResponse[];
+  worst_lineups: LineupStatsResponse[];
+  recent_games: TeamRecentGame[];
+}
+
 export interface PbpSyncResult {
   status: string;
   season: string;
