@@ -4,6 +4,8 @@ from typing import List, Optional
 
 from pydantic import BaseModel
 
+from models.stats import LineupStatsResponse
+
 
 class TeamRosterPlayer(BaseModel):
     player_id: int
@@ -72,3 +74,58 @@ class TeamAnalytics(BaseModel):
     ts_pct_rank: Optional[int] = None
     oreb_pct_rank: Optional[int] = None
     tov_pct_rank: Optional[int] = None
+
+
+class TeamRecentGame(BaseModel):
+    game_id: str
+    game_date: Optional[str] = None
+    opponent_abbreviation: Optional[str] = None
+    is_home: bool
+    result: str
+    team_score: Optional[int] = None
+    opponent_score: Optional[int] = None
+    margin: Optional[int] = None
+
+
+class TeamPbpCoverage(BaseModel):
+    season: str
+    eligible_games: int = 0
+    synced_games: int = 0
+    players_with_on_off: int = 0
+    players_with_scoring_splits: int = 0
+    status: str
+
+
+class TeamImpactLeader(BaseModel):
+    player_id: int
+    player_name: str
+    team_abbreviation: Optional[str] = None
+    on_off_net: Optional[float] = None
+    on_minutes: Optional[float] = None
+    bpm: Optional[float] = None
+    pts_pg: Optional[float] = None
+    clutch_pts: Optional[float] = None
+
+
+class TeamIntelligenceResponse(BaseModel):
+    team_id: int
+    abbreviation: str
+    name: str
+    season: str
+    conference: Optional[str] = None
+    playoff_rank: Optional[int] = None
+    wins: Optional[int] = None
+    losses: Optional[int] = None
+    win_pct: Optional[float] = None
+    l10: Optional[str] = None
+    current_streak: Optional[str] = None
+    pts_pg: Optional[float] = None
+    opp_pts_pg: Optional[float] = None
+    diff_pts_pg: Optional[float] = None
+    recent_record: Optional[str] = None
+    recent_avg_margin: Optional[float] = None
+    pbp_coverage: TeamPbpCoverage
+    impact_leaders: List[TeamImpactLeader]
+    best_lineups: List[LineupStatsResponse]
+    worst_lineups: List[LineupStatsResponse]
+    recent_games: List[TeamRecentGame]

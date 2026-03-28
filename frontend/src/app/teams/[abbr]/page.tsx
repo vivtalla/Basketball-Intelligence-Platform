@@ -4,8 +4,9 @@ import Image from "next/image";
 import Link from "next/link";
 import { useMemo, useState } from "react";
 import { useParams } from "next/navigation";
-import { useTeamRoster, useTeamAnalytics } from "@/hooks/usePlayerStats";
+import { useTeamRoster, useTeamAnalytics, useTeamIntelligence } from "@/hooks/usePlayerStats";
 import TeamAnalyticsPanel from "@/components/TeamAnalyticsPanel";
+import TeamIntelligencePanel from "@/components/TeamIntelligencePanel";
 import TeamLineupsPanel from "@/components/TeamLineupsPanel";
 import type { TeamRosterPlayer } from "@/lib/types";
 
@@ -15,17 +16,41 @@ function formatValue(value: number | null | undefined, digits = 1) {
   return value == null ? "-" : value.toFixed(digits);
 }
 
-type Tab = "roster" | "analytics" | "lineups";
+type Tab = "intelligence" | "roster" | "analytics" | "lineups";
 
 export default function TeamDetailPage() {
   const params = useParams<{ abbr: string }>();
   const teamAbbreviation = params.abbr?.toUpperCase() ?? null;
-  const [activeTab, setActiveTab] = useState<Tab>("roster");
+  const [activeTab, setActiveTab] = useState<Tab>("intelligence");
+  const [selectedSeason, setSelectedSeason] = useState<string>("");
 
   const { data: roster, error } = useTeamRoster(teamAbbreviation);
+  const availableSeasons = useMemo(() => {
+    const seasons = Array.from(
+      new Set(
+        (roster?.players ?? [])
+          .map((player) => player.season)
+          .filter((season): season is string => Boolean(season))
+      )
+    );
+    return seasons.sort((a, b) => b.localeCompare(a));
+  }, [roster]);
+  const effectiveSeason =
+    (selectedSeason && availableSeasons.includes(selectedSeason) ? selectedSeason : null) ??
+    availableSeasons[0] ??
+    DEFAULT_SEASON;
+
+  const {
+    data: intelligence,
+    isLoading: intelligenceLoading,
+    error: intelligenceError,
+  } = useTeamIntelligence(
+    activeTab === "intelligence" ? teamAbbreviation : null,
+    effectiveSeason
+  );
   const { data: analytics, isLoading: analyticsLoading, error: analyticsError } = useTeamAnalytics(
     activeTab === "analytics" ? teamAbbreviation : null,
-    DEFAULT_SEASON
+    effectiveSeason
   );
 
   const sortedPlayers = useMemo(
@@ -145,13 +170,37 @@ export default function TeamDetailPage() {
                 </div>
               </div>
             </div>
+
+            <div className="mt-6 flex flex-wrap items-center gap-3">
+              <div className="text-xs font-medium uppercase tracking-[0.18em] text-gray-500 dark:text-gray-400">
+                Season Focus
+              </div>
+              <select
+                value={effectiveSeason}
+                onChange={(e) => setSelectedSeason(e.target.value)}
+                className="rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm text-gray-700 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-200"
+              >
+                {availableSeasons.length > 0 ? (
+                  availableSeasons.map((season) => (
+                    <option key={season} value={season}>
+                      {season}
+                    </option>
+                  ))
+                ) : (
+                  <option value={DEFAULT_SEASON}>{DEFAULT_SEASON}</option>
+                )}
+              </select>
+              <p className="text-sm text-gray-500 dark:text-gray-400">
+                Defaults to the latest synced roster season so intelligence panels open on real local data.
+              </p>
+            </div>
           </div>
         )}
       </div>
 
       {/* Tab bar */}
       <div className="flex rounded-xl overflow-hidden border border-gray-200 dark:border-gray-700 w-fit text-sm">
-        {(["roster", "analytics", "lineups"] as Tab[]).map((tab) => (
+        {(["intelligence", "roster", "analytics", "lineups"] as Tab[]).map((tab) => (
           <button
             key={tab}
             onClick={() => setActiveTab(tab)}
@@ -165,6 +214,32 @@ export default function TeamDetailPage() {
           </button>
         ))}
       </div>
+
+      {activeTab === "intelligence" && (
+        <section>
+          {intelligenceLoading && (
+            <div className="space-y-4 animate-pulse">
+              <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+                {[1, 2, 3, 4].map((item) => (
+                  <div key={item} className="h-32 rounded-3xl bg-gray-200 dark:bg-gray-700" />
+                ))}
+              </div>
+              <div className="grid gap-6 xl:grid-cols-[1.05fr,0.95fr]">
+                <div className="h-96 rounded-[2rem] bg-gray-200 dark:bg-gray-700" />
+                <div className="h-96 rounded-[2rem] bg-gray-200 dark:bg-gray-700" />
+              </div>
+            </div>
+          )}
+          {intelligenceError && (
+            <div className="rounded-2xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-6 text-center text-gray-500 dark:text-gray-400">
+              Could not load team intelligence for {effectiveSeason}. Some of this view depends on synced play-by-play and current standings data.
+            </div>
+          )}
+          {intelligence && !intelligenceLoading && (
+            <TeamIntelligencePanel intelligence={intelligence} />
+          )}
+        </section>
+      )}
 
       {/* Analytics tab */}
       {activeTab === "analytics" && (
@@ -182,7 +257,7 @@ export default function TeamDetailPage() {
           )}
           {analyticsError && (
             <div className="rounded-2xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-6 text-center text-gray-500 dark:text-gray-400">
-              Could not load team analytics for {DEFAULT_SEASON}. The NBA API may be temporarily unavailable.
+              Could not load team analytics for {effectiveSeason}. The NBA API may be temporarily unavailable.
             </div>
           )}
           {analytics && !analyticsLoading && (
@@ -193,7 +268,7 @@ export default function TeamDetailPage() {
 
       {/* Lineups tab */}
       {activeTab === "lineups" && roster && (
-        <TeamLineupsPanel teamId={roster.team_id} season={DEFAULT_SEASON} />
+        <TeamLineupsPanel teamId={roster.team_id} season={effectiveSeason} />
       )}
 
       {/* Roster tab */}
