@@ -117,9 +117,9 @@ export default function HomeLeagueLeaders() {
         </Link>
       </div>
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <LeaderColumn stat="pts" label="Scoring" />
-        <LeaderColumn stat="ast" label="Assists" />
-        <LeaderColumn stat="reb" label="Rebounds" />
+        <LeaderColumn stat="pts_pg" label="Scoring" />
+        <LeaderColumn stat="ast_pg" label="Assists" />
+        <LeaderColumn stat="reb_pg" label="Rebounds" />
         <LeaderColumn stat="per" label="PER" />
       </div>
     </div>
