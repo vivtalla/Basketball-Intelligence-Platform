@@ -49,9 +49,22 @@ export default function PlayerDashboard({ playerId }: PlayerDashboardProps) {
   const hasPlayoffs = careerStats.playoff_seasons.length > 0;
   const activeSeasonsArr = isPlayoffs ? careerStats.playoff_seasons : careerStats.seasons;
 
-  const currentSeason = activeSeasonsArr.length > 0
+  const latestSeason = activeSeasonsArr.length > 0
     ? activeSeasonsArr[activeSeasonsArr.length - 1]
     : null;
+
+  // Season selector: default to latest; reset to "" when mode switches
+  const [selectedSeasonStr, setSelectedSeasonStr] = useState<string>("");
+  const effectiveSeasonStr = selectedSeasonStr || latestSeason?.season || null;
+  const selectedSeasonData = activeSeasonsArr.find((s) => s.season === effectiveSeasonStr) ?? latestSeason;
+
+  // currentSeason used only for PlayerHeader (always latest)
+  const currentSeason = latestSeason;
+
+  function handleModeChange(next: Mode) {
+    setMode(next);
+    setSelectedSeasonStr("");
+  }
 
   return (
     <div className="space-y-6">
@@ -63,7 +76,7 @@ export default function PlayerDashboard({ playerId }: PlayerDashboardProps) {
           <span className="text-sm text-gray-500 dark:text-gray-400 mr-1">View:</span>
           <div className="flex rounded-xl overflow-hidden border border-gray-200 dark:border-gray-700 text-sm w-fit">
             <button
-              onClick={() => setMode("regular")}
+              onClick={() => handleModeChange("regular")}
               className={`px-4 py-1.5 transition-colors ${
                 !isPlayoffs
                   ? "bg-blue-500 text-white"
@@ -73,7 +86,7 @@ export default function PlayerDashboard({ playerId }: PlayerDashboardProps) {
               Regular Season
             </button>
             <button
-              onClick={() => setMode("playoffs")}
+              onClick={() => handleModeChange("playoffs")}
               className={`px-4 py-1.5 transition-colors ${
                 isPlayoffs
                   ? "bg-amber-500 text-white"
@@ -86,10 +99,34 @@ export default function PlayerDashboard({ playerId }: PlayerDashboardProps) {
         </div>
       )}
 
+      {/* Season selector — shown when there are multiple seasons */}
+      {activeSeasonsArr.length > 1 && (
+        <div className="flex items-center gap-2 flex-wrap">
+          <span className="text-xs text-gray-500 dark:text-gray-400 shrink-0">Season:</span>
+          <div className="flex gap-1.5 flex-wrap">
+            {[...activeSeasonsArr].reverse().map((s) => (
+              <button
+                key={s.season}
+                onClick={() => setSelectedSeasonStr(s.season === latestSeason?.season ? "" : s.season)}
+                className={`px-2.5 py-1 rounded-lg text-xs font-medium transition-colors ${
+                  s.season === effectiveSeasonStr
+                    ? isPlayoffs
+                      ? "bg-amber-500 text-white"
+                      : "bg-blue-500 text-white"
+                    : "bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600"
+                }`}
+              >
+                {s.season}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {currentSeason && (
+        {selectedSeasonData && (
           <div className="lg:col-span-1">
-            <RadarChart stats={currentSeason} />
+            <RadarChart stats={selectedSeasonData} />
           </div>
         )}
         <div className="lg:col-span-2">
@@ -114,18 +151,18 @@ export default function PlayerDashboard({ playerId }: PlayerDashboardProps) {
           Play-by-play insights (on/off splits, clutch) are available for regular season only.
         </div>
       ) : (
-        <PlayerPbpInsights playerId={playerId} season={currentSeason?.season ?? null} />
+        <PlayerPbpInsights playerId={playerId} season={effectiveSeasonStr} />
       )}
 
-      <PlayerSimilarity playerId={playerId} season={currentSeason?.season ?? null} />
+      <PlayerSimilarity playerId={playerId} season={effectiveSeasonStr} />
 
       {/* Season splits — regular season only, needs game log data */}
       {!isPlayoffs && (
-        <SeasonSplits playerId={playerId} season={currentSeason?.season ?? null} />
+        <SeasonSplits playerId={playerId} season={effectiveSeasonStr} />
       )}
 
       {/* Game Log has its own internal RS/Playoffs toggle */}
-      <GameLogTable playerId={playerId} season={currentSeason?.season ?? null} />
+      <GameLogTable playerId={playerId} season={effectiveSeasonStr} />
 
       <StatTable
         seasons={careerStats.seasons}
