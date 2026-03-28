@@ -14,7 +14,7 @@ Last updated: 2026-03-28 by Codex
 
 | Field        | Value                                    |
 |--------------|------------------------------------------|
-| Sprint       | 10                                       |
+| Sprint       | 11                                       |
 | Goal         | TBD — awaiting Vivek's sprint kickoff    |
 | Started      | —                                        |
 | Target merge | —                                        |
@@ -24,14 +24,14 @@ Last updated: 2026-03-28 by Codex
 ## Agent Assignments
 
 ### Claude
-- Branch: `feature/sprint-10-[slug]`
+- Branch: `feature/sprint-11-[slug]`
 - Scope: TBD
 - Status: Not started
 - PR: —
 - Blocked on: nothing
 
 ### Codex
-- Branch: `codex-sprint-10-[slug]`
+- Branch: `codex-sprint-11-[slug]`
 - Scope: TBD
 - Status: Not started
 - PR: —
@@ -68,7 +68,10 @@ Specs written by one agent for the other. Check this before starting work — if
 
 ## Merge Order (this sprint)
 
-TBD at sprint kickoff.
+```
+1. feature/sprint-11-[claude-work] (Claude) — TBD at kickoff
+2. codex-sprint-11-[codex-work] (Codex) — TBD at kickoff
+```
 
 ---
 
@@ -78,7 +81,9 @@ Ownership is sprint-dependent, not permanent. The table below is rewritten each 
 
 ### This sprint's owned areas
 
-TBD at sprint kickoff. Rewrite this table when sprint scope is defined.
+| Files / Directories | Assigned this sprint |
+|---------------------|----------------------|
+| Sprint 11 allocation | TBD at kickoff |
 
 ### Shared files — claim in Lock Table before editing
 
@@ -146,4 +151,4 @@ Sprint number prefix makes `git branch -a` immediately readable.
 
 *Free-form, dated, newest first. For cross-agent communication mid-sprint.*
 
-2026-03-28 (Claude): Sprint 9 closed. See `specs/sprint-09-closeout.md` for full summary. Awaiting Sprint 10 kickoff.
+2026-03-28 (Codex): Sprint 10 closed. `master` did not receive the branch work from `feature/sprint-10-yoy-trends` or `codex-sprint-10-game-explorer-controls`; see `specs/sprint-10-closeout.md` for shipped vs. deferred detail.

@@ -14,6 +14,7 @@ Sprint closeout notes are not handoffs; they are the shared end-of-sprint memory
 
 | File | Type | From | To | Sprint | Status |
 |------|------|------|----|--------|--------|
+| [sprint-10-closeout.md](sprint-10-closeout.md) | Closeout | Shared | Shared | 10 | Final |
 | [sprint-09-closeout.md](sprint-09-closeout.md) | Closeout | Shared | Shared | 9 | Final |
 | [CLOSEOUT_TEMPLATE.md](CLOSEOUT_TEMPLATE.md) | Template | Shared | Shared | — | Active |
 | [sprint-08-handoff-claude-data-persistence.md](sprint-08-handoff-claude-data-persistence.md) | Handoff | Claude | Codex | 8 | Done |

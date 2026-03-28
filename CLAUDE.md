@@ -310,11 +310,22 @@ Eliminated live NBA API calls on every player profile load:
 
 ---
 
+### Sprint 10 — Branch-Only Work, Not Merged
+**Branch:** `feature/sprint-10-yoy-trends` (Claude), `codex-sprint-10-game-explorer-controls` (Codex)
+
+- Claude implemented player-profile year-over-year trend indicators and season-selector work on branch
+- Codex implemented Game Explorer controls and backend game-summary improvements on branch
+- Neither Sprint 10 branch landed in `master`; see `specs/sprint-10-closeout.md` for deferred follow-up
+
+---
+
 ## Active Branches
 
 | Branch | Owner | Status |
 |--------|-------|--------|
 | `master` | — | Stable |
+| `feature/sprint-10-yoy-trends` | Claude | Open / not merged |
+| `codex-sprint-10-game-explorer-controls` | Codex | Open / not merged |
 | `feature/sprint9-leaderboard-enhancements` | Claude | Merged to master |
 | `codex-sprint-9-team-sync-dashboard` | Codex | Merged to master |
 
