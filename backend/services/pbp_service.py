@@ -199,6 +199,11 @@ def build_stints(pbp_events: list[dict], box_score: dict) -> list[Stint]:
             else:
                 away_poss_acc += 1
             _poss_had_fga = False
+        elif action_type == "rebound" and sub_type == "defensive":
+            # Possession changed — reset FGA flag so subsequent FTs on this
+            # new possession are counted correctly (e.g. DREB → foul → FTs)
+            _poss_had_fga = False
+
         elif action_type == "freethrow":
             desc = event.get("description") or ""
             is_last_ft = bool(_LAST_FT_RE.search(desc))
