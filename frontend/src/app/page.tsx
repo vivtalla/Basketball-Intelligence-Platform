@@ -1,5 +1,6 @@
 import PlayerSearchBar from "@/components/PlayerSearchBar";
 import HomeLeagueLeaders from "@/components/HomeLeagueLeaders";
+import FavoritesList from "@/components/FavoritesList";
 import Link from "next/link";
 
 const platformAreas = [
@@ -79,6 +80,9 @@ export default function HomePage() {
           </Link>
         ))}
       </div>
+
+      {/* Watchlist */}
+      <FavoritesList />
 
       {/* Live league leaders */}
       <HomeLeagueLeaders />

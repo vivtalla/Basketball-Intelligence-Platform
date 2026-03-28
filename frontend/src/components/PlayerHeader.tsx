@@ -1,7 +1,10 @@
+"use client";
+
 import Image from "next/image";
 import type { PlayerProfile, SeasonStats } from "@/lib/types";
 import StatCard from "./StatCard";
 import { usePlayerPercentiles } from "@/hooks/usePlayerStats";
+import { useFavorites } from "@/hooks/useFavorites";
 
 interface PlayerHeaderProps {
   profile: PlayerProfile;
@@ -39,6 +42,9 @@ export default function PlayerHeader({
     currentSeason?.season ?? null
   );
 
+  const { isFavorite, toggleFavorite } = useFavorites();
+  const starred = isFavorite(profile.id);
+
   const draftInfo =
     profile.draft_year && profile.draft_year !== "Undrafted"
       ? `${profile.draft_year} Round ${profile.draft_round}, Pick ${profile.draft_number}`
@@ -65,11 +71,43 @@ export default function PlayerHeader({
 
         {/* Bio */}
         <div className="flex-grow">
-          <div className="flex items-baseline gap-3 mb-2">
+          <div className="flex items-center gap-3 mb-2">
             <h1 className="text-3xl font-bold">{profile.full_name}</h1>
             {profile.jersey && (
               <span className="text-2xl text-gray-400">#{profile.jersey}</span>
             )}
+            {/* Star / watchlist button */}
+            <button
+              onClick={() =>
+                toggleFavorite({
+                  id: profile.id,
+                  name: profile.full_name,
+                  team: profile.team_abbreviation ?? profile.team_name ?? "",
+                  headshot_url: profile.headshot_url ?? null,
+                })
+              }
+              title={starred ? "Remove from My Players" : "Add to My Players"}
+              className={`ml-1 transition-colors ${
+                starred
+                  ? "text-amber-400 hover:text-amber-500"
+                  : "text-gray-300 dark:text-gray-600 hover:text-amber-400"
+              }`}
+            >
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                viewBox="0 0 24 24"
+                fill={starred ? "currentColor" : "none"}
+                stroke="currentColor"
+                strokeWidth={1.8}
+                className="w-6 h-6"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  d="M11.48 3.499a.562.562 0 0 1 1.04 0l2.125 5.111a.563.563 0 0 0 .475.345l5.518.442c.499.04.701.663.321.988l-4.204 3.602a.563.563 0 0 0-.182.557l1.285 5.385a.562.562 0 0 1-.84.61l-4.725-2.885a.562.562 0 0 0-.586 0L6.982 20.54a.562.562 0 0 1-.84-.61l1.285-5.386a.562.562 0 0 0-.182-.557l-4.204-3.602a.562.562 0 0 1 .321-.988l5.518-.442a.563.563 0 0 0 .475-.345L11.48 3.5Z"
+                />
+              </svg>
+            </button>
           </div>
 
           <div className="flex flex-wrap gap-2 mb-4">
