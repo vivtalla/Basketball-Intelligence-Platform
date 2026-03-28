@@ -88,6 +88,8 @@ def _current_schedule_game_ids(season: str, timeout: int = NBA_API_TIMEOUT) -> l
             game_id = str(game.get("gameId") or "")
             if not game_id or game_id in seen:
                 continue
+            if int(game.get("gameStatus") or 0) < 2:
+                continue
             if game_id.startswith("002"):
                 seen.add(game_id)
                 ids.append(game_id)
@@ -113,6 +115,8 @@ def _current_team_schedule_game_ids(
         for game in game_date.get("games", []):
             game_id = str(game.get("gameId") or "")
             if not game_id or game_id in seen or not game_id.startswith("002"):
+                continue
+            if int(game.get("gameStatus") or 0) < 2:
                 continue
 
             home_team_id = str(game.get("homeTeam", {}).get("teamId") or "")
