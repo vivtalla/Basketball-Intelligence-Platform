@@ -286,6 +286,15 @@ Eliminated live NBA API calls on every player profile load:
 
 ---
 
+### Sprint 9 — Leaderboards, Team Ops, And Workflow Hardening
+**Branch:** `feature/sprint9-leaderboard-enhancements`, `codex-sprint-9-team-sync-dashboard`
+
+- Leaderboard enhancements landed: career views, filters, richer table controls, and historical-data improvements
+- Team/PBP operations workflow landed: sync-oriented team coverage and handoff improvements
+- Multi-agent workflow was tightened with sprint-dependent work allocation, explicit branch isolation, and a lightweight sprint closeout process
+
+---
+
 ## Active Branches
 
 | Branch | Owner | Status |

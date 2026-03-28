@@ -17,7 +17,7 @@ Last updated: 2026-03-28 by Codex
 | Sprint       | 9                                        |
 | Goal         | Leaderboard enhancements + historical data |
 | Started      | 2026-03-28                               |
-| Target merge | —                                        |
+| Target merge | 2026-03-28                               |
 
 ---
 
@@ -33,7 +33,7 @@ Last updated: 2026-03-28 by Codex
 ### Codex
 - Branch: `codex-sprint-9-team-sync-dashboard`
 - Scope: Team/PBP sync operations dashboard — season sync actions, coverage workflow, team intelligence handoff, lineup visibility improvements
-- Status: In progress
+- Status: Merged to master
 - PR: —
 - Blocked on: nothing
 
@@ -167,6 +167,7 @@ Sprint number prefix makes `git branch -a` immediately readable.
 
 *Free-form, dated, newest first. For cross-agent communication mid-sprint.*
 
+2026-03-28 (Codex): `codex-sprint-9-team-sync-dashboard` merged to master. Sprint 9 also established sprint closeout notes and sprint-dependent work allocation rules in the coordination docs.
 2026-03-28 (Codex): Working on `codex-sprint-9-team-sync-dashboard`. Scope is team/PBP sync operations: coverage-page season sync actions, team detail handoff from coverage, and lineup/intelligence UX improvements without touching Claude-owned leaderboard work.
 2026-03-28 (Claude): Sprint 9 kicked off. Claude owns leaderboard enhancements on `feature/sprint9-leaderboard-enhancements`. types.ts and api.ts claimed (append-only). Codex is free to self-define scope — no shared file conflicts expected.
 2026-03-28 (Claude): Workflow system initialized. Sprint 8 (data persistence) is complete and merged to master. Bulk import CLI built and verified: 595 players, 560K PBP events, 30K+ game logs synced for 2025-26.
