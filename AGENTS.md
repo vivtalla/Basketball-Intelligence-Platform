@@ -151,4 +151,4 @@ Sprint number prefix makes `git branch -a` immediately readable.
 
 *Free-form, dated, newest first. For cross-agent communication mid-sprint.*
 
-2026-03-28 (Codex): Sprint 10 closed. `master` did not receive the branch work from `feature/sprint-10-yoy-trends` or `codex-sprint-10-game-explorer-controls`; see `specs/sprint-10-closeout.md` for shipped vs. deferred detail.
+2026-03-28 (Claude): Sprint 10 closed. `feature/sprint-10-yoy-trends` merged to `master` — YoY trend indicators, player profile season selector, compare page season selector all shipped. `codex-sprint-10-game-explorer-controls` not merged; carry to Sprint 11. See `specs/sprint-10-closeout.md`.
