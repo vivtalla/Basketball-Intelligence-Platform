@@ -14,9 +14,9 @@ Last updated: 2026-03-28 by Codex
 
 | Field        | Value                                    |
 |--------------|------------------------------------------|
-| Sprint       | 11                                       |
-| Goal         | TBD — awaiting Vivek's sprint kickoff    |
-| Started      | —                                        |
+| Sprint       | 10                                       |
+| Goal         | Player profile YoY trends + TBD (Codex) |
+| Started      | 2026-03-28                               |
 | Target merge | —                                        |
 
 ---
@@ -24,14 +24,14 @@ Last updated: 2026-03-28 by Codex
 ## Agent Assignments
 
 ### Claude
-- Branch: `feature/sprint-11-[slug]`
-- Scope: TBD
-- Status: Not started
+- Branch: `feature/sprint-10-yoy-trends`
+- Scope: Year-over-year stat trend indicators on player profile StatTable (arrows + deltas for pts, reb, ast, ts%, bpm, per vs. prior season)
+- Status: In progress
 - PR: —
 - Blocked on: nothing
 
 ### Codex
-- Branch: `codex-sprint-11-[slug]`
+- Branch: `codex-sprint-10-[slug]`
 - Scope: TBD
 - Status: Not started
 - PR: —
@@ -69,8 +69,8 @@ Specs written by one agent for the other. Check this before starting work — if
 ## Merge Order (this sprint)
 
 ```
-1. feature/sprint-11-[claude-work] (Claude) — TBD at kickoff
-2. codex-sprint-11-[codex-work] (Codex) — TBD at kickoff
+1. feature/sprint-10-yoy-trends (Claude) — no dependencies
+2. codex-sprint-10-[slug] (Codex) — TBD
 ```
 
 ---
@@ -83,7 +83,15 @@ Ownership is sprint-dependent, not permanent. The table below is rewritten each 
 
 | Files / Directories | Assigned this sprint |
 |---------------------|----------------------|
-| Sprint 11 allocation | TBD at kickoff |
+| `frontend/src/components/StatTable.tsx` | Claude |
+| `frontend/src/components/PlayerDashboard.tsx` | Claude |
+| `frontend/src/components/CareerArcChart.tsx` | Claude |
+| `frontend/src/components/ComparisonView.tsx` | Claude |
+| `frontend/src/components/DualCareerArcChart.tsx` | Claude |
+| `frontend/src/app/leaderboards/` | Claude |
+| `frontend/src/app/compare/` | Claude |
+| `CLAUDE.md` | Claude |
+| Codex areas | TBD — Codex self-defines at kickoff |
 
 ### Shared files — claim in Lock Table before editing
 
@@ -151,4 +159,4 @@ Sprint number prefix makes `git branch -a` immediately readable.
 
 *Free-form, dated, newest first. For cross-agent communication mid-sprint.*
 
-2026-03-28 (Codex): Sprint 10 closed. `master` did not receive the branch work from `feature/sprint-10-yoy-trends` or `codex-sprint-10-game-explorer-controls`; see `specs/sprint-10-closeout.md` for shipped vs. deferred detail.
+2026-03-28 (Claude): Sprint 10 started. Working on `feature/sprint-10-yoy-trends` — YoY stat trend indicators on player profile StatTable. No shared file claims needed this sprint.
