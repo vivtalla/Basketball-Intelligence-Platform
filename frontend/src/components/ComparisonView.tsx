@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import Image from "next/image";
 import type { PlayerProfile, CareerStatsResponse, SeasonStats } from "@/lib/types";
 import { usePlayerPercentiles } from "@/hooks/usePlayerStats";
@@ -219,19 +219,34 @@ function PercentileRowItem({
 
 export default function ComparisonView({ playerA, playerB }: ComparisonViewProps) {
   const [mode, setMode] = useState<ViewMode>("career");
+  const [selectedSeason, setSelectedSeason] = useState<string>("");
+
+  const availableSeasons = useMemo(() => {
+    const all = new Set<string>();
+    playerA.career.seasons.forEach((s) => all.add(s.season));
+    playerB.career.seasons.forEach((s) => all.add(s.season));
+    return Array.from(all).sort((a, b) => b.localeCompare(a));
+  }, [playerA.career.seasons, playerB.career.seasons]);
+
+  const effectiveCurrentSeason = selectedSeason || availableSeasons[0] || null;
+
+  // For percentile context, always use the most recent season each player has
+  const currentSeasonA = playerA.career.seasons[playerA.career.seasons.length - 1]?.season ?? null;
+  const currentSeasonB = playerB.career.seasons[playerB.career.seasons.length - 1]?.season ?? null;
 
   const statsA: SeasonStats | null =
     mode === "career"
       ? playerA.career.career_totals
+      : mode === "current"
+      ? playerA.career.seasons.find((s) => s.season === effectiveCurrentSeason) ?? null
       : playerA.career.seasons[playerA.career.seasons.length - 1] ?? null;
 
   const statsB: SeasonStats | null =
     mode === "career"
       ? playerB.career.career_totals
+      : mode === "current"
+      ? playerB.career.seasons.find((s) => s.season === effectiveCurrentSeason) ?? null
       : playerB.career.seasons[playerB.career.seasons.length - 1] ?? null;
-
-  const currentSeasonA = playerA.career.seasons[playerA.career.seasons.length - 1]?.season ?? null;
-  const currentSeasonB = playerB.career.seasons[playerB.career.seasons.length - 1]?.season ?? null;
   // Use the more recent season for percentile context
   const pctSeason = currentSeasonA && currentSeasonB
     ? currentSeasonA >= currentSeasonB ? currentSeasonA : currentSeasonB
@@ -295,6 +310,21 @@ export default function ComparisonView({ playerA, playerB }: ComparisonViewProps
         </div>
         <span className="text-xs text-gray-400 dark:text-gray-500 min-w-0 text-right">{seasonLabelB}</span>
       </div>
+
+      {/* Season selector (current mode only) */}
+      {mode === "current" && availableSeasons.length > 1 && (
+        <div className="flex justify-center">
+          <select
+            value={effectiveCurrentSeason ?? ""}
+            onChange={(e) => setSelectedSeason(e.target.value)}
+            className="text-xs border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-blue-500"
+          >
+            {availableSeasons.map((s) => (
+              <option key={s} value={s}>{s}</option>
+            ))}
+          </select>
+        </div>
+      )}
 
       {/* Percentile mode */}
       {mode === "percentile" && (
