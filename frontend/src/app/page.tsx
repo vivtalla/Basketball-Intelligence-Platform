@@ -26,6 +26,13 @@ const platformAreas = [
       "Team efficiency ratings, four factors, roster leaders, and player dashboards.",
   },
   {
+    href: "/coverage",
+    eyebrow: "Operations",
+    title: "Audit PBP sync coverage",
+    description:
+      "See which teams and players are ready, partial, or missing play-by-play-derived data.",
+  },
+  {
     href: "/compare",
     eyebrow: "Compare Stars",
     title: "Stack careers side by side",
@@ -58,7 +65,7 @@ export default function HomePage() {
       </div>
 
       {/* Platform areas */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-5 gap-4">
         {platformAreas.map((area) => (
           <Link
             key={area.href}

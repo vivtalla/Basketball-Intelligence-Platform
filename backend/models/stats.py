@@ -111,6 +111,63 @@ class PbpCoverage(BaseModel):
     last_derived_at: Optional[str] = None
 
 
+class PbpCoveragePlayerRow(BaseModel):
+    player_id: int
+    player_name: str
+    team_abbreviation: Optional[str] = None
+    season: str
+    eligible_games: int = 0
+    synced_games: int = 0
+    has_on_off: bool = False
+    has_scoring_splits: bool = False
+    status: str
+    last_derived_at: Optional[str] = None
+
+
+class PbpCoverageTeamRow(BaseModel):
+    team_id: int
+    abbreviation: str
+    name: str
+    season: str
+    player_count: int = 0
+    players_ready: int = 0
+    players_partial: int = 0
+    players_none: int = 0
+    eligible_games: int = 0
+    synced_games: int = 0
+    status: str
+
+
+class PbpCoverageDashboard(BaseModel):
+    season: str
+    total_teams: int = 0
+    total_players: int = 0
+    teams_ready: int = 0
+    teams_partial: int = 0
+    teams_none: int = 0
+    players_ready: int = 0
+    players_partial: int = 0
+    players_none: int = 0
+    eligible_games: int = 0
+    synced_games: int = 0
+    teams: List[PbpCoverageTeamRow]
+    players: List[PbpCoveragePlayerRow]
+
+
+class PbpCoverageSeasonSummary(BaseModel):
+    season: str
+    total_teams: int = 0
+    total_players: int = 0
+    teams_ready: int = 0
+    teams_partial: int = 0
+    teams_none: int = 0
+    players_ready: int = 0
+    players_partial: int = 0
+    players_none: int = 0
+    eligible_games: int = 0
+    synced_games: int = 0
+
+
 class LineupStatsResponse(BaseModel):
     lineup_key: str
     player_ids: List[int]

@@ -91,7 +91,9 @@ def _current_schedule_game_ids(season: str, timeout: int = NBA_API_TIMEOUT) -> l
     payload = _fetch_static_json("scheduleLeagueV2.json", timeout=timeout)
     league_schedule = payload.get("leagueSchedule", {})
     season_year = str(league_schedule.get("seasonYear") or "")
-    if season_year != season:
+    # CDN returns start year (e.g. "2025") while app uses "2025-26" format
+    season_start_year = season.split("-")[0] if "-" in season else season
+    if season_year != season and season_year != season_start_year:
         return []
 
     ids: list[str] = []
@@ -118,7 +120,8 @@ def _current_team_schedule_game_ids(
     payload = _fetch_static_json("scheduleLeagueV2.json", timeout=timeout)
     league_schedule = payload.get("leagueSchedule", {})
     season_year = str(league_schedule.get("seasonYear") or "")
-    if season_year != season:
+    season_start_year = season.split("-")[0] if "-" in season else season
+    if season_year != season and season_year != season_start_year:
         return []
 
     ids: list[str] = []
@@ -249,6 +252,96 @@ def _normalize_live_box_score(live_data: dict) -> dict:
     }
 
 
+def _parse_cdn_minutes(minutes_str: str) -> float:
+    """Parse CDN minutes format 'PT15M12.00S' into decimal minutes."""
+    if not minutes_str or not minutes_str.startswith("PT"):
+        return 0.0
+    try:
+        rest = minutes_str[2:]  # strip "PT"
+        mins = 0.0
+        secs = 0.0
+        if "M" in rest:
+            m_part, rest = rest.split("M", 1)
+            mins = float(m_part)
+        if "S" in rest:
+            secs = float(rest.replace("S", ""))
+        return round(mins + secs / 60.0, 1)
+    except (ValueError, TypeError):
+        return 0.0
+
+
+def get_game_box_score_detailed(game_id: str, timeout: int = NBA_API_TIMEOUT) -> dict:
+    """Fetch full box score from CDN with per-player stats.
+
+    Returns the standard box score shape plus detailed per-player stats
+    (pts, reb, ast, stl, blk, tov, fgm, fga, fg3m, fg3a, ftm, fta, etc.).
+    Uses only the CDN endpoint — does not hit stats.nba.com.
+    """
+    _rate_limit()
+    payload = _fetch_live_json(f"boxscore/boxscore_{game_id}.json", timeout=timeout)
+    game = payload.get("game", payload)
+    home_team = game.get("homeTeam", {})
+    away_team = game.get("awayTeam", {})
+    game_date = game.get("gameTimeUTC", "")[:10] or None  # "2025-10-22T..."
+
+    players = []
+    for team in [home_team, away_team]:
+        team_id = team.get("teamId")
+        team_tricode = team.get("teamTricode", "")
+        for p in team.get("players", []):
+            stats = p.get("statistics", {})
+            minutes = _parse_cdn_minutes(stats.get("minutes", ""))
+            players.append({
+                "player_id": p.get("personId"),
+                "player_name": p.get("name", ""),
+                "team_id": team_id,
+                "team_abbreviation": team_tricode,
+                "start_position": p.get("position", "") if p.get("starter") == "1" else "",
+                "min": minutes,
+                "pts": int(stats.get("points") or 0),
+                "reb": int(stats.get("reboundsTotal") or 0),
+                "ast": int(stats.get("assists") or 0),
+                "stl": int(stats.get("steals") or 0),
+                "blk": int(stats.get("blocks") or 0),
+                "tov": int(stats.get("turnovers") or 0),
+                "fgm": int(stats.get("fieldGoalsMade") or 0),
+                "fga": int(stats.get("fieldGoalsAttempted") or 0),
+                "fg3m": int(stats.get("threePointersMade") or 0),
+                "fg3a": int(stats.get("threePointersAttempted") or 0),
+                "ftm": int(stats.get("freeThrowsMade") or 0),
+                "fta": int(stats.get("freeThrowsAttempted") or 0),
+                "oreb": int(stats.get("reboundsOffensive") or 0),
+                "dreb": int(stats.get("reboundsDefensive") or 0),
+                "pf": int(stats.get("foulsPersonal") or 0),
+                "plus_minus": float(stats.get("plusMinusPoints") or 0),
+            })
+
+    home_tricode = home_team.get("teamTricode", "")
+    away_tricode = away_team.get("teamTricode", "")
+    matchup_home = f"{home_tricode} vs. {away_tricode}"
+    matchup_away = f"{away_tricode} @ {home_tricode}"
+    home_score = int(home_team.get("score") or 0)
+    away_score = int(away_team.get("score") or 0)
+    home_won = home_score > away_score
+
+    return {
+        "game_id": game_id,
+        "game_date": game_date,
+        "home_team_id": home_team.get("teamId"),
+        "away_team_id": away_team.get("teamId"),
+        "home_team_abbreviation": home_tricode,
+        "away_team_abbreviation": away_tricode,
+        "home_team_name": home_team.get("teamName", ""),
+        "away_team_name": away_team.get("teamName", ""),
+        "home_score": home_score,
+        "away_score": away_score,
+        "matchup_home": matchup_home,
+        "matchup_away": matchup_away,
+        "home_won": home_won,
+        "players": players,
+    }
+
+
 def search_players(query: str) -> list[dict]:
     """Search players by name. Uses local static data (no HTTP call)."""
     results = static_players.find_players_by_full_name(query)
@@ -312,7 +405,7 @@ def get_career_stats(player_id: int) -> dict:
 
 
 def get_league_dash_player_stats(
-    season: str, measure_type: str = "Advanced"
+    season: str, measure_type: str = "Advanced", timeout: int = NBA_API_TIMEOUT
 ) -> list[dict]:
     """Fetch league-wide player stats for a given season.
 
@@ -322,7 +415,7 @@ def get_league_dash_player_stats(
     dash = leaguedashplayerstats.LeagueDashPlayerStats(
         season=season,
         measure_type_detailed_defense=measure_type,
-        timeout=NBA_API_TIMEOUT,
+        timeout=timeout,
     )
     data = dash.get_normalized_dict()
     return data.get("LeagueDashPlayerStats", [])
@@ -771,7 +864,15 @@ def get_shot_chart_data(
 
     Returns a list of shot dicts with: loc_x, loc_y, shot_made, shot_type,
     action_type, zone_basic, zone_area, distance.
+
+    Results are cached in SQLite; historical seasons are cached indefinitely,
+    current season for CURRENT_SEASON_CACHE_TTL seconds.
     """
+    cache_key = f"shotchart_{player_id}_{season}_{season_type}"
+    cached = CacheManager.get(cache_key)
+    if cached and isinstance(cached.get("shots"), list):
+        return cached["shots"]
+
     _rate_limit()
     response = shotchartdetail.ShotChartDetail(
         player_id=player_id,
@@ -798,4 +899,5 @@ def get_shot_chart_data(
             "zone_area": str(row.get("SHOT_ZONE_AREA", "")),
             "distance": int(row.get("SHOT_DISTANCE", 0)),
         })
+    CacheManager.set(cache_key, {"shots": shots}, _cache_ttl_for_season(season))
     return shots
