@@ -166,6 +166,7 @@ POST /api/advanced/sync-season   body: {"season": "2024-25"}
 
 ## Gotchas
 
+- **Read `AGENTS.md` at session start before touching any code.** It contains the current sprint scope, your branch, what the other agent owns, the shared file Lock Table, and the Handoff Queue. If `AGENTS.md` doesn't reflect the current sprint, that is the first thing to fix.
 - **nba_api rate limits aggressively** — `nba_client.py` enforces 0.6s delays. Never call `nba_api` directly outside this wrapper.
 - **Player names are not unique.** Multiple players share names (e.g., Marcus Morris Sr./Jr.). Always resolve to `person_id`.
 - **The salary cap changes every season.** Never hardcode cap numbers.
