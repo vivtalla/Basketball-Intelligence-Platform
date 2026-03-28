@@ -13,6 +13,7 @@ import type {
   OnOffLeaderboardResult,
   PbpSyncResult,
   GameLogResponse,
+  SimilarityResponse,
 } from "./types";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
@@ -168,5 +169,16 @@ export async function getPlayerGameLogs(
 ): Promise<GameLogResponse> {
   return fetchApi<GameLogResponse>(
     `/api/gamelogs/${playerId}?season=${encodeURIComponent(season)}&season_type=${encodeURIComponent(seasonType)}`
+  );
+}
+
+export async function getSimilarPlayers(
+  playerId: number,
+  season: string,
+  n = 8,
+  crossEra = true
+): Promise<SimilarityResponse> {
+  return fetchApi<SimilarityResponse>(
+    `/api/similarity/${playerId}?season=${encodeURIComponent(season)}&n=${n}&cross_era=${crossEra}`
   );
 }

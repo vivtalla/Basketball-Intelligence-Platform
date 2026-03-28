@@ -282,6 +282,29 @@ export interface GameLogResponse {
   gp: number;
 }
 
+export interface SimilarPlayerComp {
+  player_id: number;
+  player_name: string;
+  headshot_url: string | null;
+  season: string;
+  team_abbreviation: string;
+  similarity_score: number;
+  gp: number;
+  pts_pg: number | null;
+  reb_pg: number | null;
+  ast_pg: number | null;
+  ts_pct: number | null;
+  usg_pct: number | null;
+  per: number | null;
+}
+
+export interface SimilarityResponse {
+  player_id: number;
+  season: string;
+  cross_era: boolean;
+  comps: SimilarPlayerComp[];
+}
+
 export interface PbpSyncResult {
   status: string;
   season: string;

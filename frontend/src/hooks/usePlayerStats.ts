@@ -14,6 +14,7 @@ import type {
   LineupsResult,
   OnOffLeaderboardResult,
   GameLogResponse,
+  SimilarityResponse,
 } from "@/lib/types";
 import {
   getPlayerProfile,
@@ -28,6 +29,7 @@ import {
   getLineups,
   getOnOffLeaderboard,
   getPlayerGameLogs,
+  getSimilarPlayers,
 } from "@/lib/api";
 
 export function usePlayerProfile(playerId: number | null) {
@@ -129,5 +131,17 @@ export function usePlayerGameLogs(
   return useSWR<GameLogResponse>(
     playerId && season ? `game-logs-${playerId}-${season}-${seasonType}` : null,
     () => getPlayerGameLogs(playerId!, season!, seasonType)
+  );
+}
+
+export function useSimilarPlayers(
+  playerId: number | null,
+  season: string | null,
+  n = 8,
+  crossEra = true
+) {
+  return useSWR<SimilarityResponse>(
+    playerId && season ? `similarity-${playerId}-${season}-${n}-${crossEra}` : null,
+    () => getSimilarPlayers(playerId!, season!, n, crossEra)
   );
 }
