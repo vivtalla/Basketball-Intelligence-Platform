@@ -305,6 +305,41 @@ export interface SimilarityResponse {
   comps: SimilarPlayerComp[];
 }
 
+export interface BreakoutSeasonStats {
+  season: string;
+  team_abbreviation: string;
+  gp: number;
+  pts_pg: number | null;
+  reb_pg: number | null;
+  ast_pg: number | null;
+  ts_pct: number | null;
+  per: number | null;
+  bpm: number | null;
+  usg_pct: number | null;
+}
+
+export interface BreakoutEntry {
+  player_id: number;
+  full_name: string;
+  headshot_url: string | null;
+  current: BreakoutSeasonStats;
+  prior: BreakoutSeasonStats;
+  improvement_score: number;
+  delta_pts_pg: number | null;
+  delta_reb_pg: number | null;
+  delta_ast_pg: number | null;
+  delta_ts_pct: number | null;
+  delta_per: number | null;
+  delta_bpm: number | null;
+}
+
+export interface BreakoutsResponse {
+  season: string;
+  prior_season: string;
+  improvers: BreakoutEntry[];
+  decliners: BreakoutEntry[];
+}
+
 export interface StandingsEntry {
   team_id: number;
   abbreviation: string;

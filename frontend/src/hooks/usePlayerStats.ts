@@ -10,6 +10,7 @@ import type {
   TeamRosterResponse,
   TeamAnalytics,
   StandingsEntry,
+  BreakoutsResponse,
   PercentileResult,
   OnOffStats,
   ClutchStats,
@@ -27,6 +28,7 @@ import {
   getTeamRoster,
   getTeamAnalytics,
   getStandings,
+  getBreakouts,
   getPlayerPercentiles,
   getPlayerOnOff,
   getPlayerClutch,
@@ -135,6 +137,13 @@ export function usePlayerGameLogs(
   return useSWR<GameLogResponse>(
     playerId && season ? `game-logs-${playerId}-${season}-${seasonType}` : null,
     () => getPlayerGameLogs(playerId!, season!, seasonType)
+  );
+}
+
+export function useBreakouts(season: string | null, minGp = 20, limit = 25) {
+  return useSWR<BreakoutsResponse>(
+    season ? `breakouts-${season}-${minGp}-${limit}` : null,
+    () => getBreakouts(season!, minGp, limit)
   );
 }
 

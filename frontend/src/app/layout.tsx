@@ -48,6 +48,12 @@ export default function RootLayout({
                 Standings
               </Link>
               <Link
+                href="/insights"
+                className="text-sm text-gray-500 hover:text-blue-500 dark:text-gray-400 dark:hover:text-blue-400 transition-colors"
+              >
+                Insights
+              </Link>
+              <Link
                 href="/compare"
                 className="text-sm text-gray-500 hover:text-blue-500 dark:text-gray-400 dark:hover:text-blue-400 transition-colors"
               >
