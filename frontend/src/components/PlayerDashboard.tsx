@@ -60,7 +60,7 @@ export default function PlayerDashboard({ playerId }: PlayerDashboardProps) {
 
         {/* Career Arc */}
         <div className="lg:col-span-2">
-          <CareerArcChart seasons={careerStats.seasons} />
+          <CareerArcChart seasons={careerStats.seasons} birthDate={profile.birth_date} />
         </div>
       </div>
 
