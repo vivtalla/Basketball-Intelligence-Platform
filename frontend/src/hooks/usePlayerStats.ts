@@ -15,6 +15,8 @@ import type {
   PercentileResult,
   OnOffStats,
   PbpCoverage,
+  PbpCoverageDashboard,
+  PbpCoverageSeasonSummary,
   ClutchStats,
   LineupsResult,
   OnOffLeaderboardResult,
@@ -37,6 +39,8 @@ import {
   getPlayerPercentiles,
   getPlayerOnOff,
   getPlayerPbpCoverage,
+  getPbpCoverageDashboard,
+  getPbpCoverageSeasons,
   getPlayerClutch,
   getLineups,
   getOnOffLeaderboard,
@@ -97,6 +101,17 @@ export function usePlayerPbpCoverage(playerId: number | null, season: string | n
     playerId && season ? `pbp-coverage-${playerId}-${season}` : null,
     () => getPlayerPbpCoverage(playerId!, season!)
   );
+}
+
+export function usePbpCoverageDashboard(season: string | null) {
+  return useSWR<PbpCoverageDashboard>(
+    season ? `pbp-dashboard-${season}` : null,
+    () => getPbpCoverageDashboard(season!)
+  );
+}
+
+export function usePbpCoverageSeasons() {
+  return useSWR<PbpCoverageSeasonSummary[]>("pbp-dashboard-seasons", getPbpCoverageSeasons);
 }
 
 export function useLeaderboard(

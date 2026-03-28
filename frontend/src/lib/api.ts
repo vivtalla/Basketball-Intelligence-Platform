@@ -13,6 +13,8 @@ import type {
   PercentileResult,
   OnOffStats,
   PbpCoverage,
+  PbpCoverageDashboard,
+  PbpCoverageSeasonSummary,
   ClutchStats,
   LineupsResult,
   OnOffLeaderboardResult,
@@ -114,6 +116,18 @@ export async function getPlayerPbpCoverage(
   return fetchApi<PbpCoverage>(
     `/api/advanced/${playerId}/pbp-coverage?season=${encodeURIComponent(season)}`
   );
+}
+
+export async function getPbpCoverageDashboard(
+  season: string
+): Promise<PbpCoverageDashboard> {
+  return fetchApi<PbpCoverageDashboard>(
+    `/api/advanced/pbp-dashboard?season=${encodeURIComponent(season)}`
+  );
+}
+
+export async function getPbpCoverageSeasons(): Promise<PbpCoverageSeasonSummary[]> {
+  return fetchApi<PbpCoverageSeasonSummary[]>("/api/advanced/pbp-dashboard-seasons");
 }
 
 export async function getLineups(

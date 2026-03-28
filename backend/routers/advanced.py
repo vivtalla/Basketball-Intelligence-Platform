@@ -1,19 +1,229 @@
 """Advanced stats endpoints: on/off splits, clutch stats, lineup analysis."""
 
 from datetime import datetime
-from typing import Optional
+from typing import List, Optional
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from data.nba_client import get_player_game_ids
 from db.database import get_db
-from db.models import PlayerOnOff, SeasonStat, LineupStats, Player, GameLog, PlayByPlay
-from models.stats import PbpCoverage
+from db.models import PlayerOnOff, SeasonStat, LineupStats, Player, Team, GameLog, PlayByPlay
+from models.stats import (
+    PbpCoverage,
+    PbpCoverageDashboard,
+    PbpCoveragePlayerRow,
+    PbpCoverageSeasonSummary,
+    PbpCoverageTeamRow,
+)
 from services.pbp_sync_service import sync_pbp_for_player, sync_pbp_for_season
 from services.sync_service import sync_player_if_needed
 
 router = APIRouter()
+
+
+def _build_pbp_dashboard(db: Session, season: str) -> PbpCoverageDashboard:
+    """Assemble a league-wide snapshot of team/player play-by-play sync coverage."""
+    raw_season_rows = (
+        db.query(SeasonStat, Player, Team)
+        .join(Player, SeasonStat.player_id == Player.id)
+        .outerjoin(Team, Player.team_id == Team.id)
+        .filter(
+            SeasonStat.season == season,
+            SeasonStat.is_playoff == False,  # noqa: E712
+            Player.is_active == True,  # noqa: E712
+        )
+        .all()
+    )
+    season_rows_by_player: dict[int, tuple[SeasonStat, Player, Team | None]] = {}
+    for season_row, player, team in raw_season_rows:
+        current = season_rows_by_player.get(player.id)
+        if current is None:
+            season_rows_by_player[player.id] = (season_row, player, team)
+            continue
+
+        current_row = current[0]
+        preferred_team_abbr = team.abbreviation if team else None
+        current_matches_team = preferred_team_abbr and current_row.team_abbreviation == preferred_team_abbr
+        incoming_matches_team = preferred_team_abbr and season_row.team_abbreviation == preferred_team_abbr
+
+        if incoming_matches_team and not current_matches_team:
+            season_rows_by_player[player.id] = (season_row, player, team)
+        elif incoming_matches_team == current_matches_team:
+            current_gp = current_row.gp or 0
+            incoming_gp = season_row.gp or 0
+            if incoming_gp > current_gp:
+                season_rows_by_player[player.id] = (season_row, player, team)
+
+    season_rows = list(season_rows_by_player.values())
+
+    on_off_rows = {
+        row.player_id: row
+        for row in db.query(PlayerOnOff)
+        .filter(
+            PlayerOnOff.season == season,
+            PlayerOnOff.is_playoff == False,  # noqa: E712
+        )
+        .all()
+    }
+
+    synced_games_by_team = {
+        team_id: synced_games
+        for team_id, synced_games in (
+            db.query(GameLog.home_team_id.label("team_id"), func.count(func.distinct(PlayByPlay.game_id)))
+            .join(PlayByPlay, PlayByPlay.game_id == GameLog.game_id)
+            .filter(GameLog.season == season)
+            .group_by(GameLog.home_team_id)
+            .all()
+        )
+        if team_id is not None
+    }
+    away_synced_games = (
+        db.query(GameLog.away_team_id.label("team_id"), func.count(func.distinct(PlayByPlay.game_id)))
+        .join(PlayByPlay, PlayByPlay.game_id == GameLog.game_id)
+        .filter(GameLog.season == season)
+        .group_by(GameLog.away_team_id)
+        .all()
+    )
+    for team_id, synced_games in away_synced_games:
+        if team_id is not None:
+            synced_games_by_team[team_id] = max(synced_games_by_team.get(team_id, 0), synced_games)
+
+    eligible_games_by_team = {}
+    for team_id, eligible_games in (
+        db.query(GameLog.home_team_id.label("team_id"), func.count(GameLog.game_id))
+        .filter(GameLog.season == season)
+        .group_by(GameLog.home_team_id)
+        .all()
+    ):
+        if team_id is not None:
+            eligible_games_by_team[team_id] = eligible_games
+    for team_id, eligible_games in (
+        db.query(GameLog.away_team_id.label("team_id"), func.count(GameLog.game_id))
+        .filter(GameLog.season == season)
+        .group_by(GameLog.away_team_id)
+        .all()
+    ):
+        if team_id is not None:
+            eligible_games_by_team[team_id] = max(eligible_games_by_team.get(team_id, 0), eligible_games)
+
+    player_rows: list[PbpCoveragePlayerRow] = []
+    team_rollups: dict[int, dict] = {}
+
+    for season_row, player, team in season_rows:
+        team_id = team.id if team else None
+        team_name = team.name if team else "Unassigned"
+        team_abbr = team.abbreviation if team else season_row.team_abbreviation or "FA"
+        on_off_row = on_off_rows.get(player.id)
+        has_on_off = bool(on_off_row and on_off_row.on_off_net is not None)
+        has_scoring_splits = any(
+            value is not None
+            for value in [
+                season_row.clutch_pts,
+                season_row.clutch_fg_pct,
+                season_row.second_chance_pts,
+                season_row.fast_break_pts,
+            ]
+        )
+        eligible_games = season_row.gp or 0
+        synced_games = min(eligible_games, eligible_games_by_team.get(team.id if team else None, 0))
+
+        timestamps: list[datetime] = []
+        if on_off_row and on_off_row.updated_at:
+            timestamps.append(on_off_row.updated_at)
+        if season_row.updated_at and (has_on_off or has_scoring_splits):
+            timestamps.append(season_row.updated_at)
+
+        if synced_games == 0 and not has_on_off and not has_scoring_splits:
+            status = "none"
+        elif eligible_games > 0 and synced_games >= eligible_games and has_on_off and has_scoring_splits:
+            status = "ready"
+        else:
+            status = "partial"
+
+        player_rows.append(
+            PbpCoveragePlayerRow(
+                player_id=player.id,
+                player_name=player.full_name,
+                team_abbreviation=team_abbr,
+                season=season,
+                eligible_games=eligible_games,
+                synced_games=synced_games,
+                has_on_off=has_on_off,
+                has_scoring_splits=has_scoring_splits,
+                status=status,
+                last_derived_at=max(timestamps).isoformat() if timestamps else None,
+            )
+        )
+
+        if team_id is not None and team_id not in team_rollups:
+            team_rollups[team_id] = {
+                "team_id": team_id,
+                "abbreviation": team_abbr,
+                "name": team_name,
+                "season": season,
+                "player_count": 0,
+                "players_ready": 0,
+                "players_partial": 0,
+                "players_none": 0,
+                "eligible_games": eligible_games_by_team.get(team.id, 0),
+                "synced_games": synced_games_by_team.get(team.id, 0),
+            }
+
+        if team_id is not None:
+            rollup = team_rollups[team_id]
+            rollup["player_count"] += 1
+            if status == "ready":
+                rollup["players_ready"] += 1
+            elif status == "partial":
+                rollup["players_partial"] += 1
+            else:
+                rollup["players_none"] += 1
+
+    team_rows: list[PbpCoverageTeamRow] = []
+    for rollup in team_rollups.values():
+        if rollup["player_count"] == 0:
+            status = "none"
+        elif rollup["players_ready"] == rollup["player_count"]:
+            status = "ready"
+        elif rollup["players_ready"] > 0 or rollup["players_partial"] > 0 or rollup["synced_games"] > 0:
+            status = "partial"
+        else:
+            status = "none"
+
+        team_rows.append(
+            PbpCoverageTeamRow(
+                **rollup,
+                status=status,
+            )
+        )
+
+    team_rows.sort(key=lambda row: (row.status != "none", row.players_ready, row.synced_games), reverse=True)
+    player_rows.sort(
+        key=lambda row: (
+            row.status == "ready",
+            row.status == "partial",
+            row.synced_games,
+            row.player_name,
+        ),
+        reverse=True,
+    )
+
+    return PbpCoverageDashboard(
+        season=season,
+        total_teams=len(team_rows),
+        total_players=len(player_rows),
+        teams_ready=sum(1 for row in team_rows if row.status == "ready"),
+        teams_partial=sum(1 for row in team_rows if row.status == "partial"),
+        teams_none=sum(1 for row in team_rows if row.status == "none"),
+        players_ready=sum(1 for row in player_rows if row.status == "ready"),
+        players_partial=sum(1 for row in player_rows if row.status == "partial"),
+        players_none=sum(1 for row in player_rows if row.status == "none"),
+        eligible_games=sum(row.eligible_games for row in team_rows),
+        synced_games=sum(row.synced_games for row in team_rows),
+        teams=team_rows,
+        players=player_rows[:75],
+    )
 
 
 @router.post("/sync-season")
@@ -154,6 +364,42 @@ def get_pbp_coverage(player_id: int, season: str = "2024-25", db: Session = Depe
         status=status,
         last_derived_at=max(timestamps).isoformat() if timestamps else None,
     )
+
+
+@router.get("/pbp-dashboard", response_model=PbpCoverageDashboard)
+def get_pbp_dashboard(season: str = "2024-25", db: Session = Depends(get_db)):
+    return _build_pbp_dashboard(db, season)
+
+
+@router.get("/pbp-dashboard-seasons", response_model=List[PbpCoverageSeasonSummary])
+def get_pbp_dashboard_season_summaries(db: Session = Depends(get_db)):
+    seasons = [
+        season
+        for season, in db.query(SeasonStat.season)
+        .filter(SeasonStat.is_playoff == False)  # noqa: E712
+        .distinct()
+        .order_by(SeasonStat.season.desc())
+        .all()
+    ]
+    summaries = []
+    for season in seasons:
+        dashboard = _build_pbp_dashboard(db, season)
+        summaries.append(
+            PbpCoverageSeasonSummary(
+                season=dashboard.season,
+                total_teams=dashboard.total_teams,
+                total_players=dashboard.total_players,
+                teams_ready=dashboard.teams_ready,
+                teams_partial=dashboard.teams_partial,
+                teams_none=dashboard.teams_none,
+                players_ready=dashboard.players_ready,
+                players_partial=dashboard.players_partial,
+                players_none=dashboard.players_none,
+                eligible_games=dashboard.eligible_games,
+                synced_games=dashboard.synced_games,
+            )
+        )
+    return summaries
 
 
 @router.get("/lineups")

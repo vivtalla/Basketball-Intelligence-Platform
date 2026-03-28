@@ -72,6 +72,12 @@ export default function RootLayout({
                 Teams
               </Link>
               <Link
+                href="/coverage"
+                className="text-sm text-gray-500 hover:text-blue-500 dark:text-gray-400 dark:hover:text-blue-400 transition-colors"
+              >
+                Coverage
+              </Link>
+              <Link
                 href="/learn"
                 className="text-sm text-gray-500 hover:text-blue-500 dark:text-gray-400 dark:hover:text-blue-400 transition-colors"
               >

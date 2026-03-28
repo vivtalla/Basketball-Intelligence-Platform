@@ -196,6 +196,63 @@ export interface PbpCoverage {
   last_derived_at: string | null;
 }
 
+export interface PbpCoveragePlayerRow {
+  player_id: number;
+  player_name: string;
+  team_abbreviation: string | null;
+  season: string;
+  eligible_games: number;
+  synced_games: number;
+  has_on_off: boolean;
+  has_scoring_splits: boolean;
+  status: "none" | "partial" | "ready";
+  last_derived_at: string | null;
+}
+
+export interface PbpCoverageTeamRow {
+  team_id: number;
+  abbreviation: string;
+  name: string;
+  season: string;
+  player_count: number;
+  players_ready: number;
+  players_partial: number;
+  players_none: number;
+  eligible_games: number;
+  synced_games: number;
+  status: "none" | "partial" | "ready";
+}
+
+export interface PbpCoverageDashboard {
+  season: string;
+  total_teams: number;
+  total_players: number;
+  teams_ready: number;
+  teams_partial: number;
+  teams_none: number;
+  players_ready: number;
+  players_partial: number;
+  players_none: number;
+  eligible_games: number;
+  synced_games: number;
+  teams: PbpCoverageTeamRow[];
+  players: PbpCoveragePlayerRow[];
+}
+
+export interface PbpCoverageSeasonSummary {
+  season: string;
+  total_teams: number;
+  total_players: number;
+  teams_ready: number;
+  teams_partial: number;
+  teams_none: number;
+  players_ready: number;
+  players_partial: number;
+  players_none: number;
+  eligible_games: number;
+  synced_games: number;
+}
+
 export interface ClutchStats {
   player_id: number;
   season: string;
