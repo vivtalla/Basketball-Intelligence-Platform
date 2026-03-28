@@ -270,47 +270,6 @@ def compute_on_off(stints: list[Stint], team_player_ids: set[int]) -> dict[int, 
     return accum
 
 
-def finalize_on_off(accum: dict[int, PlayerOnOffAccumulator]) -> dict[int, dict]:
-    """Convert raw accumulators into per-100-possession ratings."""
-    results = {}
-    for pid, acc in accum.items():
-        def _net_rating(team_pts, opp_pts, poss):
-            if poss == 0:
-                return None
-            return round((team_pts - opp_pts) / poss * 100, 1)
-
-        def _ortg(team_pts, poss):
-            if poss == 0:
-                return None
-            return round(team_pts / poss * 100, 1)
-
-        def _drtg(opp_pts, poss):
-            if poss == 0:
-                return None
-            return round(opp_pts / poss * 100, 1)
-
-        on_net = _net_rating(acc.on_team_pts, acc.on_opp_pts, acc.on_possessions)
-        off_net = _net_rating(acc.off_team_pts, acc.off_opp_pts, acc.off_possessions)
-        on_off = round(on_net - off_net, 1) if on_net is not None and off_net is not None else None
-
-        # Approximate minutes: NBA averages ~97 possessions/48 min ≈ 2 poss/min
-        on_min = round(acc.on_possessions / 2.0, 1)
-        off_min = round(acc.off_possessions / 2.0, 1)
-
-        results[pid] = {
-            "on_minutes": on_min,
-            "off_minutes": off_min,
-            "on_net_rating": on_net,
-            "off_net_rating": off_net,
-            "on_off_net": on_off,
-            "on_ortg": _ortg(acc.on_team_pts, acc.on_possessions),
-            "on_drtg": _drtg(acc.on_opp_pts, acc.on_possessions),
-            "off_ortg": _ortg(acc.off_team_pts, acc.off_possessions),
-            "off_drtg": _drtg(acc.off_opp_pts, acc.off_possessions),
-        }
-    return results
-
-
 # ---------------------------------------------------------------------------
 # Clutch stats
 # ---------------------------------------------------------------------------

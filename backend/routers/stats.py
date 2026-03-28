@@ -105,6 +105,7 @@ def _stat_to_dict(stat: SeasonStat) -> dict:
         "ast_tov": stat.ast_tov,
         "oreb_pct": stat.oreb_pct,
         "clutch_pts": stat.clutch_pts,
+        "clutch_fga": stat.clutch_fga,
         "clutch_fg_pct": stat.clutch_fg_pct,
         "clutch_plus_minus": stat.clutch_plus_minus,
         "second_chance_pts": stat.second_chance_pts,
@@ -216,6 +217,7 @@ def _compute_career_totals(seasons: list) -> dict:
     totals["ast_tov"] = None
     totals["oreb_pct"] = None
     totals["clutch_pts"] = None
+    totals["clutch_fga"] = None
     totals["clutch_fg_pct"] = None
     totals["clutch_plus_minus"] = None
     totals["second_chance_pts"] = None

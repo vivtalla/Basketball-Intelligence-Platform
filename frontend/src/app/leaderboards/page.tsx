@@ -375,6 +375,18 @@ export default function LeaderboardsPage() {
               </tr>
             </thead>
             <tbody>
+              {isLoading &&
+                Array.from({ length: 10 }).map((_, i) => (
+                  <tr key={i} className="border-b border-gray-100 dark:border-gray-700/50 animate-pulse">
+                    <td className="px-4 py-3"><div className="h-4 w-4 bg-gray-200 dark:bg-gray-700 rounded" /></td>
+                    <td className="px-4 py-3"><div className="h-4 w-40 bg-gray-200 dark:bg-gray-700 rounded" /></td>
+                    <td className="px-4 py-3 hidden sm:table-cell"><div className="h-4 w-16 bg-gray-200 dark:bg-gray-700 rounded ml-auto" /></td>
+                    <td className="px-4 py-3 hidden sm:table-cell"><div className="h-4 w-12 bg-gray-200 dark:bg-gray-700 rounded ml-auto" /></td>
+                    <td className="px-4 py-3 hidden sm:table-cell"><div className="h-4 w-12 bg-gray-200 dark:bg-gray-700 rounded ml-auto" /></td>
+                    <td className="px-4 py-3"><div className="h-4 w-12 bg-gray-200 dark:bg-gray-700 rounded ml-auto" /></td>
+                  </tr>
+                ))}
+
               {!isLoading && onOffBoard.data?.players.length === 0 && (
                 <tr>
                   <td colSpan={6} className="text-center py-12 text-gray-400 dark:text-gray-500 text-sm">
@@ -418,6 +430,21 @@ export default function LeaderboardsPage() {
               </tr>
             </thead>
             <tbody>
+              {isLoading &&
+                Array.from({ length: 10 }).map((_, i) => (
+                  <tr key={i} className="border-b border-gray-100 dark:border-gray-700/50 animate-pulse">
+                    <td className="px-4 py-3"><div className="h-4 w-4 bg-gray-200 dark:bg-gray-700 rounded" /></td>
+                    <td className="px-4 py-3">
+                      <div className="h-4 w-64 bg-gray-200 dark:bg-gray-700 rounded mb-1.5" />
+                      <div className="h-3 w-24 bg-gray-200 dark:bg-gray-700 rounded" />
+                    </td>
+                    <td className="px-4 py-3 hidden sm:table-cell"><div className="h-4 w-10 bg-gray-200 dark:bg-gray-700 rounded ml-auto" /></td>
+                    <td className="px-4 py-3 hidden sm:table-cell"><div className="h-4 w-10 bg-gray-200 dark:bg-gray-700 rounded ml-auto" /></td>
+                    <td className="px-4 py-3 hidden sm:table-cell"><div className="h-4 w-10 bg-gray-200 dark:bg-gray-700 rounded ml-auto" /></td>
+                    <td className="px-4 py-3"><div className="h-4 w-12 bg-gray-200 dark:bg-gray-700 rounded ml-auto" /></td>
+                  </tr>
+                ))}
+
               {!isLoading && lineupsBoard.data?.lineups.length === 0 && (
                 <tr>
                   <td colSpan={6} className="text-center py-12 text-gray-400 dark:text-gray-500 text-sm">

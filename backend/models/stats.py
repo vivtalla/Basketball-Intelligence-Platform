@@ -65,6 +65,7 @@ class SeasonStats(BaseModel):
     oreb_pct: Optional[float] = None # Offensive Rebound %
     # Play-by-play derived stats
     clutch_pts: Optional[float] = None
+    clutch_fga: Optional[int] = None
     clutch_fg_pct: Optional[float] = None
     clutch_plus_minus: Optional[float] = None
     second_chance_pts: Optional[float] = None
@@ -72,6 +73,17 @@ class SeasonStats(BaseModel):
     # Normalized rate stats (keyed by counting stat name)
     per36: Optional[Dict[str, float]] = None
     per100: Optional[Dict[str, float]] = None
+
+
+class ClutchStats(BaseModel):
+    player_id: int
+    season: str
+    clutch_pts: Optional[float] = None
+    clutch_fga: Optional[int] = None
+    clutch_fg_pct: Optional[float] = None
+    clutch_plus_minus: Optional[float] = None
+    second_chance_pts: Optional[float] = None
+    fast_break_pts: Optional[float] = None
 
 
 class OnOffStats(BaseModel):

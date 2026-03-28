@@ -70,6 +70,7 @@ def get_clutch(player_id: int, season: str = "2024-25", db: Session = Depends(ge
         "player_id": player_id,
         "season": season,
         "clutch_pts": row.clutch_pts,
+        "clutch_fga": row.clutch_fga,
         "clutch_fg_pct": row.clutch_fg_pct,
         "clutch_plus_minus": row.clutch_plus_minus,
         "second_chance_pts": row.second_chance_pts,

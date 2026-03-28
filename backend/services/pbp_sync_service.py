@@ -29,6 +29,7 @@ MAX_RETRIES = 3
 
 PBP_SEASON_FIELDS = [
     "clutch_pts",
+    "clutch_fga",
     "clutch_fg_pct",
     "clutch_plus_minus",
     "second_chance_pts",
@@ -473,6 +474,7 @@ def _sync_games(
                 player_id,
                 {
                     "clutch_pts": stats.get("clutch_pts"),
+                    "clutch_fga": fga if fga > 0 else None,
                     "clutch_fg_pct": round(fgm / fga, 3) if fga > 0 else None,
                 },
             )

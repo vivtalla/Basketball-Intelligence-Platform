@@ -127,6 +127,7 @@ class SeasonStat(Base):
 
     # Play-by-play derived stats (populated by pbp_import.py)
     clutch_pts = Column(Float)
+    clutch_fga = Column(Integer)          # clutch field goal attempts (sample size)
     clutch_fg_pct = Column(Float)
     clutch_plus_minus = Column(Float)
     second_chance_pts = Column(Float)

@@ -83,6 +83,7 @@ export interface SeasonStats {
   ast_tov: number | null;
   oreb_pct: number | null;
   clutch_pts: number | null;
+  clutch_fga: number | null;
   clutch_fg_pct: number | null;
   clutch_plus_minus: number | null;
   second_chance_pts: number | null;
@@ -188,6 +189,7 @@ export interface ClutchStats {
   player_id: number;
   season: string;
   clutch_pts: number | null;
+  clutch_fga: number | null;
   clutch_fg_pct: number | null;
   clutch_plus_minus: number | null;
   second_chance_pts: number | null;

@@ -46,6 +46,7 @@ def apply_schema_updates():
     ensure_column_exists(engine, "season_stats", "oreb_pct", "DOUBLE PRECISION")
     # Play-by-play derived columns
     ensure_column_exists(engine, "season_stats", "clutch_pts", "DOUBLE PRECISION")
+    ensure_column_exists(engine, "season_stats", "clutch_fga", "INTEGER")
     ensure_column_exists(engine, "season_stats", "clutch_fg_pct", "DOUBLE PRECISION")
     ensure_column_exists(engine, "season_stats", "clutch_plus_minus", "DOUBLE PRECISION")
     ensure_column_exists(engine, "season_stats", "second_chance_pts", "DOUBLE PRECISION")
