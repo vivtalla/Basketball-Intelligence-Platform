@@ -310,7 +310,8 @@ def _upsert_lineup(db: Session, lineup_key: str, season: str, team_id: int | Non
     row.ortg = ortg
     row.drtg = drtg
     row.net_rating = round(ortg - drtg, 1) if ortg is not None and drtg is not None else None
-    row.minutes = round(possessions / 2.0, 1) if possessions else None
+    seconds = getattr(acc, "seconds", 0.0)
+    row.minutes = round(seconds / 60.0, 1) if seconds > 0 else (round(possessions / 2.0, 1) if possessions else None)
 
 
 def _team_player_map(box_score: dict) -> dict[int, set[int]]:
@@ -425,6 +426,7 @@ def _sync_games(
                             existing.possessions += acc.possessions
                             existing.team_pts += acc.team_pts
                             existing.opp_pts += acc.opp_pts
+                            existing.seconds += acc.seconds
 
                 if stints:
                     for team_id in [home_team_id, away_team_id]:
@@ -446,6 +448,8 @@ def _sync_games(
                                     "on_opp_pts": acc.on_opp_pts,
                                     "off_team_pts": acc.off_team_pts,
                                     "off_opp_pts": acc.off_opp_pts,
+                                    "on_seconds": acc.on_seconds,
+                                    "off_seconds": acc.off_seconds,
                                 }
                             else:
                                 existing["on_possessions"] += acc.on_possessions
@@ -454,6 +458,8 @@ def _sync_games(
                                 existing["on_opp_pts"] += acc.on_opp_pts
                                 existing["off_team_pts"] += acc.off_team_pts
                                 existing["off_opp_pts"] += acc.off_opp_pts
+                                existing["on_seconds"] += acc.on_seconds
+                                existing["off_seconds"] += acc.off_seconds
 
                 games_processed += 1
             except Exception:
@@ -503,13 +509,15 @@ def _sync_games(
             on_net = _net(acc["on_team_pts"], acc["on_opp_pts"], on_poss)
             off_net = _net(acc["off_team_pts"], acc["off_opp_pts"], off_poss)
 
+            on_secs = acc.get("on_seconds", 0.0)
+            off_secs = acc.get("off_seconds", 0.0)
             _upsert_on_off(
                 db,
                 player_id,
                 season,
                 {
-                    "on_minutes": round(on_poss / 2.0, 1),
-                    "off_minutes": round(off_poss / 2.0, 1),
+                    "on_minutes": round(on_secs / 60.0, 1) if on_secs > 0 else round(on_poss / 2.0, 1),
+                    "off_minutes": round(off_secs / 60.0, 1) if off_secs > 0 else round(off_poss / 2.0, 1),
                     "on_net_rating": on_net,
                     "off_net_rating": off_net,
                     "on_off_net": round(on_net - off_net, 1)
