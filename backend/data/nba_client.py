@@ -29,6 +29,7 @@ from data.cache import CacheManager
 _last_request_time = 0.0
 NBA_LIVE_BASE_URL = "https://cdn.nba.com/static/json/liveData"
 NBA_STATIC_BASE_URL = "https://cdn.nba.com/static/json/staticData"
+NBA_MOBILE_BASE_URL = "https://data.nba.com/data/10s/v2015/json/mobile_teams/nba"
 CURRENT_SEASON_CACHE_TTL = 6 * 3600
 HISTORICAL_SEASON_CACHE_TTL = 30 * 24 * 3600
 NBA_LIVE_HEADERS = {
@@ -142,6 +143,33 @@ def _current_team_schedule_game_ids(
 
             seen.add(game_id)
             ids.append(game_id)
+    return ids
+
+
+def _historical_schedule_game_ids(season: str, timeout: int = NBA_API_TIMEOUT) -> list[str]:
+    """Return regular-season game IDs for a historical season from data.nba.com mobile feed.
+
+    Uses data.nba.com/data/10s/v2015/json/mobile_teams/nba/{year}/league/00_full_schedule.json
+    which is available for all seasons and does not hit stats.nba.com.
+    """
+    year = season.split("-")[0]  # "2023-24" -> "2023"
+    url = f"{NBA_MOBILE_BASE_URL}/{year}/league/00_full_schedule.json"
+    request = Request(url, headers=NBA_LIVE_HEADERS)
+    try:
+        with urlopen(request, timeout=timeout) as response:
+            payload = json.load(response)
+    except Exception as exc:
+        raise RuntimeError(f"Historical schedule fetch failed for {season}: {exc}") from exc
+
+    ids: list[str] = []
+    seen: set[str] = set()
+    for month in payload.get("lscd", []):
+        for game in month.get("mscd", {}).get("g", []):
+            game_id = str(game.get("gid") or "")
+            # Regular season game IDs start with "002"
+            if game_id and game_id not in seen and game_id.startswith("002"):
+                seen.add(game_id)
+                ids.append(game_id)
     return ids
 
 
@@ -448,6 +476,20 @@ def get_season_game_ids(season: str, timeout: int = NBA_API_TIMEOUT) -> list[str
                 _cache_ttl_for_season(season),
             )
             return current_ids
+    except Exception:
+        pass
+
+    # Try data.nba.com mobile schedule (works for all historical seasons, no IP blocking)
+    _rate_limit()
+    try:
+        hist_ids = _historical_schedule_game_ids(season, timeout=timeout)
+        if hist_ids:
+            CacheManager.set(
+                cache_key,
+                {"ids": hist_ids, "source": "mobile_schedule"},
+                _cache_ttl_for_season(season),
+            )
+            return hist_ids
     except Exception:
         pass
 
