@@ -1,32 +1,28 @@
 import PlayerSearchBar from "@/components/PlayerSearchBar";
-import Image from "next/image";
+import HomeLeagueLeaders from "@/components/HomeLeagueLeaders";
 import Link from "next/link";
 
-const featuredPlayers = [
-  { id: 2544, name: "LeBron James", team: "LAL" },
-  { id: 201939, name: "Stephen Curry", team: "GSW" },
-  { id: 203999, name: "Nikola Jokic", team: "DEN" },
-  { id: 1629029, name: "Luka Doncic", team: "DAL" },
-  { id: 203507, name: "Giannis Antetokounmpo", team: "MIL" },
-  { id: 1628369, name: "Jayson Tatum", team: "BOS" },
-  { id: 203954, name: "Joel Embiid", team: "PHI" },
-  { id: 1629627, name: "Zion Williamson", team: "NOP" },
-];
-
 const platformAreas = [
+  {
+    href: "/standings",
+    eyebrow: "League Context",
+    title: "Check the standings",
+    description:
+      "Conference standings with W-L records, last 10, home/away splits, and scoring differential.",
+  },
   {
     href: "/leaderboards",
     eyebrow: "Find Leaders",
     title: "Scan the league",
     description:
-      "Jump into advanced, external, and play-by-play-informed leaderboards.",
+      "Advanced, external, and play-by-play-informed leaderboards across every key stat.",
   },
   {
     href: "/teams",
     eyebrow: "Explore Context",
     title: "Browse team intelligence",
     description:
-      "View synced rosters, identify team leaders, and branch into player dashboards.",
+      "Team efficiency ratings, four factors, roster leaders, and player dashboards.",
   },
   {
     href: "/compare",
@@ -60,7 +56,8 @@ export default function HomePage() {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+      {/* Platform areas */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         {platformAreas.map((area) => (
           <Link
             key={area.href}
@@ -70,7 +67,7 @@ export default function HomePage() {
             <p className="text-xs font-semibold uppercase tracking-[0.2em] text-blue-500">
               {area.eyebrow}
             </p>
-            <h2 className="mt-3 text-2xl font-semibold text-gray-900 dark:text-gray-100">
+            <h2 className="mt-3 text-xl font-semibold text-gray-900 dark:text-gray-100">
               {area.title}
             </h2>
             <p className="mt-3 text-sm leading-6 text-gray-500 dark:text-gray-400">
@@ -83,43 +80,8 @@ export default function HomePage() {
         ))}
       </div>
 
-      {/* Featured Players */}
-      <div>
-        <div className="mb-4 flex items-end justify-between gap-4">
-          <div>
-            <h2 className="text-xl font-semibold">Featured Players</h2>
-            <p className="text-sm text-gray-500 dark:text-gray-400">
-              Quick-entry stars for demos, comparisons, and play-by-play deep dives.
-            </p>
-          </div>
-          <Link
-            href="/teams"
-            className="text-sm text-blue-500 hover:text-blue-600 transition-colors"
-          >
-            Browse teams →
-          </Link>
-        </div>
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
-          {featuredPlayers.map((player) => (
-            <Link
-              key={player.id}
-              href={`/players/${player.id}`}
-              className="group bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-4 hover:border-blue-400 hover:shadow-md transition-all"
-            >
-              <div className="relative w-full aspect-square rounded-lg overflow-hidden bg-gray-100 dark:bg-gray-700 mb-3">
-                <Image
-                  src={`https://cdn.nba.com/headshots/nba/latest/1040x760/${player.id}.png`}
-                  alt={player.name}
-                  fill
-                  className="object-cover group-hover:scale-105 transition-transform"
-                />
-              </div>
-              <p className="font-semibold text-sm">{player.name}</p>
-              <p className="text-xs text-gray-500">{player.team}</p>
-            </Link>
-          ))}
-        </div>
-      </div>
+      {/* Live league leaders */}
+      <HomeLeagueLeaders />
     </div>
   );
 }

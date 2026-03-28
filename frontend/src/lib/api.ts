@@ -7,6 +7,7 @@ import type {
   TeamSummary,
   TeamRosterResponse,
   TeamAnalytics,
+  StandingsEntry,
   PercentileResult,
   OnOffStats,
   ClutchStats,
@@ -170,6 +171,12 @@ export async function getPlayerGameLogs(
 ): Promise<GameLogResponse> {
   return fetchApi<GameLogResponse>(
     `/api/gamelogs/${playerId}?season=${encodeURIComponent(season)}&season_type=${encodeURIComponent(seasonType)}`
+  );
+}
+
+export async function getStandings(season: string): Promise<StandingsEntry[]> {
+  return fetchApi<StandingsEntry[]>(
+    `/api/standings?season=${encodeURIComponent(season)}`
   );
 }
 

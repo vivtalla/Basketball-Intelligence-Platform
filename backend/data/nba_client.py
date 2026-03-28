@@ -14,6 +14,7 @@ from nba_api.stats.endpoints import (
     leaguedashplayerstats,
     leaguedashteamstats,
     leaguegamelog,
+    leaguestandings,
     playergamelog,
     playbyplayv3,
     playercareerstats,
@@ -645,6 +646,53 @@ def get_team_stats(season: str) -> dict[str, dict]:
             "oreb_pct_rank": int(adv["OREB_PCT_RANK"]) if adv.get("OREB_PCT_RANK") is not None else None,
             "tov_pct_rank": int(adv["TM_TOV_PCT_RANK"]) if adv.get("TM_TOV_PCT_RANK") is not None else None,
         }
+    return result
+
+
+def get_standings_data(season: str) -> list[dict]:
+    """Fetch league standings for a season.
+
+    Returns one dict per team with keys: team_id, team_city, team_name,
+    conference, division, playoff_rank, wins, losses, win_pct, games_back,
+    l10, home_record, road_record, pts_pg, opp_pts_pg, diff_pts_pg,
+    current_streak, clinch_indicator.
+    """
+    _rate_limit()
+    standings = leaguestandings.LeagueStandings(
+        season=season,
+        timeout=NBA_API_TIMEOUT,
+    )
+    data = standings.get_normalized_dict()
+    rows = data.get("Standings", [])
+
+    def _sf(val) -> Optional[float]:
+        try:
+            return float(val) if val is not None else None
+        except (ValueError, TypeError):
+            return None
+
+    result = []
+    for row in rows:
+        result.append({
+            "team_id": int(row.get("TeamID") or 0),
+            "team_city": str(row.get("TeamCity") or ""),
+            "team_name": str(row.get("TeamName") or ""),
+            "conference": str(row.get("Conference") or ""),
+            "division": str(row.get("Division") or ""),
+            "playoff_rank": int(row.get("PlayoffRank") or 0),
+            "wins": int(row.get("WINS") or 0),
+            "losses": int(row.get("LOSSES") or 0),
+            "win_pct": _sf(row.get("WinPCT")) or 0.0,
+            "games_back": _sf(row.get("ConferenceGamesBack")),
+            "l10": str(row.get("L10") or ""),
+            "home_record": str(row.get("Home") or ""),
+            "road_record": str(row.get("Road") or ""),
+            "pts_pg": _sf(row.get("PointsPG")),
+            "opp_pts_pg": _sf(row.get("OppPointsPG")),
+            "diff_pts_pg": _sf(row.get("DiffPointsPG")),
+            "current_streak": str(row.get("strCurrentStreak") or ""),
+            "clinch_indicator": str(row.get("ClinchIndicator") or "").strip() or None,
+        })
     return result
 
 

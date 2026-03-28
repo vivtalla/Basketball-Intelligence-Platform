@@ -42,6 +42,12 @@ export default function RootLayout({
             <NavSearch />
             <div className="flex items-center gap-5">
               <Link
+                href="/standings"
+                className="text-sm text-gray-500 hover:text-blue-500 dark:text-gray-400 dark:hover:text-blue-400 transition-colors"
+              >
+                Standings
+              </Link>
+              <Link
                 href="/compare"
                 className="text-sm text-gray-500 hover:text-blue-500 dark:text-gray-400 dark:hover:text-blue-400 transition-colors"
               >

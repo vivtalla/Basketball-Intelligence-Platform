@@ -305,6 +305,28 @@ export interface SimilarityResponse {
   comps: SimilarPlayerComp[];
 }
 
+export interface StandingsEntry {
+  team_id: number;
+  abbreviation: string;
+  team_city: string;
+  team_name: string;
+  conference: string;
+  division: string;
+  playoff_rank: number;
+  wins: number;
+  losses: number;
+  win_pct: number;
+  games_back: number | null;
+  l10: string;
+  home_record: string;
+  road_record: string;
+  pts_pg: number | null;
+  opp_pts_pg: number | null;
+  diff_pts_pg: number | null;
+  current_streak: string;
+  clinch_indicator: string | null;
+}
+
 export interface TeamAnalytics {
   team_id: number;
   abbreviation: string;
