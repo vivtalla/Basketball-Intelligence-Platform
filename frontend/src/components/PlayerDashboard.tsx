@@ -10,6 +10,7 @@ import ShotChart from "./ShotChart";
 import PlayerPbpInsights from "./PlayerPbpInsights";
 import GameLogTable from "./GameLogTable";
 import PlayerSimilarity from "./PlayerSimilarity";
+import SeasonSplits from "./SeasonSplits";
 
 interface PlayerDashboardProps {
   playerId: number;
@@ -116,6 +117,11 @@ export default function PlayerDashboard({ playerId }: PlayerDashboardProps) {
       )}
 
       <PlayerSimilarity playerId={playerId} season={currentSeason?.season ?? null} />
+
+      {/* Season splits — regular season only, needs game log data */}
+      {!isPlayoffs && (
+        <SeasonSplits playerId={playerId} season={currentSeason?.season ?? null} />
+      )}
 
       {/* Game Log has its own internal RS/Playoffs toggle */}
       <GameLogTable playerId={playerId} season={currentSeason?.season ?? null} />
