@@ -73,6 +73,22 @@ export interface SeasonStats {
   darko: number | null;
   epm: number | null;
   rapm: number | null;
+  lebron: number | null;
+  raptor: number | null;
+  pipm: number | null;
+  obpm: number | null;
+  dbpm: number | null;
+  ftr: number | null;
+  par3: number | null;
+  ast_tov: number | null;
+  oreb_pct: number | null;
+  clutch_pts: number | null;
+  clutch_fg_pct: number | null;
+  clutch_plus_minus: number | null;
+  second_chance_pts: number | null;
+  fast_break_pts: number | null;
+  per36: Record<string, number> | null;
+  per100: Record<string, number> | null;
 }
 
 export interface CareerStatsResponse {
@@ -133,6 +149,11 @@ export interface LeaderboardResponse {
   entries: LeaderboardEntry[];
 }
 
+export interface PercentileResult {
+  season: string;
+  percentiles: Record<string, number | null>;
+}
+
 export interface ShotChartResponse {
   player_id: number;
   season: string;
@@ -140,4 +161,73 @@ export interface ShotChartResponse {
   shots: ShotChartShot[];
   made: number;
   attempted: number;
+}
+
+export interface OnOffStats {
+  player_id: number;
+  season: string;
+  on_minutes: number | null;
+  off_minutes: number | null;
+  on_net_rating: number | null;
+  off_net_rating: number | null;
+  on_off_net: number | null;
+  on_ortg: number | null;
+  on_drtg: number | null;
+  off_ortg: number | null;
+  off_drtg: number | null;
+}
+
+export interface ClutchStats {
+  player_id: number;
+  season: string;
+  clutch_pts: number | null;
+  clutch_fg_pct: number | null;
+  clutch_plus_minus: number | null;
+  second_chance_pts: number | null;
+  fast_break_pts: number | null;
+}
+
+export interface LineupStatsResponse {
+  lineup_key: string;
+  player_ids: number[];
+  player_names: string[];
+  season: string;
+  team_id: number | null;
+  minutes: number | null;
+  net_rating: number | null;
+  ortg: number | null;
+  drtg: number | null;
+  plus_minus: number | null;
+  possessions: number | null;
+}
+
+export interface LineupsResult {
+  season: string;
+  lineups: LineupStatsResponse[];
+}
+
+export interface OnOffLeaderboardEntry {
+  player_id: number;
+  player_name: string;
+  on_minutes: number | null;
+  on_net_rating: number | null;
+  off_net_rating: number | null;
+  on_off_net: number | null;
+}
+
+export interface OnOffLeaderboardResult {
+  season: string;
+  players: OnOffLeaderboardEntry[];
+}
+
+export interface PbpSyncResult {
+  status: string;
+  season: string;
+  games_requested: number;
+  games_processed: number;
+  games_fetched: number;
+  games_reused: number;
+  games_failed: number;
+  players_updated: number;
+  lineups_updated: number;
 }

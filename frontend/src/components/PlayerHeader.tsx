@@ -1,15 +1,43 @@
 import type { PlayerProfile, SeasonStats } from "@/lib/types";
 import StatCard from "./StatCard";
+import { usePlayerPercentiles } from "@/hooks/usePlayerStats";
 
 interface PlayerHeaderProps {
   profile: PlayerProfile;
   currentSeason?: SeasonStats | null;
 }
 
+const PERCENTILE_LABELS: Record<string, string> = {
+  pts_pg: "PPG",
+  reb_pg: "RPG",
+  ast_pg: "APG",
+  ts_pct: "TS%",
+  per: "PER",
+  bpm: "BPM",
+};
+
+function pctColor(pct: number): string {
+  if (pct >= 90) return "bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300";
+  if (pct >= 75) return "bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300";
+  if (pct >= 50) return "bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300";
+  return "bg-red-50 text-red-500 dark:bg-red-900/20 dark:text-red-400";
+}
+
+function ordinal(n: number): string {
+  if (n >= 11 && n <= 13) return `${n}th`;
+  const s = ["th", "st", "nd", "rd"];
+  return `${n}${s[n % 10] ?? "th"}`;
+}
+
 export default function PlayerHeader({
   profile,
   currentSeason,
 }: PlayerHeaderProps) {
+  const { data: pctData } = usePlayerPercentiles(
+    profile.id,
+    currentSeason?.season ?? null
+  );
+
   const draftInfo =
     profile.draft_year && profile.draft_year !== "Undrafted"
       ? `${profile.draft_year} Round ${profile.draft_round}, Pick ${profile.draft_number}`
@@ -52,6 +80,26 @@ export default function PlayerHeader({
               </span>
             )}
           </div>
+
+          {/* Percentile badges */}
+          {pctData && (
+            <div className="flex flex-wrap gap-1.5 mb-4">
+              {Object.entries(PERCENTILE_LABELS).map(([stat, label]) => {
+                const pct = pctData.percentiles[stat];
+                if (pct == null) return null;
+                return (
+                  <span
+                    key={stat}
+                    title={`${label}: ${ordinal(pct)} percentile vs players in ${pctData.season}`}
+                    className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium ${pctColor(pct)}`}
+                  >
+                    {label}
+                    <span className="font-semibold">{ordinal(pct)}</span>
+                  </span>
+                );
+              })}
+            </div>
+          )}
 
           <div className="grid grid-cols-2 md:grid-cols-4 gap-x-6 gap-y-2 text-sm text-gray-600 dark:text-gray-400">
             <div>

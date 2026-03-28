@@ -2,19 +2,32 @@ from __future__ import annotations
 
 import time
 from typing import Optional
+import unicodedata
 
 import pandas as pd
 from nba_api.stats.endpoints import (
+    boxscoretraditionalv2,
     commonplayerinfo,
     leaguedashplayerstats,
+    leaguegamelog,
+    playergamelog,
+    playbyplayv3,
     playercareerstats,
     shotchartdetail,
 )
+from nba_api.live.nba.endpoints import boxscore as live_boxscore
 from nba_api.stats.static import players as static_players
 
 from config import NBA_API_DELAY, NBA_API_TIMEOUT
 
 _last_request_time = 0.0
+
+
+def _canonical_name(name: str) -> str:
+    if not name:
+        return ""
+    normalized = unicodedata.normalize("NFKD", name).encode("ascii", "ignore").decode("ascii")
+    return " ".join(normalized.lower().replace(".", "").split())
 
 
 def _rate_limit():
@@ -112,6 +125,217 @@ def get_player_advanced_stats_from_league(
         if player.get("PLAYER_ID") == player_id:
             return player
     return None
+
+
+def get_season_game_ids(season: str, timeout: int = NBA_API_TIMEOUT) -> list[str]:
+    """Return all regular-season game IDs for a given season (e.g. '2023-24')."""
+    _rate_limit()
+    log = leaguegamelog.LeagueGameLog(
+        season=season,
+        player_or_team_abbreviation="T",
+        timeout=timeout,
+    )
+    data = log.get_normalized_dict()
+    rows = data.get("LeagueGameLog", [])
+    # Each team has its own row per game — deduplicate by game_id
+    seen: set[str] = set()
+    ids: list[str] = []
+    for row in rows:
+        gid = str(row.get("GAME_ID", ""))
+        if gid and gid not in seen:
+            seen.add(gid)
+            ids.append(gid)
+    return ids
+
+
+def get_player_game_ids(
+    player_id: int,
+    season: str,
+    timeout: int = NBA_API_TIMEOUT,
+) -> list[str]:
+    """Return regular-season game IDs for a player in a given season."""
+    _rate_limit()
+    log = playergamelog.PlayerGameLog(
+        player_id=player_id,
+        season=season,
+        season_type_all_star="Regular Season",
+        timeout=timeout,
+    )
+    data = log.get_normalized_dict()
+    rows = data.get("PlayerGameLog", [])
+    ids: list[str] = []
+    for row in rows:
+        gid = str(row.get("Game_ID", ""))
+        if gid:
+            ids.append(gid)
+    return ids
+
+
+def get_play_by_play(game_id: str, timeout: int = NBA_API_TIMEOUT) -> list[dict]:
+    """Fetch all play-by-play events for a game using PlayByPlayV3."""
+    _rate_limit()
+    pbp = playbyplayv3.PlayByPlayV3(
+        game_id=game_id,
+        start_period=0,
+        end_period=0,
+        timeout=timeout,
+    )
+    frames = pbp.get_data_frames()
+    if frames and not frames[0].empty:
+        rows = frames[0].to_dict(orient="records")
+        normalized_rows: list[dict] = []
+        last_miss_team_id: Optional[int] = None
+
+        for row in rows:
+            raw_action = str(row.get("actionType") or "")
+            raw_sub_type = str(row.get("subType") or "")
+            description = str(row.get("description") or "")
+            shot_value = int(row.get("shotValue") or 0)
+
+            team_id = row.get("teamId") or None
+            person_id = row.get("personId") or None
+            if team_id == 0:
+                team_id = None
+            if person_id == 0:
+                person_id = None
+
+            action_type = raw_action.lower()
+            sub_type = raw_sub_type.lower()
+
+            if raw_action in {"Made Shot", "Missed Shot"}:
+                action_type = "3pt" if shot_value == 3 else "2pt"
+                sub_type = "made" if raw_action == "Made Shot" else "missed"
+                last_miss_team_id = team_id if sub_type == "missed" else None
+            elif raw_action == "Free Throw":
+                action_type = "freethrow"
+                sub_type = "missed" if description.upper().startswith("MISS ") else "made"
+                last_miss_team_id = team_id if sub_type == "missed" else None
+            elif raw_action == "Turnover":
+                action_type = "turnover"
+                last_miss_team_id = None
+            elif raw_action == "Rebound":
+                action_type = "rebound"
+                rebound_team_id = team_id or person_id
+                team_id = rebound_team_id
+                if rebound_team_id and last_miss_team_id:
+                    sub_type = "offensive" if rebound_team_id == last_miss_team_id else "defensive"
+                else:
+                    sub_type = "unknown"
+                last_miss_team_id = None
+            elif raw_action == "Substitution":
+                action_type = "substitution"
+                sub_type = ""
+                last_miss_team_id = None
+            elif raw_action == "period":
+                action_type = "period"
+                last_miss_team_id = None
+
+            normalized_rows.append(
+                {
+                    "gameId": row.get("gameId"),
+                    "actionNumber": row.get("actionNumber"),
+                    "actionId": row.get("actionId"),
+                    "clock": row.get("clock"),
+                    "period": row.get("period"),
+                    "teamId": team_id,
+                    "personId": person_id,
+                    "description": description,
+                    "actionType": action_type,
+                    "subType": sub_type,
+                    "scoreHome": row.get("scoreHome"),
+                    "scoreAway": row.get("scoreAway"),
+                    "playerName": row.get("playerName"),
+                    "incomingPlayerName": _canonical_name(description.split("SUB:", 1)[1].split(" FOR ", 1)[0].strip())
+                    if raw_action == "Substitution" and " FOR " in description
+                    else "",
+                    "outgoingPlayerName": _canonical_name(description.rsplit(" FOR ", 1)[1].strip())
+                    if raw_action == "Substitution" and " FOR " in description
+                    else "",
+                }
+            )
+        return normalized_rows
+    data = pbp.get_normalized_dict()
+    return data.get("PlayByPlay", [])
+
+
+def get_game_box_score(game_id: str, timeout: int = NBA_API_TIMEOUT) -> dict:
+    """Fetch per-player traditional box score for a game.
+
+    Returns {'home_team_id': int, 'away_team_id': int,
+             'home_score': int, 'away_score': int,
+             'players': [{'player_id', 'team_id', 'start_position', ...}]}
+    """
+    _rate_limit()
+    bs = boxscoretraditionalv2.BoxScoreTraditionalV2(
+        game_id=game_id,
+        timeout=timeout,
+    )
+    data = bs.get_normalized_dict()
+    player_stats = data.get("PlayerStats", [])
+    team_stats = data.get("TeamStats", [])
+
+    if player_stats and team_stats:
+        home_team_id = team_stats[0].get("TEAM_ID")
+        away_team_id = team_stats[1].get("TEAM_ID") if len(team_stats) > 1 else None
+
+        home_score, away_score = 0, 0
+        for t in team_stats:
+            tid = t.get("TEAM_ID")
+            pts = t.get("PTS") or 0
+            if tid == home_team_id:
+                home_score = pts
+            elif tid == away_team_id:
+                away_score = pts
+
+        players = []
+        for p in player_stats:
+            players.append({
+                "player_id": p.get("PLAYER_ID"),
+                "player_name": p.get("PLAYER_NAME", ""),
+                "team_id": p.get("TEAM_ID"),
+                "start_position": p.get("START_POSITION", ""),
+            })
+
+        return {
+            "home_team_id": home_team_id,
+            "away_team_id": away_team_id,
+            "home_team_abbreviation": team_stats[0].get("TEAM_ABBREVIATION", "") if team_stats else "",
+            "away_team_abbreviation": team_stats[1].get("TEAM_ABBREVIATION", "") if len(team_stats) > 1 else "",
+            "home_team_name": team_stats[0].get("TEAM_NAME", "") if team_stats else "",
+            "away_team_name": team_stats[1].get("TEAM_NAME", "") if len(team_stats) > 1 else "",
+            "home_score": home_score,
+            "away_score": away_score,
+            "players": players,
+        }
+
+    # Newer/current-season games are more reliable through the live box score endpoint.
+    _rate_limit()
+    live_data = live_boxscore.BoxScore(game_id=game_id, timeout=timeout).get_dict()["game"]
+    home_team = live_data.get("homeTeam", {})
+    away_team = live_data.get("awayTeam", {})
+
+    players = []
+    for team in [home_team, away_team]:
+        team_id = team.get("teamId")
+        for p in team.get("players", []):
+            players.append({
+                "player_id": p.get("personId"),
+                "player_name": p.get("name", ""),
+                "team_id": team_id,
+                "start_position": p.get("position", "") if p.get("starter") == "1" else "",
+            })
+
+    return {
+        "home_team_id": home_team.get("teamId"),
+        "away_team_id": away_team.get("teamId"),
+        "home_team_abbreviation": home_team.get("teamTricode", ""),
+        "away_team_abbreviation": away_team.get("teamTricode", ""),
+        "home_team_name": home_team.get("teamName", ""),
+        "away_team_name": away_team.get("teamName", ""),
+        "home_score": int(home_team.get("score") or 0),
+        "away_score": int(away_team.get("score") or 0),
+        "players": players,
+    }
 
 
 def get_shot_chart_data(

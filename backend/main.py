@@ -6,7 +6,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from config import CORS_ORIGINS
 from db.database import engine
 from db.models import Base
-from routers import players, stats, shotchart, leaderboards, teams
+from routers import players, stats, shotchart, leaderboards, teams, advanced
 
 logging.basicConfig(level=logging.INFO)
 
@@ -25,6 +25,7 @@ app.include_router(stats.router, prefix="/api/stats", tags=["stats"])
 app.include_router(shotchart.router, prefix="/api/shotchart", tags=["shotchart"])
 app.include_router(leaderboards.router, prefix="/api/leaderboards", tags=["leaderboards"])
 app.include_router(teams.router, prefix="/api/teams", tags=["teams"])
+app.include_router(advanced.router, prefix="/api/advanced", tags=["advanced"])
 
 
 @app.on_event("startup")

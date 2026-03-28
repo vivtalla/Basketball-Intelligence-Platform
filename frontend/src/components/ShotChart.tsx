@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { usePlayerShotChart } from "@/hooks/usePlayerStats";
+import type { ShotChartShot } from "@/lib/types";
 
 interface ShotChartProps {
   playerId: number;
@@ -17,6 +18,124 @@ const H = 480;
 
 function toSvg(locX: number, locY: number): [number, number] {
   return [locX + 250, 430 - locY];
+}
+
+// League-average FG% by zone (approximate, current era)
+const LEAGUE_AVG: Record<string, number> = {
+  "Restricted Area": 0.64,
+  "In The Paint (Non-RA)": 0.40,
+  "Mid-Range": 0.41,
+  "Left Corner 3": 0.38,
+  "Right Corner 3": 0.38,
+  "Above the Break 3": 0.36,
+  "Backcourt": 0.02,
+};
+
+const ZONE_ORDER = [
+  "Restricted Area",
+  "In The Paint (Non-RA)",
+  "Mid-Range",
+  "Left Corner 3",
+  "Right Corner 3",
+  "Above the Break 3",
+  "Backcourt",
+];
+
+interface ZoneStat {
+  made: number;
+  attempted: number;
+}
+
+function buildZoneStats(shots: ShotChartShot[]): Record<string, ZoneStat> {
+  const stats: Record<string, ZoneStat> = {};
+  for (const shot of shots) {
+    const z = shot.zone_basic || "Unknown";
+    if (!stats[z]) stats[z] = { made: 0, attempted: 0 };
+    stats[z].attempted++;
+    if (shot.shot_made) stats[z].made++;
+  }
+  return stats;
+}
+
+function ZoneBreakdown({ shots }: { shots: ShotChartShot[] }) {
+  const zoneStats = buildZoneStats(shots);
+  const zones = ZONE_ORDER.filter((z) => zoneStats[z]);
+
+  if (zones.length === 0) return null;
+
+  return (
+    <div className="mt-6 border-t border-gray-100 dark:border-gray-700 pt-5">
+      <h4 className="text-xs font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500 mb-3">
+        Zone Breakdown
+      </h4>
+      <div className="overflow-x-auto">
+        <table className="w-full text-sm">
+          <thead>
+            <tr className="text-xs text-gray-400 dark:text-gray-500 border-b border-gray-100 dark:border-gray-700">
+              <th className="text-left pb-2 font-medium">Zone</th>
+              <th className="text-right pb-2 font-medium">FGM</th>
+              <th className="text-right pb-2 font-medium">FGA</th>
+              <th className="text-right pb-2 font-medium">FG%</th>
+              <th className="text-right pb-2 font-medium">vs Avg</th>
+            </tr>
+          </thead>
+          <tbody>
+            {zones.map((zone) => {
+              const { made, attempted } = zoneStats[zone];
+              const pct = attempted > 0 ? made / attempted : null;
+              const avg = LEAGUE_AVG[zone] ?? null;
+              const diff = pct !== null && avg !== null ? pct - avg : null;
+              const lowSample = attempted < 5;
+
+              let diffColor = "text-gray-400 dark:text-gray-500";
+              if (!lowSample && diff !== null) {
+                diffColor =
+                  diff >= 0.03
+                    ? "text-green-600 dark:text-green-400"
+                    : diff <= -0.03
+                    ? "text-red-500 dark:text-red-400"
+                    : "text-gray-500 dark:text-gray-400";
+              }
+
+              return (
+                <tr
+                  key={zone}
+                  className="border-b border-gray-50 dark:border-gray-700/50 last:border-0"
+                >
+                  <td className="py-2 pr-4 text-gray-700 dark:text-gray-300 whitespace-nowrap">
+                    {zone}
+                  </td>
+                  <td className="py-2 text-right tabular-nums text-gray-600 dark:text-gray-400">
+                    {made}
+                  </td>
+                  <td className="py-2 text-right tabular-nums text-gray-600 dark:text-gray-400">
+                    {attempted}
+                  </td>
+                  <td className="py-2 text-right tabular-nums font-medium text-gray-900 dark:text-gray-100">
+                    {lowSample
+                      ? <span className="text-gray-400 dark:text-gray-500">—</span>
+                      : pct !== null
+                      ? `${(pct * 100).toFixed(1)}%`
+                      : "—"}
+                  </td>
+                  <td className={`py-2 text-right tabular-nums font-medium ${diffColor}`}>
+                    {lowSample
+                      ? <span className="text-gray-400 dark:text-gray-500 text-xs">small</span>
+                      : diff !== null
+                      ? `${diff >= 0 ? "+" : ""}${(diff * 100).toFixed(1)}%`
+                      : "—"}
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+      <p className="text-xs text-gray-400 dark:text-gray-500 mt-2">
+        vs Avg = player FG% minus league average for that zone. Zones with &lt;5 attempts shown as —.
+      </p>
+    </div>
+  );
 }
 
 function CourtMarkings() {
@@ -177,6 +296,11 @@ export default function ShotChart({
           </span>
         </div>
       </div>
+
+      {/* Zone breakdown */}
+      {shotChart && shotChart.shots.length > 0 && (
+        <ZoneBreakdown shots={shotChart.shots} />
+      )}
     </div>
   );
 }

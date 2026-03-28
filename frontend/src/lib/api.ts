@@ -4,12 +4,18 @@ import type {
   CareerStatsResponse,
   ShotChartResponse,
   LeaderboardResponse,
+  PercentileResult,
+  OnOffStats,
+  ClutchStats,
+  LineupsResult,
+  OnOffLeaderboardResult,
+  PbpSyncResult,
 } from "./types";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
-async function fetchApi<T>(path: string): Promise<T> {
-  const res = await fetch(`${API_BASE}${path}`);
+async function fetchApi<T>(path: string, init?: RequestInit): Promise<T> {
+  const res = await fetch(`${API_BASE}${path}`, init);
   if (!res.ok) {
     throw new Error(`API error: ${res.status} ${res.statusText}`);
   }
@@ -51,6 +57,64 @@ export async function getLeaderboard(
   );
 }
 
+export async function getPlayerPercentiles(
+  playerId: number,
+  season: string
+): Promise<PercentileResult> {
+  return fetchApi<PercentileResult>(
+    `/api/stats/${playerId}/percentiles?season=${encodeURIComponent(season)}`
+  );
+}
+
+export async function getPlayerOnOff(
+  playerId: number,
+  season: string
+): Promise<OnOffStats> {
+  return fetchApi<OnOffStats>(
+    `/api/advanced/${playerId}/on-off?season=${encodeURIComponent(season)}`
+  );
+}
+
+export async function getPlayerClutch(
+  playerId: number,
+  season: string
+): Promise<ClutchStats> {
+  return fetchApi<ClutchStats>(
+    `/api/advanced/${playerId}/clutch?season=${encodeURIComponent(season)}`
+  );
+}
+
+export async function getLineups(
+  season: string,
+  teamId?: number,
+  minMinutes = 5,
+  limit = 25
+): Promise<LineupsResult> {
+  const params = new URLSearchParams({
+    season,
+    min_minutes: String(minMinutes),
+    limit: String(limit),
+  });
+  if (teamId != null) params.set("team_id", String(teamId));
+
+  return fetchApi<LineupsResult>(`/api/advanced/lineups?${params.toString()}`);
+}
+
+export async function getOnOffLeaderboard(
+  season: string,
+  minMinutes = 200,
+  limit = 25
+): Promise<OnOffLeaderboardResult> {
+  const params = new URLSearchParams({
+    season,
+    min_minutes: String(minMinutes),
+    limit: String(limit),
+  });
+  return fetchApi<OnOffLeaderboardResult>(
+    `/api/advanced/on-off-leaderboard?${params.toString()}`
+  );
+}
+
 export async function getPlayerShotChart(
   playerId: number,
   season: string,
@@ -58,5 +122,26 @@ export async function getPlayerShotChart(
 ): Promise<ShotChartResponse> {
   return fetchApi<ShotChartResponse>(
     `/api/shotchart/${playerId}?season=${encodeURIComponent(season)}&season_type=${encodeURIComponent(seasonType)}`
+  );
+}
+
+export async function syncPlayerPbp(
+  playerId: number,
+  season: string,
+  forceRefresh = false
+): Promise<PbpSyncResult> {
+  return fetchApi<PbpSyncResult>(
+    `/api/advanced/${playerId}/sync-pbp?season=${encodeURIComponent(season)}&force_refresh=${forceRefresh}`,
+    { method: "POST" }
+  );
+}
+
+export async function syncSeasonPbp(
+  season: string,
+  forceRefresh = false
+): Promise<PbpSyncResult> {
+  return fetchApi<PbpSyncResult>(
+    `/api/advanced/sync-season?season=${encodeURIComponent(season)}&force_refresh=${forceRefresh}`,
+    { method: "POST" }
   );
 }
