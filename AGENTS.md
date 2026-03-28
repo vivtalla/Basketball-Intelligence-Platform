@@ -14,26 +14,26 @@ Last updated: 2026-03-28 by Codex
 
 | Field        | Value                                    |
 |--------------|------------------------------------------|
-| Sprint       | 9                                        |
-| Goal         | Leaderboard enhancements + historical data |
-| Started      | 2026-03-28                               |
-| Target merge | 2026-03-28                               |
+| Sprint       | 10                                       |
+| Goal         | TBD — awaiting Vivek's sprint kickoff    |
+| Started      | —                                        |
+| Target merge | —                                        |
 
 ---
 
 ## Agent Assignments
 
 ### Claude
-- Branch: `feature/sprint9-leaderboard-enhancements`
-- Scope: Leaderboard enhancements — career tab, team filter, multi-column table, stat tooltips, URL state, historical data
-- Status: Merged to master
+- Branch: `feature/sprint-10-[slug]`
+- Scope: TBD
+- Status: Not started
 - PR: —
 - Blocked on: nothing
 
 ### Codex
-- Branch: `codex-sprint-9-team-sync-dashboard`
-- Scope: Team/PBP sync operations dashboard — season sync actions, coverage workflow, team intelligence handoff, lineup visibility improvements
-- Status: Merged to master
+- Branch: `codex-sprint-10-[slug]`
+- Scope: TBD
+- Status: Not started
 - PR: —
 - Blocked on: nothing
 
@@ -51,8 +51,8 @@ Claim a file here before writing a single line. If a file is already claimed, re
 |----------------------------------|------------|---------|
 | `backend/db/models.py`           | —          |         |
 | `backend/db/ensure_schema.py`    | —          |         |
-| `frontend/src/lib/types.ts`      | Claude     | Append CareerLeaderboardEntry, CareerLeaderboardResponse; update LeaderboardEntry |
-| `frontend/src/lib/api.ts`        | Claude     | Append getCareerLeaderboard(), getLeaderboardTeams() |
+| `frontend/src/lib/types.ts`      | —          |         |
+| `frontend/src/lib/api.ts`        | —          |         |
 | `backend/main.py`                | —          |         |
 
 ---
@@ -68,10 +68,7 @@ Specs written by one agent for the other. Check this before starting work — if
 
 ## Merge Order (this sprint)
 
-```
-1. feature/sprint9-leaderboard-enhancements (Claude) — no dependencies
-2. codex-sprint-9-team-sync-dashboard (Codex) — no dependency on Claude's PR
-```
+TBD at sprint kickoff.
 
 ---
 
@@ -81,25 +78,7 @@ Ownership is sprint-dependent, not permanent. The table below is rewritten each 
 
 ### This sprint's owned areas
 
-| Files / Directories | Assigned this sprint |
-|---------------------|----------------------|
-| `frontend/src/components/PlayerDashboard.tsx` | Claude |
-| `frontend/src/components/ComparisonView.tsx` | Claude |
-| `frontend/src/components/DualCareerArcChart.tsx` | Claude |
-| `frontend/src/components/ExternalMetricsPanel.tsx` | Claude |
-| `frontend/src/components/CareerArcChart.tsx` | Claude |
-| `frontend/src/components/StatTable.tsx` | Claude |
-| `frontend/src/app/leaderboards/` | Claude |
-| `frontend/src/app/compare/` | Claude |
-| `CLAUDE.md` | Claude |
-| `frontend/src/components/TeamIntelligencePanel.tsx` | Codex |
-| `frontend/src/components/TeamAnalyticsPanel.tsx` | Codex |
-| `frontend/src/components/TeamLineupsPanel.tsx` | Codex |
-| `frontend/src/app/teams/` | Codex |
-| `frontend/src/app/coverage/` | Codex |
-| `backend/services/pbp_service.py` | Codex |
-| `backend/services/pbp_sync_service.py` | Codex |
-| `backend/routers/teams.py` | Codex |
+TBD at sprint kickoff. Rewrite this table when sprint scope is defined.
 
 ### Shared files — claim in Lock Table before editing
 
@@ -167,7 +146,4 @@ Sprint number prefix makes `git branch -a` immediately readable.
 
 *Free-form, dated, newest first. For cross-agent communication mid-sprint.*
 
-2026-03-28 (Codex): `codex-sprint-9-team-sync-dashboard` merged to master. Sprint 9 also established sprint closeout notes and sprint-dependent work allocation rules in the coordination docs.
-2026-03-28 (Codex): Working on `codex-sprint-9-team-sync-dashboard`. Scope is team/PBP sync operations: coverage-page season sync actions, team detail handoff from coverage, and lineup/intelligence UX improvements without touching Claude-owned leaderboard work.
-2026-03-28 (Claude): Sprint 9 kicked off. Claude owns leaderboard enhancements on `feature/sprint9-leaderboard-enhancements`. types.ts and api.ts claimed (append-only). Codex is free to self-define scope — no shared file conflicts expected.
-2026-03-28 (Claude): Workflow system initialized. Sprint 8 (data persistence) is complete and merged to master. Bulk import CLI built and verified: 595 players, 560K PBP events, 30K+ game logs synced for 2025-26.
+2026-03-28 (Claude): Sprint 9 closed. See `specs/sprint-09-closeout.md` for full summary. Awaiting Sprint 10 kickoff.

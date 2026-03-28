@@ -287,11 +287,26 @@ Eliminated live NBA API calls on every player profile load:
 ---
 
 ### Sprint 9 — Leaderboards, Team Ops, And Workflow Hardening
-**Branch:** `feature/sprint9-leaderboard-enhancements`, `codex-sprint-9-team-sync-dashboard`
+**Branch:** `feature/sprint9-leaderboard-enhancements` (Claude), `codex-sprint-9-team-sync-dashboard` (Codex)
 
-- Leaderboard enhancements landed: career views, filters, richer table controls, and historical-data improvements
-- Team/PBP operations workflow landed: sync-oriented team coverage and handoff improvements
-- Multi-agent workflow was tightened with sprint-dependent work allocation, explicit branch isolation, and a lightweight sprint closeout process
+**Claude — Leaderboard enhancements + historical data:**
+- **Career Leaders tab** — career averages (pts, reb, ast, bpm, ws, vorp, per, ts%) ranked across all seasons in DB; shows Seasons + GP columns
+- **Team filter** — dropdown filters Player Stats leaderboard to a single team; backed by new `GET /api/leaderboards/teams` endpoint
+- **Multi-column table** — primary stat highlighted + always-visible Pts/Reb/Ast/TS%/PER/BPM context columns (no extra fetches)
+- **Stat tooltips** — one-sentence definition on every column header
+- **URL state persistence** — `useSearchParams` + `useRouter` deep-link to any leaderboard view
+- **Historical data pipeline** — added `_historical_schedule_game_ids()` to `nba_client.py` using `data.nba.com` mobile schedule feed (avoids blocked `stats.nba.com`); synced 2021-22, 2022-23, 2023-24 (~595–633 players per season, 1230 games each)
+- New Pydantic models: `CareerLeaderboardEntry`, `CareerLeaderboardResponse`; `LeaderboardEntry` enriched with context columns
+
+**Codex — Team/PBP sync operations dashboard:**
+- Coverage page season sync actions and team detail handoff
+- Team Intelligence Panel improvements and lineup visibility
+
+**Workflow hardening (Codex):**
+- Sprint-dependent work allocation table in `AGENTS.md` (replaces permanent ownership)
+- Explicit branch isolation rule — all sprint work on assigned branch, never directly on `master`
+- Sprint closeout checklist + `specs/CLOSEOUT_TEMPLATE.md`
+- `specs/sprint-09-closeout.md` written as first closeout record
 
 ---
 
@@ -300,10 +315,8 @@ Eliminated live NBA API calls on every player profile load:
 | Branch | Owner | Status |
 |--------|-------|--------|
 | `master` | — | Stable |
-| `feature/data-persistence` | Claude | Open PR #6 |
-| `codex-pbp-coverage-dashboard` | Codex | Merged to master |
-| `codex-team-intelligence-dashboard` | Codex | Merged to master |
-| `codex-pbp-cache-and-next-steps` | Codex | WIP |
+| `feature/sprint9-leaderboard-enhancements` | Claude | Merged to master |
+| `codex-sprint-9-team-sync-dashboard` | Codex | Merged to master |
 
 ---
 
