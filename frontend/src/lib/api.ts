@@ -6,6 +6,7 @@ import type {
   LeaderboardResponse,
   TeamSummary,
   TeamRosterResponse,
+  TeamAnalytics,
   PercentileResult,
   OnOffStats,
   ClutchStats,
@@ -169,6 +170,15 @@ export async function getPlayerGameLogs(
 ): Promise<GameLogResponse> {
   return fetchApi<GameLogResponse>(
     `/api/gamelogs/${playerId}?season=${encodeURIComponent(season)}&season_type=${encodeURIComponent(seasonType)}`
+  );
+}
+
+export async function getTeamAnalytics(
+  teamAbbreviation: string,
+  season: string
+): Promise<TeamAnalytics> {
+  return fetchApi<TeamAnalytics>(
+    `/api/teams/${encodeURIComponent(teamAbbreviation)}/analytics?season=${encodeURIComponent(season)}`
   );
 }
 

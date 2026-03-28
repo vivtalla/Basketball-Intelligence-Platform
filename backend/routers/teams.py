@@ -2,12 +2,13 @@ from __future__ import annotations
 
 from typing import List
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 
+from data.nba_client import get_team_stats
 from db.database import get_db
 from db.models import Player, SeasonStat, Team
-from models.team import TeamRosterPlayer, TeamRosterResponse, TeamSummary
+from models.team import TeamAnalytics, TeamRosterPlayer, TeamRosterResponse, TeamSummary
 
 router = APIRouter()
 
@@ -82,3 +83,33 @@ def team_roster(abbr: str, db: Session = Depends(get_db)):
         players=roster,
         synced_count=synced_count,
     )
+
+
+@router.get("/{abbr}/analytics", response_model=TeamAnalytics)
+def team_analytics(
+    abbr: str,
+    season: str = Query("2024-25"),
+    db: Session = Depends(get_db),
+):
+    """Return team-level advanced analytics for a season from NBA.com stats API."""
+    abbr_upper = abbr.upper()
+    team = db.query(Team).filter(Team.abbreviation == abbr_upper).first()
+    if not team:
+        raise HTTPException(
+            status_code=404,
+            detail=f"Team '{abbr}' not found. View a player on that team to load it.",
+        )
+
+    try:
+        all_team_stats = get_team_stats(season)
+    except Exception as exc:
+        raise HTTPException(status_code=502, detail=f"NBA API error: {exc}") from exc
+
+    stats = all_team_stats.get(abbr_upper)
+    if not stats:
+        raise HTTPException(
+            status_code=404,
+            detail=f"No stats found for {abbr_upper} in {season}.",
+        )
+
+    return TeamAnalytics(**stats)

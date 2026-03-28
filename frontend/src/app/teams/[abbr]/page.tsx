@@ -2,19 +2,30 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { useParams } from "next/navigation";
-import { useTeamRoster } from "@/hooks/usePlayerStats";
+import { useTeamRoster, useTeamAnalytics } from "@/hooks/usePlayerStats";
+import TeamAnalyticsPanel from "@/components/TeamAnalyticsPanel";
 import type { TeamRosterPlayer } from "@/lib/types";
+
+const DEFAULT_SEASON = "2024-25";
 
 function formatValue(value: number | null | undefined, digits = 1) {
   return value == null ? "-" : value.toFixed(digits);
 }
 
+type Tab = "roster" | "analytics";
+
 export default function TeamDetailPage() {
   const params = useParams<{ abbr: string }>();
   const teamAbbreviation = params.abbr?.toUpperCase() ?? null;
+  const [activeTab, setActiveTab] = useState<Tab>("roster");
+
   const { data: roster, error } = useTeamRoster(teamAbbreviation);
+  const { data: analytics, isLoading: analyticsLoading, error: analyticsError } = useTeamAnalytics(
+    activeTab === "analytics" ? teamAbbreviation : null,
+    DEFAULT_SEASON
+  );
 
   const sortedPlayers = useMemo(
     () =>
@@ -102,9 +113,7 @@ export default function TeamDetailPage() {
                   {roster.name}
                 </h1>
                 <p className="mt-3 max-w-2xl text-gray-500 dark:text-gray-400">
-                  Team context for player exploration, including current synced
-                  roster coverage and quick leaders across scoring, playmaking,
-                  and impact metrics.
+                  Team analytics, roster, and individual player profiles.
                 </p>
               </div>
 
@@ -139,7 +148,50 @@ export default function TeamDetailPage() {
         )}
       </div>
 
-      {roster && (
+      {/* Tab bar */}
+      <div className="flex rounded-xl overflow-hidden border border-gray-200 dark:border-gray-700 w-fit text-sm">
+        {(["roster", "analytics"] as Tab[]).map((tab) => (
+          <button
+            key={tab}
+            onClick={() => setActiveTab(tab)}
+            className={`px-5 py-2 capitalize transition-colors ${
+              activeTab === tab
+                ? "bg-blue-500 text-white"
+                : "bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700"
+            }`}
+          >
+            {tab}
+          </button>
+        ))}
+      </div>
+
+      {/* Analytics tab */}
+      {activeTab === "analytics" && (
+        <section>
+          {analyticsLoading && (
+            <div className="space-y-4 animate-pulse">
+              <div className="h-8 w-48 rounded-full bg-gray-200 dark:bg-gray-700" />
+              <div className="grid grid-cols-4 gap-3">
+                {[1, 2, 3, 4].map((i) => (
+                  <div key={i} className="h-24 rounded-2xl bg-gray-200 dark:bg-gray-700" />
+                ))}
+              </div>
+              <div className="h-48 rounded-2xl bg-gray-200 dark:bg-gray-700" />
+            </div>
+          )}
+          {analyticsError && (
+            <div className="rounded-2xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-6 text-center text-gray-500 dark:text-gray-400">
+              Could not load team analytics for {DEFAULT_SEASON}. The NBA API may be temporarily unavailable.
+            </div>
+          )}
+          {analytics && !analyticsLoading && (
+            <TeamAnalyticsPanel analytics={analytics} />
+          )}
+        </section>
+      )}
+
+      {/* Roster tab */}
+      {activeTab === "roster" && roster && (
         <>
           <section className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
             {leaders.map((leader) => (

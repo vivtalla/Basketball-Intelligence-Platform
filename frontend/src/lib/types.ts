@@ -305,6 +305,46 @@ export interface SimilarityResponse {
   comps: SimilarPlayerComp[];
 }
 
+export interface TeamAnalytics {
+  team_id: number;
+  abbreviation: string;
+  name: string;
+  season: string;
+  gp: number;
+  w: number;
+  l: number;
+  w_pct: number;
+  pts_pg: number | null;
+  ast_pg: number | null;
+  reb_pg: number | null;
+  tov_pg: number | null;
+  blk_pg: number | null;
+  stl_pg: number | null;
+  fg_pct: number | null;
+  fg3_pct: number | null;
+  ft_pct: number | null;
+  plus_minus_pg: number | null;
+  off_rating: number | null;
+  def_rating: number | null;
+  net_rating: number | null;
+  pace: number | null;
+  efg_pct: number | null;
+  ts_pct: number | null;
+  pie: number | null;
+  oreb_pct: number | null;
+  dreb_pct: number | null;
+  tov_pct: number | null;
+  ast_pct: number | null;
+  off_rating_rank: number | null;
+  def_rating_rank: number | null;
+  net_rating_rank: number | null;
+  pace_rank: number | null;
+  efg_pct_rank: number | null;
+  ts_pct_rank: number | null;
+  oreb_pct_rank: number | null;
+  tov_pct_rank: number | null;
+}
+
 export interface PbpSyncResult {
   status: string;
   season: string;
