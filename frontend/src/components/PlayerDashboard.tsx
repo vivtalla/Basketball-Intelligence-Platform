@@ -11,6 +11,7 @@ import PlayerPbpInsights from "./PlayerPbpInsights";
 import GameLogTable from "./GameLogTable";
 import PlayerSimilarity from "./PlayerSimilarity";
 import SeasonSplits from "./SeasonSplits";
+import ExternalMetricsPanel from "./ExternalMetricsPanel";
 
 interface PlayerDashboardProps {
   playerId: number;
@@ -131,6 +132,8 @@ export default function PlayerDashboard({ playerId }: PlayerDashboardProps) {
         careerTotals={careerStats.career_totals}
         playoffSeasons={careerStats.playoff_seasons}
       />
+
+      <ExternalMetricsPanel seasons={activeSeasonsArr} />
     </div>
   );
 }

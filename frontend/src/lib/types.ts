@@ -293,6 +293,64 @@ export interface GameLogResponse {
   gp: number;
 }
 
+export interface GameEvent {
+  action_number: number;
+  period: number;
+  clock: string | null;
+  team_id: number | null;
+  team_abbreviation: string | null;
+  player_id: number | null;
+  player_name: string | null;
+  event_type: string | null;
+  description: string | null;
+  home_score: number | null;
+  away_score: number | null;
+}
+
+export interface GameTimelinePoint {
+  action_number: number;
+  period: number;
+  clock: string | null;
+  home_score: number;
+  away_score: number;
+  scoring_team_id: number | null;
+  scoring_team_abbreviation: string | null;
+  description: string | null;
+}
+
+export interface GamePlayerSummary {
+  player_id: number;
+  player_name: string;
+  team_id: number | null;
+  team_abbreviation: string | null;
+  pts: number | null;
+  reb: number | null;
+  ast: number | null;
+  stl: number | null;
+  blk: number | null;
+  tov: number | null;
+  min: number | null;
+  plus_minus: number | null;
+}
+
+export interface GameDetailResponse {
+  game_id: string;
+  game_date: string | null;
+  season: string | null;
+  matchup: string | null;
+  home_team_id: number | null;
+  home_team_abbreviation: string | null;
+  home_team_name: string | null;
+  away_team_id: number | null;
+  away_team_abbreviation: string | null;
+  away_team_name: string | null;
+  home_score: number | null;
+  away_score: number | null;
+  timeline: GameTimelinePoint[];
+  top_players: GamePlayerSummary[];
+  events: GameEvent[];
+}
+
 export interface SimilarPlayerComp {
   player_id: number;
   player_name: string;
