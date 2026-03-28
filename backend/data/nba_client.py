@@ -24,10 +24,13 @@ from nba_api.live.nba.endpoints import boxscore as live_boxscore
 from nba_api.stats.static import players as static_players
 
 from config import NBA_API_DELAY, NBA_API_TIMEOUT
+from data.cache import CacheManager
 
 _last_request_time = 0.0
 NBA_LIVE_BASE_URL = "https://cdn.nba.com/static/json/liveData"
 NBA_STATIC_BASE_URL = "https://cdn.nba.com/static/json/staticData"
+CURRENT_SEASON_CACHE_TTL = 6 * 3600
+HISTORICAL_SEASON_CACHE_TTL = 30 * 24 * 3600
 NBA_LIVE_HEADERS = {
     "User-Agent": "Mozilla/5.0",
     "Accept": "application/json, text/plain, */*",
@@ -49,6 +52,16 @@ def _rate_limit():
     if elapsed < NBA_API_DELAY:
         time.sleep(NBA_API_DELAY - elapsed)
     _last_request_time = time.time()
+
+
+def _active_nba_season() -> str:
+    now = time.localtime()
+    start_year = now.tm_year if now.tm_mon >= 8 else now.tm_year - 1
+    return f"{start_year}-{str((start_year + 1) % 100).zfill(2)}"
+
+
+def _cache_ttl_for_season(season: str) -> int:
+    return CURRENT_SEASON_CACHE_TTL if season == _active_nba_season() else HISTORICAL_SEASON_CACHE_TTL
 
 
 def _fetch_nba_json(base_url: str, path: str, timeout: int = NBA_API_TIMEOUT) -> dict:
@@ -327,10 +340,20 @@ def get_player_advanced_stats_from_league(
 
 def get_season_game_ids(season: str, timeout: int = NBA_API_TIMEOUT) -> list[str]:
     """Return all regular-season game IDs for a given season (e.g. '2023-24')."""
+    cache_key = f"season_game_ids:{season}"
+    cached = CacheManager.get(cache_key)
+    if cached and isinstance(cached.get("ids"), list):
+        return [str(game_id) for game_id in cached["ids"]]
+
     _rate_limit()
     try:
         current_ids = _current_schedule_game_ids(season, timeout=timeout)
         if current_ids:
+            CacheManager.set(
+                cache_key,
+                {"ids": current_ids, "source": "schedule"},
+                _cache_ttl_for_season(season),
+            )
             return current_ids
     except Exception:
         pass
@@ -351,6 +374,11 @@ def get_season_game_ids(season: str, timeout: int = NBA_API_TIMEOUT) -> list[str
         if gid and gid not in seen:
             seen.add(gid)
             ids.append(gid)
+    CacheManager.set(
+        cache_key,
+        {"ids": ids, "source": "leaguegamelog"},
+        _cache_ttl_for_season(season),
+    )
     return ids
 
 
@@ -364,14 +392,30 @@ def get_team_season_game_ids(
     Uses the free official schedule feed for the active season, otherwise falls
     back to all season game IDs.
     """
+    cache_key = f"team_game_ids:{season}:{team_id}"
+    cached = CacheManager.get(cache_key)
+    if cached and isinstance(cached.get("ids"), list):
+        return [str(game_id) for game_id in cached["ids"]]
+
     _rate_limit()
     try:
         ids = _current_team_schedule_game_ids(season, team_id, timeout=timeout)
         if ids:
+            CacheManager.set(
+                cache_key,
+                {"ids": ids, "source": "schedule"},
+                _cache_ttl_for_season(season),
+            )
             return ids
     except Exception:
         pass
-    return get_season_game_ids(season, timeout=timeout)
+    ids = get_season_game_ids(season, timeout=timeout)
+    CacheManager.set(
+        cache_key,
+        {"ids": ids, "source": "season_fallback"},
+        _cache_ttl_for_season(season),
+    )
+    return ids
 
 
 def get_player_game_ids(
@@ -382,6 +426,11 @@ def get_player_game_ids(
     timeout: int = NBA_API_TIMEOUT,
 ) -> list[str]:
     """Return regular-season game IDs for a player in a given season."""
+    cache_key = f"player_game_ids:{player_id}:{season}"
+    cached = CacheManager.get(cache_key)
+    if cached and isinstance(cached.get("ids"), list):
+        return [str(game_id) for game_id in cached["ids"]]
+
     if prefer_candidate_scan and candidate_game_ids:
         fallback_ids: list[str] = []
         for game_id in candidate_game_ids:
@@ -392,6 +441,11 @@ def get_player_game_ids(
             if any(player.get("player_id") == player_id for player in box_score.get("players", [])):
                 fallback_ids.append(game_id)
         if fallback_ids:
+            CacheManager.set(
+                cache_key,
+                {"ids": fallback_ids, "source": "candidate_scan"},
+                _cache_ttl_for_season(season),
+            )
             return fallback_ids
 
     _rate_limit()
@@ -410,6 +464,11 @@ def get_player_game_ids(
             if gid:
                 ids.append(gid)
         if ids:
+            CacheManager.set(
+                cache_key,
+                {"ids": ids, "source": "playergamelog"},
+                _cache_ttl_for_season(season),
+            )
             return ids
     except Exception:
         pass
@@ -423,6 +482,11 @@ def get_player_game_ids(
             continue
         if any(player.get("player_id") == player_id for player in box_score.get("players", [])):
             fallback_ids.append(game_id)
+    CacheManager.set(
+        cache_key,
+        {"ids": fallback_ids, "source": "season_scan"},
+        _cache_ttl_for_season(season),
+    )
     return fallback_ids
 
 

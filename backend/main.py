@@ -4,6 +4,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from config import CORS_ORIGINS
+from data.cache import CacheManager
 from db.database import engine
 from db.models import Base
 from routers import players, stats, shotchart, leaderboards, teams, advanced, gamelogs, similarity, standings, insights
@@ -35,6 +36,7 @@ app.include_router(insights.router, prefix="/api/insights", tags=["insights"])
 @app.on_event("startup")
 def startup():
     Base.metadata.create_all(bind=engine)
+    CacheManager.initialize()
 
 
 @app.get("/api/health")
