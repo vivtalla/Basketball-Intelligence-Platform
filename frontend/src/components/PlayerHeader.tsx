@@ -3,7 +3,7 @@
 import Image from "next/image";
 import type { PlayerProfile, SeasonStats } from "@/lib/types";
 import StatCard from "./StatCard";
-import { usePlayerPercentiles } from "@/hooks/usePlayerStats";
+import { usePlayerPercentiles, useLeagueContext } from "@/hooks/usePlayerStats";
 import { useFavorites } from "@/hooks/useFavorites";
 
 interface PlayerHeaderProps {
@@ -33,6 +33,42 @@ function ordinal(n: number): string {
   return `${n}${s[n % 10] ?? "th"}`;
 }
 
+function deltaLabel(value: number, median: number): { text: string; cls: string } {
+  const pct = median > 0 ? ((value - median) / median) * 100 : 0;
+  const sign = pct >= 0 ? "+" : "";
+  const text = `${sign}${pct.toFixed(0)}%`;
+  if (pct >= 10) return { text, cls: "text-emerald-600 dark:text-emerald-400" };
+  if (pct <= -10) return { text, cls: "text-red-500 dark:text-red-400" };
+  return { text, cls: "text-gray-400 dark:text-gray-500" };
+}
+
+interface ContextRowProps {
+  label: string;
+  value: number;
+  leagueMedian: number | null;
+  posMedian: number | null;
+  posGroup: string | null;
+}
+
+function ContextRow({ label, value, leagueMedian, posMedian, posGroup }: ContextRowProps) {
+  if (leagueMedian == null) return null;
+  const league = deltaLabel(value, leagueMedian);
+  const pos = posMedian != null ? deltaLabel(value, posMedian) : null;
+  return (
+    <div className="text-xs text-gray-500 dark:text-gray-400 text-center">
+      <span className="font-medium text-gray-700 dark:text-gray-300">{label}</span>
+      <span className="mx-1 text-gray-300 dark:text-gray-600">·</span>
+      <span className={league.cls}>Lg {league.text}</span>
+      {pos && posGroup && (
+        <>
+          <span className="mx-1 text-gray-300 dark:text-gray-600">·</span>
+          <span className={pos.cls}>{posGroup} {pos.text}</span>
+        </>
+      )}
+    </div>
+  );
+}
+
 export default function PlayerHeader({
   profile,
   currentSeason,
@@ -40,6 +76,11 @@ export default function PlayerHeader({
   const { data: pctData } = usePlayerPercentiles(
     profile.id,
     currentSeason?.season ?? null
+  );
+
+  const { data: context } = useLeagueContext(
+    currentSeason?.season ?? null,
+    profile.position ?? undefined
   );
 
   const { isFavorite, toggleFavorite } = useFavorites();
@@ -161,12 +202,40 @@ export default function PlayerHeader({
           </div>
         </div>
 
-        {/* Quick Stats */}
+        {/* Quick Stats + context */}
         {currentSeason && (
-          <div className="grid grid-cols-3 gap-3 flex-shrink-0">
-            <StatCard label="PPG" value={currentSeason.pts_pg} />
-            <StatCard label="RPG" value={currentSeason.reb_pg} />
-            <StatCard label="APG" value={currentSeason.ast_pg} />
+          <div className="flex flex-col gap-2 flex-shrink-0">
+            <div className="grid grid-cols-3 gap-3">
+              <StatCard label="PPG" value={currentSeason.pts_pg} />
+              <StatCard label="RPG" value={currentSeason.reb_pg} />
+              <StatCard label="APG" value={currentSeason.ast_pg} />
+            </div>
+            {/* League / position context rows */}
+            {context && (
+              <div className="space-y-0.5">
+                <ContextRow
+                  label="PPG"
+                  value={currentSeason.pts_pg}
+                  leagueMedian={context.league_medians["pts_pg"] ?? null}
+                  posMedian={context.position_medians["pts_pg"] ?? null}
+                  posGroup={context.position_group}
+                />
+                <ContextRow
+                  label="RPG"
+                  value={currentSeason.reb_pg}
+                  leagueMedian={context.league_medians["reb_pg"] ?? null}
+                  posMedian={context.position_medians["reb_pg"] ?? null}
+                  posGroup={context.position_group}
+                />
+                <ContextRow
+                  label="APG"
+                  value={currentSeason.ast_pg}
+                  leagueMedian={context.league_medians["ast_pg"] ?? null}
+                  posMedian={context.position_medians["ast_pg"] ?? null}
+                  posGroup={context.position_group}
+                />
+              </div>
+            )}
           </div>
         )}
       </div>

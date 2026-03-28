@@ -424,3 +424,10 @@ export interface PbpSyncResult {
   players_updated: number;
   lineups_updated: number;
 }
+
+export interface LeagueContext {
+  season: string;
+  position_group: string | null;
+  league_medians: Record<string, number | null>;
+  position_medians: Record<string, number | null>;
+}

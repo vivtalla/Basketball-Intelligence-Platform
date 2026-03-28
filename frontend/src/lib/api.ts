@@ -18,6 +18,7 @@ import type {
   PbpSyncResult,
   GameLogResponse,
   SimilarityResponse,
+  LeagueContext,
 } from "./types";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
@@ -219,4 +220,13 @@ export async function getSimilarPlayers(
   return fetchApi<SimilarityResponse>(
     `/api/similarity/${playerId}?season=${encodeURIComponent(season)}&n=${n}&cross_era=${crossEra}`
   );
+}
+
+export async function getLeagueContext(
+  season: string,
+  position?: string
+): Promise<LeagueContext> {
+  const params = new URLSearchParams({ season });
+  if (position) params.set("position", position);
+  return fetchApi<LeagueContext>(`/api/stats/context?${params.toString()}`);
 }

@@ -1,4 +1,4 @@
-from typing import Dict, List, Optional
+from typing import Any, Dict, List, Optional
 
 from pydantic import BaseModel
 
@@ -131,3 +131,10 @@ class CareerStatsResponse(BaseModel):
     seasons: List[SeasonStats]
     career_totals: Optional[SeasonStats] = None
     playoff_seasons: List[SeasonStats] = []
+
+
+class LeagueContext(BaseModel):
+    season: str
+    position_group: Optional[str]  # "G", "F", "C", or None (league-wide)
+    league_medians: Dict[str, Optional[float]]
+    position_medians: Dict[str, Optional[float]]

@@ -6,6 +6,7 @@ import { useMemo, useState } from "react";
 import { useParams } from "next/navigation";
 import { useTeamRoster, useTeamAnalytics } from "@/hooks/usePlayerStats";
 import TeamAnalyticsPanel from "@/components/TeamAnalyticsPanel";
+import TeamLineupsPanel from "@/components/TeamLineupsPanel";
 import type { TeamRosterPlayer } from "@/lib/types";
 
 const DEFAULT_SEASON = "2024-25";
@@ -14,7 +15,7 @@ function formatValue(value: number | null | undefined, digits = 1) {
   return value == null ? "-" : value.toFixed(digits);
 }
 
-type Tab = "roster" | "analytics";
+type Tab = "roster" | "analytics" | "lineups";
 
 export default function TeamDetailPage() {
   const params = useParams<{ abbr: string }>();
@@ -150,7 +151,7 @@ export default function TeamDetailPage() {
 
       {/* Tab bar */}
       <div className="flex rounded-xl overflow-hidden border border-gray-200 dark:border-gray-700 w-fit text-sm">
-        {(["roster", "analytics"] as Tab[]).map((tab) => (
+        {(["roster", "analytics", "lineups"] as Tab[]).map((tab) => (
           <button
             key={tab}
             onClick={() => setActiveTab(tab)}
@@ -188,6 +189,11 @@ export default function TeamDetailPage() {
             <TeamAnalyticsPanel analytics={analytics} />
           )}
         </section>
+      )}
+
+      {/* Lineups tab */}
+      {activeTab === "lineups" && roster && (
+        <TeamLineupsPanel teamId={roster.team_id} season={DEFAULT_SEASON} />
       )}
 
       {/* Roster tab */}

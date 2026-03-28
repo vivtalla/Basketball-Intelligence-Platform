@@ -1,11 +1,12 @@
+import statistics
 from typing import List, Optional
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 
 from db.database import get_db
 from db.models import Player, SeasonStat
-from models.stats import CareerStatsResponse, SeasonStats
+from models.stats import CareerStatsResponse, LeagueContext, SeasonStats
 from services.advanced_metrics import (
     calculate_bpm,
     calculate_win_shares,
@@ -274,6 +275,73 @@ def player_percentiles(
         result[stat] = round(below / len(all_vals) * 100)
 
     return {"season": season, "percentiles": result}
+
+
+_CONTEXT_STATS = ["pts_pg", "reb_pg", "ast_pg", "ts_pct", "per", "bpm", "usg_pct", "ast_tov"]
+
+# Broad position groups to avoid tiny samples
+_POS_MAP = {
+    "PG": "G", "SG": "G", "G": "G",
+    "SF": "F", "PF": "F", "F": "F",
+    "C": "C",
+}
+
+
+def _median_map(rows: list, stats: list) -> dict:
+    result = {}
+    for s in stats:
+        vals = [getattr(r, s) for r in rows if getattr(r, s) is not None]
+        result[s] = round(statistics.median(vals), 3) if vals else None
+    return result
+
+
+@router.get("/context", response_model=LeagueContext)
+def league_context(
+    season: str = Query("2024-25"),
+    position: Optional[str] = Query(None, description="Player position (PG, SG, SF, PF, C, G, F)"),
+    db: Session = Depends(get_db),
+):
+    """Return league and position-group medians for key stats in a season."""
+    MIN_GP = 15
+
+    all_rows = (
+        db.query(SeasonStat)
+        .filter(
+            SeasonStat.season == season,
+            SeasonStat.is_playoff == False,  # noqa: E712
+            SeasonStat.gp >= MIN_GP,
+        )
+        .all()
+    )
+
+    if not all_rows:
+        raise HTTPException(status_code=404, detail=f"No stats found for season {season}")
+
+    league_medians = _median_map(all_rows, _CONTEXT_STATS)
+
+    # Position-group filtering
+    position_group: Optional[str] = None
+    position_medians: dict = {s: None for s in _CONTEXT_STATS}
+
+    if position:
+        position_group = _POS_MAP.get(position.upper())
+        if position_group:
+            # Collect player positions from joined Player table
+            player_ids_in_group = {
+                p.id
+                for p in db.query(Player).all()
+                if p.position and _POS_MAP.get(p.position.upper()) == position_group
+            }
+            pos_rows = [r for r in all_rows if r.player_id in player_ids_in_group]
+            if pos_rows:
+                position_medians = _median_map(pos_rows, _CONTEXT_STATS)
+
+    return LeagueContext(
+        season=season,
+        position_group=position_group,
+        league_medians=league_medians,
+        position_medians=position_medians,
+    )
 
 
 @router.get("/{player_id}/career", response_model=CareerStatsResponse)
