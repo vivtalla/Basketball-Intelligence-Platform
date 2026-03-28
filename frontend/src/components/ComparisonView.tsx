@@ -4,6 +4,7 @@ import { useState } from "react";
 import Image from "next/image";
 import type { PlayerProfile, CareerStatsResponse, SeasonStats } from "@/lib/types";
 import { usePlayerPercentiles } from "@/hooks/usePlayerStats";
+import DualCareerArcChart from "./DualCareerArcChart";
 
 interface PlayerData {
   profile: PlayerProfile;
@@ -15,7 +16,7 @@ interface ComparisonViewProps {
   playerB: PlayerData;
 }
 
-type ViewMode = "career" | "current" | "percentile";
+type ViewMode = "career" | "current" | "percentile" | "arc";
 
 // ─── Stat row definitions ─────────────────────────────────────────────────────
 
@@ -54,6 +55,9 @@ const ADVANCED_ROWS: StatRow[] = [
   { key: "net_rating",  label: "Net Rating",      higherBetter: true              },
   { key: "pie",         label: "PIE",             higherBetter: true,  pct: true  },
   { key: "darko",       label: "DARKO",           higherBetter: true,  decimals: 2},
+  { key: "epm",         label: "EPM*",            higherBetter: true              },
+  { key: "raptor",      label: "RAPTOR*",         higherBetter: true              },
+  { key: "pipm",        label: "PIPM*",           higherBetter: true              },
 ];
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -274,6 +278,7 @@ export default function ComparisonView({ playerA, playerB }: ComparisonViewProps
             { id: "career", label: "Career" },
             { id: "current", label: "Season" },
             { id: "percentile", label: "Percentile" },
+            { id: "arc", label: "Arc" },
           ] as { id: ViewMode; label: string }[]).map((m) => (
             <button
               key={m.id}
@@ -356,8 +361,16 @@ export default function ComparisonView({ playerA, playerB }: ComparisonViewProps
         </>
       )}
 
+      {/* Arc mode */}
+      {mode === "arc" && (
+        <DualCareerArcChart
+          playerA={{ name: playerA.profile.full_name, seasons: playerA.career.seasons, birthDate: playerA.profile.birth_date }}
+          playerB={{ name: playerB.profile.full_name, seasons: playerB.career.seasons, birthDate: playerB.profile.birth_date }}
+        />
+      )}
+
       {/* Career / Current Season mode */}
-      {mode !== "percentile" && (
+      {mode !== "percentile" && mode !== "arc" && (
         <>
           <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 p-4">
             <h4 className="text-xs font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500 mb-3">
@@ -379,6 +392,9 @@ export default function ComparisonView({ playerA, playerB }: ComparisonViewProps
 
           <p className="text-center text-xs text-blue-500 dark:text-blue-400">
             Blue = better value
+          </p>
+          <p className="text-center text-xs text-gray-400 dark:text-gray-500">
+            * External metric — not platform-original (EPM: Dunks & Threes · RAPTOR: FiveThirtyEight · PIPM: Basketball Index)
           </p>
         </>
       )}
