@@ -24,7 +24,7 @@ Last updated: 2026-03-28 by Codex
 ### Claude
 - Branch: `feature/sprint9-leaderboard-enhancements`
 - Scope: Leaderboard enhancements — career tab, team filter, multi-column table, stat tooltips, URL state, historical data
-- Status: In progress
+- Status: Merged to master
 - PR: —
 - Blocked on: nothing
 
