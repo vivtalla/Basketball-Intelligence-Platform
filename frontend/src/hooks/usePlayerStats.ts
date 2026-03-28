@@ -6,6 +6,8 @@ import type {
   CareerStatsResponse,
   ShotChartResponse,
   LeaderboardResponse,
+  TeamSummary,
+  TeamRosterResponse,
   PercentileResult,
   OnOffStats,
   ClutchStats,
@@ -17,6 +19,8 @@ import {
   getPlayerCareerStats,
   getPlayerShotChart,
   getLeaderboard,
+  getTeams,
+  getTeamRoster,
   getPlayerPercentiles,
   getPlayerOnOff,
   getPlayerClutch,
@@ -78,6 +82,17 @@ export function useLeaderboard(
   return useSWR<LeaderboardResponse>(
     season ? `leaderboard-${stat}-${season}-${seasonType}` : null,
     () => getLeaderboard(stat, season, seasonType)
+  );
+}
+
+export function useTeams() {
+  return useSWR<TeamSummary[]>("teams", getTeams);
+}
+
+export function useTeamRoster(teamAbbreviation: string | null) {
+  return useSWR<TeamRosterResponse>(
+    teamAbbreviation ? `team-roster-${teamAbbreviation}` : null,
+    () => getTeamRoster(teamAbbreviation!)
   );
 }
 

@@ -1,13 +1,12 @@
 "use client";
 
-import { Suspense, useState, useRef } from "react";
+import { Suspense, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { useRouter, useSearchParams } from "next/navigation";
 import { usePlayerSearch } from "@/hooks/usePlayerSearch";
 import { usePlayerProfile, usePlayerCareerStats } from "@/hooks/usePlayerStats";
 import ComparisonView from "@/components/ComparisonView";
-import type { PlayerProfile, CareerStatsResponse } from "@/lib/types";
 
 // ─── Player search slot ───────────────────────────────────────────────────────
 

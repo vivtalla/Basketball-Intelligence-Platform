@@ -4,6 +4,8 @@ import type {
   CareerStatsResponse,
   ShotChartResponse,
   LeaderboardResponse,
+  TeamSummary,
+  TeamRosterResponse,
   PercentileResult,
   OnOffStats,
   ClutchStats,
@@ -44,6 +46,18 @@ export async function getPlayerCareerStats(
 
 export async function getAvailableSeasons(): Promise<string[]> {
   return fetchApi<string[]>("/api/leaderboards/seasons");
+}
+
+export async function getTeams(): Promise<TeamSummary[]> {
+  return fetchApi<TeamSummary[]>("/api/teams");
+}
+
+export async function getTeamRoster(
+  teamAbbreviation: string
+): Promise<TeamRosterResponse> {
+  return fetchApi<TeamRosterResponse>(
+    `/api/teams/${encodeURIComponent(teamAbbreviation)}`
+  );
 }
 
 export async function getLeaderboard(

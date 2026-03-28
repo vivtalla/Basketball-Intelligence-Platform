@@ -124,6 +124,13 @@ export interface TeamRosterPlayer {
   bpm: number | null;
 }
 
+export interface TeamSummary {
+  team_id: number;
+  abbreviation: string;
+  name: string;
+  player_count: number;
+}
+
 export interface TeamRosterResponse {
   team_id: number;
   abbreviation: string;

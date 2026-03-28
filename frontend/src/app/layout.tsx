@@ -54,6 +54,12 @@ export default function RootLayout({
                 Leaderboards
               </Link>
               <Link
+                href="/teams"
+                className="text-sm text-gray-500 hover:text-blue-500 dark:text-gray-400 dark:hover:text-blue-400 transition-colors"
+              >
+                Teams
+              </Link>
+              <Link
                 href="/learn"
                 className="text-sm text-gray-500 hover:text-blue-500 dark:text-gray-400 dark:hover:text-blue-400 transition-colors"
               >
