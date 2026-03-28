@@ -96,7 +96,19 @@ def leaderboard(
     if team:
         q = q.filter(SeasonStat.team_abbreviation == team)
 
-    rows = q.order_by(stat_col.desc()).limit(limit).all()
+    # Fetch extra rows to account for mid-season trades (one DB row per team).
+    # Sort by stat desc then gp desc so the best/most-played row comes first per player.
+    raw = q.order_by(stat_col.desc(), SeasonStat.gp.desc()).limit(limit * 4).all()
+
+    # Deduplicate: keep the first (highest-stat) row per player_id
+    seen_ids: set = set()
+    rows = []
+    for stat_row, player in raw:
+        if player.id not in seen_ids:
+            seen_ids.add(player.id)
+            rows.append((stat_row, player))
+        if len(rows) >= limit:
+            break
 
     entries = [
         LeaderboardEntry(
