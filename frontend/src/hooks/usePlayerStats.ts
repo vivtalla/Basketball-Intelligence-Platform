@@ -98,11 +98,12 @@ export function usePlayerPbpCoverage(playerId: number | null, season: string | n
 export function useLeaderboard(
   stat: string,
   season: string,
-  seasonType = "Regular Season"
+  seasonType = "Regular Season",
+  limit = 25
 ) {
   return useSWR<LeaderboardResponse>(
-    season ? `leaderboard-${stat}-${season}-${seasonType}` : null,
-    () => getLeaderboard(stat, season, seasonType)
+    stat && season ? `leaderboard-${stat}-${season}-${seasonType}-${limit}` : null,
+    () => getLeaderboard(stat, season, seasonType, limit)
   );
 }
 
