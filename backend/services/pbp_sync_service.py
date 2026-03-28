@@ -12,6 +12,7 @@ from data.nba_client import (
     get_play_by_play,
     get_player_game_ids,
     get_season_game_ids,
+    get_team_season_game_ids,
 )
 from db.database import SessionLocal
 from db.models import GameLog, LineupStats, PlayByPlay, Player, PlayerOnOff, SeasonStat, Team
@@ -548,7 +549,32 @@ def _sync_games(
 
 
 def sync_pbp_for_player(player_id: int, season: str, force_refresh: bool = False) -> dict:
-    game_ids = _fetch_with_retry(get_player_game_ids, player_id, season, timeout=PBP_TIMEOUT)
+    player_team_id = None
+    db = SessionLocal()
+    try:
+        player = db.query(Player).filter_by(id=player_id).first()
+        if player:
+            player_team_id = player.team_id
+    finally:
+        db.close()
+
+    candidate_game_ids = None
+    if player_team_id:
+        candidate_game_ids = _fetch_with_retry(
+            get_team_season_game_ids,
+            season,
+            player_team_id,
+            timeout=PBP_TIMEOUT,
+        )
+
+    game_ids = _fetch_with_retry(
+        get_player_game_ids,
+        player_id,
+        season,
+        candidate_game_ids=candidate_game_ids,
+        prefer_candidate_scan=bool(candidate_game_ids),
+        timeout=PBP_TIMEOUT,
+    )
     return _sync_games(
         season,
         game_ids,
