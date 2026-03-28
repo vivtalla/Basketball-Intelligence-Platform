@@ -1,4 +1,4 @@
-from typing import List
+from typing import List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
@@ -16,6 +16,35 @@ from services.advanced_metrics import (
 from services.sync_service import sync_player_if_needed
 
 router = APIRouter()
+
+
+_RATE_STATS = ["pts", "reb", "ast", "stl", "blk", "tov", "fgm", "fga", "fg3m", "fg3a", "ftm", "fta", "oreb", "dreb", "pf"]
+
+
+def _compute_per36(stat: SeasonStat) -> Optional[dict]:
+    min_total = stat.min_total or 0
+    if min_total < 1:
+        return None
+    return {
+        k: round(getattr(stat, k, 0) / min_total * 36, 1)
+        for k in _RATE_STATS
+        if getattr(stat, k, None) is not None
+    }
+
+
+def _compute_per100(stat: SeasonStat) -> Optional[dict]:
+    fga = stat.fga or 0
+    fta = stat.fta or 0
+    tov = stat.tov or 0
+    gp = stat.gp or 1
+    poss = fga + 0.44 * fta + tov  # season totals possessions estimate
+    if poss < 1:
+        return None
+    return {
+        k: round(getattr(stat, k, 0) / poss * 100, 1)
+        for k in _RATE_STATS
+        if getattr(stat, k, None) is not None
+    }
 
 
 def _stat_to_dict(stat: SeasonStat) -> dict:
@@ -66,6 +95,23 @@ def _stat_to_dict(stat: SeasonStat) -> dict:
         "darko": stat.darko,
         "epm": stat.epm,
         "rapm": stat.rapm,
+        "lebron": stat.lebron,
+        "raptor": stat.raptor,
+        "pipm": stat.pipm,
+        "obpm": stat.obpm,
+        "dbpm": stat.dbpm,
+        "ftr": stat.ftr,
+        "par3": stat.par3,
+        "ast_tov": stat.ast_tov,
+        "oreb_pct": stat.oreb_pct,
+        "clutch_pts": stat.clutch_pts,
+        "clutch_fga": stat.clutch_fga,
+        "clutch_fg_pct": stat.clutch_fg_pct,
+        "clutch_plus_minus": stat.clutch_plus_minus,
+        "second_chance_pts": stat.second_chance_pts,
+        "fast_break_pts": stat.fast_break_pts,
+        "per36": _compute_per36(stat),
+        "per100": _compute_per100(stat),
     }
 
 
@@ -161,8 +207,73 @@ def _compute_career_totals(seasons: list) -> dict:
     totals["darko"] = None
     totals["epm"] = None
     totals["rapm"] = None
+    totals["lebron"] = None
+    totals["raptor"] = None
+    totals["pipm"] = None
+    totals["obpm"] = None
+    totals["dbpm"] = None
+    totals["ftr"] = None
+    totals["par3"] = None
+    totals["ast_tov"] = None
+    totals["oreb_pct"] = None
+    totals["clutch_pts"] = None
+    totals["clutch_fga"] = None
+    totals["clutch_fg_pct"] = None
+    totals["clutch_plus_minus"] = None
+    totals["second_chance_pts"] = None
+    totals["fast_break_pts"] = None
+    totals["per36"] = None
+    totals["per100"] = None
 
     return totals
+
+
+@router.get("/{player_id}/percentiles")
+def player_percentiles(
+    player_id: int,
+    season: str,
+    db: Session = Depends(get_db),
+):
+    """Return percentile ranks (0–100) for 6 key stats vs all players in the same season."""
+    PERCENTILE_STATS = ["pts_pg", "reb_pg", "ast_pg", "ts_pct", "per", "bpm"]
+    MIN_GP = 15
+
+    target = (
+        db.query(SeasonStat)
+        .filter(
+            SeasonStat.player_id == player_id,
+            SeasonStat.season == season,
+            SeasonStat.is_playoff == False,  # noqa: E712
+        )
+        .first()
+    )
+    if not target:
+        raise HTTPException(status_code=404, detail="No stats for this player/season combination")
+
+    all_rows = (
+        db.query(SeasonStat)
+        .filter(
+            SeasonStat.season == season,
+            SeasonStat.is_playoff == False,  # noqa: E712
+            SeasonStat.gp >= MIN_GP,
+        )
+        .all()
+    )
+
+    result = {}
+    for stat in PERCENTILE_STATS:
+        target_val = getattr(target, stat, None)
+        if target_val is None:
+            result[stat] = None
+            continue
+        all_vals = [getattr(r, stat) for r in all_rows if getattr(r, stat) is not None]
+        if not all_vals:
+            result[stat] = None
+            continue
+        below = sum(1 for v in all_vals if v < target_val)
+        result[stat] = round(below / len(all_vals) * 100)
+
+    return {"season": season, "percentiles": result}
 
 
 @router.get("/{player_id}/career", response_model=CareerStatsResponse)

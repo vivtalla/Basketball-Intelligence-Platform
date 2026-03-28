@@ -4,6 +4,7 @@ Simplified versions of standard advanced metrics used in NBA analytics.
 Formulas based on Basketball Reference definitions.
 """
 from __future__ import annotations
+from typing import Optional
 
 
 def calculate_ts_pct(pts: int, fga: int, fta: int) -> float | None:
@@ -207,6 +208,100 @@ def calculate_vorp(bpm: float | None, mp: float, team_gp: int) -> float | None:
     return round(vorp, 1)
 
 
+def calculate_secondary_metrics(stats: dict) -> dict:
+    """Compute secondary box-score rate metrics.
+
+    Returns a dict of: ftr, par3, ast_tov, oreb_pct
+    """
+    fga = stats.get("fga") or 0
+    fta = stats.get("fta") or 0
+    fg3a = stats.get("fg3a") or 0
+    ast = stats.get("ast") or 0
+    tov = stats.get("tov") or 0
+    oreb = stats.get("oreb") or 0
+    dreb = stats.get("dreb") or 0
+
+    ftr = round(fta / fga, 3) if fga > 0 else None
+    par3 = round(fg3a / fga, 3) if fga > 0 else None
+    ast_tov = round(ast / tov, 2) if tov > 0 else None
+    total_reb = oreb + dreb
+    oreb_pct = round(oreb / total_reb, 3) if total_reb > 0 else None
+
+    return {"ftr": ftr, "par3": par3, "ast_tov": ast_tov, "oreb_pct": oreb_pct}
+
+
+def calculate_obpm(stats: dict) -> Optional[float]:
+    """Offensive Box Plus/Minus component.
+
+    Captures offensive contribution: scoring efficiency above average,
+    playmaking (assists), and usage-adjusted production.
+
+    Calibrated so an average offensive player scores ~0.
+    """
+    per = stats.get("per")
+    if per is None:
+        return None
+    gp = stats.get("gp", 0) or 1
+    mp = stats.get("min_total", 0)
+    if mp == 0:
+        return None
+
+    ast_pg = stats.get("ast_pg") or (stats.get("ast", 0) / gp)
+    tov_pg = stats.get("tov_pg") or (stats.get("tov", 0) / gp)
+    usg = stats.get("usg_pct") or 20.0
+    ts = stats.get("ts_pct") or 0.53
+
+    # Offensive Rating component — if available from NBA.com, use it
+    off_rating = stats.get("off_rating")
+    if off_rating is not None:
+        # League average ORtg ~ 113; scale to BPM units
+        ortg_adj = (off_rating - 113.0) * 0.10
+    else:
+        # Approximate from TS% relative to league avg (0.57)
+        ortg_adj = (ts - 0.57) * 15.0
+
+    obpm = (
+        ortg_adj
+        + ast_pg * 0.30           # playmaking value
+        - tov_pg * 0.25           # penalise turnovers
+        + (per - 15.0) * 0.20     # overall offensive efficiency above average
+        - max(0.0, usg - 22.0) * 0.04  # usage penalty for inefficient volume
+        - 0.30                    # baseline shift
+    )
+    return round(obpm, 1)
+
+
+def calculate_dbpm(stats: dict) -> Optional[float]:
+    """Defensive Box Plus/Minus component.
+
+    Captures defensive contribution: steals, blocks, and defensive rating.
+    Calibrated so an average defender scores ~0.
+    """
+    gp = stats.get("gp", 0) or 1
+    mp = stats.get("min_total", 0)
+    if mp == 0:
+        return None
+
+    stl_pg = stats.get("stl_pg") or (stats.get("stl", 0) / gp)
+    blk_pg = stats.get("blk_pg") or (stats.get("blk", 0) / gp)
+
+    # Defensive Rating component — if available from NBA.com, use it
+    def_rating = stats.get("def_rating")
+    if def_rating is not None:
+        # League average DRtg ~ 113; lower is better
+        drtg_adj = (113.0 - def_rating) * 0.08
+    else:
+        drtg_adj = 0.0
+
+    dbpm = (
+        drtg_adj
+        + stl_pg * 0.50     # steals: strong on-ball defensive indicator
+        + blk_pg * 0.22     # blocks: rim protection
+        - 0.20              # baseline shift (most players slightly negative)
+    )
+    return round(dbpm, 1)
+
+
 def enrich_season_with_advanced(season_data: dict, advanced_data: dict | None) -> dict:
     """Merge nba_api advanced stats into a season stats dict."""
     if advanced_data is None:
@@ -238,7 +333,13 @@ def enrich_season_with_advanced(season_data: dict, advanced_data: dict | None) -
 
     # Calculated metrics — applied regardless of whether advanced_data is available
     season_data["per"] = calculate_per_simplified(season_data)
-    season_data["bpm"] = calculate_bpm(season_data)
+    season_data["obpm"] = calculate_obpm(season_data)
+    season_data["dbpm"] = calculate_dbpm(season_data)
+    # BPM = OBPM + DBPM when both are available; fall back to legacy formula
+    if season_data["obpm"] is not None and season_data["dbpm"] is not None:
+        season_data["bpm"] = round(season_data["obpm"] + season_data["dbpm"], 1)
+    else:
+        season_data["bpm"] = calculate_bpm(season_data)
     season_data["ws"] = calculate_win_shares(season_data["bpm"], season_data.get("min_total", 0))
     season_data["vorp"] = calculate_vorp(
         season_data["bpm"], season_data.get("min_total", 0), season_data.get("gp", 0)
@@ -249,5 +350,13 @@ def enrich_season_with_advanced(season_data: dict, advanced_data: dict | None) -
         season_data.get("ts_pct"),
         season_data.get("usg_pct"),
     )
+
+    # Secondary box-score metrics
+    season_data.update(calculate_secondary_metrics(season_data))
+
+    # External metrics default to None (set by CSV import)
+    season_data.setdefault("lebron", None)
+    season_data.setdefault("raptor", None)
+    season_data.setdefault("pipm", None)
 
     return season_data

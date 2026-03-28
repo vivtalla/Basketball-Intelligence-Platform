@@ -1,15 +1,50 @@
+"use client";
+
+import Image from "next/image";
 import type { PlayerProfile, SeasonStats } from "@/lib/types";
 import StatCard from "./StatCard";
+import { usePlayerPercentiles } from "@/hooks/usePlayerStats";
+import { useFavorites } from "@/hooks/useFavorites";
 
 interface PlayerHeaderProps {
   profile: PlayerProfile;
   currentSeason?: SeasonStats | null;
 }
 
+const PERCENTILE_LABELS: Record<string, string> = {
+  pts_pg: "PPG",
+  reb_pg: "RPG",
+  ast_pg: "APG",
+  ts_pct: "TS%",
+  per: "PER",
+  bpm: "BPM",
+};
+
+function pctColor(pct: number): string {
+  if (pct >= 90) return "bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300";
+  if (pct >= 75) return "bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300";
+  if (pct >= 50) return "bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300";
+  return "bg-red-50 text-red-500 dark:bg-red-900/20 dark:text-red-400";
+}
+
+function ordinal(n: number): string {
+  if (n >= 11 && n <= 13) return `${n}th`;
+  const s = ["th", "st", "nd", "rd"];
+  return `${n}${s[n % 10] ?? "th"}`;
+}
+
 export default function PlayerHeader({
   profile,
   currentSeason,
 }: PlayerHeaderProps) {
+  const { data: pctData } = usePlayerPercentiles(
+    profile.id,
+    currentSeason?.season ?? null
+  );
+
+  const { isFavorite, toggleFavorite } = useFavorites();
+  const starred = isFavorite(profile.id);
+
   const draftInfo =
     profile.draft_year && profile.draft_year !== "Undrafted"
       ? `${profile.draft_year} Round ${profile.draft_round}, Pick ${profile.draft_number}`
@@ -20,26 +55,59 @@ export default function PlayerHeader({
       <div className="flex flex-col md:flex-row gap-6">
         {/* Headshot */}
         <div className="flex-shrink-0">
-          <div className="w-40 h-40 rounded-2xl overflow-hidden bg-gray-100 dark:bg-gray-700">
-            <img
-              src={profile.headshot_url}
+          <div className="relative w-40 h-40 rounded-2xl overflow-hidden bg-gray-100 dark:bg-gray-700">
+            <Image
+              src={
+                profile.headshot_url ||
+                "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect fill='%23374151' width='100' height='100'/%3E%3Ctext x='50' y='55' text-anchor='middle' fill='%239CA3AF' font-size='40'%3E%3F%3C/text%3E%3C/svg%3E"
+              }
               alt={profile.full_name}
-              className="w-full h-full object-cover"
-              onError={(e) => {
-                (e.target as HTMLImageElement).src =
-                  "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect fill='%23374151' width='100' height='100'/%3E%3Ctext x='50' y='55' text-anchor='middle' fill='%239CA3AF' font-size='40'%3E%3F%3C/text%3E%3C/svg%3E";
-              }}
+              fill
+              className="object-cover"
+              unoptimized
             />
           </div>
         </div>
 
         {/* Bio */}
         <div className="flex-grow">
-          <div className="flex items-baseline gap-3 mb-2">
+          <div className="flex items-center gap-3 mb-2">
             <h1 className="text-3xl font-bold">{profile.full_name}</h1>
             {profile.jersey && (
               <span className="text-2xl text-gray-400">#{profile.jersey}</span>
             )}
+            {/* Star / watchlist button */}
+            <button
+              onClick={() =>
+                toggleFavorite({
+                  id: profile.id,
+                  name: profile.full_name,
+                  team: profile.team_abbreviation ?? profile.team_name ?? "",
+                  headshot_url: profile.headshot_url ?? null,
+                })
+              }
+              title={starred ? "Remove from My Players" : "Add to My Players"}
+              className={`ml-1 transition-colors ${
+                starred
+                  ? "text-amber-400 hover:text-amber-500"
+                  : "text-gray-300 dark:text-gray-600 hover:text-amber-400"
+              }`}
+            >
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                viewBox="0 0 24 24"
+                fill={starred ? "currentColor" : "none"}
+                stroke="currentColor"
+                strokeWidth={1.8}
+                className="w-6 h-6"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  d="M11.48 3.499a.562.562 0 0 1 1.04 0l2.125 5.111a.563.563 0 0 0 .475.345l5.518.442c.499.04.701.663.321.988l-4.204 3.602a.563.563 0 0 0-.182.557l1.285 5.385a.562.562 0 0 1-.84.61l-4.725-2.885a.562.562 0 0 0-.586 0L6.982 20.54a.562.562 0 0 1-.84-.61l1.285-5.386a.562.562 0 0 0-.182-.557l-4.204-3.602a.562.562 0 0 1 .321-.988l5.518-.442a.563.563 0 0 0 .475-.345L11.48 3.5Z"
+                />
+              </svg>
+            </button>
           </div>
 
           <div className="flex flex-wrap gap-2 mb-4">
@@ -52,6 +120,26 @@ export default function PlayerHeader({
               </span>
             )}
           </div>
+
+          {/* Percentile badges */}
+          {pctData && (
+            <div className="flex flex-wrap gap-1.5 mb-4">
+              {Object.entries(PERCENTILE_LABELS).map(([stat, label]) => {
+                const pct = pctData.percentiles[stat];
+                if (pct == null) return null;
+                return (
+                  <span
+                    key={stat}
+                    title={`${label}: ${ordinal(pct)} percentile vs players in ${pctData.season}`}
+                    className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium ${pctColor(pct)}`}
+                  >
+                    {label}
+                    <span className="font-semibold">{ordinal(pct)}</span>
+                  </span>
+                );
+              })}
+            </div>
+          )}
 
           <div className="grid grid-cols-2 md:grid-cols-4 gap-x-6 gap-y-2 text-sm text-gray-600 dark:text-gray-400">
             <div>

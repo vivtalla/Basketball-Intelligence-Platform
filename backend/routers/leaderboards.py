@@ -16,6 +16,8 @@ SORTABLE_STATS = {
     "fg_pct", "fg3_pct", "ft_pct", "min_pg",
     "ts_pct", "efg_pct", "usg_pct", "per", "bpm", "ws", "vorp",
     "off_rating", "def_rating", "net_rating", "pie", "darko",
+    "obpm", "dbpm", "ftr", "par3", "ast_tov", "oreb_pct",
+    "epm", "rapm", "lebron", "raptor", "pipm",
 }
 
 

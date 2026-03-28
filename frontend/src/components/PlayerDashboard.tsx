@@ -4,8 +4,11 @@ import { usePlayerProfile, usePlayerCareerStats } from "@/hooks/usePlayerStats";
 import PlayerHeader from "./PlayerHeader";
 import StatTable from "./StatTable";
 import RadarChart from "./RadarChart";
-import StatComparisonBar from "./StatComparisonBar";
+import CareerArcChart from "./CareerArcChart";
 import ShotChart from "./ShotChart";
+import PlayerPbpInsights from "./PlayerPbpInsights";
+import GameLogTable from "./GameLogTable";
+import PlayerSimilarity from "./PlayerSimilarity";
 
 interface PlayerDashboardProps {
   playerId: number;
@@ -55,13 +58,9 @@ export default function PlayerDashboard({ playerId }: PlayerDashboardProps) {
           </div>
         )}
 
-        {/* PPG Trend */}
+        {/* Career Arc */}
         <div className="lg:col-span-2">
-          <StatComparisonBar
-            seasons={careerStats.seasons}
-            statKey="pts_pg"
-            label="Points Per Game"
-          />
+          <CareerArcChart seasons={careerStats.seasons} birthDate={profile.birth_date} />
         </div>
       </div>
 
@@ -73,6 +72,12 @@ export default function PlayerDashboard({ playerId }: PlayerDashboardProps) {
           defaultSeason={currentSeason?.season ?? careerStats.seasons[careerStats.seasons.length - 1].season}
         />
       )}
+
+      <PlayerPbpInsights playerId={playerId} season={currentSeason?.season ?? null} />
+
+      <PlayerSimilarity playerId={playerId} season={currentSeason?.season ?? null} />
+
+      <GameLogTable playerId={playerId} season={currentSeason?.season ?? null} />
 
       <StatTable
         seasons={careerStats.seasons}

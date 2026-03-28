@@ -1,4 +1,4 @@
-from typing import List, Optional
+from typing import Dict, List, Optional
 
 from pydantic import BaseModel
 
@@ -51,6 +51,67 @@ class SeasonStats(BaseModel):
     darko: Optional[float] = None
     epm: Optional[float] = None
     rapm: Optional[float] = None
+    # External public metrics (imported via CSV)
+    lebron: Optional[float] = None
+    raptor: Optional[float] = None
+    pipm: Optional[float] = None
+    # Split BPM components
+    obpm: Optional[float] = None
+    dbpm: Optional[float] = None
+    # Secondary box-score metrics
+    ftr: Optional[float] = None      # Free Throw Rate
+    par3: Optional[float] = None     # 3-Point Attempt Rate
+    ast_tov: Optional[float] = None  # Assist-to-Turnover Ratio
+    oreb_pct: Optional[float] = None # Offensive Rebound %
+    # Play-by-play derived stats
+    clutch_pts: Optional[float] = None
+    clutch_fga: Optional[int] = None
+    clutch_fg_pct: Optional[float] = None
+    clutch_plus_minus: Optional[float] = None
+    second_chance_pts: Optional[float] = None
+    fast_break_pts: Optional[float] = None
+    # Normalized rate stats (keyed by counting stat name)
+    per36: Optional[Dict[str, float]] = None
+    per100: Optional[Dict[str, float]] = None
+
+
+class ClutchStats(BaseModel):
+    player_id: int
+    season: str
+    clutch_pts: Optional[float] = None
+    clutch_fga: Optional[int] = None
+    clutch_fg_pct: Optional[float] = None
+    clutch_plus_minus: Optional[float] = None
+    second_chance_pts: Optional[float] = None
+    fast_break_pts: Optional[float] = None
+
+
+class OnOffStats(BaseModel):
+    player_id: int
+    season: str
+    on_minutes: Optional[float] = None
+    off_minutes: Optional[float] = None
+    on_net_rating: Optional[float] = None
+    off_net_rating: Optional[float] = None
+    on_off_net: Optional[float] = None
+    on_ortg: Optional[float] = None
+    on_drtg: Optional[float] = None
+    off_ortg: Optional[float] = None
+    off_drtg: Optional[float] = None
+
+
+class LineupStatsResponse(BaseModel):
+    lineup_key: str
+    player_ids: List[int]
+    player_names: List[str]
+    season: str
+    team_id: Optional[int] = None
+    minutes: Optional[float] = None
+    net_rating: Optional[float] = None
+    ortg: Optional[float] = None
+    drtg: Optional[float] = None
+    plus_minus: Optional[float] = None
+    possessions: Optional[int] = None
 
 
 class CareerStatsResponse(BaseModel):
