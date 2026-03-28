@@ -13,6 +13,7 @@ import type {
   BreakoutsResponse,
   PercentileResult,
   OnOffStats,
+  PbpCoverage,
   ClutchStats,
   LineupsResult,
   OnOffLeaderboardResult,
@@ -31,6 +32,7 @@ import {
   getBreakouts,
   getPlayerPercentiles,
   getPlayerOnOff,
+  getPlayerPbpCoverage,
   getPlayerClutch,
   getLineups,
   getOnOffLeaderboard,
@@ -81,6 +83,13 @@ export function usePlayerClutch(playerId: number | null, season: string | null) 
   return useSWR<ClutchStats>(
     playerId && season ? `clutch-${playerId}-${season}` : null,
     () => getPlayerClutch(playerId!, season!)
+  );
+}
+
+export function usePlayerPbpCoverage(playerId: number | null, season: string | null) {
+  return useSWR<PbpCoverage>(
+    playerId && season ? `pbp-coverage-${playerId}-${season}` : null,
+    () => getPlayerPbpCoverage(playerId!, season!)
   );
 }
 

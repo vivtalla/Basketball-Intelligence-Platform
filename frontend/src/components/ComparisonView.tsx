@@ -258,8 +258,6 @@ export default function ComparisonView({ playerA, playerB }: ComparisonViewProps
     return v != null ? Math.round(v) : null;
   };
 
-  const allRows = [...TRADITIONAL_ROWS, ...ADVANCED_ROWS];
-
   return (
     <div className="space-y-6">
       {/* Player headers */}

@@ -100,6 +100,17 @@ class OnOffStats(BaseModel):
     off_drtg: Optional[float] = None
 
 
+class PbpCoverage(BaseModel):
+    player_id: int
+    season: str
+    eligible_games: int = 0
+    synced_games: int = 0
+    has_on_off: bool = False
+    has_scoring_splits: bool = False
+    status: str
+    last_derived_at: Optional[str] = None
+
+
 class LineupStatsResponse(BaseModel):
     lineup_key: str
     player_ids: List[int]

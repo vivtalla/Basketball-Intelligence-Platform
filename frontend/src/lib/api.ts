@@ -11,6 +11,7 @@ import type {
   BreakoutsResponse,
   PercentileResult,
   OnOffStats,
+  PbpCoverage,
   ClutchStats,
   LineupsResult,
   OnOffLeaderboardResult,
@@ -100,6 +101,15 @@ export async function getPlayerClutch(
 ): Promise<ClutchStats> {
   return fetchApi<ClutchStats>(
     `/api/advanced/${playerId}/clutch?season=${encodeURIComponent(season)}`
+  );
+}
+
+export async function getPlayerPbpCoverage(
+  playerId: number,
+  season: string
+): Promise<PbpCoverage> {
+  return fetchApi<PbpCoverage>(
+    `/api/advanced/${playerId}/pbp-coverage?season=${encodeURIComponent(season)}`
   );
 }
 

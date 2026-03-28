@@ -1,11 +1,15 @@
 """Advanced stats endpoints: on/off splits, clutch stats, lineup analysis."""
 
+from datetime import datetime
 from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 
+from data.nba_client import get_player_game_ids
 from db.database import get_db
-from db.models import PlayerOnOff, SeasonStat, LineupStats, Player
+from db.models import PlayerOnOff, SeasonStat, LineupStats, Player, GameLog, PlayByPlay
+from models.stats import PbpCoverage
 from services.pbp_sync_service import sync_pbp_for_player, sync_pbp_for_season
 from services.sync_service import sync_player_if_needed
 
@@ -76,6 +80,80 @@ def get_clutch(player_id: int, season: str = "2024-25", db: Session = Depends(ge
         "second_chance_pts": row.second_chance_pts,
         "fast_break_pts": row.fast_break_pts,
     }
+
+
+@router.get("/{player_id}/pbp-coverage", response_model=PbpCoverage)
+def get_pbp_coverage(player_id: int, season: str = "2024-25", db: Session = Depends(get_db)):
+    """Return play-by-play sync coverage metadata for a player-season."""
+    sync_player_if_needed(db, player_id)
+
+    season_row = (
+        db.query(SeasonStat)
+        .filter_by(player_id=player_id, season=season, is_playoff=False)
+        .first()
+    )
+    if not season_row:
+        raise HTTPException(status_code=404, detail=f"No season stats for player {player_id} in {season}.")
+
+    try:
+        player_game_ids = get_player_game_ids(player_id, season)
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"Could not determine player games for coverage: {exc}")
+
+    eligible_games = len(player_game_ids)
+    synced_games = 0
+    if player_game_ids:
+        synced_games = (
+            db.query(func.count(func.distinct(PlayByPlay.game_id)))
+            .join(GameLog, PlayByPlay.game_id == GameLog.game_id)
+            .filter(
+                GameLog.season == season,
+                PlayByPlay.game_id.in_(player_game_ids),
+            )
+            .scalar()
+            or 0
+        )
+
+    on_off_row = db.query(PlayerOnOff).filter_by(
+        player_id=player_id,
+        season=season,
+        is_playoff=False,
+    ).first()
+
+    has_on_off = bool(on_off_row and on_off_row.on_off_net is not None)
+    has_scoring_splits = any(
+        value is not None
+        for value in [
+            season_row.clutch_pts,
+            season_row.clutch_fg_pct,
+            season_row.second_chance_pts,
+            season_row.fast_break_pts,
+        ]
+    )
+
+    timestamps: list[datetime] = []
+    if on_off_row and on_off_row.updated_at:
+        timestamps.append(on_off_row.updated_at)
+    if season_row.updated_at and (has_on_off or has_scoring_splits):
+        timestamps.append(season_row.updated_at)
+
+    if synced_games == 0 and not has_on_off and not has_scoring_splits:
+        status = "none"
+    elif eligible_games > 0 and synced_games >= eligible_games and has_on_off and has_scoring_splits:
+        status = "ready"
+    else:
+        status = "partial"
+
+    return PbpCoverage(
+        player_id=player_id,
+        season=season,
+        eligible_games=eligible_games,
+        synced_games=synced_games,
+        has_on_off=has_on_off,
+        has_scoring_splits=has_scoring_splits,
+        status=status,
+        last_derived_at=max(timestamps).isoformat() if timestamps else None,
+    )
 
 
 @router.get("/lineups")

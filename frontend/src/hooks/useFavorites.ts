@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useCallback } from "react";
 
 const STORAGE_KEY = "bip_favorites";
 
@@ -26,11 +26,7 @@ function save(players: FavoritePlayer[]): void {
 }
 
 export function useFavorites() {
-  const [favorites, setFavorites] = useState<FavoritePlayer[]>([]);
-
-  useEffect(() => {
-    setFavorites(load());
-  }, []);
+  const [favorites, setFavorites] = useState<FavoritePlayer[]>(() => load());
 
   const isFavorite = useCallback(
     (id: number) => favorites.some((f) => f.id === id),

@@ -185,6 +185,17 @@ export interface OnOffStats {
   off_drtg: number | null;
 }
 
+export interface PbpCoverage {
+  player_id: number;
+  season: string;
+  eligible_games: number;
+  synced_games: number;
+  has_on_off: boolean;
+  has_scoring_splits: boolean;
+  status: "none" | "partial" | "ready";
+  last_derived_at: string | null;
+}
+
 export interface ClutchStats {
   player_id: number;
   season: string;
