@@ -5,6 +5,8 @@ Last updated: 2026-03-28 by Codex
 > **Both agents read this file before touching any code at the start of every session.**
 > Check sprint status, your branch, what the other agent owns, and the Merge Order.
 > Then check the Handoff Queue. Then `git fetch origin`. Then begin work.
+> All sprint implementation work happens on each agent's own branch or worktree, never directly on `master`; merge to `master` only after the sprint branch work is ready.
+> At sprint close, create/update `specs/sprint-{NN}-closeout.md`, reset `AGENTS.md` for the next sprint, and update the matching sprint summary in `CLAUDE.md`.
 
 ---
 
@@ -110,11 +112,33 @@ Specs written by one agent for the other. Check this before starting work — if
 
 ```
 1. Read this file — sprint number, my branch, what the other agent owns, Merge Order
-2. Check Lock Table — if the other agent claimed a file I need, read their branch first
-3. Check Handoff Queue — if a spec is "Ready" for me, read it before writing code
-4. git fetch origin && git log origin/master --oneline -5 — rebase if master advanced
-5. Update my status row if it changed, commit: "docs: update [Claude|Codex] status in AGENTS.md"
-6. Begin work
+2. Confirm I am on my assigned sprint branch or isolated worktree — do not implement on `master`
+3. Check Lock Table — if the other agent claimed a file I need, read their branch first
+4. Check Handoff Queue — if a spec is "Ready" for me, read it before writing code
+5. git fetch origin && git log origin/master --oneline -5 — rebase if master advanced
+6. Update my status row if it changed, commit: "docs: update [Claude|Codex] status in AGENTS.md"
+7. Begin work
+```
+
+---
+
+## Branch Isolation Rule
+
+- Every sprint task is implemented on the agent's assigned sprint branch, not on `master`
+- If the current checkout is on another agent's branch or has their local changes, create your own branch/worktree before editing code
+- `master` is the integration branch only; it should receive completed sprint work via merge or explicit final push after the branch work is done
+- When `AGENTS.md` lists a branch for an agent, that branch is the source of truth for where their sprint work belongs
+
+---
+
+## Sprint Closeout Checklist
+
+```
+1. Confirm what actually landed in `master`
+2. Create or update `specs/sprint-{NN}-closeout.md` with shipped work, deferred work, coordination lessons, technical lessons, and next-sprint seeds
+3. Clean `AGENTS.md` for the next sprint kickoff state (status, locks, merge order, notes)
+4. Update the matching sprint summary in `CLAUDE.md`
+5. Leave the next sprint kickoff readable from `AGENTS.md` + latest closeout note + `CLAUDE.md`
 ```
 
 ---

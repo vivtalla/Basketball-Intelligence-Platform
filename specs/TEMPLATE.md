@@ -1,5 +1,7 @@
 # [Feature Name]
 
+> For end-of-sprint memory notes, use `CLOSEOUT_TEMPLATE.md` and name the file `sprint-{NN}-closeout.md`.
+
 **From:** Claude | Codex
 **To:** Claude | Codex
 **Sprint:** N

@@ -229,7 +229,9 @@ Key endpoints:
 This repo uses a feature branch workflow:
 
 1. Branch from `master`: `git checkout -b feature/your-feature`
-2. Open a PR when ready — include what changed and why
-3. After merge, update `CLAUDE.md` sprint history
+2. Do implementation work on that branch only — do not build sprint features directly on `master`
+3. Open a PR when ready — include what changed and why
+4. At sprint close, create or update `specs/sprint-{NN}-closeout.md` with shipped work, deferred work, lessons, and next-sprint seeds
+5. After merge, update `AGENTS.md` for the next sprint state and update `CLAUDE.md` sprint history
 
-See `CLAUDE.md` for full architecture notes, caching strategy, code style rules, and sprint history.
+See `AGENTS.md` for live sprint coordination, `specs/` for handoffs and sprint closeouts, and `CLAUDE.md` for architecture notes, caching strategy, code style rules, and sprint history.
