@@ -3,7 +3,7 @@
 Last updated: 2026-03-28 by Codex
 
 > **Both agents read this file before touching any code at the start of every session.**
-> Check sprint status, your branch, what the other agent owns, and the Merge Order.
+> Check sprint status, your branch, this sprint's work allocation, and the Merge Order.
 > Then check the Handoff Queue. Then `git fetch origin`. Then begin work.
 > All sprint implementation work happens on each agent's own branch or worktree, never directly on `master`; merge to `master` only after the sprint branch work is ready.
 > At sprint close, create/update `specs/sprint-{NN}-closeout.md`, reset `AGENTS.md` for the next sprint, and update the matching sprint summary in `CLAUDE.md`.
@@ -75,12 +75,14 @@ Specs written by one agent for the other. Check this before starting work — if
 
 ---
 
-## File Ownership
+## Sprint Work Allocation
 
-### Hard ownership — do not touch the other agent's files
+Ownership is sprint-dependent, not permanent. The table below is rewritten each sprint to show who is currently driving which areas.
 
-| Files / Directories | Owner |
-|---------------------|-------|
+### This sprint's owned areas
+
+| Files / Directories | Assigned this sprint |
+|---------------------|----------------------|
 | `frontend/src/components/PlayerDashboard.tsx` | Claude |
 | `frontend/src/components/ComparisonView.tsx` | Claude |
 | `frontend/src/components/DualCareerArcChart.tsx` | Claude |
@@ -111,7 +113,7 @@ Specs written by one agent for the other. Check this before starting work — if
 ## Session Start Checklist
 
 ```
-1. Read this file — sprint number, my branch, what the other agent owns, Merge Order
+1. Read this file — sprint number, my branch, this sprint's work allocation, Merge Order
 2. Confirm I am on my assigned sprint branch or isolated worktree — do not implement on `master`
 3. Check Lock Table — if the other agent claimed a file I need, read their branch first
 4. Check Handoff Queue — if a spec is "Ready" for me, read it before writing code
@@ -128,6 +130,13 @@ Specs written by one agent for the other. Check this before starting work — if
 - If the current checkout is on another agent's branch or has their local changes, create your own branch/worktree before editing code
 - `master` is the integration branch only; it should receive completed sprint work via merge or explicit final push after the branch work is done
 - When `AGENTS.md` lists a branch for an agent, that branch is the source of truth for where their sprint work belongs
+
+## Work Allocation Rule
+
+- File and directory ownership is decided per sprint, not as a permanent project rule
+- Rewrite the Sprint Work Allocation table at sprint kickoff to match the current plan and active agents
+- If more agents are added, extend the current sprint table rather than creating permanent per-agent territories
+- If a task needs to move mid-sprint, update this file first so ownership changes are explicit before code changes begin
 
 ---
 
