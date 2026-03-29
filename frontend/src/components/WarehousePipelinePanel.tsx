@@ -87,6 +87,16 @@ export default function WarehousePipelinePanel({ season }: Props) {
 
   const total = health?.total_games ?? 0;
 
+  // "Sync Today" queues jobs for the last 3 calendar days — only meaningful
+  // for the active NBA season. Derive this from the season string so we don't
+  // need a separate API call: "2025-26" end year = 2026, compare to current year.
+  const isCurrentSeason = (() => {
+    const parts = season.split("-");
+    if (parts.length < 2) return false;
+    const endYear = parseInt(parts[1], 10) + 2000;
+    return endYear >= new Date().getFullYear();
+  })();
+
   return (
     <section className="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 p-5 space-y-5">
       <h2 className="text-sm font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wide">
@@ -175,17 +185,20 @@ export default function WarehousePipelinePanel({ season }: Props) {
               <button
                 disabled={busy}
                 onClick={() => handleAction(runNextWarehouseJob, "Run next")}
+                title="Dispatches the next pending job across all seasons"
                 className="text-xs px-3 py-1.5 rounded-lg bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50 transition-colors"
               >
-                Run Next Job
+                Run Next Job (global)
               </button>
-              <button
-                disabled={busy}
-                onClick={() => handleAction(() => queueCurrentSeason(season), "Daily sync")}
-                className="text-xs px-3 py-1.5 rounded-lg border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 disabled:opacity-50 transition-colors"
-              >
-                Sync Today
-              </button>
+              {isCurrentSeason && (
+                <button
+                  disabled={busy}
+                  onClick={() => handleAction(() => queueCurrentSeason(season), "Daily sync")}
+                  className="text-xs px-3 py-1.5 rounded-lg border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 disabled:opacity-50 transition-colors"
+                >
+                  Sync Today
+                </button>
+              )}
               <button
                 disabled={busy}
                 onClick={() => handleAction(() => queueSeasonBackfill(season), "Backfill")}
