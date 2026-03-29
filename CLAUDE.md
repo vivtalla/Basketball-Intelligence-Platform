@@ -319,15 +319,37 @@ Eliminated live NBA API calls on every player profile load:
 
 ---
 
+### Sprint 11 — Warehouse Data Foundation
+**Branch:** `codex-sprint-11-warehouse-foundation` → PR #7 (Codex Phase 1), `codex-sprint-11-pbp-pipeline` → master direct (Codex Phase 2), `feature/sprint-11-coverage-dashboard` → PR #8 (Claude)
+
+**Codex Phase 1 — Warehouse ingestion foundation:**
+- 8 new ORM models: `SourceRun`, `IngestionJob`, `RawSchedulePayload`, `WarehouseGame`, `RawGamePayload`, `GameTeamStat`, `GamePlayerStat`, `PlayByPlayEvent`
+- CDN fetch adapters in `nba_client.py` (cdn.nba.com — no stats.nba.com)
+- `warehouse_service.py`: full idempotent job pipeline — schedule sync, box score sync, PBP sync, materialization, job queue, backfill, health inspection
+- `routers/warehouse.py`: admin endpoints for queue management, sync triggers, health checks
+- `advanced.py`: PBP coverage repointed to `WarehouseGame` completeness flags
+
+**Codex Phase 2 — Canonical PBP pipeline:**
+- `ensure_schema.py` updated for all 8 new warehouse tables
+- `pbp_service.py`: `load_pbp_events_for_game()` reads from `PlayByPlayEvent` with fallback to legacy `PlayByPlay`; Python 3.8 annotation fixes throughout
+- `warehouse_service.py`: canonical events wired into derived metrics; season-scoped job claim
+- `warehouse_jobs.py`: season-scoped queue runner CLI (`--season`, `--max-jobs`, `--bootstrap-backfill`)
+
+**Claude — Coverage dashboard:**
+- `WarehousePipelinePanel` component: 5-step pipeline funnel, job queue stats, action buttons (Run Next Job / Sync Today / Queue Backfill), collapsible recent runs
+- `types.ts`, `api.ts`, `usePlayerStats.ts`: warehouse health types, API functions, SWR hooks
+- Coverage page updated to show warehouse pipeline status alongside existing PBP player/team readiness
+
+**Process milestone:** First sprint with cross-agent review checklist — caught Python 3.8 regressions and two UX bugs before/after merge.
+
+---
+
 ## Active Branches
 
 | Branch | Owner | Status |
 |--------|-------|--------|
 | `master` | — | Stable |
-| `feature/sprint-10-yoy-trends` | Claude | Open / not merged |
-| `codex-sprint-10-game-explorer-controls` | Codex | Open / not merged |
-| `feature/sprint9-leaderboard-enhancements` | Claude | Merged to master |
-| `codex-sprint-9-team-sync-dashboard` | Codex | Merged to master |
+| `codex-sprint-10-game-explorer-controls` | Codex | Open / not merged (carry to Sprint 12) |
 
 ---
 

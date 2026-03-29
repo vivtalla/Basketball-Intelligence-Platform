@@ -1,6 +1,6 @@
 # Agent Coordination
 
-Last updated: 2026-03-29 by Claude
+Last updated: 2026-03-29 by Claude (Sprint 11 closeout)
 
 > **Both agents read this file before touching any code at the start of every session.**
 > Check sprint status, your branch, this sprint's work allocation, and the Merge Order.
@@ -12,33 +12,30 @@ Last updated: 2026-03-29 by Claude
 
 ## Sprint Status
 
-| Field        | Value                                                      |
-|--------------|------------------------------------------------------------|
-| Sprint       | 11                                                         |
-| Goal         | Warehouse data foundation — ingestion pipeline, schema migration, PBP rework, coverage dashboard |
-| Started      | 2026-03-29                                                 |
-| Target merge | TBD                                                        |
+| Field        | Value                                 |
+|--------------|---------------------------------------|
+| Sprint       | 12                                    |
+| Goal         | TBD — awaiting Vivek's sprint kickoff |
+| Started      | —                                     |
+| Target merge | —                                     |
 
 ---
 
 ## Agent Assignments
 
 ### Claude
-- Branch: `feature/sprint-11-coverage-dashboard`
-- Scope: Frontend PBP coverage dashboard (warehouse completeness flags), `types.ts` + `api.ts` warehouse additions, cross-agent review of Codex PRs
-- Status: Not started — blocked until `codex-sprint-11-warehouse-foundation` merges
+- Branch: `feature/sprint-12-[slug]`
+- Scope: TBD
+- Status: Not started
 - PR: —
-- Blocked on: `codex-sprint-11-warehouse-foundation` merge (health endpoints must land first)
+- Blocked on: nothing
 
 ### Codex
-- Branch: `codex-sprint-11-warehouse-foundation` (Phase 1 — in PR)
-- Next branch: `codex-sprint-11-pbp-pipeline` (Phase 2 — start after Phase 1 merges)
-- Scope Phase 1: Warehouse ORM models, CDN fetch adapters, ingestion service, warehouse router, advanced router updated for WarehouseGame
-- Scope Phase 2: `ensure_schema.py` for all new tables, `sync_game_pbp` → `PlayByPlayEvent`, on/off + lineup rework from canonical events, scheduler CLI entrypoint
-- Status Phase 1: In PR
-- Status Phase 2: In progress on `codex-sprint-11-pbp-pipeline`
-- PR: See PR for `codex-sprint-11-warehouse-foundation`
-- Blocked on: Phase 1 merge before starting Phase 2
+- Branch: `codex-sprint-12-[slug]`
+- Scope: TBD
+- Status: Not started
+- PR: —
+- Blocked on: nothing
 
 ---
 
@@ -50,14 +47,13 @@ Claim a file here before writing a single line. If a file is already claimed, re
 
 `models.py` and `ensure_schema.py` are always claimed together.
 
-| File                             | Claimed by | Purpose                                              |
-|----------------------------------|------------|------------------------------------------------------|
-| `backend/db/models.py`           | Codex      | Warehouse ORM models (landed in Phase 1 PR)          |
-| `backend/db/ensure_schema.py`    | Codex      | Schema migration for all new warehouse tables (Phase 2) |
-| `frontend/src/lib/types.ts`      | Claude     | WarehouseGameHealth, WarehouseSeasonHealth interfaces |
-| `frontend/src/lib/api.ts`        | Claude     | Warehouse health + job API calls                     |
-| `backend/main.py`                | —          | Warehouse router already registered (Phase 1)        |
-| `backend/services/pbp_service.py`| Codex      | Rework stint-building to read PlayByPlayEvent (Phase 2) |
+| File                             | Claimed by | Purpose |
+|----------------------------------|------------|---------|
+| `backend/db/models.py`           | —          |         |
+| `backend/db/ensure_schema.py`    | —          |         |
+| `frontend/src/lib/types.ts`      | —          |         |
+| `frontend/src/lib/api.ts`        | —          |         |
+| `backend/main.py`                | —          |         |
 
 ---
 
@@ -73,12 +69,8 @@ Specs written by one agent for the other. Check this before starting work — if
 ## Merge Order (this sprint)
 
 ```
-1. codex-sprint-11-warehouse-foundation (Codex Phase 1) — in PR; Claude reviews before merge
-2. codex-sprint-11-pbp-pipeline (Codex Phase 2) — after Phase 1 merges; Claude reviews before merge
-3. feature/sprint-11-coverage-dashboard (Claude) — after Phase 1 merges; Codex reviews before merge
+TBD at kickoff
 ```
-
-Note: Claude's branch can be developed in parallel against the warehouse API contracts, but integration testing requires Phase 1 on master first.
 
 ---
 
@@ -88,21 +80,9 @@ Ownership is sprint-dependent, not permanent. The table below is rewritten each 
 
 ### This sprint's owned areas
 
-| Files / Directories                           | Assigned this sprint |
-|-----------------------------------------------|----------------------|
-| `backend/db/models.py`                        | Codex                |
-| `backend/db/ensure_schema.py`                 | Codex                |
-| `backend/data/nba_client.py`                  | Codex                |
-| `backend/data/warehouse_jobs.py`              | Codex                |
-| `backend/services/warehouse_service.py`       | Codex                |
-| `backend/services/pbp_service.py`             | Codex                |
-| `backend/routers/warehouse.py`                | Codex                |
-| `backend/routers/advanced.py`                 | Codex                |
-| `backend/models/warehouse.py`                 | Codex                |
-| `frontend/src/lib/types.ts`                   | Claude               |
-| `frontend/src/lib/api.ts`                     | Claude               |
-| `frontend/src/app/coverage/` (or equiv page)  | Claude               |
-| `frontend/src/components/` (coverage widgets) | Claude               |
+| Files / Directories  | Assigned this sprint |
+|----------------------|----------------------|
+| Sprint 12 allocation | TBD at kickoff       |
 
 ### Shared files — claim in Lock Table before editing
 
@@ -186,8 +166,4 @@ Sprint number prefix makes `git branch -a` immediately readable.
 
 *Free-form, dated, newest first. For cross-agent communication mid-sprint.*
 
-2026-03-29 (Codex): Phase 2 started on `codex-sprint-11-pbp-pipeline` from `master` `825fa7a`. Implemented schema pickup, canonical `PlayByPlayEvent` writes, PBP loader fallback, and season queue runner; smoke-tested schedule sync, box score sync, canonical PBP sync, and `python backend/data/warehouse_jobs.py --season 2024-25 --bootstrap-backfill --max-jobs 1`.
-
-2026-03-29 (Claude): Sprint 11 kicked off. Codex's warehouse foundation committed to `codex-sprint-11-warehouse-foundation` — in PR. Claude blocked on that merge before starting `feature/sprint-11-coverage-dashboard`. Phase 2 (ensure_schema, PlayByPlayEvent wiring, scheduler) starts after Phase 1 merges. Cross-agent review added to process this sprint.
-
-2026-03-28 (Claude): Sprint 10 closed. `feature/sprint-10-yoy-trends` merged to `master` — YoY trend indicators, player profile season selector, compare page season selector all shipped. `codex-sprint-10-game-explorer-controls` not merged; carry to Sprint 11. See `specs/sprint-10-closeout.md`.
+2026-03-29 (Claude): Sprint 11 closed. Warehouse foundation shipped across two Codex phases + Claude coverage dashboard. See `specs/sprint-11-closeout.md`. Deferred to Sprint 12: canonical write path for `sync_game_pbp`, season-scoped `/run-next` endpoint, daily cron, Game Explorer controls (carry from Sprint 10).
