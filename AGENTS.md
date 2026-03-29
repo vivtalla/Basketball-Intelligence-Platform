@@ -36,7 +36,7 @@ Last updated: 2026-03-29 by Claude
 - Scope Phase 1: Warehouse ORM models, CDN fetch adapters, ingestion service, warehouse router, advanced router updated for WarehouseGame
 - Scope Phase 2: `ensure_schema.py` for all new tables, `sync_game_pbp` → `PlayByPlayEvent`, on/off + lineup rework from canonical events, scheduler CLI entrypoint
 - Status Phase 1: In PR
-- Status Phase 2: Not started
+- Status Phase 2: In progress on `codex-sprint-11-pbp-pipeline`
 - PR: See PR for `codex-sprint-11-warehouse-foundation`
 - Blocked on: Phase 1 merge before starting Phase 2
 
@@ -185,6 +185,8 @@ Sprint number prefix makes `git branch -a` immediately readable.
 ## Notes
 
 *Free-form, dated, newest first. For cross-agent communication mid-sprint.*
+
+2026-03-29 (Codex): Phase 2 started on `codex-sprint-11-pbp-pipeline` from `master` `825fa7a`. Implemented schema pickup, canonical `PlayByPlayEvent` writes, PBP loader fallback, and season queue runner; smoke-tested schedule sync, box score sync, canonical PBP sync, and `python backend/data/warehouse_jobs.py --season 2024-25 --bootstrap-backfill --max-jobs 1`.
 
 2026-03-29 (Claude): Sprint 11 kicked off. Codex's warehouse foundation committed to `codex-sprint-11-warehouse-foundation` — in PR. Claude blocked on that merge before starting `feature/sprint-11-coverage-dashboard`. Phase 2 (ensure_schema, PlayByPlayEvent wiring, scheduler) starts after Phase 1 merges. Cross-agent review added to process this sprint.
 
