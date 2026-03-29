@@ -279,3 +279,41 @@ export async function getCareerLeaderboard(
 export async function getLeaderboardTeams(season: string): Promise<string[]> {
   return fetchApi<string[]>(`/api/leaderboards/teams?season=${encodeURIComponent(season)}`);
 }
+
+// ── Warehouse pipeline API ────────────────────────────────────────────────────
+
+import type { WarehouseSeasonHealth, IngestionJobResponse } from "./types";
+
+export async function getWarehouseSeasonHealth(season: string): Promise<WarehouseSeasonHealth> {
+  return fetchApi<WarehouseSeasonHealth>(`/api/warehouse/health/${encodeURIComponent(season)}`);
+}
+
+export async function getWarehouseJobs(
+  status?: string,
+  limit = 50
+): Promise<IngestionJobResponse[]> {
+  const params = new URLSearchParams({ limit: String(limit) });
+  if (status) params.set("status", status);
+  return fetchApi<IngestionJobResponse[]>(`/api/warehouse/jobs?${params.toString()}`);
+}
+
+export async function queueSeasonBackfill(season: string): Promise<{ queued: number }> {
+  return fetchApi<{ queued: number }>(
+    `/api/warehouse/queue/season-backfill?season=${encodeURIComponent(season)}`,
+    { method: "POST" }
+  );
+}
+
+export async function queueCurrentSeason(season: string): Promise<{ queued: number }> {
+  return fetchApi<{ queued: number }>(
+    `/api/warehouse/queue/current-season?season=${encodeURIComponent(season)}`,
+    { method: "POST" }
+  );
+}
+
+export async function runNextWarehouseJob(): Promise<{ status: string; result?: Record<string, unknown> }> {
+  return fetchApi<{ status: string; result?: Record<string, unknown> }>(
+    "/api/warehouse/run-next",
+    { method: "POST" }
+  );
+}
