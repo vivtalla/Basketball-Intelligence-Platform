@@ -167,10 +167,14 @@ def player_game_logs(
             _upsert_logs(db, player_id, season, season_type, logs)
 
     if not logs:
-        raise HTTPException(
-            status_code=404,
-            detail=f"No game logs found for player {player_id} in {season} {season_type}.",
-        )
+        return {
+            "player_id": player_id,
+            "season": season,
+            "season_type": season_type,
+            "games": [],
+            "season_averages": {},
+            "gp": 0,
+        }
 
     # Compute rolling 5-game averages for pts/reb/ast (newest-first order)
     def _rolling_avg(values: list[Optional[int]], window: int = 5) -> list[Optional[float]]:

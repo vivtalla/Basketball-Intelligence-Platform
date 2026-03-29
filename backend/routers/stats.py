@@ -369,8 +369,26 @@ def career_stats(player_id: int, db: Session = Depends(get_db)):
     # Backfill computed metrics for players synced before BPM/WS/DARKO were implemented
     _backfill_computed_metrics(db, regular_stats, player)
 
-    seasons = [_stat_to_dict(s) for s in regular_stats]
-    playoff_seasons = [_stat_to_dict(s) for s in playoff_stats]
+    # Deduplicate: for mid-season trades, keep only the highest-GP row per season.
+    # Also filter out future seasons (season start year > current year + 1).
+    def _dedup_seasons(rows: List[SeasonStat]) -> List[SeasonStat]:
+        from datetime import date
+        current_year = date.today().year
+        best: dict = {}
+        for r in rows:
+            # Filter out clearly bogus future seasons
+            try:
+                season_start = int(r.season.split("-")[0])
+                if season_start > current_year + 1:
+                    continue
+            except (ValueError, AttributeError):
+                pass
+            if r.season not in best or (r.gp or 0) > (best[r.season].gp or 0):
+                best[r.season] = r
+        return sorted(best.values(), key=lambda s: s.season)
+
+    seasons = [_stat_to_dict(s) for s in _dedup_seasons(regular_stats)]
+    playoff_seasons = [_stat_to_dict(s) for s in _dedup_seasons(playoff_stats)]
     career_totals = _compute_career_totals(seasons)
 
     return CareerStatsResponse(

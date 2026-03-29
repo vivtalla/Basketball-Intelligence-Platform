@@ -298,11 +298,25 @@ def get_pbp_coverage(player_id: int, season: str = "2024-25", db: Session = Depe
 
     season_row = (
         db.query(SeasonStat)
-        .filter_by(player_id=player_id, season=season, is_playoff=False)
+        .filter(
+            SeasonStat.player_id == player_id,
+            SeasonStat.season == season,
+            SeasonStat.is_playoff == False,  # noqa: E712
+        )
+        .order_by(SeasonStat.gp.desc())
         .first()
     )
     if not season_row:
-        raise HTTPException(status_code=404, detail=f"No season stats for player {player_id} in {season}.")
+        return PbpCoverage(
+            player_id=player_id,
+            season=season,
+            eligible_games=0,
+            synced_games=0,
+            has_on_off=False,
+            has_scoring_splits=False,
+            status="none",
+            last_derived_at=None,
+        )
 
     player_game_ids = [
         r.game_id for r in
