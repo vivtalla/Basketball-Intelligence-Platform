@@ -1,5 +1,5 @@
 from sqlalchemy import (
-    Column, Date, Index, Integer, String, Float, Boolean, ForeignKey, DateTime, UniqueConstraint
+    Column, Date, Index, Integer, String, Float, Boolean, ForeignKey, DateTime, UniqueConstraint, JSON
 )
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
@@ -269,4 +269,222 @@ class SyncStatus(Base):
     started_at = Column(DateTime)
     completed_at = Column(DateTime)
     error_message = Column(String(500))
+    updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
+
+
+class SourceRun(Base):
+    __tablename__ = "source_runs"
+    __table_args__ = (
+        Index("ix_source_runs_status_started", "status", "started_at"),
+        Index("ix_source_runs_entity", "entity_type", "entity_id"),
+    )
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    source = Column(String(50), nullable=False)
+    job_type = Column(String(50), nullable=False)
+    entity_type = Column(String(50), nullable=False)
+    entity_id = Column(String(64), nullable=False)
+    status = Column(String(20), nullable=False, default="pending")
+    attempt_count = Column(Integer, nullable=False, default=1)
+    records_written = Column(Integer, nullable=False, default=0)
+    error_message = Column(String(1000))
+    run_metadata = Column(JSON)
+    started_at = Column(DateTime, server_default=func.now())
+    completed_at = Column(DateTime)
+
+
+class IngestionJob(Base):
+    __tablename__ = "ingestion_jobs"
+    __table_args__ = (
+        UniqueConstraint("job_type", "job_key", name="uq_ingestion_job_type_key"),
+        Index("ix_ingestion_jobs_status_run_after", "status", "run_after"),
+    )
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    job_type = Column(String(50), nullable=False)
+    job_key = Column(String(100), nullable=False)
+    season = Column(String(10))
+    game_id = Column(String(20))
+    priority = Column(Integer, nullable=False, default=100)
+    status = Column(String(20), nullable=False, default="queued")
+    payload = Column(JSON)
+    run_after = Column(DateTime, server_default=func.now())
+    leased_until = Column(DateTime)
+    attempt_count = Column(Integer, nullable=False, default=0)
+    last_error = Column(String(1000))
+    created_at = Column(DateTime, server_default=func.now())
+    updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
+    completed_at = Column(DateTime)
+
+
+class RawSchedulePayload(Base):
+    __tablename__ = "raw_schedule_payloads"
+    __table_args__ = (
+        UniqueConstraint("source", "season", "date_key", "content_hash", name="uq_raw_schedule_payload"),
+        Index("ix_raw_schedule_payloads_season", "season"),
+    )
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    source = Column(String(50), nullable=False)
+    season = Column(String(10), nullable=False)
+    date_key = Column(String(20), nullable=False, default="season")
+    content_hash = Column(String(64), nullable=False)
+    payload = Column(JSON, nullable=False)
+    fetched_at = Column(DateTime, server_default=func.now())
+
+
+class WarehouseGame(Base):
+    __tablename__ = "games"
+    __table_args__ = (
+        Index("ix_games_season_date", "season", "game_date"),
+        Index("ix_games_status_flags", "season", "has_final_box_score", "has_parsed_pbp"),
+    )
+
+    game_id = Column(String(20), primary_key=True)
+    season = Column(String(10), nullable=False, index=True)
+    game_date = Column(Date)
+    status = Column(String(20), nullable=False, default="scheduled")
+    home_team_id = Column(Integer, ForeignKey("teams.id"), nullable=True)
+    away_team_id = Column(Integer, ForeignKey("teams.id"), nullable=True)
+    home_team_abbreviation = Column(String(10))
+    away_team_abbreviation = Column(String(10))
+    home_team_name = Column(String(100))
+    away_team_name = Column(String(100))
+    home_score = Column(Integer)
+    away_score = Column(Integer)
+    source = Column(String(50))
+    schedule_source = Column(String(50))
+    box_score_source = Column(String(50))
+    pbp_source = Column(String(50))
+    has_schedule = Column(Boolean, nullable=False, default=False)
+    has_final_box_score = Column(Boolean, nullable=False, default=False)
+    has_pbp_payload = Column(Boolean, nullable=False, default=False)
+    has_parsed_pbp = Column(Boolean, nullable=False, default=False)
+    has_materialized_game_stats = Column(Boolean, nullable=False, default=False)
+    has_materialized_season = Column(Boolean, nullable=False, default=False)
+    pbp_parse_status = Column(String(20), nullable=False, default="missing")
+    last_schedule_sync_at = Column(DateTime)
+    last_box_score_sync_at = Column(DateTime)
+    last_pbp_sync_at = Column(DateTime)
+    last_materialized_at = Column(DateTime)
+    updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
+
+
+class RawGamePayload(Base):
+    __tablename__ = "raw_game_payloads"
+    __table_args__ = (
+        UniqueConstraint("game_id", "source", "payload_type", "content_hash", name="uq_raw_game_payload"),
+        Index("ix_raw_game_payloads_game_type", "game_id", "payload_type"),
+    )
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    game_id = Column(String(20), nullable=False, index=True)
+    season = Column(String(10))
+    source = Column(String(50), nullable=False)
+    payload_type = Column(String(30), nullable=False)
+    content_hash = Column(String(64), nullable=False)
+    payload = Column(JSON, nullable=False)
+    fetched_at = Column(DateTime, server_default=func.now())
+
+
+class GameTeamStat(Base):
+    __tablename__ = "game_team_stats"
+    __table_args__ = (
+        UniqueConstraint("game_id", "team_id", name="uq_game_team_stats"),
+        Index("ix_game_team_stats_team_season", "team_id", "season"),
+    )
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    game_id = Column(String(20), ForeignKey("games.game_id"), nullable=False)
+    season = Column(String(10), nullable=False)
+    team_id = Column(Integer, ForeignKey("teams.id"), nullable=False)
+    team_abbreviation = Column(String(10))
+    is_home = Column(Boolean, nullable=False, default=False)
+    won = Column(Boolean)
+    pts = Column(Integer, default=0)
+    reb = Column(Integer, default=0)
+    ast = Column(Integer, default=0)
+    stl = Column(Integer, default=0)
+    blk = Column(Integer, default=0)
+    tov = Column(Integer, default=0)
+    fgm = Column(Integer, default=0)
+    fga = Column(Integer, default=0)
+    fg3m = Column(Integer, default=0)
+    fg3a = Column(Integer, default=0)
+    ftm = Column(Integer, default=0)
+    fta = Column(Integer, default=0)
+    oreb = Column(Integer, default=0)
+    dreb = Column(Integer, default=0)
+    pf = Column(Integer, default=0)
+    minutes = Column(Float)
+    plus_minus = Column(Float)
+    updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
+
+
+class GamePlayerStat(Base):
+    __tablename__ = "game_player_stats"
+    __table_args__ = (
+        UniqueConstraint("game_id", "player_id", name="uq_game_player_stats"),
+        Index("ix_game_player_stats_player_season", "player_id", "season"),
+        Index("ix_game_player_stats_team_season", "team_id", "season"),
+    )
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    game_id = Column(String(20), ForeignKey("games.game_id"), nullable=False)
+    season = Column(String(10), nullable=False)
+    player_id = Column(Integer, ForeignKey("players.id"), nullable=False)
+    team_id = Column(Integer, ForeignKey("teams.id"), nullable=True)
+    team_abbreviation = Column(String(10))
+    game_date = Column(Date)
+    matchup = Column(String(30))
+    wl = Column(String(1))
+    min = Column(Float)
+    pts = Column(Integer, default=0)
+    reb = Column(Integer, default=0)
+    ast = Column(Integer, default=0)
+    stl = Column(Integer, default=0)
+    blk = Column(Integer, default=0)
+    tov = Column(Integer, default=0)
+    fgm = Column(Integer, default=0)
+    fga = Column(Integer, default=0)
+    fg_pct = Column(Float)
+    fg3m = Column(Integer, default=0)
+    fg3a = Column(Integer, default=0)
+    fg3_pct = Column(Float)
+    ftm = Column(Integer, default=0)
+    fta = Column(Integer, default=0)
+    ft_pct = Column(Float)
+    oreb = Column(Integer, default=0)
+    dreb = Column(Integer, default=0)
+    pf = Column(Integer, default=0)
+    plus_minus = Column(Float)
+    is_starter = Column(Boolean, nullable=False, default=False)
+    updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
+
+
+class PlayByPlayEvent(Base):
+    __tablename__ = "play_by_play_events"
+    __table_args__ = (
+        UniqueConstraint("game_id", "order_index", name="uq_pbp_event_order"),
+        Index("ix_pbp_events_game_player", "game_id", "player_id"),
+        Index("ix_pbp_events_team_type", "team_id", "action_type"),
+    )
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    game_id = Column(String(20), ForeignKey("games.game_id"), nullable=False)
+    season = Column(String(10), nullable=False)
+    source_event_id = Column(String(50))
+    action_number = Column(Integer)
+    order_index = Column(Integer, nullable=False)
+    period = Column(Integer)
+    clock = Column(String(20))
+    team_id = Column(Integer, ForeignKey("teams.id"), nullable=True)
+    player_id = Column(Integer, ForeignKey("players.id"), nullable=True)
+    action_type = Column(String(50))
+    action_family = Column(String(50))
+    sub_type = Column(String(50))
+    description = Column(String(500))
+    score_home = Column(Integer)
+    score_away = Column(Integer)
+    raw_event = Column(JSON)
     updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())

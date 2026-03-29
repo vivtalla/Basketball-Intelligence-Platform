@@ -7,7 +7,18 @@ from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from db.database import get_db
-from db.models import PlayerGameLog, PlayerOnOff, SeasonStat, LineupStats, Player, Team, GameLog, PlayByPlay
+from db.models import (
+    PlayerGameLog,
+    PlayerOnOff,
+    SeasonStat,
+    LineupStats,
+    Player,
+    Team,
+    GameLog,
+    PlayByPlay,
+    GamePlayerStat,
+    WarehouseGame,
+)
 from models.stats import (
     PbpCoverage,
     PbpCoverageDashboard,
@@ -69,42 +80,53 @@ def _build_pbp_dashboard(db: Session, season: str) -> PbpCoverageDashboard:
     synced_games_by_team = {
         team_id: synced_games
         for team_id, synced_games in (
-            db.query(GameLog.home_team_id.label("team_id"), func.count(func.distinct(PlayByPlay.game_id)))
-            .join(PlayByPlay, PlayByPlay.game_id == GameLog.game_id)
-            .filter(GameLog.season == season)
-            .group_by(GameLog.home_team_id)
+            db.query(WarehouseGame.home_team_id.label("team_id"), func.count(func.distinct(WarehouseGame.game_id)))
+            .filter(WarehouseGame.season == season, WarehouseGame.has_parsed_pbp == True)  # noqa: E712
+            .group_by(WarehouseGame.home_team_id)
             .all()
         )
         if team_id is not None
     }
-    away_synced_games = (
-        db.query(GameLog.away_team_id.label("team_id"), func.count(func.distinct(PlayByPlay.game_id)))
-        .join(PlayByPlay, PlayByPlay.game_id == GameLog.game_id)
-        .filter(GameLog.season == season)
-        .group_by(GameLog.away_team_id)
+    for team_id, synced_games in (
+        db.query(WarehouseGame.away_team_id.label("team_id"), func.count(func.distinct(WarehouseGame.game_id)))
+        .filter(WarehouseGame.season == season, WarehouseGame.has_parsed_pbp == True)  # noqa: E712
+        .group_by(WarehouseGame.away_team_id)
         .all()
-    )
-    for team_id, synced_games in away_synced_games:
+    ):
         if team_id is not None:
             synced_games_by_team[team_id] = max(synced_games_by_team.get(team_id, 0), synced_games)
 
     eligible_games_by_team = {}
     for team_id, eligible_games in (
-        db.query(GameLog.home_team_id.label("team_id"), func.count(GameLog.game_id))
-        .filter(GameLog.season == season)
-        .group_by(GameLog.home_team_id)
+        db.query(WarehouseGame.home_team_id.label("team_id"), func.count(WarehouseGame.game_id))
+        .filter(WarehouseGame.season == season, WarehouseGame.has_schedule == True)  # noqa: E712
+        .group_by(WarehouseGame.home_team_id)
         .all()
     ):
         if team_id is not None:
             eligible_games_by_team[team_id] = eligible_games
     for team_id, eligible_games in (
-        db.query(GameLog.away_team_id.label("team_id"), func.count(GameLog.game_id))
-        .filter(GameLog.season == season)
-        .group_by(GameLog.away_team_id)
+        db.query(WarehouseGame.away_team_id.label("team_id"), func.count(WarehouseGame.game_id))
+        .filter(WarehouseGame.season == season, WarehouseGame.has_schedule == True)  # noqa: E712
+        .group_by(WarehouseGame.away_team_id)
         .all()
     ):
         if team_id is not None:
             eligible_games_by_team[team_id] = max(eligible_games_by_team.get(team_id, 0), eligible_games)
+
+    synced_games_by_player = {
+        player_id: synced_games
+        for player_id, synced_games in (
+            db.query(GamePlayerStat.player_id, func.count(func.distinct(GamePlayerStat.game_id)))
+            .join(WarehouseGame, WarehouseGame.game_id == GamePlayerStat.game_id)
+            .filter(
+                GamePlayerStat.season == season,
+                WarehouseGame.has_parsed_pbp == True,  # noqa: E712
+            )
+            .group_by(GamePlayerStat.player_id)
+            .all()
+        )
+    }
 
     player_rows: list[PbpCoveragePlayerRow] = []
     team_rollups: dict[int, dict] = {}
@@ -125,7 +147,7 @@ def _build_pbp_dashboard(db: Session, season: str) -> PbpCoverageDashboard:
             ]
         )
         eligible_games = season_row.gp or 0
-        synced_games = min(eligible_games, eligible_games_by_team.get(team.id if team else None, 0))
+        synced_games = min(eligible_games, synced_games_by_player.get(player.id, 0))
 
         timestamps: list[datetime] = []
         if on_off_row and on_off_row.updated_at:
