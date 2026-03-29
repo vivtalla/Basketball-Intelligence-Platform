@@ -21,6 +21,7 @@ type Mode = "regular" | "playoffs";
 
 export default function PlayerDashboard({ playerId }: PlayerDashboardProps) {
   const [mode, setMode] = useState<Mode>("regular");
+  const [selectedSeasonStr, setSelectedSeasonStr] = useState<string>("");
 
   const { data: profile, error: profileError } = usePlayerProfile(playerId);
   const { data: careerStats, error: statsError } = usePlayerCareerStats(playerId);
@@ -52,9 +53,6 @@ export default function PlayerDashboard({ playerId }: PlayerDashboardProps) {
   const latestSeason = activeSeasonsArr.length > 0
     ? activeSeasonsArr[activeSeasonsArr.length - 1]
     : null;
-
-  // Season selector: default to latest; reset to "" when mode switches
-  const [selectedSeasonStr, setSelectedSeasonStr] = useState<string>("");
   const effectiveSeasonStr = selectedSeasonStr || latestSeason?.season || null;
   const selectedSeasonData = activeSeasonsArr.find((s) => s.season === effectiveSeasonStr) ?? latestSeason;
 
