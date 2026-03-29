@@ -19,8 +19,9 @@ def player_shot_chart(
 
     try:
         raw_shots = get_shot_chart_data(player_id, season, season_type)
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error fetching shot chart data: {e}")
+    except Exception:
+        # stats.nba.com may be unreachable; return empty rather than 500
+        raw_shots = []
 
     shots = [ShotChartShot(**s) for s in raw_shots]
     made = sum(1 for s in shots if s.shot_made)

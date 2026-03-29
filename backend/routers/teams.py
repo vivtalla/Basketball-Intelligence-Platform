@@ -1,15 +1,14 @@
 from __future__ import annotations
 
-from typing import List
+from typing import List, Optional
 
 from sqlalchemy import func
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 
-from data.nba_client import get_team_stats
 from db.database import get_db
-from db.models import GameLog, LineupStats, PlayByPlay, Player, PlayerOnOff, SeasonStat, Team
+from db.models import GameLog, LineupStats, PlayByPlay, Player, PlayerGameLog, PlayerOnOff, SeasonStat, Team
 from models.team import (
     TeamAnalytics,
     TeamImpactLeader,
@@ -122,28 +121,122 @@ def team_analytics(
     season: str = Query("2024-25"),
     db: Session = Depends(get_db),
 ):
-    """Return team-level advanced analytics for a season from NBA.com stats API."""
+    """Return team-level analytics computed from synced player season stats."""
     abbr_upper = abbr.upper()
     team = db.query(Team).filter(Team.abbreviation == abbr_upper).first()
     if not team:
         raise HTTPException(
             status_code=404,
-            detail=f"Team '{abbr}' not found. View a player on that team to load it.",
+            detail=f"Team '{abbr}' not found.",
         )
 
-    try:
-        all_team_stats = get_team_stats(season)
-    except Exception as exc:
-        raise HTTPException(status_code=502, detail=f"NBA API error: {exc}") from exc
+    player_rows = (
+        db.query(SeasonStat)
+        .filter(
+            SeasonStat.team_abbreviation == abbr_upper,
+            SeasonStat.season == season,
+            SeasonStat.is_playoff == False,  # noqa: E712
+            SeasonStat.gp >= 1,
+        )
+        .all()
+    )
 
-    stats = all_team_stats.get(abbr_upper)
-    if not stats:
+    if not player_rows:
         raise HTTPException(
             status_code=404,
             detail=f"No stats found for {abbr_upper} in {season}.",
         )
 
-    return TeamAnalytics(**stats)
+    # Team GP = the most games played by any player on this team
+    team_gp = max((r.gp or 0) for r in player_rows)
+    if team_gp == 0:
+        raise HTTPException(status_code=404, detail="No games found.")
+
+    # Sum raw counting stats from season totals
+    total_pts  = sum(r.pts  or 0 for r in player_rows)
+    total_reb  = sum(r.reb  or 0 for r in player_rows)
+    total_ast  = sum(r.ast  or 0 for r in player_rows)
+    total_stl  = sum(r.stl  or 0 for r in player_rows)
+    total_blk  = sum(r.blk  or 0 for r in player_rows)
+    total_tov  = sum(r.tov  or 0 for r in player_rows)
+    total_fgm  = sum(r.fgm  or 0 for r in player_rows)
+    total_fga  = sum(r.fga  or 0 for r in player_rows)
+    total_fg3m = sum(r.fg3m or 0 for r in player_rows)
+    total_fg3a = sum(r.fg3a or 0 for r in player_rows)
+    total_ftm  = sum(r.ftm  or 0 for r in player_rows)
+    total_fta  = sum(r.fta  or 0 for r in player_rows)
+
+    def _safe_div(n: float, d: float) -> Optional[float]:
+        return round(n / d, 3) if d else None
+
+    fg_pct  = _safe_div(total_fgm,  total_fga)
+    fg3_pct = _safe_div(total_fg3m, total_fg3a)
+    ft_pct  = _safe_div(total_ftm,  total_fta)
+
+    # GP-weighted average for per-game and efficiency fields
+    def _wavg(attr: str) -> Optional[float]:
+        pairs = [(getattr(r, attr), r.gp or 0) for r in player_rows if getattr(r, attr) is not None]
+        total_w = sum(w for _, w in pairs)
+        if not pairs or total_w == 0:
+            return None
+        return sum(v * w for v, w in pairs) / total_w
+
+    # W/L from player game logs (distinct games for this team)
+    wl_rows = (
+        db.query(PlayerGameLog.game_id, PlayerGameLog.wl)
+        .filter(
+            PlayerGameLog.season == season,
+            PlayerGameLog.season_type == "Regular Season",
+            PlayerGameLog.matchup.like(f"{abbr_upper} %"),
+            PlayerGameLog.wl.in_(["W", "L"]),
+        )
+        .distinct()
+        .all()
+    )
+    wins   = sum(1 for r in wl_rows if r.wl == "W")
+    losses = sum(1 for r in wl_rows if r.wl == "L")
+    gp_wl  = wins + losses
+    w_pct  = wins / gp_wl if gp_wl else 0.0
+
+    return TeamAnalytics(
+        team_id=team.id,
+        abbreviation=abbr_upper,
+        name=team.name or "",
+        season=season,
+        gp=team_gp,
+        w=wins,
+        l=losses,
+        w_pct=round(w_pct, 3),
+        pts_pg=round(total_pts / team_gp, 1) if team_gp else None,
+        reb_pg=round(total_reb / team_gp, 1) if team_gp else None,
+        ast_pg=round(total_ast / team_gp, 1) if team_gp else None,
+        stl_pg=round(total_stl / team_gp, 1) if team_gp else None,
+        blk_pg=round(total_blk / team_gp, 1) if team_gp else None,
+        tov_pg=round(total_tov / team_gp, 1) if team_gp else None,
+        fg_pct=fg_pct,
+        fg3_pct=fg3_pct,
+        ft_pct=ft_pct,
+        plus_minus_pg=None,
+        off_rating=_wavg("off_rating"),
+        def_rating=_wavg("def_rating"),
+        net_rating=_wavg("net_rating"),
+        pace=_wavg("pace"),
+        efg_pct=_wavg("efg_pct"),
+        ts_pct=_wavg("ts_pct"),
+        pie=_wavg("pie"),
+        oreb_pct=_wavg("oreb_pct"),
+        dreb_pct=None,
+        tov_pct=None,
+        ast_pct=None,
+        off_rating_rank=None,
+        def_rating_rank=None,
+        net_rating_rank=None,
+        pace_rank=None,
+        efg_pct_rank=None,
+        ts_pct_rank=None,
+        oreb_pct_rank=None,
+        tov_pct_rank=None,
+    )
 
 
 @router.get("/{abbr}/intelligence", response_model=TeamIntelligenceResponse)

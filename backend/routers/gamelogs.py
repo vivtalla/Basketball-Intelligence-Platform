@@ -160,8 +160,8 @@ def player_game_logs(
     if logs is None:
         try:
             logs = get_player_game_logs(player_id, season, season_type)
-        except Exception as exc:
-            raise HTTPException(status_code=502, detail=f"NBA API error: {exc}")
+        except Exception:
+            logs = []
 
         if logs:
             _upsert_logs(db, player_id, season, season_type, logs)
