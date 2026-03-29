@@ -7,7 +7,7 @@ from config import CORS_ORIGINS
 from data.cache import CacheManager
 from db.database import engine
 from db.models import Base
-from routers import players, stats, shotchart, leaderboards, teams, advanced, gamelogs, games, similarity, standings, insights
+from routers import players, stats, shotchart, leaderboards, teams, advanced, gamelogs, games, similarity, standings, insights, warehouse
 
 logging.basicConfig(level=logging.INFO)
 
@@ -32,6 +32,7 @@ app.include_router(games.router, prefix="/api/games", tags=["games"])
 app.include_router(similarity.router, prefix="/api/similarity", tags=["similarity"])
 app.include_router(standings.router, prefix="/api/standings", tags=["standings"])
 app.include_router(insights.router, prefix="/api/insights", tags=["insights"])
+app.include_router(warehouse.router, prefix="/api/warehouse", tags=["warehouse"])
 
 
 @app.on_event("startup")

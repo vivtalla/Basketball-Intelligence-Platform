@@ -87,6 +87,46 @@ def _fetch_static_json(path: str, timeout: int = NBA_API_TIMEOUT) -> dict:
     return _fetch_nba_json(NBA_STATIC_BASE_URL, path, timeout=timeout)
 
 
+def get_schedule_payload_for_season(season: str, timeout: int = NBA_API_TIMEOUT) -> dict:
+    """Return raw season schedule payload plus source metadata.
+
+    Prefers the current official static schedule feed, then the historical
+    mobile schedule feed. This function is intended for ingestion/storage, not
+    direct API reads.
+    """
+    season_start_year = season.split("-")[0] if "-" in season else season
+
+    _rate_limit()
+    try:
+        payload = _fetch_static_json("scheduleLeagueV2.json", timeout=timeout)
+        league_schedule = payload.get("leagueSchedule", {})
+        season_year = str(league_schedule.get("seasonYear") or "")
+        if season_year in {season, season_start_year}:
+            return {"source": "cdn_schedule", "payload": payload}
+    except Exception:
+        pass
+
+    year = season_start_year
+    url = f"{NBA_MOBILE_BASE_URL}/{year}/league/00_full_schedule.json"
+    request = Request(url, headers=NBA_LIVE_HEADERS)
+    _rate_limit()
+    with urlopen(request, timeout=timeout) as response:
+        payload = json.load(response)
+    return {"source": "mobile_schedule", "payload": payload}
+
+
+def get_game_box_score_payload(game_id: str, timeout: int = NBA_API_TIMEOUT) -> dict:
+    """Fetch the raw live box score payload for a game."""
+    _rate_limit()
+    return _fetch_live_json(f"boxscore/boxscore_{game_id}.json", timeout=timeout)
+
+
+def get_play_by_play_payload(game_id: str, timeout: int = NBA_API_TIMEOUT) -> dict:
+    """Fetch the raw live play-by-play payload for a game."""
+    _rate_limit()
+    return _fetch_live_json(f"playbyplay/playbyplay_{game_id}.json", timeout=timeout)
+
+
 def _current_schedule_game_ids(season: str, timeout: int = NBA_API_TIMEOUT) -> list[str]:
     """Return current-season regular-season game IDs from the free NBA schedule feed."""
     payload = _fetch_static_json("scheduleLeagueV2.json", timeout=timeout)
