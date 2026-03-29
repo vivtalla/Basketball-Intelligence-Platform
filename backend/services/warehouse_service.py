@@ -1103,12 +1103,31 @@ def run_next_job(db: Session, season: Optional[str] = None) -> dict:
         db.rollback()
         job = db.query(IngestionJob).filter_by(id=job.id).first()
         if job:
-            job.status = JOB_STATUS_FAILED
+            if (job.attempt_count or 0) < 3:
+                job.status = JOB_STATUS_QUEUED
+                job.run_after = _utcnow() + timedelta(minutes=5 * job.attempt_count)
+                job.completed_at = None
+            else:
+                job.status = JOB_STATUS_FAILED
+                job.completed_at = _utcnow()
             job.last_error = str(exc)[:1000]
             job.leased_until = None
-            job.completed_at = _utcnow()
             db.commit()
         return {"status": "failed", "job_id": job.id if job else None, "job_type": job.job_type if job else None, "reason": str(exc)}
+
+
+def retry_failed_jobs(db: Session, season: str) -> List[IngestionJob]:
+    now = _utcnow()
+    rows = db.query(IngestionJob).filter_by(season=season, status=JOB_STATUS_FAILED).all()
+    for row in rows:
+        row.status = JOB_STATUS_QUEUED
+        row.attempt_count = 0
+        row.last_error = None
+        row.completed_at = None
+        row.leased_until = None
+        row.run_after = now
+    db.flush()
+    return rows
 
 
 def _dispatch_job(db: Session, job: IngestionJob) -> dict:
