@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""CLI entrypoint for warehouse ingestion jobs."""
+"""Season-scoped queue runner for warehouse ingestion jobs."""
 
 from __future__ import annotations
 
@@ -10,51 +10,51 @@ import sys
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from db.database import SessionLocal
-from services.warehouse_service import (
-    materialize_season_aggregates,
-    queue_backfill_season,
-    queue_current_season_daily_sync,
-    run_next_job,
-    sync_schedule,
-)
+from db.models import IngestionJob
+from services.warehouse_service import queue_backfill_season, run_next_job
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Run warehouse ingestion jobs")
-    sub = parser.add_subparsers(dest="command", required=True)
-
-    season_backfill = sub.add_parser("backfill-season")
-    season_backfill.add_argument("--season", required=True)
-
-    season_sync = sub.add_parser("sync-schedule")
-    season_sync.add_argument("--season", required=True)
-    season_sync.add_argument("--date")
-
-    current_sync = sub.add_parser("queue-current-season")
-    current_sync.add_argument("--season", required=True)
-
-    mat = sub.add_parser("materialize-season")
-    mat.add_argument("--season", required=True)
-
-    sub.add_parser("run-next")
-
+    parser = argparse.ArgumentParser(description="Run warehouse ingestion jobs for a season")
+    parser.add_argument("--season", required=True, help="Season in YYYY-YY format, e.g. 2024-25")
+    parser.add_argument(
+        "--max-jobs",
+        type=int,
+        default=25,
+        help="Maximum number of queued jobs to dispatch in this run",
+    )
+    parser.add_argument(
+        "--bootstrap-backfill",
+        action="store_true",
+        help="Queue a season backfill first when no pending jobs exist for this season",
+    )
     args = parser.parse_args()
+
     db = SessionLocal()
     try:
-        if args.command == "backfill-season":
+        pending = db.query(IngestionJob).filter_by(season=args.season, status="queued").count()
+        if pending == 0 and args.bootstrap_backfill:
             jobs = queue_backfill_season(db, args.season)
             db.commit()
-            print({"queued": len(jobs), "season": args.season})
-        elif args.command == "sync-schedule":
-            print(sync_schedule(db, args.season, args.date))
-        elif args.command == "queue-current-season":
-            jobs = queue_current_season_daily_sync(db, args.season)
-            db.commit()
-            print({"queued": len(jobs), "season": args.season})
-        elif args.command == "materialize-season":
-            print(materialize_season_aggregates(db, args.season))
-        elif args.command == "run-next":
-            print(run_next_job(db))
+            print({"status": "queued_backfill", "season": args.season, "jobs": len(jobs)})
+
+        dispatched = 0
+        results = []
+        while dispatched < args.max_jobs:
+            result = run_next_job(db, season=args.season)
+            if result.get("status") == "idle":
+                break
+            results.append(result)
+            dispatched += 1
+
+        print(
+            {
+                "status": "ok",
+                "season": args.season,
+                "jobs_dispatched": dispatched,
+                "results": results,
+            }
+        )
     finally:
         db.close()
 

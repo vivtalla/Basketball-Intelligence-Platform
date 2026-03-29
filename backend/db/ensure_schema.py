@@ -28,10 +28,13 @@ def ensure_new_tables(engine):
 
 
 def apply_schema_updates():
-    # Create new tables (game_logs, play_by_play, player_on_off, lineup_stats)
+    # Create all ORM-declared tables, including Sprint 11 warehouse tables:
+    # source_runs, ingestion_jobs, raw_schedule_payloads, games,
+    # raw_game_payloads, game_team_stats, game_player_stats,
+    # play_by_play_events, plus legacy tables.
     ensure_new_tables(engine)
 
-    # Existing columns
+    # Existing season_stats columns added incrementally over earlier sprints.
     ensure_column_exists(engine, "season_stats", "darko", "DOUBLE PRECISION")
     ensure_column_exists(engine, "season_stats", "epm", "DOUBLE PRECISION")
     ensure_column_exists(engine, "season_stats", "rapm", "DOUBLE PRECISION")
@@ -51,6 +54,9 @@ def apply_schema_updates():
     ensure_column_exists(engine, "season_stats", "clutch_plus_minus", "DOUBLE PRECISION")
     ensure_column_exists(engine, "season_stats", "second_chance_pts", "DOUBLE PRECISION")
     ensure_column_exists(engine, "season_stats", "fast_break_pts", "DOUBLE PRECISION")
+
+    # No new columns were added to existing tables in Sprint 11 Phase 2.
+    # Warehouse changes are additive new tables picked up by create_all().
 
 
 if __name__ == "__main__":

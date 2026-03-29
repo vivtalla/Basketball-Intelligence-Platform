@@ -27,7 +27,6 @@ from db.models import (
     Player,
     PlayerGameLog,
     PlayerOnOff,
-    PlayByPlay,
     PlayByPlayEvent,
     RawGamePayload,
     RawSchedulePayload,
@@ -43,6 +42,7 @@ from services.pbp_service import (
     compute_lineup_stats,
     compute_on_off,
     compute_second_chance_and_fast_break,
+    load_pbp_events_for_game,
 )
 
 logger = logging.getLogger(__name__)
@@ -595,7 +595,6 @@ def sync_game_pbp(db: Session, game_id: str) -> dict:
         warehouse_game.last_pbp_sync_at = _utcnow()
 
         db.query(PlayByPlayEvent).filter_by(game_id=game_id).delete(synchronize_session=False)
-        db.query(PlayByPlay).filter_by(game_id=game_id).delete(synchronize_session=False)
 
         for idx, event in enumerate(normalized_events, start=1):
             source_event_id = str(event.get("actionId") or event.get("actionNumber") or idx)
@@ -621,21 +620,6 @@ def sync_game_pbp(db: Session, game_id: str) -> dict:
                     score_home=_to_int(event.get("scoreHome")),
                     score_away=_to_int(event.get("scoreAway")),
                     raw_event=event,
-                )
-            )
-            db.add(
-                PlayByPlay(
-                    game_id=game_id,
-                    action_number=(action_number if isinstance(action_number, int) else idx),
-                    period=event.get("period"),
-                    clock=event.get("clock", ""),
-                    team_id=event.get("teamId") or None,
-                    player_id=event.get("personId") or None,
-                    action_type=action_type,
-                    sub_type=sub_type,
-                    description=(event.get("description") or "")[:500],
-                    score_home=_to_int(event.get("scoreHome")),
-                    score_away=_to_int(event.get("scoreAway")),
                 )
             )
 
@@ -886,21 +870,7 @@ def rematerialize_pbp_derived_metrics(db: Session, game_id: str) -> dict:
                 for row in player_stats
             ],
         }
-        pbp_events = [
-            {
-                "actionNumber": row.action_number or row.order_index,
-                "period": row.period,
-                "clock": row.clock,
-                "teamId": row.team_id,
-                "personId": row.player_id,
-                "actionType": row.action_type,
-                "subType": row.sub_type,
-                "description": row.description,
-                "scoreHome": row.score_home,
-                "scoreAway": row.score_away,
-            }
-            for row in db.query(PlayByPlayEvent).filter_by(game_id=parsed_game.game_id).order_by(PlayByPlayEvent.order_index.asc()).all()
-        ]
+        pbp_events = load_pbp_events_for_game(db, parsed_game.game_id)
 
         for team_id in [parsed_game.home_team_id, parsed_game.away_team_id]:
             if not team_id:
@@ -951,20 +921,23 @@ def rematerialize_pbp_derived_metrics(db: Session, game_id: str) -> dict:
                     existing["on_seconds"] += payload.on_seconds
                     existing["off_seconds"] += payload.off_seconds
 
-        for lineup_map, team_id in [
-            (compute_lineup_stats(stints, parsed_game.home_team_id), parsed_game.home_team_id),
-            (compute_lineup_stats(stints, parsed_game.away_team_id), parsed_game.away_team_id),
-        ]:
-            for lineup_key, acc in lineup_map.items():
-                existing = lineup_totals.get((lineup_key, team_id))
-                if not existing:
-                    lineup_totals[(lineup_key, team_id)] = acc
-                else:
-                    existing.plus_minus += acc.plus_minus
-                    existing.possessions += acc.possessions
-                    existing.team_pts += acc.team_pts
-                    existing.opp_pts += acc.opp_pts
-                    existing.seconds += acc.seconds
+        player_team_lookup = {
+            row.player_id: row.team_id
+            for row in player_stats
+            if row.player_id and row.team_id
+        }
+        for lineup_key, acc in compute_lineup_stats(stints, parsed_game.home_team_id).items():
+            first_player = int(lineup_key.split("-")[0]) if lineup_key else None
+            team_id = player_team_lookup.get(first_player)
+            existing = lineup_totals.get((lineup_key, team_id))
+            if not existing:
+                lineup_totals[(lineup_key, team_id)] = acc
+            else:
+                existing.plus_minus += acc.plus_minus
+                existing.possessions += acc.possessions
+                existing.team_pts += acc.team_pts
+                existing.opp_pts += acc.opp_pts
+                existing.seconds += acc.seconds
 
     for player_id, stat_payload in clutch_totals.items():
         season_row = db.query(SeasonStat).filter_by(player_id=player_id, season=season, is_playoff=False).first()
@@ -1094,17 +1067,15 @@ def queue_current_season_daily_sync(db: Session, season: str) -> List[IngestionJ
     return jobs
 
 
-def _claim_next_job(db: Session) -> Optional[IngestionJob]:
+def _claim_next_job(db: Session, season: Optional[str] = None) -> Optional[IngestionJob]:
     now = _utcnow()
-    job = (
-        db.query(IngestionJob)
-        .filter(
-            IngestionJob.status == JOB_STATUS_QUEUED,
-            IngestionJob.run_after <= now,
-        )
-        .order_by(IngestionJob.priority.asc(), IngestionJob.created_at.asc())
-        .first()
+    query = db.query(IngestionJob).filter(
+        IngestionJob.status == JOB_STATUS_QUEUED,
+        IngestionJob.run_after <= now,
     )
+    if season:
+        query = query.filter(IngestionJob.season == season)
+    job = query.order_by(IngestionJob.priority.asc(), IngestionJob.created_at.asc()).first()
     if not job:
         return None
     job.status = JOB_STATUS_RUNNING
@@ -1115,8 +1086,8 @@ def _claim_next_job(db: Session) -> Optional[IngestionJob]:
     return job
 
 
-def run_next_job(db: Session) -> dict:
-    job = _claim_next_job(db)
+def run_next_job(db: Session, season: Optional[str] = None) -> dict:
+    job = _claim_next_job(db, season=season)
     if not job:
         return {"status": "idle"}
 
