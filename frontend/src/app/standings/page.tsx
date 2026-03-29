@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { Fragment, useState } from "react";
 import { useStandings } from "@/hooks/usePlayerStats";
 import type { StandingsEntry } from "@/lib/types";
 
@@ -93,9 +93,9 @@ function StandingsTable({
                 : null;
 
               return (
-                <>
+                <Fragment key={entry.team_id}>
                   {isPlayoffLine && (
-                    <tr key={`playoff-line-${conference}`}>
+                    <tr>
                       <td
                         colSpan={12}
                         className="h-0 border-t-2 border-blue-400/60 dark:border-blue-500/40"
@@ -103,7 +103,7 @@ function StandingsTable({
                     </tr>
                   )}
                   {isPlayInLine && (
-                    <tr key={`playin-line-${conference}`}>
+                    <tr>
                       <td
                         colSpan={12}
                         className="h-0 border-t-2 border-dashed border-gray-300 dark:border-gray-600"
@@ -111,7 +111,6 @@ function StandingsTable({
                     </tr>
                   )}
                   <tr
-                    key={entry.team_id}
                     className="hover:bg-gray-50 dark:hover:bg-gray-700/40 transition-colors"
                   >
                     <td className="px-4 py-3 text-gray-400 dark:text-gray-500 tabular-nums text-xs">
@@ -176,7 +175,7 @@ function StandingsTable({
                       <StreakBadge streak={entry.current_streak} />
                     </td>
                   </tr>
-                </>
+                </Fragment>
               );
             })}
           </tbody>

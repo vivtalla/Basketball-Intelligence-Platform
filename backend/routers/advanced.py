@@ -6,9 +6,8 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
-from data.nba_client import get_player_game_ids
 from db.database import get_db
-from db.models import PlayerOnOff, SeasonStat, LineupStats, Player, Team, GameLog, PlayByPlay
+from db.models import PlayerGameLog, PlayerOnOff, SeasonStat, LineupStats, Player, Team, GameLog, PlayByPlay
 from models.stats import (
     PbpCoverage,
     PbpCoverageDashboard,
@@ -305,10 +304,16 @@ def get_pbp_coverage(player_id: int, season: str = "2024-25", db: Session = Depe
     if not season_row:
         raise HTTPException(status_code=404, detail=f"No season stats for player {player_id} in {season}.")
 
-    try:
-        player_game_ids = get_player_game_ids(player_id, season)
-    except Exception as exc:
-        raise HTTPException(status_code=500, detail=f"Could not determine player games for coverage: {exc}")
+    player_game_ids = [
+        r.game_id for r in
+        db.query(PlayerGameLog.game_id)
+        .filter(
+            PlayerGameLog.player_id == player_id,
+            PlayerGameLog.season == season,
+            PlayerGameLog.season_type == "Regular Season",
+        )
+        .all()
+    ]
 
     eligible_games = len(player_game_ids)
     synced_games = 0
