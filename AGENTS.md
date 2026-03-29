@@ -1,6 +1,6 @@
 # Agent Coordination
 
-Last updated: 2026-03-29 by Claude (Sprint 11 closeout)
+Last updated: 2026-03-29 by Claude (Sprint 12 kickoff)
 
 > **Both agents read this file before touching any code at the start of every session.**
 > Check sprint status, your branch, this sprint's work allocation, and the Merge Order.
@@ -12,30 +12,33 @@ Last updated: 2026-03-29 by Claude (Sprint 11 closeout)
 
 ## Sprint Status
 
-| Field        | Value                                 |
-|--------------|---------------------------------------|
-| Sprint       | 12                                    |
-| Goal         | TBD — awaiting Vivek's sprint kickoff |
-| Started      | —                                     |
-| Target merge | —                                     |
+| Field        | Value                                                                 |
+|--------------|-----------------------------------------------------------------------|
+| Sprint       | 12                                                                    |
+| Goal         | Warehouse completion — retry/backoff, season-scoped dispatch, daily cron, frontend hardening |
+| Started      | 2026-03-29                                                            |
+| Target merge | TBD                                                                   |
 
 ---
 
 ## Agent Assignments
 
 ### Claude
-- Branch: `feature/sprint-12-[slug]`
-- Scope: TBD
+- Branch: `feature/sprint-12-warehouse-frontend`
+- Scope: Season-scoped Run Next Job button, Retry Failed button + endpoint call, failed job details panel
+- Status: Not started — blocked until `codex-sprint-12-warehouse-ops` merges (needs `/retry-failed` endpoint)
+- PR: —
+- Blocked on: `codex-sprint-12-warehouse-ops` merge
+
+### Codex
+- Branch: `codex-sprint-12-warehouse-ops`
+- Scope: Season-scoped `/run-next` endpoint, retry/backoff logic in `run_next_job`, `retry_failed_jobs()` service + `/retry-failed` endpoint, `daily_sync.sh` cron script
+- Optional second branch: `codex-sprint-12-game-explorer` (Game Explorer rebuild — only if warehouse-ops scope allows)
 - Status: Not started
 - PR: —
 - Blocked on: nothing
 
-### Codex
-- Branch: `codex-sprint-12-[slug]`
-- Scope: TBD
-- Status: Not started
-- PR: —
-- Blocked on: nothing
+> ⚠️ **IMPORTANT FOR CODEX**: Do NOT use or reference the `codex-sprint-10-game-explorer-controls` branch. It is at a Sprint 9 commit and its diff against master deletes all warehouse infrastructure (2,700+ lines including warehouse_service.py, warehouse.py router, warehouse_jobs.py). It cannot be merged. If building Game Explorer features, create `codex-sprint-12-game-explorer` fresh from current master.
 
 ---
 
@@ -47,13 +50,16 @@ Claim a file here before writing a single line. If a file is already claimed, re
 
 `models.py` and `ensure_schema.py` are always claimed together.
 
-| File                             | Claimed by | Purpose |
-|----------------------------------|------------|---------|
-| `backend/db/models.py`           | —          |         |
-| `backend/db/ensure_schema.py`    | —          |         |
-| `frontend/src/lib/types.ts`      | —          |         |
-| `frontend/src/lib/api.ts`        | —          |         |
-| `backend/main.py`                | —          |         |
+| File                                                   | Claimed by | Purpose                                              |
+|--------------------------------------------------------|------------|------------------------------------------------------|
+| `backend/db/models.py`                                 | —          |                                                      |
+| `backend/db/ensure_schema.py`                          | —          |                                                      |
+| `backend/routers/warehouse.py`                         | Codex      | Season-scoped /run-next, /retry-failed endpoint      |
+| `backend/services/warehouse_service.py`                | Codex      | retry_failed_jobs(), backoff logic in run_next_job   |
+| `frontend/src/lib/types.ts`                            | —          |                                                      |
+| `frontend/src/lib/api.ts`                              | Claude     | retryFailedJobs(), runNextWarehouseJob(season?)      |
+| `frontend/src/components/WarehousePipelinePanel.tsx`   | Claude     | Retry Failed button, season-scoped run-next          |
+| `backend/main.py`                                      | —          |                                                      |
 
 ---
 
@@ -69,7 +75,9 @@ Specs written by one agent for the other. Check this before starting work — if
 ## Merge Order (this sprint)
 
 ```
-TBD at kickoff
+1. codex-sprint-12-warehouse-ops          (Codex) — backend first; Claude reviews before merge
+2. feature/sprint-12-warehouse-frontend   (Claude) — depends on /retry-failed endpoint; Codex reviews before merge
+3. codex-sprint-12-game-explorer          (Codex, optional) — independent; can merge in any order
 ```
 
 ---
@@ -80,9 +88,13 @@ Ownership is sprint-dependent, not permanent. The table below is rewritten each 
 
 ### This sprint's owned areas
 
-| Files / Directories  | Assigned this sprint |
-|----------------------|----------------------|
-| Sprint 12 allocation | TBD at kickoff       |
+| Files / Directories                                    | Assigned this sprint |
+|--------------------------------------------------------|----------------------|
+| `backend/routers/warehouse.py`                         | Codex                |
+| `backend/services/warehouse_service.py`                | Codex                |
+| `backend/data/daily_sync.sh` (new)                     | Codex                |
+| `frontend/src/lib/api.ts`                              | Claude               |
+| `frontend/src/components/WarehousePipelinePanel.tsx`   | Claude               |
 
 ### Shared files — claim in Lock Table before editing
 
@@ -166,4 +178,6 @@ Sprint number prefix makes `git branch -a` immediately readable.
 
 *Free-form, dated, newest first. For cross-agent communication mid-sprint.*
 
-2026-03-29 (Claude): Sprint 11 closed. Warehouse foundation shipped across two Codex phases + Claude coverage dashboard. See `specs/sprint-11-closeout.md`. Deferred to Sprint 12: canonical write path for `sync_game_pbp`, season-scoped `/run-next` endpoint, daily cron, Game Explorer controls (carry from Sprint 10).
+2026-03-29 (Claude): Sprint 12 kicked off. Codex owns warehouse-ops backend (retry logic, season-scoped /run-next, /retry-failed, cron). Claude owns frontend hardening (season-scoped button, retry failed UI) — blocked on Codex's /retry-failed endpoint. Game Explorer branch is UNSAFE to merge — must rebuild from master if pursued this sprint.
+
+2026-03-29 (Claude): Sprint 11 closed. Warehouse foundation shipped across two Codex phases + Claude coverage dashboard. See `specs/sprint-11-closeout.md`. Deferred to Sprint 12: season-scoped /run-next endpoint, daily cron, retry logic, Game Explorer controls (carry from Sprint 10).
