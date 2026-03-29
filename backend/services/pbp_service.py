@@ -6,7 +6,7 @@ import re
 import unicodedata
 from collections import defaultdict
 from dataclasses import dataclass, field
-from typing import Optional
+from typing import Dict, List, Optional, Set
 
 
 # ---------------------------------------------------------------------------
@@ -32,6 +32,67 @@ def _canonical_name(name: str) -> str:
         return ""
     normalized = unicodedata.normalize("NFKD", name).encode("ascii", "ignore").decode("ascii")
     return " ".join(normalized.lower().replace(".", "").split())
+
+
+def load_pbp_events_for_game(db, game_id: str) -> List[dict]:
+    """Load canonical PBP events for a game, falling back to legacy rows.
+
+    Canonical `play_by_play_events` is the warehouse source of truth once a game
+    has been migrated. Legacy `play_by_play` remains as a fallback during the
+    migration window.
+    """
+    from db.models import PlayByPlay, PlayByPlayEvent
+
+    canonical_rows = (
+        db.query(PlayByPlayEvent)
+        .filter_by(game_id=game_id)
+        .order_by(PlayByPlayEvent.order_index.asc())
+        .all()
+    )
+    if canonical_rows:
+        events: List[dict] = []
+        for row in canonical_rows:
+            raw_event = row.raw_event or {}
+            events.append(
+                {
+                    "actionNumber": row.action_number or row.order_index,
+                    "actionId": row.source_event_id,
+                    "period": row.period,
+                    "clock": row.clock,
+                    "teamId": row.team_id,
+                    "personId": row.player_id,
+                    "actionType": row.action_type,
+                    "subType": row.sub_type,
+                    "description": row.description,
+                    "scoreHome": row.score_home,
+                    "scoreAway": row.score_away,
+                    "incomingPlayerName": raw_event.get("incomingPlayerName", ""),
+                    "outgoingPlayerName": raw_event.get("outgoingPlayerName", ""),
+                }
+            )
+        return events
+
+    legacy_rows = (
+        db.query(PlayByPlay)
+        .filter_by(game_id=game_id)
+        .order_by(PlayByPlay.action_number.asc())
+        .all()
+    )
+    return [
+        {
+            "actionNumber": row.action_number,
+            "period": row.period,
+            "clock": row.clock,
+            "teamId": row.team_id,
+            "personId": row.player_id,
+            "actionType": row.action_type,
+            "subType": row.sub_type,
+            "description": row.description,
+            "scoreHome": row.score_home,
+            "scoreAway": row.score_away,
+        }
+        for row in legacy_rows
+    ]
 
 
 # ---------------------------------------------------------------------------
@@ -64,7 +125,7 @@ class Stint:
 # Stint builder
 # ---------------------------------------------------------------------------
 
-def build_stints(pbp_events: list[dict], box_score: dict) -> list[Stint]:
+def build_stints(pbp_events: List[dict], box_score: dict) -> List[Stint]:
     """Parse PBP events and build a list of Stints.
 
     Args:
@@ -75,8 +136,8 @@ def build_stints(pbp_events: list[dict], box_score: dict) -> list[Stint]:
     away_team_id = box_score.get("away_team_id")
 
     # Build starting lineups from box score starter flags
-    home_starters: set[int] = set()
-    away_starters: set[int] = set()
+    home_starters: Set[int] = set()
+    away_starters: Set[int] = set()
     for p in box_score.get("players", []):
         pid = p.get("player_id")
         if not pid:
@@ -87,8 +148,8 @@ def build_stints(pbp_events: list[dict], box_score: dict) -> list[Stint]:
             elif p.get("team_id") == away_team_id:
                 away_starters.add(pid)
 
-    home_name_map: dict[str, int] = {}
-    away_name_map: dict[str, int] = {}
+    home_name_map: Dict[str, int] = {}
+    away_name_map: Dict[str, int] = {}
     for p in box_score.get("players", []):
         pid = p.get("player_id")
         player_name = _canonical_name(p.get("player_name", ""))
@@ -108,10 +169,10 @@ def build_stints(pbp_events: list[dict], box_score: dict) -> list[Stint]:
     if len(home_starters) < 5 or len(away_starters) < 5:
         return []
 
-    home_on_court: set[int] = set(home_starters)
-    away_on_court: set[int] = set(away_starters)
+    home_on_court: Set[int] = set(home_starters)
+    away_on_court: Set[int] = set(away_starters)
 
-    stints: list[Stint] = []
+    stints: List[Stint] = []
     current_score_home = 0
     current_score_away = 0
     stint_start_home = 0
@@ -135,15 +196,15 @@ def build_stints(pbp_events: list[dict], box_score: dict) -> list[Stint]:
     away_poss_acc = 0
 
     # Clock tracking for actual stint duration
-    _stint_start_clock: float | None = None
-    _last_clock: float | None = None
+    _stint_start_clock: Optional[float] = None
+    _last_clock: Optional[float] = None
 
     # FT possession tracking: was there a FGA on the current possession?
     _poss_had_fga = False
 
     _LAST_FT_RE = re.compile(r"\b(\d) of \1\b")
 
-    def _apply_substitution(lineup: set[int], event: dict, name_map: dict[str, int], current_player_id: int | None):
+    def _apply_substitution(lineup: Set[int], event: dict, name_map: Dict[str, int], current_player_id: Optional[int]):
         sub_type = (event.get("subType") or "").lower()
         if sub_type == "in" and current_player_id:
             lineup.add(current_player_id)
@@ -284,9 +345,9 @@ class PlayerOnOffAccumulator:
     off_seconds: float = 0.0
 
 
-def compute_on_off(stints: list[Stint], team_player_ids: set[int]) -> dict[int, PlayerOnOffAccumulator]:
+def compute_on_off(stints: List[Stint], team_player_ids: Set[int]) -> Dict[int, PlayerOnOffAccumulator]:
     """Aggregate on/off stats for all players in team_player_ids from stints."""
-    accum: dict[int, PlayerOnOffAccumulator] = defaultdict(PlayerOnOffAccumulator)
+    accum: Dict[int, PlayerOnOffAccumulator] = defaultdict(PlayerOnOffAccumulator)
 
     for stint in stints:
         # Determine which team these players belong to
@@ -330,13 +391,13 @@ def compute_on_off(stints: list[Stint], team_player_ids: set[int]) -> dict[int, 
 # Clutch stats
 # ---------------------------------------------------------------------------
 
-def compute_clutch_stats(pbp_events: list[dict], team_id: int) -> dict[int, dict]:
+def compute_clutch_stats(pbp_events: List[dict], team_id: int) -> Dict[int, dict]:
     """Clutch = Q4+OT, <=5 min remaining, margin <=5 pts.
 
     Returns per-player
     { player_id: {clutch_pts, clutch_fga, clutch_fgm, clutch_plus_minus, clutch_fg_pct} }.
     """
-    player_stats: dict[int, dict] = defaultdict(lambda: {"pts": 0, "fga": 0, "fgm": 0, "plus_minus": 0})
+    player_stats: Dict[int, dict] = defaultdict(lambda: {"pts": 0, "fga": 0, "fgm": 0, "plus_minus": 0})
 
     for event in pbp_events:
         period = event.get("period", 0)
@@ -394,12 +455,12 @@ def compute_clutch_stats(pbp_events: list[dict], team_id: int) -> dict[int, dict
 # Second chance & fast break points
 # ---------------------------------------------------------------------------
 
-def compute_second_chance_and_fast_break(pbp_events: list[dict], team_id: int) -> dict[int, dict]:
+def compute_second_chance_and_fast_break(pbp_events: List[dict], team_id: int) -> Dict[int, dict]:
     """Compute second-chance and fast-break points per player for a team.
 
     Returns { player_id: {second_chance_pts, fast_break_pts} }
     """
-    player_stats: dict[int, dict] = defaultdict(lambda: {"second_chance_pts": 0, "fast_break_pts": 0})
+    player_stats: Dict[int, dict] = defaultdict(lambda: {"second_chance_pts": 0, "fast_break_pts": 0})
 
     # State machine flags
     oreb_pending = False   # offensive rebound just happened for our team
@@ -473,9 +534,9 @@ class LineupAccumulator:
     seconds: float = 0.0
 
 
-def compute_lineup_stats(stints: list[Stint], home_team_id: int) -> dict[str, LineupAccumulator]:
+def compute_lineup_stats(stints: List[Stint], home_team_id: int) -> Dict[str, LineupAccumulator]:
     """Build a map of lineup_key → accumulated stats for all 5-man lineups."""
-    lineups: dict[str, LineupAccumulator] = defaultdict(LineupAccumulator)
+    lineups: Dict[str, LineupAccumulator] = defaultdict(LineupAccumulator)
 
     for stint in stints:
         for players, is_home in [(stint.home_players, True), (stint.away_players, False)]:
