@@ -1160,10 +1160,11 @@ def retry_failed_jobs(db: Session, season: str) -> List[IngestionJob]:
 
 def reset_stale_jobs(db: Session, season: Optional[str] = None) -> List[IngestionJob]:
     now = _utcnow()
+    stale_before = now - timedelta(minutes=1)
     query = db.query(IngestionJob).filter(
         IngestionJob.status == JOB_STATUS_RUNNING,
         IngestionJob.leased_until.isnot(None),
-        IngestionJob.leased_until < now,
+        IngestionJob.leased_until < stale_before,
     )
     if season:
         query = query.filter(IngestionJob.season == season)

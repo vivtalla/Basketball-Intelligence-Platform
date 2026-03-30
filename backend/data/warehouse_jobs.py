@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import argparse
 import os
+import signal
 import sys
 import time
 
@@ -14,8 +15,13 @@ from db.database import SessionLocal
 from db.models import IngestionJob
 from services.warehouse_service import get_job_summary, queue_backfill_season, run_next_job
 
+def _handle_termination(_signum: int, _frame: object) -> None:
+    raise SystemExit(0)
+
 
 def main() -> None:
+    signal.signal(signal.SIGTERM, _handle_termination)
+    signal.signal(signal.SIGINT, _handle_termination)
     parser = argparse.ArgumentParser(description="Run warehouse ingestion jobs for a season")
     parser.add_argument("--season", required=True, help="Season in YYYY-YY format, e.g. 2024-25")
     parser.add_argument(
