@@ -8,6 +8,7 @@ from datetime import date, datetime, timedelta
 from typing import Any, Dict, Iterable, List, Optional, Set, Tuple
 
 from sqlalchemy import func, text
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from data.nba_client import (
@@ -440,9 +441,20 @@ def _store_raw_game_payload(db: Session, game_id: str, season: str, source: str,
         content_hash=content_hash,
         payload=payload,
     )
-    db.add(row)
-    db.flush()
-    return row
+    try:
+        with db.begin_nested():
+            db.add(row)
+            db.flush()
+        return row
+    except IntegrityError:
+        existing = (
+            db.query(RawGamePayload)
+            .filter_by(game_id=game_id, source=source, payload_type=payload_type, content_hash=content_hash)
+            .first()
+        )
+        if existing:
+            return existing
+        raise
 
 
 def sync_schedule(db: Session, season: str, date_key: Optional[str] = None) -> dict:

@@ -45,6 +45,29 @@ Warehouse-specific state:
 | `RAPTOR` | FiveThirtyEight historical data | `backend/data/epm_rapm_import.py --metrics raptor` | CSV not yet acquired locally |
 | `PIPM` | Basketball Index historical files | `backend/data/epm_rapm_import.py --metrics pipm` | CSV not yet acquired locally |
 
+### External metrics acquisition checklist
+
+- `EPM`
+  - source: Dunks & Threes public export / manual CSV
+  - target seasons: `2022-23`, `2023-24`, `2024-25`, `2025-26`
+  - sprint action: acquire file, import, confirm non-null season rows
+- `RAPM`
+  - source: public RAPM export
+  - target seasons: best available launch-window overlap
+  - sprint action: import whatever free historical coverage exists and record any missing seasons explicitly
+- `LEBRON`
+  - source: BBall Index export
+  - target seasons: launch window where available
+  - sprint action: acquire file, import, mark unsupported seasons if access is limited
+- `RAPTOR`
+  - source: FiveThirtyEight historical data
+  - target seasons: historical overlap in launch window
+  - sprint action: import and note any season cutoff or product sunset limits
+- `PIPM`
+  - source: Basketball Index historical files
+  - target seasons: launch window where available
+  - sprint action: import and record any seasons that cannot be sourced freely
+
 ### Explicit source-gap policy
 
 If a metric cannot be sourced freely for a launch-window season:
@@ -61,6 +84,7 @@ If a metric cannot be sourced freely for a launch-window season:
 - `2025-26`: box sync complete, PBP materially advanced toward full completed-game coverage, materialization and derived tables continue climbing
 - `2022-23` and `2023-24`: `player_game_logs`, `player_on_off`, and `lineup_stats` remain populated and stable
 - `2023-24` historical PBP retry completes cleanly on the idempotent write path
+- `2023-24` historical PBP completion is a named sprint exit criterion, not an optional follow-up
 
 ### Product validation
 
@@ -69,6 +93,12 @@ If a metric cannot be sourced freely for a launch-window season:
   - unfinished `2025-26` warehouse/PBP work
   - missing external metric CSVs
   - explicit out-of-scope historical warehouse backfill
+
+### Operational hardening
+
+- `reset_stale_jobs()` persists its queue changes without relying on a caller-side commit
+- one official local worker workflow is documented and used consistently during Sprint 15
+- raw payload retries do not repeatedly fail on duplicate `raw_game_payloads` inserts for identical content
 
 ## Open Questions To Resolve During The Sprint
 
