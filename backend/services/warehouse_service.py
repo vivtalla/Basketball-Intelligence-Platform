@@ -1185,7 +1185,7 @@ def reset_stale_jobs(db: Session, season: Optional[str] = None) -> List[Ingestio
         row.completed_at = None
         row.run_after = now
         row.last_error = row.last_error or "Lease expired; returned to queue"
-    db.flush()
+    db.commit()
     return rows
 
 
