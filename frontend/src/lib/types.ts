@@ -719,3 +719,75 @@ export interface WarehouseJobSummary {
   recent_failed_jobs: IngestionJobResponse[];
   global_request_throttle: WarehouseRequestThrottleStatus | null;
 }
+
+// ── Game summary (box score) ──────────────────────────────────────────────────
+
+export interface GameTeamBoxScore {
+  team_id: number;
+  team_abbreviation: string | null;
+  is_home: boolean;
+  won: boolean | null;
+  pts: number;
+  reb: number;
+  ast: number;
+  stl: number;
+  blk: number;
+  tov: number;
+  fgm: number;
+  fga: number;
+  fg3m: number;
+  fg3a: number;
+  ftm: number;
+  fta: number;
+  oreb: number;
+  dreb: number;
+  pf: number;
+  plus_minus: number | null;
+}
+
+export interface GamePlayerBoxScore {
+  player_id: number;
+  player_name: string;
+  team_id: number | null;
+  team_abbreviation: string | null;
+  is_starter: boolean;
+  min: number | null;
+  pts: number;
+  reb: number;
+  ast: number;
+  stl: number;
+  blk: number;
+  tov: number;
+  fgm: number;
+  fga: number;
+  fg_pct: number | null;
+  fg3m: number;
+  fg3a: number;
+  fg3_pct: number | null;
+  ftm: number;
+  fta: number;
+  ft_pct: number | null;
+  oreb: number;
+  dreb: number;
+  pf: number;
+  plus_minus: number | null;
+  wl: string | null;
+}
+
+export interface GameSummaryResponse {
+  game_id: string;
+  season: string;
+  game_date: string | null;
+  matchup: string | null;
+  home_team_id: number | null;
+  away_team_id: number | null;
+  home_team_name: string | null;
+  home_team_abbreviation: string | null;
+  away_team_name: string | null;
+  away_team_abbreviation: string | null;
+  home_score: number | null;
+  away_score: number | null;
+  home_team_box_score: GameTeamBoxScore | null;
+  away_team_box_score: GameTeamBoxScore | null;
+  player_box_scores: GamePlayerBoxScore[];
+}

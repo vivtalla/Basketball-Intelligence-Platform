@@ -282,3 +282,15 @@ export function useWarehouseJobSummary(season?: string | null) {
     () => getWarehouseJobSummary(season ?? undefined)
   );
 }
+
+// ── Game summary hook ─────────────────────────────────────────────────────────
+
+import type { GameSummaryResponse } from "@/lib/types";
+import { getGameSummary } from "@/lib/api";
+
+export function useGameSummary(gameId: string | null) {
+  return useSWR<GameSummaryResponse>(
+    gameId ? `game-summary-${gameId}` : null,
+    () => getGameSummary(gameId!)
+  );
+}

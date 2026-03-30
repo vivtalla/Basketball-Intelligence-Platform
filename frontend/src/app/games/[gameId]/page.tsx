@@ -3,7 +3,8 @@
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useDeferredValue, useState } from "react";
-import { useGameDetail } from "@/hooks/usePlayerStats";
+import { useGameDetail, useGameSummary } from "@/hooks/usePlayerStats";
+import type { GameTeamBoxScore, GamePlayerBoxScore } from "@/lib/types";
 
 function formatScore(value: number | null) {
   return value == null ? "-" : String(value);
@@ -11,6 +12,127 @@ function formatScore(value: number | null) {
 
 function statValue(value: number | null) {
   return value == null ? "-" : value.toFixed(0);
+}
+
+function pct(made: number, attempted: number): string {
+  if (attempted === 0) return "-";
+  return (made / attempted * 100).toFixed(1) + "%";
+}
+
+function fmtMin(value: number | null): string {
+  if (value == null) return "-";
+  const m = Math.floor(value);
+  const s = Math.round((value - m) * 60);
+  return `${m}:${s.toString().padStart(2, "0")}`;
+}
+
+function fmtPlusMinus(value: number | null): string {
+  if (value == null) return "-";
+  return value > 0 ? `+${value.toFixed(0)}` : value.toFixed(0);
+}
+
+function TeamBoxRow({ label, away, home }: { label: string; away: string; home: string }) {
+  return (
+    <div className="grid grid-cols-3 gap-2 py-2 text-sm border-b border-gray-100 dark:border-gray-800 last:border-0">
+      <div className="tabular-nums text-right text-gray-900 dark:text-gray-100 font-medium">{away}</div>
+      <div className="text-center text-xs uppercase tracking-[0.16em] text-gray-400 dark:text-gray-500">{label}</div>
+      <div className="tabular-nums text-left text-gray-900 dark:text-gray-100 font-medium">{home}</div>
+    </div>
+  );
+}
+
+function PlayerBoxTable({
+  players,
+  title,
+}: {
+  players: import("@/lib/types").GamePlayerBoxScore[];
+  title: string;
+}) {
+  const starters = players.filter((p) => p.is_starter);
+  const bench = players.filter((p) => !p.is_starter);
+  const rows = [...starters, ...bench];
+  if (rows.length === 0) return null;
+
+  return (
+    <div>
+      <div className="mb-3 text-xs font-semibold uppercase tracking-[0.18em] text-gray-500 dark:text-gray-400">
+        {title}
+      </div>
+      <div className="overflow-x-auto">
+        <table className="w-full text-xs tabular-nums">
+          <thead>
+            <tr className="border-b border-gray-200 dark:border-gray-700 text-[10px] uppercase tracking-[0.16em] text-gray-400 dark:text-gray-500">
+              <th className="pb-2 text-left font-medium w-36">Player</th>
+              <th className="pb-2 text-right font-medium px-2">MIN</th>
+              <th className="pb-2 text-right font-medium px-2">PTS</th>
+              <th className="pb-2 text-right font-medium px-2">REB</th>
+              <th className="pb-2 text-right font-medium px-2">AST</th>
+              <th className="pb-2 text-right font-medium px-2">STL</th>
+              <th className="pb-2 text-right font-medium px-2">BLK</th>
+              <th className="pb-2 text-right font-medium px-2">TOV</th>
+              <th className="pb-2 text-right font-medium px-2">FG</th>
+              <th className="pb-2 text-right font-medium px-2">3P</th>
+              <th className="pb-2 text-right font-medium px-2">FT</th>
+              <th className="pb-2 text-right font-medium px-2">+/-</th>
+            </tr>
+          </thead>
+          <tbody>
+            {starters.length > 0 && bench.length > 0 && (
+              <>
+                {starters.map((p, i) => (
+                  <PlayerBoxRow key={`s-${p.player_id}-${i}`} player={p} />
+                ))}
+                <tr>
+                  <td colSpan={12} className="py-1 text-[10px] uppercase tracking-[0.16em] text-gray-400 dark:text-gray-500 pt-3">
+                    Bench
+                  </td>
+                </tr>
+                {bench.map((p, i) => (
+                  <PlayerBoxRow key={`b-${p.player_id}-${i}`} player={p} />
+                ))}
+              </>
+            )}
+            {(starters.length === 0 || bench.length === 0) && rows.map((p, i) => (
+              <PlayerBoxRow key={`r-${p.player_id}-${i}`} player={p} />
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
+function PlayerBoxRow({ player }: { player: import("@/lib/types").GamePlayerBoxScore }) {
+  const pm = fmtPlusMinus(player.plus_minus);
+  return (
+    <tr className="border-b border-gray-100 dark:border-gray-800 last:border-0 hover:bg-gray-50 dark:hover:bg-gray-800/40">
+      <td className="py-2 pr-2">
+        <Link
+          href={`/players/${player.player_id}`}
+          className="font-medium text-gray-900 dark:text-gray-100 hover:text-blue-500 dark:hover:text-blue-400 transition-colors"
+        >
+          {player.player_name}
+        </Link>
+      </td>
+      <td className="py-2 px-2 text-right text-gray-600 dark:text-gray-300">{fmtMin(player.min)}</td>
+      <td className="py-2 px-2 text-right font-semibold text-gray-900 dark:text-gray-100">{player.pts}</td>
+      <td className="py-2 px-2 text-right text-gray-600 dark:text-gray-300">{player.reb}</td>
+      <td className="py-2 px-2 text-right text-gray-600 dark:text-gray-300">{player.ast}</td>
+      <td className="py-2 px-2 text-right text-gray-600 dark:text-gray-300">{player.stl}</td>
+      <td className="py-2 px-2 text-right text-gray-600 dark:text-gray-300">{player.blk}</td>
+      <td className="py-2 px-2 text-right text-gray-600 dark:text-gray-300">{player.tov}</td>
+      <td className="py-2 px-2 text-right text-gray-500 dark:text-gray-400">{player.fgm}-{player.fga}</td>
+      <td className="py-2 px-2 text-right text-gray-500 dark:text-gray-400">{player.fg3m}-{player.fg3a}</td>
+      <td className="py-2 px-2 text-right text-gray-500 dark:text-gray-400">{player.ftm}-{player.fta}</td>
+      <td className={`py-2 px-2 text-right font-medium ${
+        player.plus_minus != null && player.plus_minus > 0
+          ? "text-green-600 dark:text-green-400"
+          : player.plus_minus != null && player.plus_minus < 0
+          ? "text-red-500 dark:text-red-400"
+          : "text-gray-400 dark:text-gray-500"
+      }`}>{pm}</td>
+    </tr>
+  );
 }
 
 function formatEventType(value: string | null | undefined) {
@@ -28,6 +150,7 @@ export default function GameDetailPage() {
   const params = useParams<{ gameId: string }>();
   const gameId = params.gameId ?? null;
   const { data, error, isLoading } = useGameDetail(gameId);
+  const { data: summary } = useGameSummary(gameId);
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedPeriod, setSelectedPeriod] = useState("all");
   const [selectedTeam, setSelectedTeam] = useState("all");
@@ -263,6 +386,69 @@ export default function GameDetailPage() {
           </div>
         </div>
       </section>
+
+      {summary && (summary.home_team_box_score || summary.away_team_box_score || summary.player_box_scores.length > 0) && (
+        <section className="rounded-[2rem] border border-gray-200 bg-white p-6 dark:border-gray-800 dark:bg-gray-900">
+          <div className="mb-6 flex items-end justify-between gap-4">
+            <div>
+              <p className="text-sm font-medium uppercase tracking-[0.24em] text-blue-500">Box Score</p>
+              <h2 className="mt-2 text-2xl font-semibold text-gray-900 dark:text-gray-100">Team Stats</h2>
+            </div>
+          </div>
+
+          {(summary.home_team_box_score || summary.away_team_box_score) && (() => {
+            const away = summary.away_team_box_score;
+            const home = summary.home_team_box_score;
+            const awayAbbr = summary.away_team_abbreviation ?? "Away";
+            const homeAbbr = summary.home_team_abbreviation ?? "Home";
+            return (
+              <div className="mb-8">
+                <div className="grid grid-cols-3 gap-2 mb-3 text-[11px] font-semibold uppercase tracking-[0.18em]">
+                  <div className="text-right text-gray-700 dark:text-gray-200">{awayAbbr}</div>
+                  <div className="text-center text-gray-400 dark:text-gray-500">Stat</div>
+                  <div className="text-left text-gray-700 dark:text-gray-200">{homeAbbr}</div>
+                </div>
+                <TeamBoxRow label="PTS" away={String(away?.pts ?? "-")} home={String(home?.pts ?? "-")} />
+                <TeamBoxRow label="FG%" away={away ? pct(away.fgm, away.fga) : "-"} home={home ? pct(home.fgm, home.fga) : "-"} />
+                <TeamBoxRow label="3P%" away={away ? pct(away.fg3m, away.fg3a) : "-"} home={home ? pct(home.fg3m, home.fg3a) : "-"} />
+                <TeamBoxRow label="FT%" away={away ? pct(away.ftm, away.fta) : "-"} home={home ? pct(home.ftm, home.fta) : "-"} />
+                <TeamBoxRow label="REB" away={String(away?.reb ?? "-")} home={String(home?.reb ?? "-")} />
+                <TeamBoxRow label="OREB" away={String(away?.oreb ?? "-")} home={String(home?.oreb ?? "-")} />
+                <TeamBoxRow label="AST" away={String(away?.ast ?? "-")} home={String(home?.ast ?? "-")} />
+                <TeamBoxRow label="TOV" away={String(away?.tov ?? "-")} home={String(home?.tov ?? "-")} />
+                <TeamBoxRow label="STL" away={String(away?.stl ?? "-")} home={String(home?.stl ?? "-")} />
+                <TeamBoxRow label="BLK" away={String(away?.blk ?? "-")} home={String(home?.blk ?? "-")} />
+                <TeamBoxRow label="PF" away={String(away?.pf ?? "-")} home={String(home?.pf ?? "-")} />
+              </div>
+            );
+          })()}
+
+          {summary.player_box_scores.length > 0 && (() => {
+            const awayPlayers = summary.player_box_scores.filter(
+              (p) => p.team_abbreviation === summary.away_team_abbreviation
+            );
+            const homePlayers = summary.player_box_scores.filter(
+              (p) => p.team_abbreviation === summary.home_team_abbreviation
+            );
+            return (
+              <div className="grid gap-8 lg:grid-cols-2">
+                {awayPlayers.length > 0 && (
+                  <PlayerBoxTable
+                    players={awayPlayers}
+                    title={summary.away_team_abbreviation ?? "Away"}
+                  />
+                )}
+                {homePlayers.length > 0 && (
+                  <PlayerBoxTable
+                    players={homePlayers}
+                    title={summary.home_team_abbreviation ?? "Home"}
+                  />
+                )}
+              </div>
+            );
+          })()}
+        </section>
+      )}
 
       <section className="overflow-hidden rounded-[2rem] border border-sky-200 bg-gradient-to-br from-sky-50 via-white to-cyan-50 dark:border-sky-900/70 dark:from-slate-900 dark:via-slate-950 dark:to-cyan-950/40">
         <div className="grid gap-6 p-6 lg:grid-cols-[1.1fr,0.9fr] lg:p-8">
