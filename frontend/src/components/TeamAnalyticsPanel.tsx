@@ -22,7 +22,7 @@ function rankBadge(rank: number | null, lowerIsBetter = false) {
     ? "text-emerald-600 dark:text-emerald-400"
     : isBad
     ? "text-red-500 dark:text-red-400"
-    : "text-gray-500 dark:text-gray-400";
+    : "text-[var(--muted)]";
   return (
     <span className={`text-[10px] font-medium tabular-nums ${color}`}>
       #{rank}
@@ -41,14 +41,14 @@ interface BigMetricProps {
 
 function BigMetric({ label, value, rank, lowerIsBetter = false, accent = false }: BigMetricProps) {
   return (
-    <div className={`rounded-2xl p-4 flex flex-col gap-1 ${accent ? "bg-blue-50 dark:bg-blue-950/40" : "bg-gray-50 dark:bg-gray-800/60"}`}>
+    <div className={`flex flex-col gap-1 rounded-2xl p-4 ${accent ? "bip-accent-card" : "bip-metric"}`}>
       <div className="flex items-center justify-between">
-        <span className="text-xs font-medium uppercase tracking-[0.18em] text-gray-500 dark:text-gray-400">
+        <span className="text-xs font-medium uppercase tracking-[0.18em] text-[var(--muted)]">
           {label}
         </span>
         {rankBadge(rank, lowerIsBetter)}
       </div>
-      <div className={`text-3xl font-bold tabular-nums ${accent ? "text-blue-600 dark:text-blue-300" : "text-gray-900 dark:text-gray-100"}`}>
+      <div className={`text-3xl font-bold tabular-nums ${accent ? "text-[var(--accent)]" : "text-[var(--foreground)]"}`}>
         {value}
       </div>
     </div>
@@ -71,26 +71,26 @@ function FactorRow({ label, value, rank, lowerIsBetter = false, description }: F
     ? "bg-emerald-500"
     : isBad
     ? "bg-red-400"
-    : "bg-blue-400";
+    : "bg-[var(--signal)]";
   // Bar width: rank 1 = 100%, rank 30 = 3%
   const barPct = lowerIsBetter
     ? Math.max(3, Math.round(((31 - r) / 30) * 100))
     : Math.max(3, Math.round(((31 - r) / 30) * 100));
 
   return (
-    <div className="flex items-center gap-4 py-3 border-b border-gray-100 dark:border-gray-800 last:border-0">
+    <div className="flex items-center gap-4 border-b border-[var(--border)] py-3 last:border-0">
       <div className="w-28 shrink-0">
-        <div className="text-sm font-medium text-gray-900 dark:text-gray-100">{label}</div>
-        <div className="text-[10px] text-gray-400 dark:text-gray-500 mt-0.5">{description}</div>
+        <div className="text-sm font-medium text-[var(--foreground)]">{label}</div>
+        <div className="mt-0.5 text-[10px] text-[var(--muted)]">{description}</div>
       </div>
       <div className="flex-1 flex items-center gap-2">
-        <div className="flex-1 h-2 rounded-full bg-gray-200 dark:bg-gray-700 overflow-hidden">
+        <div className="flex-1 h-2 overflow-hidden rounded-full bg-[var(--surface-alt)]">
           <div
             className={`h-full rounded-full transition-all ${barColor}`}
             style={{ width: `${barPct}%` }}
           />
         </div>
-        <span className="text-sm font-semibold tabular-nums text-gray-900 dark:text-gray-100 w-14 text-right">
+        <span className="w-14 text-right text-sm font-semibold tabular-nums text-[var(--foreground)]">
           {value}
         </span>
       </div>
@@ -113,30 +113,30 @@ export default function TeamAnalyticsPanel({ analytics: a }: TeamAnalyticsPanelP
     <div className="space-y-6">
       {/* Record + season headline */}
       <div className="flex flex-wrap items-center gap-4">
-        <div className="rounded-2xl bg-gray-50 dark:bg-gray-800/60 px-5 py-3 flex items-center gap-3">
-          <span className="text-2xl font-bold text-gray-900 dark:text-gray-100 tabular-nums">
+        <div className="bip-metric flex items-center gap-3 rounded-2xl px-5 py-3">
+          <span className="text-2xl font-bold tabular-nums text-[var(--foreground)]">
             {a.w}–{a.l}
           </span>
-          <span className="text-sm text-gray-500 dark:text-gray-400">
+          <span className="text-sm text-[var(--muted)]">
             ({(a.w_pct * 100).toFixed(0)}% · {a.gp}G)
           </span>
         </div>
-        <div className="text-sm text-gray-500 dark:text-gray-400">
+        <div className="text-sm text-[var(--muted)]">
           {a.season} Regular Season
         </div>
       </div>
 
       {/* Four key ratings */}
       <div>
-        <h3 className="text-sm font-semibold uppercase tracking-[0.18em] text-gray-500 dark:text-gray-400 mb-3">
+        <h3 className="mb-3 text-sm font-semibold uppercase tracking-[0.18em] text-[var(--muted)]">
           Efficiency Ratings
         </h3>
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
           <BigMetric label="OFF RTG" value={f1(a.off_rating)} rank={a.off_rating_rank} accent />
           <BigMetric label="DEF RTG" value={f1(a.def_rating)} rank={a.def_rating_rank} lowerIsBetter />
-          <div className={`rounded-2xl p-4 flex flex-col gap-1 bg-gray-50 dark:bg-gray-800/60`}>
+          <div className="bip-metric flex flex-col gap-1 rounded-2xl p-4">
             <div className="flex items-center justify-between">
-              <span className="text-xs font-medium uppercase tracking-[0.18em] text-gray-500 dark:text-gray-400">
+              <span className="text-xs font-medium uppercase tracking-[0.18em] text-[var(--muted)]">
                 NET RTG
               </span>
               {rankBadge(a.net_rating_rank)}
@@ -151,13 +151,13 @@ export default function TeamAnalyticsPanel({ analytics: a }: TeamAnalyticsPanelP
 
       {/* Four Factors */}
       <div>
-        <h3 className="text-sm font-semibold uppercase tracking-[0.18em] text-gray-500 dark:text-gray-400 mb-3">
+        <h3 className="mb-3 text-sm font-semibold uppercase tracking-[0.18em] text-[var(--muted)]">
           Four Factors
-          <span className="ml-2 text-[10px] font-normal normal-case tracking-normal text-gray-400 dark:text-gray-500">
+            <span className="ml-2 text-[10px] font-normal normal-case tracking-normal text-[var(--muted)]">
             Bar = league rank (wider = better)
           </span>
         </h3>
-        <div className="rounded-2xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 px-4 py-1">
+        <div className="bip-table-shell rounded-2xl px-4 py-1">
           <FactorRow
             label="eFG%"
             value={pct(a.efg_pct)}
@@ -188,7 +188,7 @@ export default function TeamAnalyticsPanel({ analytics: a }: TeamAnalyticsPanelP
 
       {/* Per-game averages */}
       <div>
-        <h3 className="text-sm font-semibold uppercase tracking-[0.18em] text-gray-500 dark:text-gray-400 mb-3">
+        <h3 className="mb-3 text-sm font-semibold uppercase tracking-[0.18em] text-[var(--muted)]">
           Per-Game Averages
         </h3>
         <div className="grid grid-cols-3 sm:grid-cols-6 gap-3">
@@ -200,11 +200,11 @@ export default function TeamAnalyticsPanel({ analytics: a }: TeamAnalyticsPanelP
             { label: "BLK", value: f1(a.blk_pg) },
             { label: "TOV", value: f1(a.tov_pg) },
           ].map(({ label, value }) => (
-            <div key={label} className="rounded-2xl bg-gray-50 dark:bg-gray-800/60 p-3 text-center">
-              <div className="text-[10px] uppercase tracking-[0.18em] text-gray-400 dark:text-gray-500">
+            <div key={label} className="bip-metric rounded-2xl p-3 text-center">
+              <div className="text-[10px] uppercase tracking-[0.18em] text-[var(--muted)]">
                 {label}
               </div>
-              <div className="mt-1 text-xl font-semibold tabular-nums text-gray-900 dark:text-gray-100">
+              <div className="mt-1 text-xl font-semibold tabular-nums text-[var(--foreground)]">
                 {value}
               </div>
             </div>
@@ -214,7 +214,7 @@ export default function TeamAnalyticsPanel({ analytics: a }: TeamAnalyticsPanelP
 
       {/* Shooting splits */}
       <div>
-        <h3 className="text-sm font-semibold uppercase tracking-[0.18em] text-gray-500 dark:text-gray-400 mb-3">
+        <h3 className="mb-3 text-sm font-semibold uppercase tracking-[0.18em] text-[var(--muted)]">
           Shooting
         </h3>
         <div className="grid grid-cols-3 gap-3">
@@ -223,11 +223,11 @@ export default function TeamAnalyticsPanel({ analytics: a }: TeamAnalyticsPanelP
             { label: "3P%", value: pct(a.fg3_pct) },
             { label: "FT%", value: pct(a.ft_pct) },
           ].map(({ label, value }) => (
-            <div key={label} className="rounded-2xl bg-gray-50 dark:bg-gray-800/60 p-4 text-center">
-              <div className="text-xs uppercase tracking-[0.18em] text-gray-400 dark:text-gray-500">
+            <div key={label} className="bip-metric rounded-2xl p-4 text-center">
+              <div className="text-xs uppercase tracking-[0.18em] text-[var(--muted)]">
                 {label}
               </div>
-              <div className="mt-2 text-2xl font-semibold tabular-nums text-gray-900 dark:text-gray-100">
+              <div className="mt-2 text-2xl font-semibold tabular-nums text-[var(--foreground)]">
                 {value}
               </div>
             </div>

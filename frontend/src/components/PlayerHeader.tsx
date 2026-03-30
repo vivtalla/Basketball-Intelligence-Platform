@@ -22,10 +22,10 @@ const PERCENTILE_LABELS: Record<string, string> = {
 };
 
 function pctColor(pct: number): string {
-  if (pct >= 90) return "bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300";
-  if (pct >= 75) return "bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300";
-  if (pct >= 50) return "bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300";
-  return "bg-red-50 text-red-500 dark:bg-red-900/20 dark:text-red-400";
+  if (pct >= 90) return "bip-success";
+  if (pct >= 75) return "bg-[var(--accent-soft)] text-[var(--accent-strong)]";
+  if (pct >= 50) return "bg-[var(--surface-alt)] text-[var(--muted)]";
+  return "bip-danger";
 }
 
 function ordinal(n: number): string {
@@ -122,7 +122,7 @@ export default function PlayerHeader({
       : [];
 
   return (
-    <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 p-6 mb-6">
+    <div className="bip-panel-strong rounded-[2rem] p-6 mb-6">
       <div className="flex flex-col gap-6">
         {trendCards.length > 0 && (
           <div className="grid gap-3 md:grid-cols-3">
@@ -132,13 +132,13 @@ export default function PlayerHeader({
               return (
                 <div
                   key={card.label}
-                  className="rounded-2xl border border-gray-200 bg-gray-50 p-4 dark:border-gray-700 dark:bg-gray-900/60"
+                  className="rounded-2xl bip-metric p-4"
                 >
-                  <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-gray-500 dark:text-gray-400">
+                  <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[var(--muted)]">
                     {card.label}
                   </div>
                   <div className="mt-2 flex items-end justify-between gap-3">
-                    <div className="text-2xl font-bold tabular-nums text-gray-900 dark:text-gray-100">
+                    <div className="text-2xl font-bold tabular-nums text-[var(--foreground)]">
                       {card.value == null
                         ? "—"
                         : card.pct
@@ -148,10 +148,10 @@ export default function PlayerHeader({
                     <div
                       className={`text-sm font-semibold tabular-nums ${
                         delta == null
-                          ? "text-gray-400 dark:text-gray-500"
+                          ? "text-[var(--muted)]"
                           : positive
-                          ? "text-emerald-600 dark:text-emerald-400"
-                          : "text-red-500 dark:text-red-400"
+                          ? "text-[var(--success-ink)]"
+                          : "text-[var(--danger-ink)]"
                       }`}
                     >
                       {delta == null
@@ -159,7 +159,7 @@ export default function PlayerHeader({
                         : `${positive ? "+" : ""}${card.pct ? (delta * 100).toFixed(1) : delta.toFixed(1)}`}
                     </div>
                   </div>
-                  <div className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                  <div className="mt-1 text-xs text-[var(--muted)]">
                     vs {priorSeason?.season}
                   </div>
                 </div>
@@ -188,9 +188,9 @@ export default function PlayerHeader({
         {/* Bio */}
         <div className="flex-grow">
           <div className="flex items-center gap-3 mb-2">
-            <h1 className="text-3xl font-bold">{profile.full_name}</h1>
+            <h1 className="bip-display text-4xl font-bold text-[var(--foreground)]">{profile.full_name}</h1>
             {profile.jersey && (
-              <span className="text-2xl text-gray-400">#{profile.jersey}</span>
+              <span className="text-2xl text-[var(--muted)]">#{profile.jersey}</span>
             )}
             {/* Star / watchlist button */}
             <button
@@ -205,8 +205,8 @@ export default function PlayerHeader({
               title={starred ? "Remove from My Players" : "Add to My Players"}
               className={`ml-1 transition-colors ${
                 starred
-                  ? "text-amber-400 hover:text-amber-500"
-                  : "text-gray-300 dark:text-gray-600 hover:text-amber-400"
+                  ? "text-[var(--signal)] hover:text-[var(--signal-ink)]"
+                  : "text-[var(--muted)] hover:text-[var(--signal)]"
               }`}
             >
               <svg
@@ -227,11 +227,11 @@ export default function PlayerHeader({
           </div>
 
           <div className="flex flex-wrap gap-2 mb-4">
-            <span className="px-3 py-1 bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300 rounded-full text-sm font-medium">
+            <span className="px-3 py-1 rounded-full text-sm font-medium bg-[var(--accent-soft)] text-[var(--accent-strong)]">
               {profile.team_name || "Free Agent"}
             </span>
             {profile.position && (
-              <span className="px-3 py-1 bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 rounded-full text-sm">
+              <span className="px-3 py-1 rounded-full text-sm bg-[var(--surface-alt)] text-[var(--muted)]">
                 {profile.position}
               </span>
             )}
@@ -257,7 +257,7 @@ export default function PlayerHeader({
             </div>
           )}
 
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-x-6 gap-y-2 text-sm text-gray-600 dark:text-gray-400">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-x-6 gap-y-2 text-sm text-[var(--muted)]">
             <div>
               <span className="text-gray-400">Height:</span>{" "}
               <span className="text-foreground">{profile.height}</span>

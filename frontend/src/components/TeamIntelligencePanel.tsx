@@ -18,9 +18,9 @@ function signed(value: number | null | undefined, digits = 1) {
 }
 
 function coverageTone(status: TeamIntelligence["pbp_coverage"]["status"]) {
-  if (status === "ready") return "text-emerald-600 bg-emerald-50 dark:text-emerald-300 dark:bg-emerald-950/30";
-  if (status === "partial") return "text-amber-600 bg-amber-50 dark:text-amber-300 dark:bg-amber-950/30";
-  return "text-gray-500 bg-gray-100 dark:text-gray-300 dark:bg-gray-800";
+  if (status === "ready") return "bip-success";
+  if (status === "partial") return "bip-pill";
+  return "bg-[var(--surface-alt)] text-[var(--muted)]";
 }
 
 function coveragePct(numerator: number, denominator: number) {
@@ -49,13 +49,13 @@ function LineupMiniCard({
       : "text-red-500 dark:text-red-300";
 
   return (
-    <div className="rounded-3xl border border-gray-200 p-4 dark:border-gray-800">
+    <div className="bip-panel rounded-3xl p-4">
       <div className="flex items-start justify-between gap-4">
         <div className="min-w-0">
-          <div className="text-sm font-semibold text-gray-900 dark:text-gray-100">
+          <div className="text-sm font-semibold text-[var(--foreground)]">
             {lineup.player_names.join(" · ")}
           </div>
-          <div className="mt-2 text-xs uppercase tracking-[0.18em] text-gray-500 dark:text-gray-400">
+          <div className="mt-2 text-xs uppercase tracking-[0.18em] text-[var(--muted)]">
             {fmt(lineup.minutes)} min · {lineup.possessions ?? "—"} poss
           </div>
         </div>
@@ -72,27 +72,27 @@ function LeaderRow({ leader, rank }: { leader: TeamImpactLeader; rank: number })
   return (
     <Link
       href={`/players/${leader.player_id}`}
-      className="flex items-center justify-between gap-4 rounded-3xl border border-gray-200 p-4 transition-colors hover:border-blue-300 hover:bg-blue-50/50 dark:border-gray-800 dark:hover:border-blue-800 dark:hover:bg-blue-950/20"
+      className="bip-panel flex items-center justify-between gap-4 rounded-3xl p-4 transition-colors hover:border-[rgba(33,72,59,0.28)] hover:bg-[rgba(216,228,221,0.24)]"
     >
       <div className="min-w-0">
-        <div className="text-xs uppercase tracking-[0.18em] text-gray-400 dark:text-gray-500">
+        <div className="text-xs uppercase tracking-[0.18em] text-[var(--muted)]">
           Impact #{rank}
         </div>
-        <div className="mt-1 truncate text-base font-semibold text-gray-900 dark:text-gray-100">
+        <div className="mt-1 truncate text-base font-semibold text-[var(--foreground)]">
           {leader.player_name}
         </div>
-        <div className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+        <div className="mt-1 text-sm text-[var(--muted)]">
           {fmt(leader.pts_pg)} PPG · BPM {signed(leader.bpm)}
         </div>
       </div>
       <div className="text-right">
-        <div className="text-xs uppercase tracking-[0.18em] text-gray-400 dark:text-gray-500">
+        <div className="text-xs uppercase tracking-[0.18em] text-[var(--muted)]">
           On/Off
         </div>
         <div className="mt-1 text-xl font-bold tabular-nums text-emerald-600 dark:text-emerald-300">
           {signed(leader.on_off_net)}
         </div>
-        <div className="text-xs text-gray-500 dark:text-gray-400">
+        <div className="text-xs text-[var(--muted)]">
           {fmt(leader.on_minutes, 0)} min
         </div>
       </div>
@@ -154,68 +154,68 @@ export default function TeamIntelligencePanel({
   return (
     <div className="space-y-6">
       <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-        <div className="rounded-3xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-gray-900">
-          <div className="text-xs uppercase tracking-[0.18em] text-gray-500 dark:text-gray-400">
+        <div className="bip-panel rounded-3xl p-5">
+          <div className="text-xs uppercase tracking-[0.18em] text-[var(--muted)]">
             Standings
           </div>
-          <div className="mt-3 text-3xl font-bold text-gray-900 dark:text-gray-100">
+          <div className="mt-3 text-3xl font-bold text-[var(--foreground)]">
             {intelligence.wins ?? "—"}-{intelligence.losses ?? "—"}
           </div>
-          <div className="mt-2 text-sm text-gray-500 dark:text-gray-400">
+          <div className="mt-2 text-sm text-[var(--muted)]">
             {intelligence.conference ?? "Conference"} · Rank {intelligence.playoff_rank ?? "—"}
           </div>
         </div>
 
-        <div className="rounded-3xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-gray-900">
-          <div className="text-xs uppercase tracking-[0.18em] text-gray-500 dark:text-gray-400">
+        <div className="bip-panel rounded-3xl p-5">
+          <div className="text-xs uppercase tracking-[0.18em] text-[var(--muted)]">
             Recent Form
           </div>
-          <div className="mt-3 text-3xl font-bold text-gray-900 dark:text-gray-100">
+          <div className="mt-3 text-3xl font-bold text-[var(--foreground)]">
             {intelligence.recent_record ?? intelligence.l10 ?? "—"}
           </div>
-          <div className="mt-2 text-sm text-gray-500 dark:text-gray-400">
+          <div className="mt-2 text-sm text-[var(--muted)]">
             Avg margin {signed(intelligence.recent_avg_margin)} · {intelligence.current_streak ?? "No streak"}
           </div>
         </div>
 
-        <div className="rounded-3xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-gray-900">
-          <div className="text-xs uppercase tracking-[0.18em] text-gray-500 dark:text-gray-400">
+        <div className="bip-panel rounded-3xl p-5">
+          <div className="text-xs uppercase tracking-[0.18em] text-[var(--muted)]">
             Point Profile
           </div>
-          <div className="mt-3 text-3xl font-bold text-gray-900 dark:text-gray-100">
+          <div className="mt-3 text-3xl font-bold text-[var(--foreground)]">
             {fmt(intelligence.pts_pg)}
           </div>
-          <div className="mt-2 text-sm text-gray-500 dark:text-gray-400">
+          <div className="mt-2 text-sm text-[var(--muted)]">
             Allowed {fmt(intelligence.opp_pts_pg)} · Diff {signed(intelligence.diff_pts_pg)}
           </div>
         </div>
 
-        <div className="rounded-3xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-gray-900">
+        <div className="bip-panel rounded-3xl p-5">
           <div className="flex items-center justify-between gap-3">
-            <div className="text-xs uppercase tracking-[0.18em] text-gray-500 dark:text-gray-400">
+            <div className="text-xs uppercase tracking-[0.18em] text-[var(--muted)]">
               PBP Coverage
             </div>
             <span className={`rounded-full px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] ${coverageTone(coverage.status)}`}>
               {coverage.status}
             </span>
           </div>
-          <div className="mt-3 text-3xl font-bold text-gray-900 dark:text-gray-100">
+          <div className="mt-3 text-3xl font-bold text-[var(--foreground)]">
             {coverage.synced_games}/{coverage.eligible_games}
           </div>
-          <div className="mt-2 text-sm text-gray-500 dark:text-gray-400">
+          <div className="mt-2 text-sm text-[var(--muted)]">
             {coverage.players_with_on_off} on/off · {coverage.players_with_scoring_splits} split-ready
           </div>
         </div>
       </section>
 
       <section className="grid gap-4 lg:grid-cols-[1.05fr,0.95fr]">
-        <div className="rounded-[2rem] border border-gray-200 bg-white p-6 dark:border-gray-800 dark:bg-gray-900">
+        <div className="bip-panel-strong rounded-[2rem] p-6">
           <div className="flex items-center justify-between gap-3">
             <div>
-              <h2 className="text-2xl font-semibold text-gray-900 dark:text-gray-100">
+              <h2 className="bip-display text-2xl font-semibold text-[var(--foreground)]">
                 Sync Readiness
               </h2>
-              <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+              <p className="mt-1 text-sm text-[var(--muted)]">
                 A quick read on how safe it is to trust team-level derived metrics for this season.
               </p>
             </div>
@@ -226,28 +226,28 @@ export default function TeamIntelligencePanel({
 
           <div className="mt-5 space-y-4">
             <div>
-              <div className="flex items-center justify-between gap-3 text-sm text-gray-500 dark:text-gray-400">
+              <div className="flex items-center justify-between gap-3 text-sm text-[var(--muted)]">
                 <span>Game coverage</span>
-                <span className="font-semibold text-gray-900 dark:text-gray-100">
+                <span className="font-semibold text-[var(--foreground)]">
                   {coverage.synced_games}/{coverage.eligible_games} games
                 </span>
               </div>
-              <div className="mt-2 h-3 overflow-hidden rounded-full bg-gray-100 dark:bg-gray-800">
+              <div className="mt-2 h-3 overflow-hidden rounded-full bg-[var(--surface-alt)]">
                 <div
-                  className="h-full rounded-full bg-blue-500 transition-all"
+                  className="h-full rounded-full bg-[var(--accent)] transition-all"
                   style={{ width: `${gameCoveragePct}%` }}
                 />
               </div>
             </div>
 
             <div>
-              <div className="flex items-center justify-between gap-3 text-sm text-gray-500 dark:text-gray-400">
+              <div className="flex items-center justify-between gap-3 text-sm text-[var(--muted)]">
                 <span>Derived player signals</span>
-                <span className="font-semibold text-gray-900 dark:text-gray-100">
+                <span className="font-semibold text-[var(--foreground)]">
                   {coverage.players_with_on_off} on/off · {coverage.players_with_scoring_splits} scoring
                 </span>
               </div>
-              <div className="mt-2 h-3 overflow-hidden rounded-full bg-gray-100 dark:bg-gray-800">
+              <div className="mt-2 h-3 overflow-hidden rounded-full bg-[var(--surface-alt)]">
                 <div
                   className="h-full rounded-full bg-emerald-500 transition-all"
                   style={{ width: `${playerCoveragePct}%` }}
@@ -257,21 +257,21 @@ export default function TeamIntelligencePanel({
           </div>
         </div>
 
-        <div className="rounded-[2rem] border border-gray-200 bg-white p-6 dark:border-gray-800 dark:bg-gray-900">
-          <h2 className="text-2xl font-semibold text-gray-900 dark:text-gray-100">
+        <div className="bip-panel-strong rounded-[2rem] p-6">
+          <h2 className="bip-display text-2xl font-semibold text-[var(--foreground)]">
             Next Move
           </h2>
-          <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+          <p className="mt-1 text-sm text-[var(--muted)]">
             Suggested operations step based on current local team coverage.
           </p>
-          <div className="mt-5 rounded-3xl bg-gray-50 p-5 dark:bg-gray-800/70">
-            <div className="text-xs font-medium uppercase tracking-[0.18em] text-gray-500 dark:text-gray-400">
+          <div className="bip-metric mt-5 rounded-3xl p-5">
+            <div className="text-xs font-medium uppercase tracking-[0.18em] text-[var(--muted)]">
               Recommendation
             </div>
-            <div className="mt-3 text-base leading-7 text-gray-700 dark:text-gray-200">
+            <div className="mt-3 text-base leading-7 text-[var(--foreground)]">
               {nextStep}
             </div>
-            <div className="mt-4 text-sm text-gray-500 dark:text-gray-400">
+            <div className="mt-4 text-sm text-[var(--muted)]">
               {coverage.status === "ready"
                 ? "Best lineups and impact leaders now have enough support to drive analysis."
                 : warehouseTargetSeason
@@ -283,17 +283,17 @@ export default function TeamIntelligencePanel({
       </section>
 
       {yoySignals.length > 0 && (
-        <section className="rounded-[2rem] border border-gray-200 bg-white p-6 dark:border-gray-800 dark:bg-gray-900">
+        <section className="bip-panel-strong rounded-[2rem] p-6">
           <div className="flex items-end justify-between gap-4">
             <div>
-              <h2 className="text-2xl font-semibold text-gray-900 dark:text-gray-100">
+              <h2 className="bip-display text-2xl font-semibold text-[var(--foreground)]">
                 Year-over-Year Signals
               </h2>
-              <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+              <p className="mt-1 text-sm text-[var(--muted)]">
                 Quick deltas against the previous tracked season to show where this team is moving.
               </p>
             </div>
-            <div className="text-xs uppercase tracking-[0.18em] text-gray-400 dark:text-gray-500">
+            <div className="text-xs uppercase tracking-[0.18em] text-[var(--muted)]">
               vs {priorAnalytics?.season}
             </div>
           </div>
@@ -301,9 +301,9 @@ export default function TeamIntelligencePanel({
             {yoySignals.map((signal) => (
               <div
                 key={signal.label}
-                className="rounded-3xl border border-gray-200 bg-gray-50 p-4 dark:border-gray-800 dark:bg-gray-950/40"
+                className="bip-metric rounded-3xl p-4"
               >
-                <div className="text-[11px] uppercase tracking-[0.18em] text-gray-500 dark:text-gray-400">
+                <div className="text-[11px] uppercase tracking-[0.18em] text-[var(--muted)]">
                   {signal.label}
                 </div>
                 <div
@@ -326,20 +326,20 @@ export default function TeamIntelligencePanel({
       )}
 
       <div className="grid gap-6 xl:grid-cols-[1.05fr,0.95fr]">
-        <section className="rounded-[2rem] border border-gray-200 bg-white p-6 dark:border-gray-800 dark:bg-gray-900">
+        <section className="bip-panel-strong rounded-[2rem] p-6">
           <div className="flex items-end justify-between gap-4">
             <div>
-              <h2 className="text-2xl font-semibold text-gray-900 dark:text-gray-100">
+              <h2 className="bip-display text-2xl font-semibold text-[var(--foreground)]">
                 Impact Leaders
               </h2>
-              <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+              <p className="mt-1 text-sm text-[var(--muted)]">
                 Best on/off differentials among current roster players with synced play-by-play.
               </p>
             </div>
           </div>
           <div className="mt-5 space-y-3">
             {intelligence.impact_leaders.length === 0 ? (
-              <div className="rounded-3xl border border-dashed border-gray-200 p-6 text-sm text-gray-500 dark:border-gray-700 dark:text-gray-400">
+              <div className="bip-empty rounded-3xl p-6 text-sm">
                 {warehouseTargetSeason
                   ? "No team impact leaders yet. Sync more play-by-play to unlock this section."
                   : "No team impact leaders are available yet for this historical season. If this blocks analysis, log it in the Sprint 16 validation matrix rather than treating it as a mandatory warehouse task."}
@@ -352,18 +352,18 @@ export default function TeamIntelligencePanel({
           </div>
         </section>
 
-        <section className="rounded-[2rem] border border-gray-200 bg-white p-6 dark:border-gray-800 dark:bg-gray-900">
+        <section className="bip-panel-strong rounded-[2rem] p-6">
           <div>
-            <h2 className="text-2xl font-semibold text-gray-900 dark:text-gray-100">
+            <h2 className="bip-display text-2xl font-semibold text-[var(--foreground)]">
               Recent Games
             </h2>
-            <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+            <p className="mt-1 text-sm text-[var(--muted)]">
               Latest completed team games with direct links into the Game Explorer.
             </p>
           </div>
           <div className="mt-5 space-y-3">
             {intelligence.recent_games.length === 0 ? (
-              <div className="rounded-3xl border border-dashed border-gray-200 p-6 text-sm text-gray-500 dark:border-gray-700 dark:text-gray-400">
+              <div className="bip-empty rounded-3xl p-6 text-sm">
                 No recent games are stored for this season yet.
               </div>
             ) : (
@@ -371,13 +371,13 @@ export default function TeamIntelligencePanel({
                 <Link
                   key={game.game_id}
                   href={`/games/${game.game_id}`}
-                  className="flex items-center justify-between gap-4 rounded-3xl border border-gray-200 p-4 transition-colors hover:border-blue-300 hover:bg-blue-50/50 dark:border-gray-800 dark:hover:border-blue-800 dark:hover:bg-blue-950/20"
+                  className="bip-panel flex items-center justify-between gap-4 rounded-3xl p-4 transition-colors hover:border-[rgba(33,72,59,0.28)] hover:bg-[rgba(216,228,221,0.24)]"
                 >
                   <div>
-                    <div className="text-xs uppercase tracking-[0.18em] text-gray-400 dark:text-gray-500">
+                    <div className="text-xs uppercase tracking-[0.18em] text-[var(--muted)]">
                       {game.game_date ?? "Date unavailable"}
                     </div>
-                    <div className="mt-1 text-base font-semibold text-gray-900 dark:text-gray-100">
+                    <div className="mt-1 text-base font-semibold text-[var(--foreground)]">
                       {game.is_home ? "vs" : "at"} {game.opponent_abbreviation ?? "TBD"}
                     </div>
                   </div>
@@ -393,7 +393,7 @@ export default function TeamIntelligencePanel({
                     >
                       {game.result}
                     </div>
-                    <div className="mt-1 text-base font-semibold tabular-nums text-gray-900 dark:text-gray-100">
+                    <div className="mt-1 text-base font-semibold tabular-nums text-[var(--foreground)]">
                       {game.team_score ?? "—"}-{game.opponent_score ?? "—"}
                     </div>
                   </div>
@@ -405,16 +405,16 @@ export default function TeamIntelligencePanel({
       </div>
 
       <div className="grid gap-6 lg:grid-cols-2">
-        <section className="rounded-[2rem] border border-gray-200 bg-white p-6 dark:border-gray-800 dark:bg-gray-900">
-          <h2 className="text-2xl font-semibold text-gray-900 dark:text-gray-100">
+        <section className="bip-panel-strong rounded-[2rem] p-6">
+          <h2 className="bip-display text-2xl font-semibold text-[var(--foreground)]">
             Best Lineups
           </h2>
-          <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+          <p className="mt-1 text-sm text-[var(--muted)]">
             Top five-man combinations with at least 20 tracked possessions.
           </p>
           <div className="mt-5 space-y-3">
             {intelligence.best_lineups.length === 0 ? (
-              <div className="rounded-3xl border border-dashed border-gray-200 p-6 text-sm text-gray-500 dark:border-gray-700 dark:text-gray-400">
+              <div className="bip-empty rounded-3xl p-6 text-sm">
                 No high-confidence lineup data yet for this team.
               </div>
             ) : (
@@ -425,16 +425,16 @@ export default function TeamIntelligencePanel({
           </div>
         </section>
 
-        <section className="rounded-[2rem] border border-gray-200 bg-white p-6 dark:border-gray-800 dark:bg-gray-900">
-          <h2 className="text-2xl font-semibold text-gray-900 dark:text-gray-100">
+        <section className="bip-panel-strong rounded-[2rem] p-6">
+          <h2 className="bip-display text-2xl font-semibold text-[var(--foreground)]">
             Pressure Points
           </h2>
-          <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+          <p className="mt-1 text-sm text-[var(--muted)]">
             Lowest-performing tracked lineups, useful for rotation and bench context.
           </p>
           <div className="mt-5 space-y-3">
             {intelligence.worst_lineups.length === 0 ? (
-              <div className="rounded-3xl border border-dashed border-gray-200 p-6 text-sm text-gray-500 dark:border-gray-700 dark:text-gray-400">
+              <div className="bip-empty rounded-3xl p-6 text-sm">
                 No weak lineup samples are available yet.
               </div>
             ) : (

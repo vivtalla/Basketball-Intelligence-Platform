@@ -295,20 +295,20 @@ const DATA_SOURCES = [
 // ─── Source badge color map ───────────────────────────────────────────────────
 
 const SOURCE_COLORS: Record<MetricEntry["source"], string> = {
-  "NBA.com": "bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300",
-  "Calculated": "bg-purple-100 text-purple-700 dark:bg-purple-900/40 dark:text-purple-300",
-  "External CSV": "bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300",
+  "NBA.com": "bip-accent-card text-[var(--accent)]",
+  "Calculated": "bip-signal-card text-[var(--signal-ink)]",
+  "External CSV": "bip-success",
 };
 
 // ─── Components ───────────────────────────────────────────────────────────────
 
 function MetricCard({ metric }: { metric: MetricEntry }) {
   return (
-    <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-4 flex flex-col gap-2">
+    <div className="bip-panel flex flex-col gap-2 rounded-lg p-4">
       <div className="flex items-start justify-between gap-2">
         <div>
-          <span className="font-semibold text-gray-900 dark:text-gray-100">{metric.name}</span>
-          <span className="ml-2 font-mono text-sm text-gray-500 dark:text-gray-400">({metric.abbr})</span>
+          <span className="font-semibold text-[var(--foreground)]">{metric.name}</span>
+          <span className="ml-2 font-mono text-sm text-[var(--muted)]">({metric.abbr})</span>
         </div>
         <span className={`text-xs font-medium px-2 py-0.5 rounded-full whitespace-nowrap ${SOURCE_COLORS[metric.source]}`}>
           {metric.source}
@@ -316,16 +316,16 @@ function MetricCard({ metric }: { metric: MetricEntry }) {
       </div>
 
       {metric.formula && (
-        <div className="text-xs font-mono bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded px-3 py-2 text-gray-600 dark:text-gray-400 break-all">
+        <div className="bip-metric break-all rounded px-3 py-2 font-mono text-xs text-[var(--muted)]">
           {metric.formula}
         </div>
       )}
 
-      <p className="text-sm text-gray-600 dark:text-gray-400 leading-relaxed">{metric.description}</p>
+      <p className="text-sm leading-relaxed text-[var(--foreground)]">{metric.description}</p>
 
       {metric.range && (
-        <p className="text-xs text-gray-400 dark:text-gray-500">
-          Typical range: <span className="font-medium text-gray-600 dark:text-gray-300">{metric.range}</span>
+        <p className="text-xs text-[var(--muted)]">
+          Typical range: <span className="font-medium text-[var(--foreground)]">{metric.range}</span>
         </p>
       )}
     </div>
@@ -338,9 +338,9 @@ function DataSourceCard({
   source: (typeof DATA_SOURCES)[number];
 }) {
   const iconBg: Record<string, string> = {
-    blue: "bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-800",
-    purple: "bg-purple-50 dark:bg-purple-900/20 border-purple-200 dark:border-purple-800",
-    green: "bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800",
+    blue: "bip-accent-card",
+    purple: "bip-signal-card",
+    green: "bip-success",
   };
 
   return (
@@ -348,19 +348,19 @@ function DataSourceCard({
       <div className="flex items-center gap-3">
         <span className="text-2xl">{source.icon}</span>
         <div>
-          <div className="font-semibold text-gray-900 dark:text-gray-100">{source.title}</div>
-          <div className="text-xs font-mono text-gray-500 dark:text-gray-400">{source.subtitle}</div>
+          <div className="font-semibold text-[var(--foreground)]">{source.title}</div>
+          <div className="text-xs font-mono text-[var(--muted)]">{source.subtitle}</div>
         </div>
       </div>
       <ul className="space-y-1.5">
         {source.items.map((item, i) => (
-          <li key={i} className="flex items-start gap-2 text-sm text-gray-700 dark:text-gray-300">
-            <span className="mt-1 text-gray-400">•</span>
+          <li key={i} className="flex items-start gap-2 text-sm text-[var(--foreground)]">
+            <span className="mt-1 text-[var(--muted)]">•</span>
             <span>{item}</span>
           </li>
         ))}
       </ul>
-      <p className="text-xs text-gray-500 dark:text-gray-400 italic border-t border-current/10 pt-2">
+      <p className="border-t border-current/10 pt-2 text-xs italic text-[var(--muted)]">
         {source.note}
       </p>
     </div>
@@ -374,15 +374,16 @@ export default function LearnPage() {
     <div className="max-w-4xl mx-auto">
       {/* Back link */}
       <div className="mb-6">
-        <Link href="/" className="inline-flex items-center gap-1 text-sm text-gray-500 hover:text-blue-500 dark:text-gray-400 dark:hover:text-blue-400 transition-colors">
+        <Link href="/" className="bip-link inline-flex items-center gap-1 text-sm">
           ← Back to Home
         </Link>
       </div>
 
       {/* Header */}
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100 mb-2">Learn</h1>
-        <p className="text-gray-500 dark:text-gray-400">
+      <div className="bip-panel-strong mb-8 rounded-[2rem] p-8">
+        <p className="bip-kicker">Reference</p>
+        <h1 className="bip-display mb-2 text-3xl font-semibold text-[var(--foreground)]">Learn</h1>
+        <p className="text-[var(--muted)]">
           Explanations of every stat in the platform and where the data comes from.
         </p>
       </div>
@@ -391,13 +392,13 @@ export default function LearnPage() {
       <div className="flex gap-2 mb-10">
         <a
           href="#metrics"
-          className="px-4 py-1.5 rounded-full text-sm font-medium bg-blue-50 text-blue-700 hover:bg-blue-100 dark:bg-blue-900/30 dark:text-blue-300 dark:hover:bg-blue-900/50 transition-colors"
+          className="bip-btn-primary rounded-full px-4 py-1.5 text-sm font-medium"
         >
           Metrics Glossary
         </a>
         <a
           href="#data-sources"
-          className="px-4 py-1.5 rounded-full text-sm font-medium bg-gray-100 text-gray-700 hover:bg-gray-200 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700 transition-colors"
+          className="bip-btn-secondary rounded-full px-4 py-1.5 text-sm font-medium"
         >
           Data Sources
         </a>
@@ -405,8 +406,8 @@ export default function LearnPage() {
 
       {/* ── Metrics Glossary ── */}
       <section id="metrics" className="mb-16 scroll-mt-8">
-        <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-1">Metrics Glossary</h2>
-        <p className="text-sm text-gray-500 dark:text-gray-400 mb-8">
+        <h2 className="bip-display mb-1 text-2xl font-semibold text-[var(--foreground)]">Metrics Glossary</h2>
+        <p className="mb-8 text-sm text-[var(--muted)]">
           All stats displayed in player dashboards, grouped by category.
         </p>
 
@@ -414,8 +415,8 @@ export default function LearnPage() {
           {METRIC_GROUPS.map((group) => (
             <div key={group.title}>
               <div className="mb-4">
-                <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">{group.title}</h3>
-                <p className="text-sm text-gray-500 dark:text-gray-400">{group.description}</p>
+                <h3 className="text-lg font-semibold text-[var(--foreground)]">{group.title}</h3>
+                <p className="text-sm text-[var(--muted)]">{group.description}</p>
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 {group.metrics.map((m) => (
@@ -429,8 +430,8 @@ export default function LearnPage() {
 
       {/* ── Data Sources ── */}
       <section id="data-sources" className="mb-16 scroll-mt-8">
-        <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-1">Data Sources</h2>
-        <p className="text-sm text-gray-500 dark:text-gray-400 mb-8">
+        <h2 className="bip-display mb-1 text-2xl font-semibold text-[var(--foreground)]">Data Sources</h2>
+        <p className="mb-8 text-sm text-[var(--muted)]">
           Where each piece of data originates and how it gets into the platform.
         </p>
 

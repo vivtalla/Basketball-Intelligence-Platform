@@ -237,20 +237,20 @@ export default function StatTable({ seasons, careerTotals, playoffSeasons = [] }
   const showTrends = seasonType === "regular" && rateMode === "pg" && Object.keys(trends).length > 0;
 
   return (
-    <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 overflow-hidden">
+    <div className="bip-table-shell overflow-hidden rounded-2xl">
       {/* Header */}
-      <div className="flex flex-wrap items-center justify-between gap-3 px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[var(--border)] px-6 py-4">
         <div className="flex flex-wrap items-center gap-2">
-          <h2 className="text-lg font-semibold">Season Stats</h2>
+          <h2 className="bip-display text-lg font-semibold text-[var(--foreground)]">Season Stats</h2>
 
           {/* Regular Season / Playoffs toggle */}
-          <div className="flex rounded-lg overflow-hidden border border-gray-200 dark:border-gray-600 text-xs ml-2">
+          <div className="ml-2 flex overflow-hidden rounded-lg border border-[var(--border)] text-xs">
             <button
               onClick={() => setSeasonType("regular")}
               className={`px-3 py-1.5 transition-colors ${
                 seasonType === "regular"
-                  ? "bg-blue-500 text-white"
-                  : "bg-white dark:bg-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-600"
+                  ? "bip-toggle-active"
+                  : "bip-toggle"
               }`}
             >
               Regular Season
@@ -261,10 +261,10 @@ export default function StatTable({ seasons, careerTotals, playoffSeasons = [] }
               title={!hasPlayoffs ? "No playoff data" : undefined}
               className={`px-3 py-1.5 transition-colors ${
                 seasonType === "playoffs"
-                  ? "bg-blue-500 text-white"
+                  ? "bip-toggle-signal"
                   : hasPlayoffs
-                  ? "bg-white dark:bg-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-600"
-                  : "bg-white dark:bg-gray-700 text-gray-300 dark:text-gray-600 cursor-not-allowed"
+                  ? "bip-toggle"
+                  : "cursor-not-allowed bg-[rgba(255,251,246,0.92)] text-[var(--muted)]/60"
               }`}
             >
               Playoffs
@@ -273,7 +273,7 @@ export default function StatTable({ seasons, careerTotals, playoffSeasons = [] }
 
           {/* Per-36 / Per-100 toggle — only on Traditional tab */}
           {view === "traditional" && (
-            <div className="flex rounded-lg overflow-hidden border border-gray-200 dark:border-gray-600 text-xs ml-2">
+            <div className="ml-2 flex overflow-hidden rounded-lg border border-[var(--border)] text-xs">
               {(["pg", "p36", "p100"] as RateMode[]).map((mode) => {
                 const label = mode === "pg" ? "Per Game" : mode === "p36" ? "Per 36" : "Per 100";
                 return (
@@ -282,8 +282,8 @@ export default function StatTable({ seasons, careerTotals, playoffSeasons = [] }
                     onClick={() => setRateMode(mode)}
                     className={`px-3 py-1.5 transition-colors ${
                       rateMode === mode
-                        ? "bg-indigo-500 text-white"
-                        : "bg-white dark:bg-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-600"
+                        ? "bip-toggle-active"
+                        : "bip-toggle"
                     }`}
                   >
                     {label}
@@ -295,13 +295,13 @@ export default function StatTable({ seasons, careerTotals, playoffSeasons = [] }
         </div>
 
         {/* Traditional / Advanced toggle */}
-        <div className="flex bg-gray-100 dark:bg-gray-700 rounded-lg p-1">
+        <div className="flex rounded-lg bg-[var(--surface-alt)]/70 p-1">
           <button
             onClick={() => setView("traditional")}
             className={`px-3 py-1.5 text-sm rounded-md transition-colors ${
               view === "traditional"
-                ? "bg-white dark:bg-gray-600 shadow-sm font-medium"
-                : "text-gray-500 hover:text-gray-700"
+                ? "bg-[rgba(255,251,246,0.96)] font-medium text-[var(--foreground)] shadow-sm"
+                : "text-[var(--muted)] hover:text-[var(--foreground)]"
             }`}
           >
             Traditional
@@ -310,8 +310,8 @@ export default function StatTable({ seasons, careerTotals, playoffSeasons = [] }
             onClick={() => setView("advanced")}
             className={`px-3 py-1.5 text-sm rounded-md transition-colors ${
               view === "advanced"
-                ? "bg-white dark:bg-gray-600 shadow-sm font-medium"
-                : "text-gray-500 hover:text-gray-700"
+                ? "bg-[rgba(255,251,246,0.96)] font-medium text-[var(--foreground)] shadow-sm"
+                : "text-[var(--muted)] hover:text-[var(--foreground)]"
             }`}
           >
             Advanced
@@ -323,21 +323,21 @@ export default function StatTable({ seasons, careerTotals, playoffSeasons = [] }
       <div className="overflow-x-auto">
         <table className="w-full text-sm">
           <thead>
-            <tr className="bg-gray-50 dark:bg-gray-750">
+            <tr className="bip-table-head">
               {columns.map((col) => (
                 <th
                   key={col.key}
-                  className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap"
+                  className="whitespace-nowrap px-3 py-3 text-left text-xs font-medium uppercase tracking-wider"
                 >
                   {col.label}
                 </th>
               ))}
             </tr>
           </thead>
-          <tbody className="divide-y divide-gray-100 dark:divide-gray-700">
+          <tbody className="divide-y divide-[var(--border)] text-[var(--foreground)]">
             {displaySeasons.length === 0 ? (
               <tr>
-                <td colSpan={columns.length} className="px-3 py-8 text-center text-sm text-gray-400 dark:text-gray-500">
+                <td colSpan={columns.length} className="px-3 py-8 text-center text-sm text-[var(--muted)]">
                   No {seasonType === "playoffs" ? "playoff" : "regular season"} data available.
                 </td>
               </tr>
@@ -347,7 +347,7 @@ export default function StatTable({ seasons, careerTotals, playoffSeasons = [] }
                 return (
                   <tr
                     key={`${season.season}-${season.team_abbreviation}-${i}`}
-                    className="hover:bg-gray-50 dark:hover:bg-gray-750 transition-colors"
+                    className="transition-colors hover:bg-[rgba(216,228,221,0.22)]"
                   >
                     {columns.map((col) => {
                       const formattedVal = view === "traditional"
@@ -384,7 +384,7 @@ export default function StatTable({ seasons, careerTotals, playoffSeasons = [] }
 
             {/* Career Totals — only for regular season, only for Per Game */}
             {seasonType === "regular" && careerTotals && (
-              <tr className="bg-gray-50 dark:bg-gray-750 font-semibold border-t-2 border-gray-300 dark:border-gray-600">
+              <tr className="border-t-2 border-[var(--border-strong)] bg-[rgba(232,219,197,0.36)] font-semibold">
                 {columns.map((col) => (
                   <td key={col.key} className="px-3 py-2.5 whitespace-nowrap tabular-nums">
                     {col.key === "season"
@@ -404,7 +404,7 @@ export default function StatTable({ seasons, careerTotals, playoffSeasons = [] }
 
       {/* Trend legend — only shown when trends are active */}
       {showTrends && (
-        <div className="px-6 py-2 border-t border-gray-100 dark:border-gray-700 flex items-center gap-3 text-xs text-gray-400 dark:text-gray-500">
+        <div className="flex items-center gap-3 border-t border-[var(--border)] px-6 py-2 text-xs text-[var(--muted)]">
           <span>▲ / ▼ vs. prior season</span>
           <span className="text-emerald-500 dark:text-emerald-400">▲ improvement</span>
           <span className="text-red-500 dark:text-red-400">▼ decline</span>

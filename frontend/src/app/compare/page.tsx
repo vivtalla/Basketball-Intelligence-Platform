@@ -26,8 +26,8 @@ function PlayerSlot({ slotLabel, selectedId, onSelect, onClear }: PlayerSlotProp
 
   if (selectedId && profile) {
     return (
-      <div className="flex items-center gap-3 bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 p-4">
-        <div className="relative w-14 h-14 rounded-full overflow-hidden bg-gray-100 dark:bg-gray-700 shrink-0 border border-gray-200 dark:border-gray-600">
+      <div className="bip-panel flex items-center gap-3 rounded-2xl p-4">
+        <div className="relative h-14 w-14 shrink-0 overflow-hidden rounded-full border border-[var(--border)] bg-[var(--surface-alt)]">
           <Image
             src={profile.headshot_url}
             alt={profile.full_name}
@@ -37,14 +37,14 @@ function PlayerSlot({ slotLabel, selectedId, onSelect, onClear }: PlayerSlotProp
           />
         </div>
         <div className="flex-1 min-w-0">
-          <div className="font-semibold text-gray-900 dark:text-gray-100 truncate">{profile.full_name}</div>
-          <div className="text-xs text-gray-500 dark:text-gray-400">
+          <div className="truncate font-semibold text-[var(--foreground)]">{profile.full_name}</div>
+          <div className="text-xs text-[var(--muted)]">
             {profile.team_name || "Free Agent"} · {profile.position || "—"}
           </div>
         </div>
         <button
           onClick={onClear}
-          className="text-xs text-gray-400 hover:text-red-500 dark:hover:text-red-400 transition-colors shrink-0"
+          className="bip-link shrink-0 text-xs"
         >
           Change
         </button>
@@ -62,19 +62,19 @@ function PlayerSlot({ slotLabel, selectedId, onSelect, onClear }: PlayerSlotProp
           onFocus={() => setIsFocused(true)}
           onBlur={() => setTimeout(() => setIsFocused(false), 200)}
           placeholder={`Search ${slotLabel}...`}
-          className="w-full pl-4 pr-10 py-4 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-2xl shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all text-gray-900 dark:text-gray-100"
+          className="bip-input w-full rounded-2xl px-4 py-4 pr-10 text-[var(--foreground)]"
         />
         {isLoading && (
           <div className="absolute right-4 top-1/2 -translate-y-1/2">
-            <div className="w-4 h-4 border-2 border-gray-300 border-t-blue-500 rounded-full animate-spin" />
+            <div className="h-4 w-4 animate-spin rounded-full border-2 border-[var(--surface-alt)] border-t-[var(--accent)]" />
           </div>
         )}
       </div>
 
       {showDropdown && (
-        <div className="absolute top-full left-0 right-0 mt-1 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl shadow-lg overflow-hidden z-50">
+        <div className="bip-panel absolute left-0 right-0 top-full z-50 mt-1 overflow-hidden rounded-xl">
           {results.length === 0 && !isLoading ? (
-            <div className="px-4 py-3 text-gray-500 text-sm">No players found</div>
+            <div className="px-4 py-3 text-sm text-[var(--muted)]">No players found</div>
           ) : (
             results.slice(0, 6).map((player) => (
               <button
@@ -83,14 +83,14 @@ function PlayerSlot({ slotLabel, selectedId, onSelect, onClear }: PlayerSlotProp
                   onSelect(player.id);
                   setQuery("");
                 }}
-                className="w-full flex items-center justify-between px-4 py-3 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors text-left"
+                className="w-full px-4 py-3 text-left transition-colors hover:bg-[rgba(216,228,221,0.34)]"
               >
-                <span className="font-medium text-gray-900 dark:text-gray-100">{player.full_name}</span>
+                <span className="font-medium text-[var(--foreground)]">{player.full_name}</span>
                 <span
-                  className={`text-xs px-2 py-0.5 rounded-full ${
+                  className={`rounded-full px-2 py-0.5 text-xs ${
                     player.is_active
-                      ? "bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300"
-                      : "bg-gray-100 text-gray-500 dark:bg-gray-700 dark:text-gray-400"
+                      ? "bip-success"
+                      : "bg-[var(--surface-alt)] text-[var(--muted)]"
                   }`}
                 >
                   {player.is_active ? "Active" : "Retired"}
@@ -136,14 +136,15 @@ function ComparePageInner() {
   return (
     <div className="max-w-3xl mx-auto">
       <div className="mb-6">
-        <Link href="/" className="inline-flex items-center gap-1 text-sm text-gray-500 hover:text-blue-500 dark:text-gray-400 dark:hover:text-blue-400 transition-colors">
+        <Link href="/" className="bip-link inline-flex items-center gap-1 text-sm">
           ← Back to Home
         </Link>
       </div>
 
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100 mb-2">Compare Players</h1>
-        <p className="text-gray-500 dark:text-gray-400">Search for two players to compare their stats side by side.</p>
+      <div className="bip-panel-strong mb-8 rounded-[2rem] p-8">
+        <p className="bip-kicker">Compare</p>
+        <h1 className="bip-display mt-3 text-3xl font-semibold text-[var(--foreground)]">Compare Players</h1>
+        <p className="mt-2 text-[var(--muted)]">Search for two players to compare their stats side by side.</p>
       </div>
 
       {/* Search slots */}
@@ -164,17 +165,17 @@ function ComparePageInner() {
 
       {/* Loading state */}
       {loadingComparison && !bothReady && (
-        <div className="flex items-center justify-center py-16 gap-3 text-gray-400">
-          <div className="w-5 h-5 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
+        <div className="flex items-center justify-center gap-3 py-16 text-[var(--muted)]">
+          <div className="h-5 w-5 animate-spin rounded-full border-2 border-[var(--accent)] border-t-transparent" />
           <span className="text-sm">Loading player data…</span>
         </div>
       )}
 
       {/* Empty state */}
       {!p1Id && !p2Id && (
-        <div className="text-center py-16 text-gray-400 dark:text-gray-500">
+        <div className="bip-empty py-16 text-center rounded-[2rem]">
           <div className="text-5xl mb-4">⚖️</div>
-          <p className="text-lg font-medium">Select two players to compare</p>
+          <p className="text-lg font-medium text-[var(--foreground)]">Select two players to compare</p>
           <p className="text-sm mt-1">Search above to get started</p>
         </div>
       )}

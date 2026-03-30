@@ -16,9 +16,9 @@ function signed(value: number | null | undefined, digits = 1) {
 
 function statusTone(status: TeamRotationReport["status"]) {
   if (status === "ready") {
-    return "text-emerald-700 bg-emerald-50 dark:text-emerald-300 dark:bg-emerald-950/30";
+    return "bip-success";
   }
-  return "text-amber-700 bg-amber-50 dark:text-amber-300 dark:bg-amber-950/30";
+  return "bip-pill";
 }
 
 function stabilityTone(stability: TeamRotationReport["starter_stability"]) {
@@ -37,16 +37,16 @@ function PlayerDeltaRow({
   return (
     <Link
       href={`/players/${player.player_id}`}
-      className="flex items-center justify-between gap-4 rounded-3xl border border-gray-200 p-4 transition-colors hover:border-blue-300 hover:bg-blue-50/50 dark:border-gray-800 dark:hover:border-blue-800 dark:hover:bg-blue-950/20"
+      className="bip-panel flex items-center justify-between gap-4 rounded-3xl p-4 transition-colors hover:border-[rgba(33,72,59,0.28)] hover:bg-[rgba(216,228,221,0.24)]"
     >
       <div className="min-w-0">
-        <div className="text-xs uppercase tracking-[0.18em] text-gray-400 dark:text-gray-500">
+        <div className="text-xs uppercase tracking-[0.18em] text-[var(--muted)]">
           {label}
         </div>
-        <div className="mt-1 truncate text-base font-semibold text-gray-900 dark:text-gray-100">
+        <div className="mt-1 truncate text-base font-semibold text-[var(--foreground)]">
           {player.player_name}
         </div>
-        <div className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+        <div className="mt-1 text-sm text-[var(--muted)]">
           Last 10: {fmt(player.avg_minutes_last_10)} min · Season: {fmt(player.avg_minutes_season)} min
         </div>
       </div>
@@ -60,7 +60,7 @@ function PlayerDeltaRow({
         >
           {signed(player.minutes_delta)}
         </div>
-        <div className="text-xs text-gray-500 dark:text-gray-400">
+        <div className="text-xs text-[var(--muted)]">
           {player.starts_last_10} starts
         </div>
       </div>
@@ -72,26 +72,26 @@ function StarterRow({ player }: { player: TeamRotationPlayerRow }) {
   return (
     <Link
       href={`/players/${player.player_id}`}
-      className="grid gap-3 rounded-3xl border border-gray-200 p-4 transition-colors hover:border-blue-300 hover:bg-blue-50/50 dark:border-gray-800 dark:hover:border-blue-800 dark:hover:bg-blue-950/20 md:grid-cols-[minmax(0,1.2fr)_repeat(3,minmax(88px,0.6fr))]"
+      className="bip-panel grid gap-3 rounded-3xl p-4 transition-colors hover:border-[rgba(33,72,59,0.28)] hover:bg-[rgba(216,228,221,0.24)] md:grid-cols-[minmax(0,1.2fr)_repeat(3,minmax(88px,0.6fr))]"
     >
       <div className="min-w-0">
-        <div className="truncate text-base font-semibold text-gray-900 dark:text-gray-100">
+        <div className="truncate text-base font-semibold text-[var(--foreground)]">
           {player.player_name}
         </div>
-        <div className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+        <div className="mt-1 text-sm text-[var(--muted)]">
           {player.is_primary_starter ? "Primary recent starter" : "Recent starter mix"}
         </div>
       </div>
-      <div className="rounded-2xl bg-gray-50 px-3 py-2 text-right dark:bg-gray-800/80">
-        <div className="text-[11px] uppercase tracking-[0.18em] text-gray-400">Starts</div>
-        <div className="mt-1 font-semibold text-gray-900 dark:text-gray-100">{player.starts_last_10}</div>
+      <div className="bip-metric rounded-2xl px-3 py-2 text-right">
+        <div className="text-[11px] uppercase tracking-[0.18em] text-[var(--muted)]">Starts</div>
+        <div className="mt-1 font-semibold text-[var(--foreground)]">{player.starts_last_10}</div>
       </div>
-      <div className="rounded-2xl bg-gray-50 px-3 py-2 text-right dark:bg-gray-800/80">
-        <div className="text-[11px] uppercase tracking-[0.18em] text-gray-400">Recent Min</div>
-        <div className="mt-1 font-semibold text-gray-900 dark:text-gray-100">{fmt(player.avg_minutes_last_10)}</div>
+      <div className="bip-metric rounded-2xl px-3 py-2 text-right">
+        <div className="text-[11px] uppercase tracking-[0.18em] text-[var(--muted)]">Recent Min</div>
+        <div className="mt-1 font-semibold text-[var(--foreground)]">{fmt(player.avg_minutes_last_10)}</div>
       </div>
-      <div className="rounded-2xl bg-gray-50 px-3 py-2 text-right dark:bg-gray-800/80">
-        <div className="text-[11px] uppercase tracking-[0.18em] text-gray-400">Delta</div>
+      <div className="bip-metric rounded-2xl px-3 py-2 text-right">
+        <div className="text-[11px] uppercase tracking-[0.18em] text-[var(--muted)]">Delta</div>
         <div
           className={`mt-1 font-semibold ${
             (player.minutes_delta ?? 0) >= 0
@@ -110,27 +110,27 @@ function AnchorRow({ anchor, rank }: { anchor: TeamImpactLeader; rank: number })
   return (
     <Link
       href={`/players/${anchor.player_id}`}
-      className="flex items-center justify-between gap-4 rounded-3xl border border-gray-200 p-4 transition-colors hover:border-blue-300 hover:bg-blue-50/50 dark:border-gray-800 dark:hover:border-blue-800 dark:hover:bg-blue-950/20"
+      className="bip-panel flex items-center justify-between gap-4 rounded-3xl p-4 transition-colors hover:border-[rgba(33,72,59,0.28)] hover:bg-[rgba(216,228,221,0.24)]"
     >
       <div className="min-w-0">
-        <div className="text-xs uppercase tracking-[0.18em] text-gray-400 dark:text-gray-500">
+        <div className="text-xs uppercase tracking-[0.18em] text-[var(--muted)]">
           Anchor #{rank}
         </div>
-        <div className="mt-1 truncate text-base font-semibold text-gray-900 dark:text-gray-100">
+        <div className="mt-1 truncate text-base font-semibold text-[var(--foreground)]">
           {anchor.player_name}
         </div>
-        <div className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+        <div className="mt-1 text-sm text-[var(--muted)]">
           BPM {signed(anchor.bpm)} · {fmt(anchor.pts_pg)} PPG
         </div>
       </div>
       <div className="text-right">
-        <div className="text-xs uppercase tracking-[0.18em] text-gray-400 dark:text-gray-500">
+        <div className="text-xs uppercase tracking-[0.18em] text-[var(--muted)]">
           On/Off
         </div>
         <div className="mt-1 text-xl font-bold tabular-nums text-emerald-600 dark:text-emerald-300">
           {signed(anchor.on_off_net)}
         </div>
-        <div className="text-xs text-gray-500 dark:text-gray-400">
+        <div className="text-xs text-[var(--muted)]">
           {fmt(anchor.on_minutes, 0)} min
         </div>
       </div>
@@ -142,14 +142,14 @@ function ReviewGameCard({ game }: { game: TeamRotationGame }) {
   return (
     <Link
       href={`/games/${game.game_id}`}
-      className="block rounded-3xl border border-gray-200 p-4 transition-colors hover:border-blue-300 hover:bg-blue-50/50 dark:border-gray-800 dark:hover:border-blue-800 dark:hover:bg-blue-950/20"
+      className="bip-panel block rounded-3xl p-4 transition-colors hover:border-[rgba(33,72,59,0.28)] hover:bg-[rgba(216,228,221,0.24)]"
     >
       <div className="flex items-start justify-between gap-4">
         <div>
-          <div className="text-xs uppercase tracking-[0.18em] text-gray-400 dark:text-gray-500">
+          <div className="text-xs uppercase tracking-[0.18em] text-[var(--muted)]">
             {game.game_date ?? "Date unavailable"}
           </div>
-          <div className="mt-1 text-lg font-semibold text-gray-900 dark:text-gray-100">
+          <div className="mt-1 text-lg font-semibold text-[var(--foreground)]">
             {game.opponent_abbreviation ?? "TBD"}
           </div>
         </div>
@@ -163,12 +163,12 @@ function ReviewGameCard({ game }: { game: TeamRotationGame }) {
           >
             {game.result}
           </div>
-          <div className="mt-1 text-base font-semibold tabular-nums text-gray-900 dark:text-gray-100">
+          <div className="mt-1 text-base font-semibold tabular-nums text-[var(--foreground)]">
             {game.team_score ?? "—"}-{game.opponent_score ?? "—"}
           </div>
         </div>
       </div>
-      <p className="mt-3 text-sm leading-6 text-gray-600 dark:text-gray-300">
+      <p className="mt-3 text-sm leading-6 text-[var(--foreground)]">
         {game.rotation_note}
       </p>
     </Link>
@@ -183,16 +183,16 @@ export default function TeamRotationIntelligencePanel({
   const topMinuteLeader = report.minute_load_leaders[0] ?? null;
 
   return (
-    <section className="rounded-[2rem] border border-gray-200 bg-white p-6 dark:border-gray-800 dark:bg-gray-900">
+    <section className="bip-panel-strong rounded-[2rem] p-6">
       <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
         <div>
-          <div className="text-xs font-semibold uppercase tracking-[0.22em] text-blue-500">
+          <div className="bip-kicker">
             Rotation Intelligence
           </div>
-          <h2 className="mt-3 text-3xl font-semibold text-gray-900 dark:text-gray-100">
+          <h2 className="bip-display mt-3 text-3xl font-semibold text-[var(--foreground)]">
             Decision support for who is driving this team now
           </h2>
-          <p className="mt-2 max-w-3xl text-sm leading-6 text-gray-500 dark:text-gray-400">
+          <p className="mt-2 max-w-3xl text-sm leading-6 text-[var(--muted)]">
             Compare the last {report.window_games || 10} completed games with the season baseline, then jump straight into the most revealing game tape.
           </p>
         </div>
@@ -202,50 +202,50 @@ export default function TeamRotationIntelligencePanel({
       </div>
 
       {report.status === "limited" ? (
-        <div className="mt-6 rounded-3xl border border-dashed border-gray-200 bg-gray-50 p-6 text-sm leading-6 text-gray-600 dark:border-gray-700 dark:bg-gray-800/60 dark:text-gray-300">
+        <div className="bip-empty mt-6 rounded-3xl p-6 text-sm leading-6">
           This rotation report is available for warehouse-backed modern seasons only.
         </div>
       ) : (
         <div className="mt-6 space-y-6">
           <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-            <div className="rounded-3xl bg-gray-50 p-5 dark:bg-gray-800/80">
-              <div className="text-xs uppercase tracking-[0.18em] text-gray-500 dark:text-gray-400">
+            <div className="bip-metric rounded-3xl p-5">
+              <div className="text-xs uppercase tracking-[0.18em] text-[var(--muted)]">
                 Rotation status
               </div>
-              <div className="mt-3 text-3xl font-bold text-gray-900 dark:text-gray-100">
+              <div className="mt-3 text-3xl font-bold text-[var(--foreground)]">
                 {report.status}
               </div>
-              <div className="mt-2 text-sm text-gray-500 dark:text-gray-400">
+              <div className="mt-2 text-sm text-[var(--muted)]">
                 {report.window_games}-game window · {topMinuteLeader?.player_name ?? "No leader yet"}
               </div>
             </div>
-            <div className="rounded-3xl bg-gray-50 p-5 dark:bg-gray-800/80">
-              <div className="text-xs uppercase tracking-[0.18em] text-gray-500 dark:text-gray-400">
+            <div className="bip-metric rounded-3xl p-5">
+              <div className="text-xs uppercase tracking-[0.18em] text-[var(--muted)]">
                 Starter stability
               </div>
               <div className={`mt-3 text-3xl font-bold capitalize ${stabilityTone(report.starter_stability)}`}>
                 {report.starter_stability}
               </div>
-              <div className="mt-2 text-sm text-gray-500 dark:text-gray-400">
+              <div className="mt-2 text-sm text-[var(--muted)]">
                 Unique starters across the last {report.window_games} games
               </div>
             </div>
-            <div className="rounded-3xl bg-gray-50 p-5 dark:bg-gray-800/80">
-              <div className="text-xs uppercase tracking-[0.18em] text-gray-500 dark:text-gray-400">
+            <div className="bip-metric rounded-3xl p-5">
+              <div className="text-xs uppercase tracking-[0.18em] text-[var(--muted)]">
                 Largest riser
               </div>
-              <div className="mt-3 text-xl font-semibold text-gray-900 dark:text-gray-100">
+              <div className="mt-3 text-xl font-semibold text-[var(--foreground)]">
                 {largestRiser?.player_name ?? "—"}
               </div>
               <div className="mt-2 text-sm text-emerald-600 dark:text-emerald-300">
                 {largestRiser ? `${signed(largestRiser.minutes_delta)} min` : "No recent riser"}
               </div>
             </div>
-            <div className="rounded-3xl bg-gray-50 p-5 dark:bg-gray-800/80">
-              <div className="text-xs uppercase tracking-[0.18em] text-gray-500 dark:text-gray-400">
+            <div className="bip-metric rounded-3xl p-5">
+              <div className="text-xs uppercase tracking-[0.18em] text-[var(--muted)]">
                 Largest faller
               </div>
-              <div className="mt-3 text-xl font-semibold text-gray-900 dark:text-gray-100">
+              <div className="mt-3 text-xl font-semibold text-[var(--foreground)]">
                 {largestFaller?.player_name ?? "—"}
               </div>
               <div className="mt-2 text-sm text-red-500 dark:text-red-300">

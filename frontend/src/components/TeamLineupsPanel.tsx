@@ -13,13 +13,13 @@ interface TeamLineupsPanelProps {
 type View = "best" | "worst";
 
 function NetBar({ value }: { value: number | null }) {
-  if (value == null) return <span className="text-gray-400">—</span>;
+  if (value == null) return <span className="text-[var(--muted)]">—</span>;
   const abs = Math.min(Math.abs(value), 20);
   const pct = (abs / 20) * 100;
   const positive = value >= 0;
   return (
     <div className="flex items-center gap-2">
-      <div className="w-16 h-2 rounded-full bg-gray-100 dark:bg-gray-700 overflow-hidden flex-shrink-0">
+      <div className="h-2 w-16 flex-shrink-0 overflow-hidden rounded-full bg-[var(--surface-alt)]">
         <div
           className={`h-full rounded-full ${positive ? "bg-emerald-500" : "bg-red-400"}`}
           style={{ width: `${pct}%` }}
@@ -50,10 +50,10 @@ function LineupRow({
   rank: number;
 }) {
   return (
-    <div className="px-5 py-4 hover:bg-gray-50 dark:hover:bg-gray-800/60 transition-colors">
+    <div className="px-5 py-4 transition-colors hover:bg-[rgba(216,228,221,0.24)]">
       <div className="flex items-start gap-4">
         {/* Rank */}
-        <div className="w-6 flex-shrink-0 text-xs text-gray-400 dark:text-gray-500 tabular-nums pt-0.5">
+        <div className="w-6 flex-shrink-0 pt-0.5 text-xs tabular-nums text-[var(--muted)]">
           {rank}
         </div>
 
@@ -63,16 +63,16 @@ function LineupRow({
             {lineup.player_names.map((name, i) => (
               <span
                 key={i}
-                className="text-sm text-gray-800 dark:text-gray-200"
+                className="text-sm text-[var(--foreground)]"
               >
                 {name}
                 {i < lineup.player_names.length - 1 && (
-                  <span className="text-gray-300 dark:text-gray-600 ml-2">·</span>
+                  <span className="ml-2 text-[var(--muted)]/50">·</span>
                 )}
               </span>
             ))}
           </div>
-          <div className="mt-1 flex flex-wrap gap-3 text-xs text-gray-400 dark:text-gray-500">
+          <div className="mt-1 flex flex-wrap gap-3 text-xs text-[var(--muted)]">
             <span>{fmt(lineup.minutes)} MIN</span>
             <span>{lineup.possessions ?? "—"} POSS</span>
             <span>ORTG {fmt(lineup.ortg)}</span>
@@ -108,14 +108,14 @@ export default function TeamLineupsPanel({ teamId, season }: TeamLineupsPanelPro
     view === "best" ? filtered.slice(0, 10) : [...filtered].reverse().slice(0, 10);
 
   return (
-    <div className="rounded-[2rem] border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 overflow-hidden">
+    <div className="bip-table-shell overflow-hidden rounded-[2rem]">
       {/* Header */}
-      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-gray-200 dark:border-gray-800 px-6 py-5">
+      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[var(--border)] px-6 py-5">
         <div>
-          <h2 className="text-2xl font-semibold text-gray-900 dark:text-gray-100">
+          <h2 className="bip-display text-2xl font-semibold text-[var(--foreground)]">
             5-Man Lineups
           </h2>
-          <p className="text-sm text-gray-500 dark:text-gray-400">
+          <p className="text-sm text-[var(--muted)]">
             {season} · Net rating by 5-man combination
           </p>
         </div>
@@ -125,7 +125,7 @@ export default function TeamLineupsPanel({ teamId, season }: TeamLineupsPanelPro
           <select
             value={minPoss}
             onChange={(e) => setMinPoss(Number(e.target.value))}
-            className="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 px-3 py-1.5 text-sm text-gray-700 dark:text-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="bip-input rounded-xl px-3 py-1.5 text-sm"
           >
             <option value={10}>Min 10 poss</option>
             <option value={20}>Min 20 poss</option>
@@ -134,13 +134,13 @@ export default function TeamLineupsPanel({ teamId, season }: TeamLineupsPanelPro
           </select>
 
           {/* Best / Worst toggle */}
-          <div className="flex rounded-xl overflow-hidden border border-gray-200 dark:border-gray-700 text-sm">
+          <div className="flex overflow-hidden rounded-xl border border-[var(--border)] text-sm">
             <button
               onClick={() => setView("best")}
               className={`px-4 py-1.5 transition-colors ${
                 view === "best"
-                  ? "bg-emerald-500 text-white"
-                  : "bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700"
+                  ? "bip-toggle-active"
+                  : "bip-toggle"
               }`}
             >
               Best 10
@@ -149,8 +149,8 @@ export default function TeamLineupsPanel({ teamId, season }: TeamLineupsPanelPro
               onClick={() => setView("worst")}
               className={`px-4 py-1.5 transition-colors ${
                 view === "worst"
-                  ? "bg-red-500 text-white"
-                  : "bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700"
+                  ? "bg-[var(--danger-ink)] text-white"
+                  : "bip-toggle"
               }`}
             >
               Worst 10
@@ -160,27 +160,27 @@ export default function TeamLineupsPanel({ teamId, season }: TeamLineupsPanelPro
       </div>
 
       {/* Column headers */}
-      <div className="flex items-center gap-4 px-5 py-2 bg-gray-50 dark:bg-gray-800/50 border-b border-gray-100 dark:border-gray-800">
+      <div className="bip-table-head flex items-center gap-4 border-b border-[var(--border)] px-5 py-2">
         <div className="w-6 flex-shrink-0" />
-        <div className="flex-1 text-xs uppercase tracking-wide text-gray-400 dark:text-gray-500">
+        <div className="flex-1 text-xs uppercase tracking-wide">
           Players
         </div>
-        <div className="flex-shrink-0 text-xs uppercase tracking-wide text-gray-400 dark:text-gray-500">
+        <div className="flex-shrink-0 text-xs uppercase tracking-wide">
           Net Rtg
         </div>
       </div>
 
       {/* Loading */}
       {isLoading && (
-        <div className="divide-y divide-gray-100 dark:divide-gray-800">
+        <div className="divide-y divide-[var(--border)]">
           {Array.from({ length: 6 }).map((_, i) => (
             <div key={i} className="px-5 py-4 animate-pulse flex gap-4">
-              <div className="w-6 h-4 rounded bg-gray-200 dark:bg-gray-700" />
+              <div className="h-4 w-6 rounded bg-[var(--surface-alt)]" />
               <div className="flex-1 space-y-2">
-                <div className="h-4 w-3/4 rounded bg-gray-200 dark:bg-gray-700" />
-                <div className="h-3 w-1/3 rounded bg-gray-200 dark:bg-gray-700" />
+                <div className="h-4 w-3/4 rounded bg-[var(--surface-alt)]" />
+                <div className="h-3 w-1/3 rounded bg-[var(--surface-alt)]" />
               </div>
-              <div className="w-24 h-4 rounded bg-gray-200 dark:bg-gray-700" />
+              <div className="h-4 w-24 rounded bg-[var(--surface-alt)]" />
             </div>
           ))}
         </div>
@@ -188,22 +188,22 @@ export default function TeamLineupsPanel({ teamId, season }: TeamLineupsPanelPro
 
       {/* Error */}
       {error && !isLoading && (
-        <div className="px-6 py-10 text-center text-gray-400 dark:text-gray-500 text-sm">
+        <div className="px-6 py-10 text-center text-sm text-[var(--muted)]">
           Could not load lineup data. Make sure play-by-play data has been synced for this team.
         </div>
       )}
 
       {/* Empty */}
       {!isLoading && !error && displayed.length === 0 && (
-        <div className="px-6 py-10 text-center text-gray-400 dark:text-gray-500 text-sm">
+        <div className="px-6 py-10 text-center text-sm text-[var(--muted)]">
           No lineups with {minPoss}+ possessions found for {season}.{" "}
-          <span className="text-blue-500">Try lowering the minimum possessions filter.</span>
+          <span className="text-[var(--accent)]">Try lowering the minimum possessions filter.</span>
         </div>
       )}
 
       {/* Lineup rows */}
       {!isLoading && displayed.length > 0 && (
-        <div className="divide-y divide-gray-100 dark:divide-gray-800">
+        <div className="divide-y divide-[var(--border)]">
           {displayed.map((lineup, i) => (
             <LineupRow key={lineup.lineup_key} lineup={lineup} rank={i + 1} />
           ))}
@@ -212,9 +212,9 @@ export default function TeamLineupsPanel({ teamId, season }: TeamLineupsPanelPro
 
       {/* Footer note */}
       {!isLoading && displayed.length > 0 && (
-        <div className="px-6 py-3 border-t border-gray-100 dark:border-gray-800 text-xs text-gray-400 dark:text-gray-500">
+        <div className="border-t border-[var(--border)] px-6 py-3 text-xs text-[var(--muted)]">
           Net rating = (ORTG − DRTG) per 100 possessions · Requires play-by-play sync ·{" "}
-          <Link href="/learn" className="text-blue-400 hover:text-blue-500">
+          <Link href="/learn" className="bip-link">
             Learn more
           </Link>
         </div>

@@ -18,9 +18,9 @@ function formatValue(value: number | null | undefined, digits = 1) {
 }
 
 function coverageTone(status: "none" | "partial" | "ready") {
-  if (status === "ready") return "text-emerald-700 bg-emerald-50 dark:text-emerald-300 dark:bg-emerald-950/30";
-  if (status === "partial") return "text-amber-700 bg-amber-50 dark:text-amber-300 dark:bg-amber-950/30";
-  return "text-gray-600 bg-gray-100 dark:text-gray-300 dark:bg-gray-800";
+  if (status === "ready") return "bip-success";
+  if (status === "partial") return "bip-pill";
+  return "bg-[var(--surface-alt)] text-[var(--muted)]";
 }
 
 type Tab = "intelligence" | "roster" | "analytics" | "lineups";
@@ -151,16 +151,16 @@ export default function TeamDetailPage() {
 
   if (error) {
     return (
-      <div className="max-w-6xl mx-auto py-16 text-center">
-        <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100">
+      <div className="bip-panel mx-auto max-w-6xl py-16 text-center rounded-[2rem]">
+        <h1 className="bip-display text-3xl font-bold text-[var(--foreground)]">
           Team not available
         </h1>
-        <p className="mt-4 text-gray-500 dark:text-gray-400">
+        <p className="mt-4 text-[var(--muted)]">
           This team has not been synced yet, or the backend could not return it.
         </p>
         <Link
           href="/teams"
-          className="mt-6 inline-flex rounded-full bg-blue-500 px-5 py-2 text-sm font-medium text-white hover:bg-blue-600 transition-colors"
+          className="bip-btn-primary mt-6 inline-flex rounded-full px-5 py-2 text-sm font-medium"
         >
           Browse synced teams
         </Link>
@@ -173,7 +173,7 @@ export default function TeamDetailPage() {
       <div className="space-y-3">
         <Link
           href="/teams"
-          className="inline-flex items-center gap-1 text-sm text-gray-500 hover:text-blue-500 dark:text-gray-400 dark:hover:text-blue-400 transition-colors"
+          className="inline-flex items-center gap-1 text-sm text-[var(--muted)] bip-link"
         >
           ← Back to Teams
         </Link>
@@ -185,48 +185,48 @@ export default function TeamDetailPage() {
             <div className="h-5 w-full max-w-2xl rounded-xl bg-gray-200 dark:bg-gray-800" />
           </div>
         ) : (
-          <div className="rounded-[2rem] border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 p-8">
+          <div className="bip-panel-strong rounded-[2rem] p-8">
             <div className="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
               <div>
-                <p className="text-sm font-medium uppercase tracking-[0.24em] text-blue-500">
+                <p className="bip-kicker">
                   {roster.abbreviation}
                 </p>
-                <h1 className="mt-3 text-4xl font-bold text-gray-900 dark:text-gray-100">
+                <h1 className="bip-display mt-3 text-5xl font-bold text-[var(--foreground)]">
                   {roster.name}
                 </h1>
-                <p className="mt-3 max-w-2xl text-gray-500 dark:text-gray-400">
+                <p className="mt-3 max-w-2xl text-[var(--muted)]">
                   Team analytics, roster, and individual player profiles.
                 </p>
               </div>
 
               <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-                <div className="rounded-2xl bg-gray-50 dark:bg-gray-800 p-4">
-                  <div className="text-xs uppercase tracking-[0.18em] text-gray-500 dark:text-gray-400">
+                <div className="rounded-2xl bip-metric p-4">
+                  <div className="text-xs uppercase tracking-[0.18em] text-[var(--muted)]">
                     Active roster
                   </div>
-                  <div className="mt-2 text-3xl font-semibold text-gray-900 dark:text-gray-100">
+                  <div className="mt-2 text-3xl font-semibold text-[var(--foreground)]">
                     {roster.players.length}
                   </div>
                 </div>
-                <div className="rounded-2xl bg-gray-50 dark:bg-gray-800 p-4">
-                  <div className="text-xs uppercase tracking-[0.18em] text-gray-500 dark:text-gray-400">
+                <div className="rounded-2xl bip-metric p-4">
+                  <div className="text-xs uppercase tracking-[0.18em] text-[var(--muted)]">
                     Synced
                   </div>
-                  <div className="mt-2 text-3xl font-semibold text-gray-900 dark:text-gray-100">
+                  <div className="mt-2 text-3xl font-semibold text-[var(--foreground)]">
                     {roster.synced_count}
                   </div>
                 </div>
-                <div className="rounded-2xl bg-blue-50 dark:bg-blue-950/40 p-4">
-                  <div className="text-xs uppercase tracking-[0.18em] text-blue-600 dark:text-blue-300">
+                <div className="rounded-2xl bip-accent-card p-4">
+                  <div className="text-xs uppercase tracking-[0.18em] text-[var(--accent)]">
                     Roster coverage
                   </div>
-                  <div className="mt-2 text-3xl font-semibold text-blue-700 dark:text-blue-200">
+                  <div className="mt-2 text-3xl font-semibold text-[var(--accent-strong)]">
                     {syncCoverage}%
                   </div>
                 </div>
-                <div className="rounded-2xl bg-gray-50 dark:bg-gray-800 p-4">
+                <div className="rounded-2xl bip-metric p-4">
                   <div className="flex items-center justify-between gap-2">
-                    <div className="text-xs uppercase tracking-[0.18em] text-gray-500 dark:text-gray-400">
+                    <div className="text-xs uppercase tracking-[0.18em] text-[var(--muted)]">
                       PBP status
                     </div>
                     {pbpCoverage ? (
@@ -237,10 +237,10 @@ export default function TeamDetailPage() {
                       </span>
                     ) : null}
                   </div>
-                  <div className="mt-2 text-3xl font-semibold text-gray-900 dark:text-gray-100">
+                  <div className="mt-2 text-3xl font-semibold text-[var(--foreground)]">
                     {pbpCoverage ? `${pbpCoveragePct}%` : intelligenceLoading ? "…" : "—"}
                   </div>
-                  <div className="mt-2 text-sm text-gray-500 dark:text-gray-400">
+                  <div className="mt-2 text-sm text-[var(--muted)]">
                     {pbpCoverage
                       ? `${pbpCoverage.synced_games}/${pbpCoverage.eligible_games} games tracked`
                       : "Open the intelligence tab to load derived team coverage."}
@@ -250,13 +250,13 @@ export default function TeamDetailPage() {
             </div>
 
             <div className="mt-6 flex flex-wrap items-center gap-3">
-              <div className="text-xs font-medium uppercase tracking-[0.18em] text-gray-500 dark:text-gray-400">
+              <div className="text-xs font-medium uppercase tracking-[0.18em] text-[var(--muted)]">
                 Season Focus
               </div>
               <select
                 value={effectiveSeason}
                 onChange={(e) => setSelectedSeason(e.target.value)}
-                className="rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm text-gray-700 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-200"
+                className="bip-input rounded-xl px-3 py-2 text-sm"
               >
                 {availableSeasons.length > 0 ? (
                   availableSeasons.map((season) => (
@@ -268,7 +268,7 @@ export default function TeamDetailPage() {
                   <option value={DEFAULT_SEASON}>{DEFAULT_SEASON}</option>
                 )}
               </select>
-              <p className="text-sm text-gray-500 dark:text-gray-400">
+              <p className="text-sm text-[var(--muted)]">
                 Defaults to the latest synced roster season so intelligence panels open on real local data.
               </p>
             </div>
@@ -276,19 +276,19 @@ export default function TeamDetailPage() {
             <div className="mt-6 flex flex-wrap items-center gap-3">
               <Link
                 href="/coverage"
-                className="inline-flex rounded-full border border-gray-200 px-4 py-2 text-sm font-medium text-gray-700 transition-colors hover:border-gray-300 hover:bg-gray-50 dark:border-gray-700 dark:text-gray-200 dark:hover:border-gray-600 dark:hover:bg-gray-800"
+                className="bip-btn-secondary inline-flex rounded-full px-4 py-2 text-sm font-medium"
               >
                 {effectiveSeason >= "2024-25" ? "Open coverage board" : "Open coverage board (modern seasons)"}
               </Link>
               <button
                 type="button"
                 onClick={() => setActiveTab("intelligence")}
-                className="inline-flex rounded-full bg-blue-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-blue-700"
+                className="bip-btn-primary inline-flex rounded-full px-4 py-2 text-sm font-medium"
               >
                 View sync intelligence
               </button>
               {pbpCoverage ? (
-                <div className="text-sm text-gray-500 dark:text-gray-400">
+                <div className="text-sm text-[var(--muted)]">
                   {pbpCoverage.status === "ready"
                     ? "This team is fully ready for lineup and on/off analysis."
                     : effectiveSeason >= "2024-25"
@@ -303,22 +303,22 @@ export default function TeamDetailPage() {
                 {teamTrendCards.map((card) => (
                   <div
                     key={card.label}
-                    className="rounded-2xl border border-gray-200 bg-gray-50 p-4 dark:border-gray-800 dark:bg-gray-950/50"
+                    className="rounded-2xl bip-metric p-4"
                   >
-                    <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-gray-500 dark:text-gray-400">
+                    <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[var(--muted)]">
                       {card.label}
                     </div>
                     <div className="mt-2 flex items-end justify-between gap-3">
-                      <div className="text-2xl font-bold tabular-nums text-gray-900 dark:text-gray-100">
+                      <div className="text-2xl font-bold tabular-nums text-[var(--foreground)]">
                         {formatValue(card.value)}
                       </div>
                       <div
                         className={`text-sm font-semibold tabular-nums ${
                           card.delta == null
-                            ? "text-gray-400 dark:text-gray-500"
+                            ? "text-[var(--muted)]"
                             : card.delta >= 0
-                            ? "text-emerald-600 dark:text-emerald-400"
-                            : "text-red-500 dark:text-red-400"
+                            ? "text-[var(--success-ink)]"
+                            : "text-[var(--danger-ink)]"
                         }`}
                       >
                         {card.delta == null
@@ -326,7 +326,7 @@ export default function TeamDetailPage() {
                           : `${card.delta >= 0 ? "+" : ""}${card.delta.toFixed(1)}`}
                       </div>
                     </div>
-                    <div className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                    <div className="mt-1 text-xs text-[var(--muted)]">
                       vs {priorSeason}
                     </div>
                   </div>

@@ -45,22 +45,28 @@ export default function HomePage() {
   return (
     <div className="space-y-14">
       {/* Hero */}
-      <div className="relative overflow-hidden rounded-[2rem] border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 px-6 py-14 text-center shadow-sm sm:px-10">
-        <div className="absolute inset-x-0 top-0 h-40 bg-gradient-to-b from-blue-100 via-cyan-50 to-transparent dark:from-blue-950/40 dark:via-cyan-950/10 dark:to-transparent" />
-        <div className="relative">
-          <p className="text-sm font-medium uppercase tracking-[0.28em] text-blue-500 mb-4">
-            NBA Intelligence Workspace
+      <div className="bip-panel-strong relative overflow-hidden rounded-[2.2rem] px-6 py-14 sm:px-10">
+        <div className="absolute inset-x-0 top-0 h-56 bg-gradient-to-b from-[rgba(180,137,61,0.18)] via-[rgba(244,236,222,0)] to-transparent" />
+        <div className="absolute right-[-4rem] top-[-5rem] h-56 w-56 rounded-full bg-[rgba(33,72,59,0.12)] blur-3xl" />
+        <div className="relative text-center">
+          <p className="bip-kicker mb-4">
+            Hardwood Editorial
           </p>
-          <h1 className="text-5xl font-bold tracking-tight mb-4">
+          <h1 className="bip-display text-5xl font-bold tracking-tight mb-4 text-[var(--foreground)] sm:text-6xl">
             Basketball Intelligence
             <br />
-            <span className="text-blue-500">Platform</span>
+            <span className="text-[var(--accent)]">Platform</span>
           </h1>
-          <p className="text-lg text-gray-500 mb-8 max-w-2xl mx-auto">
+          <p className="text-lg text-[var(--muted)] mb-8 max-w-2xl mx-auto leading-8">
             Explore player analytics, team context, and play-by-play-driven
             insights across one connected research surface.
           </p>
           <PlayerSearchBar />
+          <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
+            <span className="bip-pill">Team rotation intelligence</span>
+            <span className="bip-pill">Play-by-play context</span>
+            <span className="bip-pill">Analyst-first workflows</span>
+          </div>
         </div>
       </div>
 
@@ -70,18 +76,18 @@ export default function HomePage() {
           <Link
             key={area.href}
             href={area.href}
-            className="group rounded-[1.75rem] border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 p-6 hover:border-blue-400 hover:shadow-lg transition-all"
+            className="group bip-panel rounded-[1.85rem] p-6 hover:-translate-y-1 hover:border-[var(--border-strong)]"
           >
-            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-blue-500">
+            <p className="bip-kicker">
               {area.eyebrow}
             </p>
-            <h2 className="mt-3 text-xl font-semibold text-gray-900 dark:text-gray-100">
+            <h2 className="bip-display mt-3 text-2xl font-semibold text-[var(--foreground)]">
               {area.title}
             </h2>
-            <p className="mt-3 text-sm leading-6 text-gray-500 dark:text-gray-400">
+            <p className="mt-3 text-sm leading-6 text-[var(--muted)]">
               {area.description}
             </p>
-            <div className="mt-6 text-sm font-medium text-blue-500 group-hover:text-blue-600">
+            <div className="mt-6 text-sm font-medium text-[var(--accent)] group-hover:text-[var(--accent-strong)]">
               Open workspace →
             </div>
           </Link>

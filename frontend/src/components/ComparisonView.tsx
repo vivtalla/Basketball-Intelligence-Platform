@@ -81,8 +81,8 @@ function winner(
 
 function pctileColor(pct: number): string {
   if (pct >= 80) return "#10b981"; // emerald
-  if (pct >= 60) return "#3b82f6"; // blue
-  if (pct >= 40) return "#f59e0b"; // amber
+  if (pct >= 60) return "#21483b"; // forest
+  if (pct >= 40) return "#b4893d"; // brass
   return "#ef4444";                // red
 }
 
@@ -91,7 +91,7 @@ function pctileColor(pct: number): string {
 function PlayerAvatar({ profile, align }: { profile: PlayerProfile; align: "left" | "right" }) {
   return (
     <div className={`flex items-center gap-3 ${align === "right" ? "flex-row-reverse text-right" : ""}`}>
-      <div className="relative w-16 h-16 rounded-full overflow-hidden bg-gray-100 dark:bg-gray-700 shrink-0 border-2 border-gray-200 dark:border-gray-600">
+      <div className="relative h-16 w-16 shrink-0 overflow-hidden rounded-full border-2 border-[var(--border)] bg-[var(--surface-alt)]">
         <Image
           src={profile.headshot_url}
           alt={profile.full_name}
@@ -101,8 +101,8 @@ function PlayerAvatar({ profile, align }: { profile: PlayerProfile; align: "left
         />
       </div>
       <div>
-        <div className="font-bold text-gray-900 dark:text-gray-100 leading-tight">{profile.full_name}</div>
-        <div className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+        <div className="leading-tight font-bold text-[var(--foreground)]">{profile.full_name}</div>
+        <div className="mt-0.5 text-xs text-[var(--muted)]">
           {profile.team_name || "Free Agent"} · {profile.position || "—"}
         </div>
       </div>
@@ -124,28 +124,28 @@ function StatRowItem({
   const w = winner(valA, valB, row.higherBetter);
 
   return (
-    <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-2 py-2 border-b border-gray-100 dark:border-gray-700/50 last:border-0">
+    <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-2 border-b border-[var(--border)] py-2 last:border-0">
       <span
         className={`text-right font-semibold tabular-nums text-lg ${
           w === "A"
-            ? "text-blue-600 dark:text-blue-400"
+            ? "text-[var(--accent)]"
             : w === "B"
-            ? "text-gray-400 dark:text-gray-500"
-            : "text-gray-700 dark:text-gray-300"
+            ? "text-[var(--muted)]"
+            : "text-[var(--foreground)]"
         }`}
       >
         {formatVal(valA, row)}
       </span>
-      <span className="text-xs text-gray-500 dark:text-gray-400 text-center whitespace-nowrap px-2 min-w-[120px]">
+      <span className="min-w-[120px] whitespace-nowrap px-2 text-center text-xs text-[var(--muted)]">
         {row.label}
       </span>
       <span
         className={`text-left font-semibold tabular-nums text-lg ${
           w === "B"
-            ? "text-blue-600 dark:text-blue-400"
+            ? "text-[var(--accent)]"
             : w === "A"
-            ? "text-gray-400 dark:text-gray-500"
-            : "text-gray-700 dark:text-gray-300"
+            ? "text-[var(--muted)]"
+            : "text-[var(--foreground)]"
         }`}
       >
         {formatVal(valB, row)}
@@ -173,12 +173,12 @@ function PercentileRowItem({
   const hasPctB = pctB != null;
 
   return (
-    <div className="py-2.5 border-b border-gray-100 dark:border-gray-700/50 last:border-0">
-      <div className="text-xs text-gray-500 dark:text-gray-400 text-center mb-1.5">{row.label}</div>
+    <div className="border-b border-[var(--border)] py-2.5 last:border-0">
+      <div className="mb-1.5 text-center text-xs text-[var(--muted)]">{row.label}</div>
       <div className="space-y-1">
         {/* Player A bar */}
         <div className="flex items-center gap-2">
-          <div className="flex-1 h-5 rounded-full bg-gray-100 dark:bg-gray-700 overflow-hidden relative">
+          <div className="relative h-5 flex-1 overflow-hidden rounded-full bg-[var(--surface-alt)]">
             {hasPctA && (
               <div
                 className="h-full rounded-full transition-all"
@@ -186,16 +186,16 @@ function PercentileRowItem({
               />
             )}
           </div>
-          <span className="text-xs tabular-nums text-gray-500 dark:text-gray-400 w-28 text-right shrink-0">
+          <span className="w-28 shrink-0 text-right text-xs tabular-nums text-[var(--muted)]">
             {hasPctA
               ? <span style={{ color: pctileColor(pctA!) }}>{Math.round(pctA!)}th pct</span>
               : null}{" "}
-            <span className="text-gray-400 dark:text-gray-500">{formatVal(valA, row)}</span>
+            <span className="text-[var(--muted)]">{formatVal(valA, row)}</span>
           </span>
         </div>
         {/* Player B bar */}
         <div className="flex items-center gap-2">
-          <div className="flex-1 h-5 rounded-full bg-gray-100 dark:bg-gray-700 overflow-hidden relative">
+          <div className="relative h-5 flex-1 overflow-hidden rounded-full bg-[var(--surface-alt)]">
             {hasPctB && (
               <div
                 className="h-full rounded-full transition-all"
@@ -203,11 +203,11 @@ function PercentileRowItem({
               />
             )}
           </div>
-          <span className="text-xs tabular-nums text-gray-500 dark:text-gray-400 w-28 text-right shrink-0">
+          <span className="w-28 shrink-0 text-right text-xs tabular-nums text-[var(--muted)]">
             {hasPctB
               ? <span style={{ color: pctileColor(pctB!) }}>{Math.round(pctB!)}th pct</span>
               : null}{" "}
-            <span className="text-gray-400 dark:text-gray-500">{formatVal(valB, row)}</span>
+            <span className="text-[var(--muted)]">{formatVal(valB, row)}</span>
           </span>
         </div>
       </div>
@@ -287,8 +287,8 @@ export default function ComparisonView({ playerA, playerB }: ComparisonViewProps
 
       {/* Mode toggle + season labels */}
       <div className="flex items-center justify-between gap-2 flex-wrap">
-        <span className="text-xs text-gray-400 dark:text-gray-500 min-w-0">{seasonLabelA}</span>
-        <div className="flex rounded-lg overflow-hidden border border-gray-200 dark:border-gray-600 text-xs shrink-0">
+        <span className="min-w-0 text-xs text-[var(--muted)]">{seasonLabelA}</span>
+        <div className="flex shrink-0 overflow-hidden rounded-lg border border-[var(--border)] text-xs">
           {([
             { id: "career", label: "Career" },
             { id: "current", label: "Season" },
@@ -300,15 +300,15 @@ export default function ComparisonView({ playerA, playerB }: ComparisonViewProps
               onClick={() => setMode(m.id)}
               className={`px-3 py-1.5 transition-colors ${
                 mode === m.id
-                  ? "bg-blue-500 text-white"
-                  : "bg-white dark:bg-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-600"
+                  ? "bip-toggle-active"
+                  : "bip-toggle"
               }`}
             >
               {m.label}
             </button>
           ))}
         </div>
-        <span className="text-xs text-gray-400 dark:text-gray-500 min-w-0 text-right">{seasonLabelB}</span>
+        <span className="min-w-0 text-right text-xs text-[var(--muted)]">{seasonLabelB}</span>
       </div>
 
       {/* Season selector (current mode only) */}
@@ -317,7 +317,7 @@ export default function ComparisonView({ playerA, playerB }: ComparisonViewProps
           <select
             value={effectiveCurrentSeason ?? ""}
             onChange={(e) => setSelectedSeason(e.target.value)}
-            className="text-xs border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="bip-input rounded-lg px-3 py-1.5 text-xs"
           >
             {availableSeasons.map((s) => (
               <option key={s} value={s}>{s}</option>
@@ -330,21 +330,21 @@ export default function ComparisonView({ playerA, playerB }: ComparisonViewProps
       {mode === "percentile" && (
         <>
           {/* Legend */}
-          <div className="flex items-center gap-4 text-xs text-gray-400 dark:text-gray-500 flex-wrap">
+          <div className="flex flex-wrap items-center gap-4 text-xs text-[var(--muted)]">
             <div className="flex items-center gap-1.5">
-              <div className="w-12 h-2 rounded-full bg-gray-200 dark:bg-gray-700 overflow-hidden">
-                <div className="h-full w-1/2 rounded-full" style={{ backgroundColor: "#3b82f6" }} />
+              <div className="h-2 w-12 overflow-hidden rounded-full bg-[var(--surface-alt)]">
+                <div className="h-full w-1/2 rounded-full" style={{ backgroundColor: "#21483b" }} />
               </div>
               <span>{playerA.profile.full_name.split(" ")[1] ?? playerA.profile.full_name} (top bar)</span>
             </div>
             <div className="flex items-center gap-1.5">
-              <div className="w-12 h-2 rounded-full bg-gray-200 dark:bg-gray-700 overflow-hidden">
-                <div className="h-full w-1/2 rounded-full" style={{ backgroundColor: "#3b82f6" }} />
+              <div className="h-2 w-12 overflow-hidden rounded-full bg-[var(--surface-alt)]">
+                <div className="h-full w-1/2 rounded-full" style={{ backgroundColor: "#b4893d" }} />
               </div>
               <span>{playerB.profile.full_name.split(" ")[1] ?? playerB.profile.full_name} (bottom bar)</span>
             </div>
             <div className="flex items-center gap-3 ml-auto">
-              {[["≥80th", "#10b981"], ["60–79th", "#3b82f6"], ["40–59th", "#f59e0b"], ["<40th", "#ef4444"]].map(([label, color]) => (
+              {[["≥80th", "#10b981"], ["60–79th", "#21483b"], ["40–59th", "#b4893d"], ["<40th", "#ef4444"]].map(([label, color]) => (
                 <span key={label} className="flex items-center gap-1">
                   <span className="w-2.5 h-2.5 rounded-full inline-block" style={{ backgroundColor: color }} />
                   {label}
@@ -353,8 +353,8 @@ export default function ComparisonView({ playerA, playerB }: ComparisonViewProps
             </div>
           </div>
 
-          <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 p-4">
-            <h4 className="text-xs font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500 mb-3">
+          <div className="bip-panel rounded-2xl p-4">
+            <h4 className="bip-kicker mb-3 text-xs">
               Traditional — {pctSeason}
             </h4>
             {TRADITIONAL_ROWS.filter(r => !["gp", "min_pg"].includes(r.key as string)).map((row) => (
@@ -369,8 +369,8 @@ export default function ComparisonView({ playerA, playerB }: ComparisonViewProps
             ))}
           </div>
 
-          <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 p-4">
-            <h4 className="text-xs font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500 mb-3">
+          <div className="bip-panel rounded-2xl p-4">
+            <h4 className="bip-kicker mb-3 text-xs">
               Advanced — {pctSeason}
             </h4>
             {ADVANCED_ROWS.filter(r => !["darko"].includes(r.key as string)).map((row) => (
@@ -385,7 +385,7 @@ export default function ComparisonView({ playerA, playerB }: ComparisonViewProps
             ))}
           </div>
 
-          <p className="text-center text-xs text-gray-400 dark:text-gray-500">
+          <p className="text-center text-xs text-[var(--muted)]">
             Percentiles computed among all players with ≥20 GP in {pctSeason}
           </p>
         </>
@@ -402,8 +402,8 @@ export default function ComparisonView({ playerA, playerB }: ComparisonViewProps
       {/* Career / Current Season mode */}
       {mode !== "percentile" && mode !== "arc" && (
         <>
-          <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 p-4">
-            <h4 className="text-xs font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500 mb-3">
+          <div className="bip-panel rounded-2xl p-4">
+            <h4 className="bip-kicker mb-3 text-xs">
               Traditional
             </h4>
             {TRADITIONAL_ROWS.map((row) => (
@@ -411,8 +411,8 @@ export default function ComparisonView({ playerA, playerB }: ComparisonViewProps
             ))}
           </div>
 
-          <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 p-4">
-            <h4 className="text-xs font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500 mb-3">
+          <div className="bip-panel rounded-2xl p-4">
+            <h4 className="bip-kicker mb-3 text-xs">
               Advanced
             </h4>
             {ADVANCED_ROWS.map((row) => (
@@ -420,10 +420,10 @@ export default function ComparisonView({ playerA, playerB }: ComparisonViewProps
             ))}
           </div>
 
-          <p className="text-center text-xs text-blue-500 dark:text-blue-400">
-            Blue = better value
+          <p className="text-center text-xs text-[var(--accent)]">
+            Forest = better value
           </p>
-          <p className="text-center text-xs text-gray-400 dark:text-gray-500">
+          <p className="text-center text-xs text-[var(--muted)]">
             * External metric — not platform-original (EPM: Dunks & Threes · RAPTOR: FiveThirtyEight · PIPM: Basketball Index)
           </p>
         </>

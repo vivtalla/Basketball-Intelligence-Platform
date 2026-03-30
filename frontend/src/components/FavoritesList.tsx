@@ -12,10 +12,10 @@ export default function FavoritesList() {
   return (
     <div>
       <div className="flex items-center justify-between mb-4">
-        <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100">
+        <h2 className="bip-display text-2xl font-semibold text-[var(--foreground)]">
           My Players
         </h2>
-        <span className="text-xs text-gray-400 dark:text-gray-500">
+        <span className="text-xs text-[var(--muted)]">
           Saved to this browser
         </span>
       </div>
@@ -24,9 +24,9 @@ export default function FavoritesList() {
         {favorites.map((player) => (
           <div
             key={player.id}
-            className="flex items-center gap-3 rounded-2xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 px-4 py-3 hover:border-blue-400 dark:hover:border-blue-500 transition-colors group"
+            className="group bip-panel flex items-center gap-3 rounded-[1.4rem] px-4 py-3 hover:border-[var(--border-strong)]"
           >
-            <div className="relative w-9 h-9 rounded-full overflow-hidden bg-gray-100 dark:bg-gray-700 shrink-0">
+            <div className="relative w-9 h-9 rounded-full overflow-hidden bg-[var(--surface-alt)] shrink-0">
               {player.headshot_url && (
                 <Image
                   src={player.headshot_url}
@@ -44,11 +44,11 @@ export default function FavoritesList() {
             <div className="min-w-0">
               <Link
                 href={`/players/${player.id}`}
-                className="block text-sm font-medium text-gray-900 dark:text-gray-100 hover:text-blue-500 dark:hover:text-blue-400 transition-colors truncate"
+                className="block text-sm font-medium text-[var(--foreground)] bip-link truncate"
               >
                 {player.name}
               </Link>
-              <p className="text-xs text-gray-400 dark:text-gray-500 truncate">
+              <p className="text-xs text-[var(--muted)] truncate">
                 {player.team || "Free Agent"}
               </p>
             </div>
@@ -56,7 +56,7 @@ export default function FavoritesList() {
             <button
               onClick={() => toggleFavorite(player)}
               title="Remove from My Players"
-              className="ml-1 opacity-0 group-hover:opacity-100 transition-opacity text-gray-300 dark:text-gray-600 hover:text-red-400 dark:hover:text-red-400"
+              className="ml-1 opacity-0 group-hover:opacity-100 transition-opacity text-[var(--muted)] hover:text-[var(--danger-ink)]"
             >
               <svg
                 xmlns="http://www.w3.org/2000/svg"

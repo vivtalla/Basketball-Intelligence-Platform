@@ -15,10 +15,10 @@ export default function TeamsPage() {
   if (error) {
     return (
       <div className="max-w-5xl mx-auto py-16 text-center">
-        <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100">
+        <h1 className="bip-display text-3xl font-semibold text-[var(--foreground)]">
           Team Explorer
         </h1>
-        <p className="mt-4 text-gray-500 dark:text-gray-400">
+        <p className="mt-4 text-[var(--muted)]">
           Team data could not be loaded right now.
         </p>
       </div>
@@ -30,18 +30,18 @@ export default function TeamsPage() {
       <div className="space-y-3">
         <Link
           href="/"
-          className="inline-flex items-center gap-1 text-sm text-gray-500 hover:text-blue-500 dark:text-gray-400 dark:hover:text-blue-400 transition-colors"
+          className="bip-link inline-flex items-center gap-1 text-sm"
         >
           ← Back to Home
         </Link>
         <div>
-          <p className="text-sm font-medium uppercase tracking-[0.2em] text-blue-500">
+          <p className="bip-kicker">
             Explore Teams
           </p>
-          <h1 className="text-4xl font-bold text-gray-900 dark:text-gray-100">
+          <h1 className="bip-display text-4xl font-semibold text-[var(--foreground)]">
             Team Explorer
           </h1>
-          <p className="mt-2 max-w-2xl text-gray-500 dark:text-gray-400">
+          <p className="mt-2 max-w-2xl text-[var(--muted)]">
             Browse synced NBA rosters and jump into player-level intelligence
             from each team context.
           </p>
@@ -53,18 +53,18 @@ export default function TeamsPage() {
           {Array.from({ length: 6 }).map((_, i) => (
             <div
               key={i}
-              className="h-40 rounded-3xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 animate-pulse"
+              className="h-40 rounded-3xl bip-panel animate-pulse"
             />
           ))}
         </div>
       )}
 
       {teams && teams.length === 0 && (
-        <div className="rounded-3xl border border-dashed border-gray-300 dark:border-gray-700 p-10 text-center">
-          <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100">
+        <div className="bip-empty rounded-3xl p-10 text-center">
+          <h2 className="text-xl font-semibold text-[var(--foreground)]">
             No teams have been synced yet
           </h2>
-          <p className="mt-2 text-gray-500 dark:text-gray-400">
+          <p className="mt-2 text-[var(--muted)]">
             Open a few player pages first and their teams will appear here.
           </p>
         </div>
@@ -76,27 +76,27 @@ export default function TeamsPage() {
             <Link
               key={team.team_id}
               href={`/teams/${team.abbreviation}`}
-              className="group rounded-3xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 p-6 hover:border-blue-400 hover:shadow-xl transition-all"
+              className="bip-panel group rounded-3xl p-6 transition-all hover:-translate-y-0.5 hover:border-[rgba(33,72,59,0.28)] hover:shadow-[var(--shadow-strong)]"
             >
               <div className="flex items-start justify-between gap-4">
                 <div>
-                  <p className="text-xs font-semibold uppercase tracking-[0.2em] text-blue-500">
+                  <p className="bip-kicker">
                     {team.abbreviation}
                   </p>
-                  <h2 className="mt-2 text-2xl font-semibold text-gray-900 dark:text-gray-100">
+                  <h2 className="bip-display mt-2 text-2xl font-semibold text-[var(--foreground)]">
                     {team.name}
                   </h2>
                 </div>
-                <div className="rounded-2xl bg-blue-50 dark:bg-blue-950/40 px-3 py-2 text-right">
-                  <div className="text-2xl font-bold text-blue-600 dark:text-blue-300">
+                <div className="bip-accent-card rounded-2xl px-3 py-2 text-right">
+                  <div className="text-2xl font-bold text-[var(--accent)]">
                     {team.player_count}
                   </div>
-                  <div className="text-xs text-blue-600/80 dark:text-blue-300/80">
+                  <div className="text-xs text-[var(--accent)]/80">
                     active players
                   </div>
                 </div>
               </div>
-              <p className="mt-6 text-sm text-gray-500 dark:text-gray-400">
+              <p className="mt-6 text-sm text-[var(--muted)]">
                 Open the roster, identify leading scorers and creators, and
                 jump straight into player dashboards.
               </p>

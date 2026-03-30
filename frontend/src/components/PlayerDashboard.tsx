@@ -29,8 +29,8 @@ export default function PlayerDashboard({ playerId }: PlayerDashboardProps) {
   if (profileError || statsError) {
     return (
       <div className="text-center py-20">
-        <h2 className="text-2xl font-bold text-red-500 mb-2">Error Loading Player</h2>
-        <p className="text-gray-500">
+        <h2 className="mb-2 text-2xl font-bold text-[var(--danger-ink)]">Error Loading Player</h2>
+        <p className="text-[var(--muted)]">
           Could not fetch player data. Make sure the backend is running.
         </p>
       </div>
@@ -40,8 +40,8 @@ export default function PlayerDashboard({ playerId }: PlayerDashboardProps) {
   if (!profile || !careerStats) {
     return (
       <div className="space-y-6 animate-pulse">
-        <div className="h-48 bg-gray-200 dark:bg-gray-700 rounded-2xl" />
-        <div className="h-96 bg-gray-200 dark:bg-gray-700 rounded-2xl" />
+        <div className="h-48 rounded-2xl bg-[var(--surface-alt)]" />
+        <div className="h-96 rounded-2xl bg-[var(--surface-alt)]" />
       </div>
     );
   }
@@ -75,14 +75,14 @@ export default function PlayerDashboard({ playerId }: PlayerDashboardProps) {
       {/* RS / Playoffs toggle — only shown when player has playoff data */}
       {hasPlayoffs && (
         <div className="flex items-center gap-2">
-          <span className="text-sm text-gray-500 dark:text-gray-400 mr-1">View:</span>
-          <div className="flex rounded-xl overflow-hidden border border-gray-200 dark:border-gray-700 text-sm w-fit">
+          <span className="mr-1 text-sm text-[var(--muted)]">View:</span>
+          <div className="flex w-fit overflow-hidden rounded-xl border border-[var(--border)] text-sm">
             <button
               onClick={() => handleModeChange("regular")}
               className={`px-4 py-1.5 transition-colors ${
                 !isPlayoffs
-                  ? "bg-blue-500 text-white"
-                  : "bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700"
+                  ? "bip-toggle-active"
+                  : "bip-toggle"
               }`}
             >
               Regular Season
@@ -91,8 +91,8 @@ export default function PlayerDashboard({ playerId }: PlayerDashboardProps) {
               onClick={() => handleModeChange("playoffs")}
               className={`px-4 py-1.5 transition-colors ${
                 isPlayoffs
-                  ? "bg-amber-500 text-white"
-                  : "bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700"
+                  ? "bip-toggle-signal"
+                  : "bip-toggle"
               }`}
             >
               Playoffs
@@ -104,7 +104,7 @@ export default function PlayerDashboard({ playerId }: PlayerDashboardProps) {
       {/* Season selector — shown when there are multiple seasons */}
       {activeSeasonsArr.length > 1 && (
         <div className="flex items-center gap-2 flex-wrap">
-          <span className="text-xs text-gray-500 dark:text-gray-400 shrink-0">Season:</span>
+          <span className="shrink-0 text-xs text-[var(--muted)]">Season:</span>
           <div className="flex gap-1.5 flex-wrap">
             {[...activeSeasonsArr].reverse().map((s) => (
               <button
@@ -113,9 +113,9 @@ export default function PlayerDashboard({ playerId }: PlayerDashboardProps) {
                 className={`px-2.5 py-1 rounded-lg text-xs font-medium transition-colors ${
                   s.season === effectiveSeasonStr
                     ? isPlayoffs
-                      ? "bg-amber-500 text-white"
-                      : "bg-blue-500 text-white"
-                    : "bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600"
+                      ? "bip-toggle-signal"
+                      : "bip-toggle-active"
+                    : "bip-toggle"
                 }`}
               >
                 {s.season}
@@ -149,7 +149,7 @@ export default function PlayerDashboard({ playerId }: PlayerDashboardProps) {
 
       {/* PBP insights are regular-season only */}
       {isPlayoffs ? (
-        <div className="rounded-2xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-5 text-sm text-gray-400 dark:text-gray-500 text-center">
+        <div className="bip-empty rounded-2xl p-5 text-center text-sm">
           Play-by-play insights (on/off splits, clutch) are available for regular season only.
         </div>
       ) : (
