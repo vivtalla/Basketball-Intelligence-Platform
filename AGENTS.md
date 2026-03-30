@@ -78,6 +78,7 @@ Specs written by one agent for the other. Check this before starting work — if
 | Spec file | From | To | Status |
 |-----------|------|----|--------|
 | `specs/sprint-16-data-gap-inventory.md` | Codex | Claude | Ready |
+| `specs/sprint-16-handoff-claude-validation-followups.md` | Codex | Claude | Ready |
 
 ---
 
@@ -189,4 +190,5 @@ Sprint number prefix makes `git branch -a` immediately readable.
 
 2026-03-30 (Codex): Sprint 16 kickoff baseline: `2024-25` is warehouse-complete (`1230/1230/1230` box/PBP/materialized) with `2441 complete`, `1 running`, `1250 queued` jobs. `2025-26` is the main unfinished lane with `1119` box, `501` parsed PBP, `1119` materialized games, plus `1563 complete`, `4 running`, `1792 queued` jobs.
 2026-03-30 (Codex): Historical support baseline remains strong enough for legacy-plus-derived handling: `2022-23` has `40931` game logs / `554` on-off / `17094` lineups, and `2023-24` has `43394` game logs / `595` on-off / `16190` lineups.
+2026-03-30 (Codex): Initial Sprint 16 validation sweep found frontend messaging drift from the old import-first workflow. Highest-priority Claude follow-ups are leaderboards empty-state copy (`Run bulk import` / `Run play-by-play import`) and historical team intelligence guidance that still pushes users toward the coverage board as if `2022-23` / `2023-24` were warehouse-target seasons.
 2026-03-30 (Codex): Sprint 15 closed. See `specs/sprint-15-closeout.md`.
