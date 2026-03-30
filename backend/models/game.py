@@ -59,3 +59,74 @@ class GameDetailResponse(BaseModel):
     timeline: List[GameTimelinePoint]
     top_players: List[GamePlayerSummary]
     events: List[GameEvent]
+
+
+class GameTeamBoxScore(BaseModel):
+    team_id: int
+    team_abbreviation: Optional[str] = None
+    is_home: bool
+    won: Optional[bool] = None
+    pts: int = 0
+    reb: int = 0
+    ast: int = 0
+    stl: int = 0
+    blk: int = 0
+    tov: int = 0
+    fgm: int = 0
+    fga: int = 0
+    fg_pct: Optional[float] = None
+    fg3m: int = 0
+    fg3a: int = 0
+    fg3_pct: Optional[float] = None
+    ftm: int = 0
+    fta: int = 0
+    ft_pct: Optional[float] = None
+    oreb: int = 0
+    dreb: int = 0
+    pf: int = 0
+    plus_minus: Optional[float] = None
+
+
+class GamePlayerBoxScore(BaseModel):
+    player_id: int
+    player_name: str
+    team_id: Optional[int] = None
+    team_abbreviation: Optional[str] = None
+    is_starter: bool
+    wl: Optional[str] = None
+    min: Optional[float] = None
+    pts: int = 0
+    reb: int = 0
+    ast: int = 0
+    stl: int = 0
+    blk: int = 0
+    tov: int = 0
+    fgm: int = 0
+    fga: int = 0
+    fg_pct: Optional[float] = None
+    fg3m: int = 0
+    fg3a: int = 0
+    fg3_pct: Optional[float] = None
+    ftm: int = 0
+    fta: int = 0
+    ft_pct: Optional[float] = None
+    oreb: int = 0
+    dreb: int = 0
+    pf: int = 0
+    plus_minus: Optional[float] = None
+
+
+class GameSummaryResponse(BaseModel):
+    game_id: str
+    season: str
+    game_date: Optional[str] = None
+    home_team_id: Optional[int] = None
+    away_team_id: Optional[int] = None
+    home_team_abbreviation: Optional[str] = None
+    away_team_abbreviation: Optional[str] = None
+    home_score: Optional[int] = None
+    away_score: Optional[int] = None
+    materialized: bool
+    home_team_stats: Optional[GameTeamBoxScore] = None
+    away_team_stats: Optional[GameTeamBoxScore] = None
+    players: List[GamePlayerBoxScore]
