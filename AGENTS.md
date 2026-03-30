@@ -1,6 +1,6 @@
 # Agent Coordination
 
-Last updated: 2026-03-30 by Codex (Sprint 15 closeout)
+Last updated: 2026-03-30 by Codex (Sprint 16 kickoff)
 
 > **Both agents read this file before touching any code at the start of every session.**
 > Check sprint status, your branch, this sprint's work allocation, and the Merge Order.
@@ -15,27 +15,31 @@ Last updated: 2026-03-30 by Codex (Sprint 15 closeout)
 | Field        | Value |
 |--------------|-------|
 | Sprint       | 16 |
-| Goal         | TBD at kickoff |
-| Started      | TBD |
-| Target merge | TBD |
+| Goal         | Data foundation closeout for the current app |
+| Started      | 2026-03-30 |
+| Target merge | Rolling merges as data-hardening and validation branches become ready |
 
-Sprint 15 is closed. See `specs/sprint-15-closeout.md` for shipped work, deferred work, and next-sprint seeds.
+Sprint 15 is closed. See `specs/sprint-15-closeout.md`.
+Sprint 16 closes the remaining data-foundation work for the launch window (`2022-23` through `2025-26`).
+All external metrics are explicitly out of scope for this sprint.
 
 ---
 
 ## Agent Assignments
 
 ### Claude
-- Branch: `feature/sprint-16-{slug}` (create fresh from current `master`)
-- Scope: TBD at sprint kickoff
-- Status: Unassigned
+- Branch: `feature/sprint-16-data-validation`
+- Scope: Page-by-page validation, null/partial-data UI hardening, misleading empty-state cleanup, accepted-scope-limit documentation
+- Status: Not started
 - PR: —
+- Blocked on: nothing
 
 ### Codex
-- Branch: `codex-sprint-16-{slug}` (create fresh from current `master`)
-- Scope: TBD at sprint kickoff
-- Status: Unassigned
+- Branch: `codex-sprint-16-data-foundation`
+- Scope: `2025-26` warehouse completion, worker lifecycle/runbook hardening, queue-state verification, page-blocking data bug fixes, selective historical support only if validation proves necessary
+- Status: In progress
 - PR: —
+- Blocked on: nothing
 
 > ⚠️ **PERMANENT WARNING**: Do NOT use `codex-sprint-10-game-explorer-controls`. It is at a Sprint 9 commit and its diff against master deletes all warehouse infrastructure (2,700+ lines). It cannot be merged. It is dead.
 
@@ -53,8 +57,16 @@ Claim a file here before writing a single line. If a file is already claimed, re
 |--------------------------------------------------------|------------|---------|
 | `backend/db/models.py`                                 | —          |         |
 | `backend/db/ensure_schema.py`                          | —          |         |
-| `frontend/src/lib/types.ts`                            | —          |         |
-| `frontend/src/lib/api.ts`                              | —          |         |
+| `backend/services/warehouse_service.py`                | Codex      | Data bug fixes, queue/state hardening, warehouse hotfixes |
+| `backend/data/warehouse_jobs.py`                       | Codex      | Worker execution and queue dispatch verification |
+| `backend/data/warehouse_worker_pool.sh`                | Codex      | Non-canonical worker helper / operational parity follow-up |
+| `specs/sprint-16-data-gap-inventory.md`                | Codex      | Sprint 16 data baseline and gap tracking |
+| `specs/sprint-16-validation-matrix.md`                 | Claude     | Page validation results and accepted scope limits |
+| `frontend/src/app/players/[playerId]/page.tsx`         | Claude     | Player-page data validation follow-ups |
+| `frontend/src/app/teams/[abbr]/page.tsx`               | Claude     | Team-page validation follow-ups |
+| `frontend/src/app/leaderboards/page.tsx`               | Claude     | Leaderboard empty-state / partial-data follow-ups |
+| `frontend/src/app/coverage/page.tsx`                   | Claude     | Coverage validation follow-ups |
+| `frontend/src/app/games/[gameId]/page.tsx`             | Claude     | Game Explorer validation follow-ups |
 | `backend/main.py`                                      | —          |         |
 
 ---
@@ -65,23 +77,33 @@ Specs written by one agent for the other. Check this before starting work — if
 
 | Spec file | From | To | Status |
 |-----------|------|----|--------|
+| `specs/sprint-16-data-gap-inventory.md` | Codex | Claude | Ready |
 
 ---
 
-## Merge Order (next sprint)
+## Merge Order (this sprint)
 
-Set this at Sprint 16 kickoff after work is assigned.
+1. `codex-sprint-16-data-foundation` (Codex — backend/data hardening and live data completion)
+2. `feature/sprint-16-data-validation` (Claude — validation and UI hardening after the Sprint 16 baseline docs exist)
+3. Optional closeout/docs-only branch if needed
 
 ---
 
 ## Sprint Work Allocation
 
-Ownership is sprint-dependent, not permanent. Rewrite this table at sprint kickoff to match the current plan.
+Ownership is sprint-dependent, not permanent. Rewrite this table if work moves mid-sprint.
 
 ### This sprint's owned areas
 
 | Files / Directories                                    | Assigned this sprint |
 |--------------------------------------------------------|----------------------|
+| `backend/services/warehouse_service.py`                | Codex                |
+| `backend/data/warehouse_jobs.py`                       | Codex                |
+| `backend/data/warehouse_worker_pool.sh`                | Codex                |
+| `specs/sprint-16-data-gap-inventory.md`                | Codex                |
+| `specs/sprint-16-warehouse-runbook.md`                 | Codex                |
+| `specs/sprint-16-validation-matrix.md`                 | Claude               |
+| Launch-window page validation / UI follow-ups          | Claude               |
 
 ### Shared files — claim in Lock Table before editing
 
@@ -165,5 +187,6 @@ Sprint number prefix makes `git branch -a` immediately readable.
 
 *Free-form, dated, newest first. For cross-agent communication mid-sprint.*
 
-2026-03-30 (Codex): Sprint 15 closed. See `specs/sprint-15-closeout.md`. The main unfinished operational follow-through is `2025-26` warehouse completion plus any optional `RAPTOR` / `RAPM` imports that are actually sourceable.
-2026-03-30 (Codex): Sprint 14 closed. See `specs/sprint-14-closeout.md`.
+2026-03-30 (Codex): Sprint 16 kickoff baseline: `2024-25` is warehouse-complete (`1230/1230/1230` box/PBP/materialized) with `2441 complete`, `1 running`, `1250 queued` jobs. `2025-26` is the main unfinished lane with `1119` box, `501` parsed PBP, `1119` materialized games, plus `1563 complete`, `4 running`, `1792 queued` jobs.
+2026-03-30 (Codex): Historical support baseline remains strong enough for legacy-plus-derived handling: `2022-23` has `40931` game logs / `554` on-off / `17094` lineups, and `2023-24` has `43394` game logs / `595` on-off / `16190` lineups.
+2026-03-30 (Codex): Sprint 15 closed. See `specs/sprint-15-closeout.md`.
