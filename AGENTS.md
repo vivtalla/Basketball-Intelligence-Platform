@@ -1,6 +1,6 @@
 # Agent Coordination
 
-Last updated: 2026-03-30 by Codex (Sprint 15 deadlock fix)
+Last updated: 2026-03-30 by Codex (Sprint 15 data completion kickoff)
 
 > **Both agents read this file before touching any code at the start of every session.**
 > Check sprint status, your branch, this sprint's work allocation, and the Merge Order.
@@ -15,25 +15,26 @@ Last updated: 2026-03-30 by Codex (Sprint 15 deadlock fix)
 | Field        | Value                                  |
 |--------------|----------------------------------------|
 | Sprint       | 15                                     |
-| Goal         | Warehouse deadlock recovery — serialize season-wide PBP rematerialization, safely replay failed jobs |
+| Goal         | Data completion and warehouse hardening for launch-window seasons (`2022-23` through `2025-26`) |
 | Started      | 2026-03-30                             |
-| Target merge | TBD                                    |
+| Target merge | Rolling hotfix merges to `master`; sprint closes when launch-window data matrix is cleared or explicitly accepted |
 
 Sprint 14 is closed. See `specs/sprint-14-closeout.md` for shipped work and next-sprint seeds.
+Sprint 15 is a stabilization/data sprint. No new end-user feature scope should start until the data-gap matrix is cleared or explicitly accepted.
 
 ---
 
 ## Agent Assignments
 
 ### Claude
-- Branch: TBD
-- Scope: TBD
-- Status: Idle — awaiting Sprint 15 kickoff
+- Branch: `feature/sprint-15-data-validation`
+- Scope: Page-by-page validation, frontend empty-state audit, documenting remaining data dependencies, small null/partial-data UI fixes only
+- Status: Available / support role
 - PR: —
 
 ### Codex
-- Branch: `codex-sprint-15-onoff-deadlock`
-- Scope: Warehouse `player_on_off` deadlock fix in `warehouse_service.py`; safely replay failed `sync_game_pbp` jobs for 2024-25
+- Branch: `codex-sprint-15-data-completion`
+- Scope: Warehouse worker lifecycle, queue cleanup and retry semantics, historical PBP repair, raw payload/rematerialization idempotency, data completeness instrumentation, external-metrics ingestion support
 - Status: In progress
 - PR: —
 
@@ -53,11 +54,15 @@ Claim a file here before writing a single line. If a file is already claimed, re
 |--------------------------------------------------------|------------|---------|
 | `backend/db/models.py`                                 | —          |         |
 | `backend/db/ensure_schema.py`                          | —          |         |
-| `backend/routers/warehouse.py`                         | —          |         |
-| `backend/services/warehouse_service.py`                | Codex      | Serialize season-wide PBP rematerialization / deadlock fix |
-| `frontend/src/lib/types.ts`                            | —          |         |
-| `frontend/src/lib/api.ts`                              | —          |         |
-| `frontend/src/components/WarehousePipelinePanel.tsx`   | —          |         |
+| `backend/routers/warehouse.py`                         | Codex      | Queue operations, stale reset semantics, summary verification |
+| `backend/services/warehouse_service.py`                | Codex      | Queue cleanup, retry semantics, rematerialization idempotency |
+| `backend/data/warehouse_jobs.py`                       | Codex      | Worker execution mode and operational summaries |
+| `backend/data/warehouse_worker_pool.sh`                | Codex      | Worker pool behavior / operational support |
+| `backend/data/epm_rapm_import.py`                      | Codex      | External metrics ingestion support |
+| `frontend/src/app/players/[playerId]/page.tsx`         | Claude     | Player-page validation follow-ups |
+| `frontend/src/app/teams/[abbr]/page.tsx`               | Claude     | Team-page validation follow-ups |
+| `frontend/src/app/leaderboards/page.tsx`               | Claude     | Empty-state and data-gap validation follow-ups |
+| `frontend/src/app/coverage/page.tsx`                   | Claude     | Coverage-page validation follow-ups |
 | `backend/main.py`                                      | —          |         |
 
 ---
@@ -73,7 +78,9 @@ Specs written by one agent for the other. Check this before starting work — if
 
 ## Merge Order (this sprint)
 
-1. `codex-sprint-15-onoff-deadlock` (Codex — backend reliability hotfix; can merge once verified)
+1. `codex-sprint-15-data-completion` (Codex — backend/data hardening first)
+2. `feature/sprint-15-data-validation` (Claude — validation and UI follow-ups after backend/data artifacts exist)
+3. Optional closeout/docs-only branch if needed
 
 ---
 
@@ -83,9 +90,14 @@ Ownership is sprint-dependent, not permanent. The table below is rewritten each 
 
 ### This sprint's owned areas
 
-| Files / Directories                     | Assigned this sprint |
-|-----------------------------------------|----------------------|
-| `backend/services/warehouse_service.py` | Codex                |
+| Files / Directories                                    | Assigned this sprint |
+|--------------------------------------------------------|----------------------|
+| `backend/services/warehouse_service.py`                | Codex                |
+| `backend/routers/warehouse.py`                         | Codex                |
+| `backend/data/warehouse_jobs.py`                       | Codex                |
+| `backend/data/warehouse_worker_pool.sh`                | Codex                |
+| `backend/data/epm_rapm_import.py`                      | Codex                |
+| `frontend` validation / empty-state follow-ups         | Claude               |
 
 ### Shared files — claim in Lock Table before editing
 
@@ -169,6 +181,8 @@ Sprint number prefix makes `git branch -a` immediately readable.
 
 *Free-form, dated, newest first. For cross-agent communication mid-sprint.*
 
+2026-03-30 (Codex): Sprint 15 formalized as a data-completion sprint. Primary deliverables: finish `2025-26` warehouse/PBP, complete historical `2022-23` / `2023-24` legacy-plus-derived coverage, harden queue restart/reset behavior, import external metrics, and maintain a written page-to-data gap matrix until launch-window seasons are complete.
+2026-03-30 (Codex): `codex-sprint-15-lineup-idempotency` merged to `master` as a Sprint 15 hotfix. `rematerialize_pbp_derived_metrics()` now updates existing `player_on_off` / `lineup_stats` rows instead of relying on unique-key inserts during reruns.
 2026-03-30 (Codex): Sprint 15 started on `codex-sprint-15-onoff-deadlock` to fix `player_on_off` deadlocks during parallel `sync_game_pbp` jobs and safely replay the failed 2024-25 jobs.
 2026-03-30 (Codex): Sprint 14 closed. Warehouse-backed game summary endpoint and Game Explorer box score UI are now on master. See `specs/sprint-14-closeout.md`.
 2026-03-30 (Codex): Sprint 14 started on `codex-sprint-14-data-layer`. Current scope: warehouse-backed game summary endpoint for Game Explorer plus the small `warehouse_jobs.py` SIGTERM fix.
