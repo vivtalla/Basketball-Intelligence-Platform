@@ -107,6 +107,42 @@ class TeamImpactLeader(BaseModel):
     clutch_pts: Optional[float] = None
 
 
+class TeamRotationPlayerRow(BaseModel):
+    player_id: int
+    player_name: str
+    team_abbreviation: Optional[str] = None
+    starts_last_10: int = 0
+    avg_minutes_last_10: Optional[float] = None
+    avg_minutes_season: Optional[float] = None
+    minutes_delta: Optional[float] = None
+    is_primary_starter: bool = False
+
+
+class TeamRotationGame(BaseModel):
+    game_id: str
+    game_date: Optional[str] = None
+    opponent_abbreviation: Optional[str] = None
+    result: str
+    team_score: Optional[int] = None
+    opponent_score: Optional[int] = None
+    rotation_note: str
+
+
+class TeamRotationReport(BaseModel):
+    team_id: int
+    abbreviation: str
+    season: str
+    status: str
+    window_games: int = 0
+    starter_stability: str
+    recent_starters: List[TeamRotationPlayerRow]
+    minute_load_leaders: List[TeamRotationPlayerRow]
+    rotation_risers: List[TeamRotationPlayerRow]
+    rotation_fallers: List[TeamRotationPlayerRow]
+    on_off_anchors: List[TeamImpactLeader]
+    recommended_games: List[TeamRotationGame]
+
+
 class TeamIntelligenceResponse(BaseModel):
     team_id: int
     abbreviation: str

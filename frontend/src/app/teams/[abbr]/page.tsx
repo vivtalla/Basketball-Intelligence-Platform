@@ -4,9 +4,10 @@ import Image from "next/image";
 import Link from "next/link";
 import { useMemo, useState } from "react";
 import { useParams } from "next/navigation";
-import { useTeamRoster, useTeamAnalytics, useTeamIntelligence } from "@/hooks/usePlayerStats";
+import { useTeamRoster, useTeamAnalytics, useTeamIntelligence, useTeamRotationReport } from "@/hooks/usePlayerStats";
 import TeamAnalyticsPanel from "@/components/TeamAnalyticsPanel";
 import TeamIntelligencePanel from "@/components/TeamIntelligencePanel";
+import TeamRotationIntelligencePanel from "@/components/TeamRotationIntelligencePanel";
 import TeamLineupsPanel from "@/components/TeamLineupsPanel";
 import type { TeamRosterPlayer } from "@/lib/types";
 
@@ -51,6 +52,14 @@ export default function TeamDetailPage() {
     isLoading: intelligenceLoading,
     error: intelligenceError,
   } = useTeamIntelligence(
+    activeTab === "intelligence" ? teamAbbreviation : null,
+    effectiveSeason
+  );
+  const {
+    data: rotationReport,
+    isLoading: rotationLoading,
+    error: rotationError,
+  } = useTeamRotationReport(
     activeTab === "intelligence" ? teamAbbreviation : null,
     effectiveSeason
   );
@@ -354,10 +363,19 @@ export default function TeamDetailPage() {
                   <div key={item} className="h-32 rounded-3xl bg-gray-200 dark:bg-gray-700" />
                 ))}
               </div>
+              <div className="h-[36rem] rounded-[2rem] bg-gray-200 dark:bg-gray-700" />
               <div className="grid gap-6 xl:grid-cols-[1.05fr,0.95fr]">
                 <div className="h-96 rounded-[2rem] bg-gray-200 dark:bg-gray-700" />
                 <div className="h-96 rounded-[2rem] bg-gray-200 dark:bg-gray-700" />
               </div>
+            </div>
+          )}
+          {rotationLoading && !intelligenceLoading && (
+            <div className="mb-6 h-[36rem] animate-pulse rounded-[2rem] bg-gray-200 dark:bg-gray-700" />
+          )}
+          {rotationError && (
+            <div className="mb-6 rounded-2xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-6 text-center text-gray-500 dark:text-gray-400">
+              Could not load rotation intelligence for {effectiveSeason}. The base team context is still available below.
             </div>
           )}
           {intelligenceError && (
@@ -365,13 +383,18 @@ export default function TeamDetailPage() {
               Could not load team intelligence for {effectiveSeason}. Some of this view depends on synced play-by-play and current standings data.
             </div>
           )}
+          {rotationReport && !rotationLoading && (
+            <div className="mb-6">
+              <TeamRotationIntelligencePanel report={rotationReport} />
+            </div>
+          )}
           {intelligence && !intelligenceLoading && (
-              <TeamIntelligencePanel
-                intelligence={intelligence}
-                currentAnalytics={currentAnalytics ?? null}
-                priorAnalytics={priorAnalytics ?? null}
-                season={effectiveSeason}
-              />
+            <TeamIntelligencePanel
+              intelligence={intelligence}
+              currentAnalytics={currentAnalytics ?? null}
+              priorAnalytics={priorAnalytics ?? null}
+              season={effectiveSeason}
+            />
           )}
         </section>
       )}

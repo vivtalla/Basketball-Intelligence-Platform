@@ -792,3 +792,39 @@ export interface GameSummaryResponse {
   away_team_stats: GameTeamBoxScore | null;
   players: GamePlayerBoxScore[];
 }
+
+export interface TeamRotationPlayerRow {
+  player_id: number;
+  player_name: string;
+  team_abbreviation: string | null;
+  starts_last_10: number;
+  avg_minutes_last_10: number | null;
+  avg_minutes_season: number | null;
+  minutes_delta: number | null;
+  is_primary_starter: boolean;
+}
+
+export interface TeamRotationGame {
+  game_id: string;
+  game_date: string | null;
+  opponent_abbreviation: string | null;
+  result: string;
+  team_score: number | null;
+  opponent_score: number | null;
+  rotation_note: string;
+}
+
+export interface TeamRotationReport {
+  team_id: number;
+  abbreviation: string;
+  season: string;
+  status: "ready" | "limited";
+  window_games: number;
+  starter_stability: "stable" | "mixed" | "volatile";
+  recent_starters: TeamRotationPlayerRow[];
+  minute_load_leaders: TeamRotationPlayerRow[];
+  rotation_risers: TeamRotationPlayerRow[];
+  rotation_fallers: TeamRotationPlayerRow[];
+  on_off_anchors: TeamImpactLeader[];
+  recommended_games: TeamRotationGame[];
+}

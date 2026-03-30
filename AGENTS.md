@@ -15,9 +15,9 @@ Last updated: 2026-03-30 by Codex (Sprint 17 four-role workflow refactor)
 | Field        | Value |
 |--------------|-------|
 | Sprint       | 17 |
-| Goal         | TBD at kickoff |
-| Started      | TBD |
-| Target merge | TBD |
+| Goal         | Team Rotation Intelligence on team pages |
+| Started      | 2026-03-30 |
+| Target merge | After Engineer, Reviewer, and Optimizer gates |
 
 Sprint 16 is closed. See `specs/sprint-16-closeout.md` for shipped work, deferred work, and next-sprint seeds.
 
@@ -34,30 +34,30 @@ Named agents like Codex or Claude may still operate inside this workflow, but th
 ### Architect
 - Branch: sprint branch (`sprint-17-{slug}` or equivalent) created fresh from current `master`
 - Scope: design system and produce the decision-complete build spec
-- Status: Unassigned
+- Status: Complete
 - Output artifact: architect spec or implementation note, marked `Ready for Engineer`
-- Blocked on: sprint goal not yet defined
+- Blocked on: —
 
 ### Engineer
 - Branch: same sprint branch as Architect
 - Scope: implement only from the architect-approved spec
-- Status: Unassigned
+- Status: Complete
 - Output artifact: implementation branch marked `Ready for Reviewer`
-- Blocked on: Architect handoff
+- Blocked on: —
 
 ### Reviewer
 - Branch: same sprint branch as Architect and Engineer
 - Scope: correctness, regression, compatibility, and conventions gate
-- Status: Unassigned
+- Status: Complete
 - Output artifact: reviewer findings note or explicit `Ready for Optimizer`
-- Blocked on: Engineer handoff
+- Blocked on: —
 
 ### Optimizer
 - Branch: same sprint branch as Architect, Engineer, and Reviewer
 - Scope: performance, efficiency, and operational gate
-- Status: Unassigned
+- Status: Complete
 - Output artifact: optimizer findings note or explicit `Ready to Merge`
-- Blocked on: Reviewer pass
+- Blocked on: —
 
 > ⚠️ **PERMANENT WARNING**: Do NOT use `codex-sprint-10-game-explorer-controls`. It is at a Sprint 9 commit and its diff against master deletes all warehouse infrastructure (2,700+ lines). It cannot be merged. It is dead.
 
@@ -112,8 +112,8 @@ Claim a file here before writing a single line. If a file is already claimed, re
 |--------------------------------------------------------|------------|---------|
 | `backend/db/models.py`                                 | —          |         |
 | `backend/db/ensure_schema.py`                          | —          |         |
-| `frontend/src/lib/types.ts`                            | —          |         |
-| `frontend/src/lib/api.ts`                              | —          |         |
+| `frontend/src/lib/types.ts`                            | Engineer   | Sprint 17 rotation report contracts |
+| `frontend/src/lib/api.ts`                              | Engineer   | Sprint 17 rotation report fetcher |
 | `backend/main.py`                                      | —          |         |
 
 ---
@@ -137,6 +137,10 @@ Required artifact convention:
 
 | Artifact / Spec file | From role | To role | Status | Notes |
 |----------------------|-----------|---------|--------|-------|
+| `specs/sprint-17-team-rotation-intelligence.md` | Architect | Engineer | Ready for Engineer | Team rotation report + team-page workflow approved for implementation |
+| Sprint 17 implementation | Engineer | Reviewer | Ready for Reviewer | Rotation-report endpoint, team-page workflow, and verification updates are implemented on the branch |
+| `specs/sprint-17-review-note.md` | Reviewer | Optimizer | Ready for Optimizer | Reviewer checks passed after lint, build, and DB-backed validation |
+| `specs/sprint-17-optimizer-note.md` | Optimizer | Merge | Ready to Merge | No additional optimization changes required |
 
 ---
 
@@ -162,6 +166,12 @@ Ownership is sprint-dependent, not permanent. Rewrite this table at sprint kicko
 
 | Files / Directories                                    | Assigned role |
 |--------------------------------------------------------|---------------|
+| `backend/models/team.py`                               | Engineer |
+| `backend/routers/teams.py`                             | Engineer |
+| `backend/services/team_rotation_service.py`            | Engineer |
+| `frontend/src/app/teams/[abbr]/page.tsx`               | Engineer |
+| `frontend/src/components/TeamRotationIntelligencePanel.tsx` | Engineer |
+| `frontend/src/hooks/usePlayerStats.ts`                 | Engineer |
 
 ### Shared files — claim in Lock Table before editing
 
@@ -271,3 +281,5 @@ The workflow is role-first, but existing branch naming conventions can still be 
 *Free-form, dated, newest first. For cross-role communication mid-sprint.*
 
 2026-03-30 (Codex): Sprint 17 kickoff reset. Sprint 16 is closed in `specs/sprint-16-closeout.md`. The repo now uses a four-role pipeline: Architect -> Engineer -> Reviewer -> Optimizer -> Merge.
+2026-03-30 (Optimizer): Sprint 17 passed the required gates and is ready to merge after review and optimization notes were recorded.
+2026-03-30 (Engineer): Sprint 17 implementation started on `codex-sprint-17-team-rotation-intelligence`. Shared contracts in `frontend/src/lib/types.ts` and `frontend/src/lib/api.ts` are claimed for the team rotation report workflow.
