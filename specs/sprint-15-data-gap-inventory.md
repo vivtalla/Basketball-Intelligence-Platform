@@ -24,10 +24,10 @@ Warehouse-specific state:
 
 | Surface | Required data layers | Current launch-window status | Gap class | Remediation path |
 |--------|-----------------------|------------------------------|-----------|------------------|
-| Player page | `players`, `season_stats`, `player_game_logs`, `player_on_off`, clutch/scoring splits, external metric columns | Core stats/logs available for `2022-23` to `2025-26`; external metrics still blank; PBP-derived coverage now present for all four seasons | external CSV/manual source | Import `EPM`, `RAPM`, `LEBRON`, `RAPTOR`, `PIPM`; then revalidate representative stars/rotation/bench players |
+| Player page | `players`, `season_stats`, `player_game_logs`, `player_on_off`, clutch/scoring splits, optional external metric columns | Core stats/logs available for `2022-23` to `2025-26`; PBP-derived coverage now present for all four seasons; external metric columns should degrade gracefully when licensed-only data is unavailable | mixed: ready + optional licensed/manual source | Treat native stats and PBP as launch-critical, import `RAPTOR` first, optionally import public `RAPM`, and mark `EPM` / `LEBRON` / `PIPM` as source-gated if no licensed file is available |
 | Team page | `teams`, `season_stats`, `player_game_logs`, `player_on_off`, `lineup_stats` | `2022-23` to `2024-25` should be broadly usable; `2025-26` still depends on warehouse/PBP continuing to fill | in progress | Keep `2025-26` workers running; validate lineup/intelligence sections after each queue checkpoint |
-| Leaderboards | `season_stats`, multi-season career rows, `player_on_off`, `lineup_stats` | Standard/career/on-off/lineup data now exists for four launch seasons, but external metrics remain blank and UI still contains old import guidance | in progress + external CSV/manual source | Finish external-metric import; then remove/accept remaining empty states after validation |
-| Compare | `player_profile`, `career_stats`, advanced metric history | Box-score and career data present; external metric rows depend on CSV imports | external CSV/manual source | Import metrics and validate multi-year comparisons for representative players |
+| Leaderboards | `season_stats`, multi-season career rows, `player_on_off`, `lineup_stats`, optional imported metrics | Standard/career/on-off/lineup data now exists for four launch seasons; imported metric columns should be treated as optional overlays, not launch blockers | in progress + optional licensed/manual source | Import `RAPTOR` first, optionally add public `RAPM`, and ensure the UI does not present licensed-only gaps as warehouse failures |
+| Compare | `player_profile`, `career_stats`, advanced metric history | Box-score and career data present; external metric rows are additive rather than required for launch | optional licensed/manual source | Validate compare flows on native data first, then enrich with `RAPTOR` and any other legitimately sourceable metric files |
 | Insights / Breakout Tracker | multi-season `season_stats` | Launch-window seasons already have enough season stats to function | ready | Validate output quality and confirm no missing-player edge cases |
 | Standings | `player_game_logs`-derived standings computation | Should work for seasons with populated `player_game_logs` (`2022-23` to `2025-26`) | ready | Validate supported seasons and note that older seasons remain out of scope this sprint |
 | Coverage | PBP coverage dashboard, warehouse job summary | `2024-25` ready; `2025-26` partially ready while queue continues | in progress | Continue warehouse work and confirm dashboard rows populate for `2025-26` as PBP advances |
@@ -35,38 +35,38 @@ Warehouse-specific state:
 
 ## Missing Data Sources
 
-### External metrics required for launch completeness
+### External metrics status for Sprint 15
 
 | Metric | Source | Import path | Known gap status |
 |--------|--------|-------------|------------------|
-| `EPM` | Dunks & Threes | `backend/data/epm_rapm_import.py --metrics epm` | CSV not yet acquired locally |
-| `RAPM` | Public RAPM / nbarapm | `backend/data/epm_rapm_import.py --metrics rapm` | CSV not yet acquired locally |
-| `LEBRON` | BBall Index | `backend/data/epm_rapm_import.py --metrics lebron` | CSV not yet acquired locally |
-| `RAPTOR` | FiveThirtyEight historical data | `backend/data/epm_rapm_import.py --metrics raptor` | CSV not yet acquired locally |
-| `PIPM` | Basketball Index historical files | `backend/data/epm_rapm_import.py --metrics pipm` | CSV not yet acquired locally |
+| `RAPTOR` | FiveThirtyEight historical data | `backend/data/epm_rapm_import.py --metrics raptor` | primary free metric; import as Sprint 15 target |
+| `RAPM` | Public RAPM / nbarapm | `backend/data/epm_rapm_import.py --metrics rapm` | possible free add-on; import if a clean public CSV is available |
+| `EPM` | Dunks & Threes | `backend/data/epm_rapm_import.py --metrics epm` | source-gated; currently premium/licensed rather than realistic free bulk CSV |
+| `LEBRON` | BBall Index | `backend/data/epm_rapm_import.py --metrics lebron` | source-gated; currently premium/licensed rather than realistic free bulk CSV |
+| `PIPM` | Basketball Index historical files | `backend/data/epm_rapm_import.py --metrics pipm` | weak/scattered public sourcing; not a Sprint 15 launch blocker |
 
 ### External metrics acquisition checklist
 
+- `RAPTOR`
+  - source: FiveThirtyEight historical data
+  - target seasons: historical overlap in launch window
+  - sprint action: import first and treat as the primary free external metric
 - `EPM`
-  - source: Dunks & Threes public export / manual CSV
-  - target seasons: `2022-23`, `2023-24`, `2024-25`, `2025-26`
-  - sprint action: acquire file, import, confirm non-null season rows
+  - source: Dunks & Threes licensed export
+  - target seasons: launch window only if a paid/licensed file is obtained
+  - sprint action: mark as source-gated unless a licensed CSV is acquired
 - `RAPM`
   - source: public RAPM export
   - target seasons: best available launch-window overlap
   - sprint action: import whatever free historical coverage exists and record any missing seasons explicitly
 - `LEBRON`
-  - source: BBall Index export
-  - target seasons: launch window where available
-  - sprint action: acquire file, import, mark unsupported seasons if access is limited
-- `RAPTOR`
-  - source: FiveThirtyEight historical data
-  - target seasons: historical overlap in launch window
-  - sprint action: import and note any season cutoff or product sunset limits
+  - source: BBall Index licensed export
+  - target seasons: launch window only if access is obtained
+  - sprint action: mark as source-gated unless a licensed CSV is acquired
 - `PIPM`
-  - source: Basketball Index historical files
-  - target seasons: launch window where available
-  - sprint action: import and record any seasons that cannot be sourced freely
+  - source: Basketball Index historical files / archives
+  - target seasons: only where a trustworthy free file can actually be found
+  - sprint action: treat as optional historical enrichment, not a launch blocker
 
 ### Explicit source-gap policy
 
@@ -75,6 +75,12 @@ If a metric cannot be sourced freely for a launch-window season:
 1. mark the metric/season pair as a source gap in this document,
 2. keep the UI behavior explicit about missing imported data,
 3. do not misclassify the issue as a warehouse or NBA-feed bug.
+
+If a metric is known to be licensed-only in practice:
+
+1. downgrade it from "required for launch" to "optional enrichment",
+2. prefer native warehouse metrics plus `RAPTOR` as the free external layer,
+3. keep Sprint 15 focused on data completeness that is actually recoverable.
 
 ## Sprint 15 Acceptance Targets
 
@@ -91,7 +97,7 @@ If a metric cannot be sourced freely for a launch-window season:
 - No launch-window page should rely on “run import first” guidance when the underlying data already exists
 - Remaining empty states must be attributable to one of:
   - unfinished `2025-26` warehouse/PBP work
-  - missing external metric CSVs
+  - accepted source-gated external metrics (`EPM`, `LEBRON`, `PIPM`, and optionally `RAPM` where no clean public file exists)
   - explicit out-of-scope historical warehouse backfill
 
 ### Operational hardening
