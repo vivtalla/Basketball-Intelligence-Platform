@@ -1,6 +1,6 @@
 # Agent Coordination
 
-Last updated: 2026-03-30 by Codex (Sprint 18 closeout)
+Last updated: 2026-03-30 by Codex (Sprint 19 closeout, Sprint 20 kickoff state)
 
 > **Every operator reads this file before touching any code at the start of every session.**
 > Identify your current role first, then check sprint status, branch, role assignments, handoff queue, lock table, and merge gate.
@@ -14,12 +14,12 @@ Last updated: 2026-03-30 by Codex (Sprint 18 closeout)
 
 | Field        | Value |
 |--------------|-------|
-| Sprint       | 19 |
+| Sprint       | 20 |
 | Goal         | TBD at kickoff |
 | Started      | — |
 | Target merge | TBD |
 
-Sprint 18 is closed. See `specs/sprint-18-closeout.md` for shipped work, deferred work, and next-sprint seeds.
+Sprint 19 is closed. See `specs/sprint-19-closeout.md` for shipped work, deferred work, and next-sprint seeds.
 
 ---
 
@@ -32,11 +32,11 @@ All sprint execution uses a **single-branch pipeline**:
 Named agents like Codex or Claude may still operate inside this workflow, but the roles below are the primary operating model.
 
 ### Architect
-- Branch: next sprint branch (`sprint-19-{slug}` or equivalent) created fresh from current `master`
+- Branch: sprint branch (`sprint-19-{slug}` or equivalent) created fresh from current `master`
 - Scope: define the next decision-complete sprint spec
 - Status: Unassigned
 - Output artifact: architect spec or implementation note, marked `Ready for Engineer`
-- Blocked on: Sprint 19 kickoff
+- Blocked on: Sprint 20 kickoff
 
 ### Engineer
 - Branch: same sprint branch as Architect
@@ -165,7 +165,7 @@ Ownership is sprint-dependent, not permanent. Rewrite this table at sprint kicko
 
 | Files / Directories                                    | Assigned role |
 |--------------------------------------------------------|---------------|
-| `TBD at Sprint 19 kickoff`                             | TBD |
+| `TBD at Sprint 20 kickoff`                             | TBD |
 
 ### Shared files — claim in Lock Table before editing
 
@@ -274,6 +274,7 @@ The workflow is role-first, but existing branch naming conventions can still be 
 
 *Free-form, dated, newest first. For cross-role communication mid-sprint.*
 
+2026-03-30 (Codex): Sprint 19 closed and merged to `master`. Shipped Player Trend Intelligence, local-font build hardening, and backend coverage for missing-on/off and sparse-data fallback. See `specs/sprint-19-closeout.md`.
 2026-03-30 (Codex): Sprint 18 closed and merged to `master`. Hardwood Editorial is now the active platform palette. See `specs/sprint-18-closeout.md`, `specs/sprint-18-review-note.md`, and `specs/sprint-18-optimizer-note.md`.
 2026-03-30 (Engineer): Sprint 18 started on `codex-sprint-18-hardwood-editorial`. Selected direction: Hardwood Editorial. Initial scope is shared theme tokens plus home, nav, player, and team entry surfaces.
 2026-03-30 (Codex): Sprint 17 closed and merged to `master`. See `specs/sprint-17-closeout.md`. Sprint 18 kickoff seed: consider a platform color refresh with explicit palette options rather than ad hoc style tweaks.
