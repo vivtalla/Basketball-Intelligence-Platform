@@ -1,6 +1,6 @@
 # Agent Coordination
 
-Last updated: 2026-03-30 by Codex (Sprint 14 closeout)
+Last updated: 2026-03-30 by Codex (Sprint 15 deadlock fix)
 
 > **Both agents read this file before touching any code at the start of every session.**
 > Check sprint status, your branch, this sprint's work allocation, and the Merge Order.
@@ -14,10 +14,10 @@ Last updated: 2026-03-30 by Codex (Sprint 14 closeout)
 
 | Field        | Value                                  |
 |--------------|----------------------------------------|
-| Sprint       | 15 (not yet started)                   |
-| Goal         | TBD at kickoff                         |
-| Started      | —                                      |
-| Target merge | —                                      |
+| Sprint       | 15                                     |
+| Goal         | Warehouse deadlock recovery — serialize season-wide PBP rematerialization, safely replay failed jobs |
+| Started      | 2026-03-30                             |
+| Target merge | TBD                                    |
 
 Sprint 14 is closed. See `specs/sprint-14-closeout.md` for shipped work and next-sprint seeds.
 
@@ -32,9 +32,9 @@ Sprint 14 is closed. See `specs/sprint-14-closeout.md` for shipped work and next
 - PR: —
 
 ### Codex
-- Branch: TBD
-- Scope: TBD
-- Status: Idle — awaiting Sprint 15 kickoff
+- Branch: `codex-sprint-15-onoff-deadlock`
+- Scope: Warehouse `player_on_off` deadlock fix in `warehouse_service.py`; safely replay failed `sync_game_pbp` jobs for 2024-25
+- Status: In progress
 - PR: —
 
 > ⚠️ **PERMANENT WARNING**: Do NOT use `codex-sprint-10-game-explorer-controls`. It is at a Sprint 9 commit and its diff against master deletes all warehouse infrastructure (2,700+ lines). It cannot be merged. It is dead.
@@ -54,7 +54,7 @@ Claim a file here before writing a single line. If a file is already claimed, re
 | `backend/db/models.py`                                 | —          |         |
 | `backend/db/ensure_schema.py`                          | —          |         |
 | `backend/routers/warehouse.py`                         | —          |         |
-| `backend/services/warehouse_service.py`                | —          |         |
+| `backend/services/warehouse_service.py`                | Codex      | Serialize season-wide PBP rematerialization / deadlock fix |
 | `frontend/src/lib/types.ts`                            | —          |         |
 | `frontend/src/lib/api.ts`                              | —          |         |
 | `frontend/src/components/WarehousePipelinePanel.tsx`   | —          |         |
@@ -73,7 +73,7 @@ Specs written by one agent for the other. Check this before starting work — if
 
 ## Merge Order (this sprint)
 
-TBD at Sprint 15 kickoff.
+1. `codex-sprint-15-onoff-deadlock` (Codex — backend reliability hotfix; can merge once verified)
 
 ---
 
@@ -83,7 +83,9 @@ Ownership is sprint-dependent, not permanent. The table below is rewritten each 
 
 ### This sprint's owned areas
 
-TBD at Sprint 15 kickoff.
+| Files / Directories                     | Assigned this sprint |
+|-----------------------------------------|----------------------|
+| `backend/services/warehouse_service.py` | Codex                |
 
 ### Shared files — claim in Lock Table before editing
 
@@ -167,6 +169,7 @@ Sprint number prefix makes `git branch -a` immediately readable.
 
 *Free-form, dated, newest first. For cross-agent communication mid-sprint.*
 
+2026-03-30 (Codex): Sprint 15 started on `codex-sprint-15-onoff-deadlock` to fix `player_on_off` deadlocks during parallel `sync_game_pbp` jobs and safely replay the failed 2024-25 jobs.
 2026-03-30 (Codex): Sprint 14 closed. Warehouse-backed game summary endpoint and Game Explorer box score UI are now on master. See `specs/sprint-14-closeout.md`.
 2026-03-30 (Codex): Sprint 14 started on `codex-sprint-14-data-layer`. Current scope: warehouse-backed game summary endpoint for Game Explorer plus the small `warehouse_jobs.py` SIGTERM fix.
 2026-03-30 (Claude): Sprint 13 closed. Codex shipped full scope solo (Claude token-limited). Warehouse reliability: distributed throttle, worker pool script, reset-stale + job-summary endpoints, auto-poll panel. YoY callouts on player + team pages. Game Explorer drill-down. Sprint 14 seeds: SIGTERM fix, coverage memo fix, pipeline metrics, game summary API.
