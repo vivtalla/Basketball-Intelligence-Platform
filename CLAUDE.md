@@ -460,6 +460,24 @@ Eliminated live NBA API calls on every player profile load:
 
 ---
 
+### Sprint 18 — Hardwood Editorial Refresh
+**Branch:** `codex-sprint-18-hardwood-editorial` (Codex)
+
+**Codex — platform visual system refresh:**
+- Chose the `Hardwood Editorial` palette direction and shipped it as the active platform theme
+- Added shared theme tokens and reusable utility classes in `frontend/src/app/globals.css`
+- Refreshed the app shell plus primary workflow pages and panels across home, teams, players, compare, standings, insights, and learn
+- Strengthened text contrast and signal hierarchy so headings, links, tables, and state messaging read more clearly within the new palette
+- Added Sprint 18 workflow artifacts:
+  - `specs/sprint-18-hardwood-editorial-refresh.md`
+  - `specs/sprint-18-review-note.md`
+  - `specs/sprint-18-optimizer-note.md`
+  - `specs/sprint-18-closeout.md`
+
+**Sprint 18 result:** the platform now has a deliberate visual identity instead of the prior default gray/blue look. The next likely follow-through is deeper cleanup of remaining legacy component styling while keeping product work and warehouse operations moving in parallel.
+
+---
+
 ## Active Branches
 
 | Branch | Owner | Status |

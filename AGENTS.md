@@ -1,6 +1,6 @@
 # Agent Coordination
 
-Last updated: 2026-03-30 by Codex (Sprint 18 Hardwood Editorial kickoff)
+Last updated: 2026-03-30 by Codex (Sprint 18 closeout)
 
 > **Every operator reads this file before touching any code at the start of every session.**
 > Identify your current role first, then check sprint status, branch, role assignments, handoff queue, lock table, and merge gate.
@@ -14,12 +14,12 @@ Last updated: 2026-03-30 by Codex (Sprint 18 Hardwood Editorial kickoff)
 
 | Field        | Value |
 |--------------|-------|
-| Sprint       | 18 |
-| Goal         | Hardwood Editorial platform refresh |
-| Started      | 2026-03-30 |
-| Target merge | After Engineer, Reviewer, and Optimizer gates |
+| Sprint       | 19 |
+| Goal         | TBD at kickoff |
+| Started      | — |
+| Target merge | TBD |
 
-Sprint 17 is closed. See `specs/sprint-17-closeout.md` for shipped work, deferred work, and next-sprint seeds.
+Sprint 18 is closed. See `specs/sprint-18-closeout.md` for shipped work, deferred work, and next-sprint seeds.
 
 ---
 
@@ -32,18 +32,18 @@ All sprint execution uses a **single-branch pipeline**:
 Named agents like Codex or Claude may still operate inside this workflow, but the roles below are the primary operating model.
 
 ### Architect
-- Branch: sprint branch (`sprint-18-{slug}` or equivalent) created fresh from current `master`
-- Scope: design system and produce the decision-complete build spec
-- Status: Complete
+- Branch: next sprint branch (`sprint-19-{slug}` or equivalent) created fresh from current `master`
+- Scope: define the next decision-complete sprint spec
+- Status: Unassigned
 - Output artifact: architect spec or implementation note, marked `Ready for Engineer`
-- Blocked on: —
+- Blocked on: Sprint 19 kickoff
 
 ### Engineer
 - Branch: same sprint branch as Architect
 - Scope: implement only from the architect-approved spec
-- Status: In progress
+- Status: Unassigned
 - Output artifact: implementation branch marked `Ready for Reviewer`
-- Blocked on: —
+- Blocked on: Architect handoff
 
 ### Reviewer
 - Branch: same sprint branch as Architect and Engineer
@@ -137,7 +137,7 @@ Required artifact convention:
 
 | Artifact / Spec file | From role | To role | Status | Notes |
 |----------------------|-----------|---------|--------|-------|
-| `specs/sprint-18-hardwood-editorial-refresh.md` | Architect | Engineer | Ready for Engineer | Hardwood Editorial direction selected for Sprint 18 visual refresh |
+| — | — | — | — | No active sprint handoff yet |
 
 ---
 
@@ -153,6 +153,8 @@ Single-branch pipeline:
 
 If multiple named agents participate, they still preserve this role order on the same sprint branch.
 
+Sprint 18 already completed this flow and merged to `master`.
+
 ---
 
 ## Sprint Work Allocation
@@ -163,32 +165,7 @@ Ownership is sprint-dependent, not permanent. Rewrite this table at sprint kicko
 
 | Files / Directories                                    | Assigned role |
 |--------------------------------------------------------|---------------|
-| `frontend/src/app/globals.css`                         | Engineer |
-| `frontend/src/app/layout.tsx`                          | Engineer |
-| `frontend/src/app/page.tsx`                            | Engineer |
-| `frontend/src/app/compare/page.tsx`                    | Engineer |
-| `frontend/src/app/coverage/page.tsx`                   | Engineer |
-| `frontend/src/app/games/[gameId]/page.tsx`             | Engineer |
-| `frontend/src/app/insights/page.tsx`                   | Engineer |
-| `frontend/src/app/leaderboards/page.tsx`               | Engineer |
-| `frontend/src/app/learn/page.tsx`                      | Engineer |
-| `frontend/src/app/players/[playerId]/page.tsx`         | Engineer |
-| `frontend/src/app/standings/page.tsx`                  | Engineer |
-| `frontend/src/app/teams/[abbr]/page.tsx`               | Engineer |
-| `frontend/src/app/teams/page.tsx`                      | Engineer |
-| `frontend/src/components/NavSearch.tsx`                | Engineer |
-| `frontend/src/components/PlayerSearchBar.tsx`          | Engineer |
-| `frontend/src/components/FavoritesList.tsx`            | Engineer |
-| `frontend/src/components/HomeLeagueLeaders.tsx`        | Engineer |
-| `frontend/src/components/PlayerHeader.tsx`             | Engineer |
-| `frontend/src/components/ComparisonView.tsx`           | Engineer |
-| `frontend/src/components/PlayerDashboard.tsx`          | Engineer |
-| `frontend/src/components/StatCard.tsx`                 | Engineer |
-| `frontend/src/components/StatTable.tsx`                | Engineer |
-| `frontend/src/components/TeamAnalyticsPanel.tsx`       | Engineer |
-| `frontend/src/components/TeamIntelligencePanel.tsx`    | Engineer |
-| `frontend/src/components/TeamLineupsPanel.tsx`         | Engineer |
-| `frontend/src/components/TeamRotationIntelligencePanel.tsx` | Engineer |
+| `TBD at Sprint 19 kickoff`                             | TBD |
 
 ### Shared files — claim in Lock Table before editing
 
@@ -297,5 +274,6 @@ The workflow is role-first, but existing branch naming conventions can still be 
 
 *Free-form, dated, newest first. For cross-role communication mid-sprint.*
 
+2026-03-30 (Codex): Sprint 18 closed and merged to `master`. Hardwood Editorial is now the active platform palette. See `specs/sprint-18-closeout.md`, `specs/sprint-18-review-note.md`, and `specs/sprint-18-optimizer-note.md`.
 2026-03-30 (Engineer): Sprint 18 started on `codex-sprint-18-hardwood-editorial`. Selected direction: Hardwood Editorial. Initial scope is shared theme tokens plus home, nav, player, and team entry surfaces.
 2026-03-30 (Codex): Sprint 17 closed and merged to `master`. See `specs/sprint-17-closeout.md`. Sprint 18 kickoff seed: consider a platform color refresh with explicit palette options rather than ad hoc style tweaks.
