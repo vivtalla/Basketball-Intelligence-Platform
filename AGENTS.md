@@ -1,6 +1,6 @@
 # Agent Coordination
 
-Last updated: 2026-03-30 by Claude (Sprint 12 closeout)
+Last updated: 2026-03-30 by Codex (Sprint 13 kickoff)
 
 > **Both agents read this file before touching any code at the start of every session.**
 > Check sprint status, your branch, this sprint's work allocation, and the Merge Order.
@@ -14,10 +14,10 @@ Last updated: 2026-03-30 by Claude (Sprint 12 closeout)
 
 | Field        | Value                                  |
 |--------------|----------------------------------------|
-| Sprint       | 13 (not yet started)                   |
-| Goal         | TBD at kickoff                         |
-| Started      | —                                      |
-| Target merge | —                                      |
+| Sprint       | 13                                     |
+| Goal         | Warehouse reliability hardening — shared rate limiting, worker observability, long-running queue runner |
+| Started      | 2026-03-30                             |
+| Target merge | TBD                                    |
 
 Sprint 12 is closed. See `specs/sprint-12-closeout.md` for shipped work and next-sprint seeds.
 
@@ -32,9 +32,9 @@ Sprint 12 is closed. See `specs/sprint-12-closeout.md` for shipped work and next
 - PR: —
 
 ### Codex
-- Branch: TBD
-- Scope: TBD
-- Status: Idle — awaiting Sprint 13 kickoff
+- Branch: `codex-sprint-13-warehouse-reliability`
+- Scope: Shared NBA request throttle, warehouse queue observability, long-running worker mode
+- Status: In progress
 - PR: —
 
 > ⚠️ **PERMANENT WARNING**: Do NOT use `codex-sprint-10-game-explorer-controls`. It is at a Sprint 9 commit and its diff against master deletes all warehouse infrastructure (2,700+ lines). It cannot be merged. It is dead.
@@ -51,10 +51,10 @@ Claim a file here before writing a single line. If a file is already claimed, re
 
 | File                                                   | Claimed by | Purpose |
 |--------------------------------------------------------|------------|---------|
-| `backend/db/models.py`                                 | —          |         |
-| `backend/db/ensure_schema.py`                          | —          |         |
-| `backend/routers/warehouse.py`                         | —          |         |
-| `backend/services/warehouse_service.py`                | —          |         |
+| `backend/db/models.py`                                 | Codex      | Shared throttle state table / schema support |
+| `backend/db/ensure_schema.py`                          | Codex      | Shared throttle state table / schema support |
+| `backend/routers/warehouse.py`                         | Codex      | Operational warehouse summary endpoint |
+| `backend/services/warehouse_service.py`                | Codex      | Queue summary helpers / reliability support |
 | `frontend/src/lib/types.ts`                            | —          |         |
 | `frontend/src/lib/api.ts`                              | —          |         |
 | `frontend/src/components/WarehousePipelinePanel.tsx`   | —          |         |
@@ -73,7 +73,7 @@ Specs written by one agent for the other. Check this before starting work — if
 
 ## Merge Order (this sprint)
 
-TBD at Sprint 13 kickoff.
+1. `codex-sprint-13-warehouse-reliability` (Codex) — backend reliability hardening
 
 ---
 
@@ -83,7 +83,14 @@ Ownership is sprint-dependent, not permanent. The table below is rewritten each 
 
 ### This sprint's owned areas
 
-TBD at Sprint 13 kickoff.
+| Files / Directories                                    | Assigned this sprint |
+|--------------------------------------------------------|----------------------|
+| `backend/data/nba_client.py`                           | Codex                |
+| `backend/data/warehouse_jobs.py`                       | Codex                |
+| `backend/db/models.py`                                 | Codex                |
+| `backend/db/ensure_schema.py`                          | Codex                |
+| `backend/services/warehouse_service.py`                | Codex                |
+| `backend/routers/warehouse.py`                         | Codex                |
 
 ### Shared files — claim in Lock Table before editing
 
@@ -168,3 +175,4 @@ Sprint number prefix makes `git branch -a` immediately readable.
 *Free-form, dated, newest first. For cross-agent communication mid-sprint.*
 
 2026-03-30 (Claude): Sprint 12 closed. All branches merged to master. See `specs/sprint-12-closeout.md`. Warehouse is now fully operational with retry/backoff, season-scoped dispatch, daily cron, and a hardened frontend panel. Sprint 13 seeds: YoY trend indicators, warehouse auto-poll, Game Explorer PBP drill-down.
+2026-03-30 (Codex): Sprint 13 started on `codex-sprint-13-warehouse-reliability`. Current focus: shared NBA request throttling across workers, better warehouse job summaries, and a loop mode for long-running queue workers.
