@@ -622,3 +622,73 @@ export interface CareerLeaderboardResponse {
   stat: string;
   entries: CareerLeaderboardEntry[];
 }
+
+// ── Warehouse pipeline types ─────────────────────────────────────────────────
+
+export interface SourceRunResponse {
+  id: number;
+  source: string;
+  job_type: string;
+  entity_type: string;
+  entity_id: string;
+  status: string;
+  attempt_count: number;
+  records_written: number;
+  error_message: string | null;
+  started_at: string | null;
+  completed_at: string | null;
+  run_metadata: Record<string, unknown> | null;
+}
+
+export interface IngestionJobResponse {
+  id: number;
+  job_type: string;
+  job_key: string;
+  season: string | null;
+  game_id: string | null;
+  priority: number;
+  status: string;
+  attempt_count: number;
+  last_error: string | null;
+  run_after: string | null;
+  leased_until: string | null;
+  completed_at: string | null;
+}
+
+export interface WarehouseSeasonHealth {
+  season: string;
+  total_games: number;
+  scheduled_games: number;
+  completed_games: number;
+  games_with_box_score: number;
+  games_with_pbp_payload: number;
+  games_with_parsed_pbp: number;
+  games_materialized: number;
+  pending_jobs: number;
+  running_jobs: number;
+  failed_jobs: number;
+  latest_runs: SourceRunResponse[];
+}
+
+export interface WarehouseGameHealth {
+  game_id: string;
+  season: string;
+  game_date: string | null;
+  status: string;
+  home_team_abbreviation: string | null;
+  away_team_abbreviation: string | null;
+  has_schedule: boolean;
+  has_final_box_score: boolean;
+  has_pbp_payload: boolean;
+  has_parsed_pbp: boolean;
+  has_materialized_game_stats: boolean;
+  has_materialized_season: boolean;
+  pbp_parse_status: string;
+  game_player_rows: number;
+  game_team_rows: number;
+  pbp_event_rows: number;
+  raw_payload_types: string[];
+  last_box_score_sync_at: string | null;
+  last_pbp_sync_at: string | null;
+  last_materialized_at: string | null;
+}
