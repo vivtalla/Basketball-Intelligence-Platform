@@ -14,27 +14,25 @@ Last updated: 2026-03-30 by Claude (Sprint 13 closeout)
 
 | Field        | Value                                  |
 |--------------|----------------------------------------|
-| Sprint       | 14 (not yet started)                   |
-| Goal         | TBD at kickoff                         |
-| Started      | —                                      |
-| Target merge | —                                      |
-
-Sprint 13 is closed. See `specs/sprint-13-closeout.md` for shipped work and next-sprint seeds.
+| Sprint       | 14                                                          |
+| Goal         | Game summary API + data layer — expose GameTeamStat/GamePlayerStat via new endpoint; ship game box score UI in Game Explorer |
+| Started      | 2026-03-30                                                  |
+| Target merge | TBD                                                         |
 
 ---
 
 ## Agent Assignments
 
 ### Claude
-- Branch: TBD
-- Scope: TBD
-- Status: Idle — awaiting Sprint 13 kickoff
+- Branch: `feature/sprint-14-game-summary-ui`
+- Scope: `GameSummaryResponse` TS types + API fn + SWR hook; Game Explorer team box score section + player box score table; coverage page memo fix
+- Status: In progress
 - PR: —
 
 ### Codex
-- Branch: TBD
-- Scope: TBD
-- Status: Idle — awaiting Sprint 13 kickoff
+- Branch: `codex-sprint-14-data-layer`
+- Scope: `GameTeamBoxScore`/`GamePlayerBoxScore`/`GameSummaryResponse` Pydantic models; `game_summary_service.py` (new); `GET /api/games/{game_id}/summary` endpoint; SIGTERM fix in `warehouse_jobs.py`
+- Status: Awaiting kickoff
 - PR: —
 
 > ⚠️ **PERMANENT WARNING**: Do NOT use `codex-sprint-10-game-explorer-controls`. It is at a Sprint 9 commit and its diff against master deletes all warehouse infrastructure (2,700+ lines). It cannot be merged. It is dead.
@@ -53,11 +51,15 @@ Claim a file here before writing a single line. If a file is already claimed, re
 |--------------------------------------------------------|------------|---------|
 | `backend/db/models.py`                                 | —          |         |
 | `backend/db/ensure_schema.py`                          | —          |         |
-| `backend/routers/warehouse.py`                         | —          |         |
-| `backend/services/warehouse_service.py`                | —          |         |
-| `frontend/src/lib/types.ts`                            | —          |         |
-| `frontend/src/lib/api.ts`                              | —          |         |
-| `frontend/src/components/WarehousePipelinePanel.tsx`   | —          |         |
+| `backend/models/game.py`                               | Codex      | Append GameTeamBoxScore, GamePlayerBoxScore, GameSummaryResponse |
+| `backend/services/game_summary_service.py`             | Codex      | New service file                                                  |
+| `backend/routers/games.py`                             | Codex      | Add GET /{game_id}/summary endpoint                               |
+| `backend/data/warehouse_jobs.py`                       | Codex      | SIGTERM signal handler                                            |
+| `frontend/src/lib/types.ts`                            | Claude     | Append GameTeamBoxScore, GamePlayerBoxScore, GameSummaryResponse  |
+| `frontend/src/lib/api.ts`                              | Claude     | Append getGameSummary()                                           |
+| `frontend/src/hooks/usePlayerStats.ts`                 | Claude     | Append useGameSummary()                                           |
+| `frontend/src/app/games/[gameId]/page.tsx`             | Claude     | Team box score section + player box table                         |
+| `frontend/src/app/coverage/page.tsx`                   | Claude     | Memo deps fix                                                     |
 | `backend/main.py`                                      | —          |         |
 
 ---
@@ -73,7 +75,10 @@ Specs written by one agent for the other. Check this before starting work — if
 
 ## Merge Order (this sprint)
 
-TBD at Sprint 13 kickoff.
+```
+1. codex-sprint-14-data-layer          (Codex — backend; Claude reviews before merge)
+2. feature/sprint-14-game-summary-ui   (Claude — frontend; depends on /summary endpoint; Codex reviews before merge)
+```
 
 ---
 
@@ -83,7 +88,17 @@ Ownership is sprint-dependent, not permanent. The table below is rewritten each 
 
 ### This sprint's owned areas
 
-TBD at Sprint 13 kickoff.
+| Files / Directories                                    | Assigned this sprint |
+|--------------------------------------------------------|----------------------|
+| `backend/models/game.py`                               | Codex                |
+| `backend/services/game_summary_service.py`             | Codex                |
+| `backend/routers/games.py`                             | Codex                |
+| `backend/data/warehouse_jobs.py`                       | Codex                |
+| `frontend/src/lib/types.ts`                            | Claude               |
+| `frontend/src/lib/api.ts`                              | Claude               |
+| `frontend/src/hooks/usePlayerStats.ts`                 | Claude               |
+| `frontend/src/app/games/[gameId]/page.tsx`             | Claude               |
+| `frontend/src/app/coverage/page.tsx`                   | Claude               |
 
 ### Shared files — claim in Lock Table before editing
 
