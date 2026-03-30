@@ -398,6 +398,27 @@ Eliminated live NBA API calls on every player profile load:
 
 ---
 
+### Sprint 15 — Data Completion + Warehouse Hardening
+**Branch:** `codex-sprint-15-data-completion` (Codex)
+
+**Codex — Data completion + warehouse hardening:**
+- Formal Sprint 15 kickoff for launch-window data completion (`2022-23` through `2025-26`)
+- `player_on_off` / `lineup_stats` rematerialization idempotency hotfix merged to `master`
+- Duplicate-safe raw payload persistence in `warehouse_service.py` for retried `raw_game_payloads` inserts
+- `reset_stale_jobs()` made durable from the service layer
+- Sprint 15 operations and planning artifacts:
+  - `specs/sprint-15-data-gap-inventory.md`
+  - `specs/sprint-15-validation-matrix.md`
+  - `specs/sprint-15-warehouse-runbook.md`
+- External metric strategy corrected to reflect real source availability:
+  - `RAPTOR` as the primary free external metric
+  - `RAPM` optional if a clean public source is chosen
+  - `EPM`, `LEBRON`, and `PIPM` treated as source-gated / licensed-only rather than launch blockers
+
+**Claude — No major shipped branch in Sprint 15; support/validation role remained available.**
+
+---
+
 ## Active Branches
 
 | Branch | Owner | Status |
