@@ -290,10 +290,12 @@ export async function getWarehouseSeasonHealth(season: string): Promise<Warehous
 
 export async function getWarehouseJobs(
   status?: string,
+  season?: string,
   limit = 50
 ): Promise<IngestionJobResponse[]> {
   const params = new URLSearchParams({ limit: String(limit) });
   if (status) params.set("status", status);
+  if (season) params.set("season", season);
   return fetchApi<IngestionJobResponse[]>(`/api/warehouse/jobs?${params.toString()}`);
 }
 

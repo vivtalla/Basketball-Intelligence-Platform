@@ -261,9 +261,9 @@ export function useWarehouseSeasonHealth(season: string | null) {
   );
 }
 
-export function useWarehouseJobs(status?: string) {
+export function useWarehouseJobs(status?: string, season?: string) {
   return useSWR<IngestionJobResponse[]>(
-    `warehouse-jobs-${status ?? "all"}`,
-    () => getWarehouseJobs(status)
+    `warehouse-jobs-${status ?? "all"}${season ? `-${season}` : ""}`,
+    () => getWarehouseJobs(status, season)
   );
 }

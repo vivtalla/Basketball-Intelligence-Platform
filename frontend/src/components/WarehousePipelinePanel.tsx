@@ -57,7 +57,7 @@ function fmtTs(iso: string | null): string {
 
 export default function WarehousePipelinePanel({ season }: Props) {
   const { data: health, error, isLoading, mutate } = useWarehouseSeasonHealth(season);
-  const { data: failedJobs } = useWarehouseJobs("failed");
+  const { data: failedJobs } = useWarehouseJobs("failed", season);
   const { mutate: globalMutate } = useSWRConfig();
 
   const [actionMsg, setActionMsg] = useState<string | null>(null);
@@ -84,7 +84,9 @@ export default function WarehousePipelinePanel({ season }: Props) {
       }
       await mutate();
       await globalMutate("warehouse-jobs-all");
-      await globalMutate("warehouse-jobs-failed");
+      await globalMutate(`warehouse-jobs-failed-${season}`);
+      await globalMutate(`pbp-dashboard-${season}`);
+      await globalMutate("pbp-dashboard-seasons");
     } catch (e: unknown) {
       setActionErr(e instanceof Error ? e.message : "Action failed");
     } finally {
