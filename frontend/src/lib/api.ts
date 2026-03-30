@@ -365,3 +365,12 @@ export async function getTeamRotationReport(
     `/api/teams/${encodeURIComponent(teamAbbreviation)}/rotation-report?season=${encodeURIComponent(season)}`
   );
 }
+
+export async function getPlayerTrendReport(
+  playerId: number,
+  season: string
+): Promise<import("./types").PlayerTrendReport> {
+  return fetchApi<import("./types").PlayerTrendReport>(
+    `/api/players/${playerId}/trend-report?season=${encodeURIComponent(season)}`
+  );
+}

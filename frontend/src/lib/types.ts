@@ -828,3 +828,67 @@ export interface TeamRotationReport {
   on_off_anchors: TeamImpactLeader[];
   recommended_games: TeamRotationGame[];
 }
+
+export interface PlayerTrendForm {
+  games: number;
+  avg_minutes: number | null;
+  avg_points: number | null;
+  avg_rebounds: number | null;
+  avg_assists: number | null;
+  avg_fg_pct: number | null;
+  avg_fg3_pct: number | null;
+  avg_plus_minus: number | null;
+}
+
+export interface PlayerTrendSignals {
+  minutes_delta: number | null;
+  points_delta: number | null;
+  efficiency_delta: number | null;
+  starts_last_10: number;
+  bench_games_last_10: number;
+  games_30_plus_last_10: number;
+  games_under_20_last_10: number;
+  minute_volatility: number | null;
+}
+
+export interface PlayerTrendImpactSnapshot {
+  pbp_coverage_status: "ready" | "partial" | "none";
+  on_off_net: number | null;
+  on_minutes: number | null;
+  bpm: number | null;
+  per: number | null;
+  pts_pg: number | null;
+  ts_pct: number | null;
+}
+
+export interface PlayerTrendGame {
+  game_id: string;
+  game_date: string | null;
+  matchup: string | null;
+  result: string | null;
+  minutes: number | null;
+  points: number | null;
+  plus_minus: number | null;
+  is_starter: boolean;
+  trend_note: string;
+}
+
+export interface PlayerTrendReport {
+  player_id: number;
+  player_name: string;
+  team_abbreviation: string | null;
+  season: string;
+  status: "ready" | "limited";
+  window_games: number;
+  role_status:
+    | "entrenched_starter"
+    | "rising_rotation"
+    | "losing_trust"
+    | "volatile_role"
+    | "stable_rotation";
+  recent_form: PlayerTrendForm;
+  season_baseline: PlayerTrendForm;
+  trust_signals: PlayerTrendSignals;
+  impact_snapshot: PlayerTrendImpactSnapshot;
+  recommended_games: PlayerTrendGame[];
+}
