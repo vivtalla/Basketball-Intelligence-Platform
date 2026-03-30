@@ -9,6 +9,7 @@ import { useFavorites } from "@/hooks/useFavorites";
 interface PlayerHeaderProps {
   profile: PlayerProfile;
   currentSeason?: SeasonStats | null;
+  priorSeason?: SeasonStats | null;
 }
 
 const PERCENTILE_LABELS: Record<string, string> = {
@@ -72,6 +73,7 @@ function ContextRow({ label, value, leagueMedian, posMedian, posGroup }: Context
 export default function PlayerHeader({
   profile,
   currentSeason,
+  priorSeason,
 }: PlayerHeaderProps) {
   const { data: pctData } = usePlayerPercentiles(
     profile.id,
@@ -91,8 +93,81 @@ export default function PlayerHeader({
       ? `${profile.draft_year} Round ${profile.draft_round}, Pick ${profile.draft_number}`
       : "Undrafted";
 
+  const trendCards =
+    currentSeason && priorSeason
+      ? [
+          {
+            label: "PPG YoY",
+            delta: currentSeason.pts_pg - priorSeason.pts_pg,
+            value: currentSeason.pts_pg,
+          },
+          {
+            label: "TS% YoY",
+            delta:
+              currentSeason.ts_pct != null && priorSeason.ts_pct != null
+                ? currentSeason.ts_pct - priorSeason.ts_pct
+                : null,
+            value: currentSeason.ts_pct != null ? currentSeason.ts_pct * 100 : null,
+            pct: true,
+          },
+          {
+            label: "BPM YoY",
+            delta:
+              currentSeason.bpm != null && priorSeason.bpm != null
+                ? currentSeason.bpm - priorSeason.bpm
+                : null,
+            value: currentSeason.bpm,
+          },
+        ]
+      : [];
+
   return (
     <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 p-6 mb-6">
+      <div className="flex flex-col gap-6">
+        {trendCards.length > 0 && (
+          <div className="grid gap-3 md:grid-cols-3">
+            {trendCards.map((card) => {
+              const delta = card.delta;
+              const positive = delta != null ? delta >= 0 : null;
+              return (
+                <div
+                  key={card.label}
+                  className="rounded-2xl border border-gray-200 bg-gray-50 p-4 dark:border-gray-700 dark:bg-gray-900/60"
+                >
+                  <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-gray-500 dark:text-gray-400">
+                    {card.label}
+                  </div>
+                  <div className="mt-2 flex items-end justify-between gap-3">
+                    <div className="text-2xl font-bold tabular-nums text-gray-900 dark:text-gray-100">
+                      {card.value == null
+                        ? "—"
+                        : card.pct
+                        ? `${card.value.toFixed(1)}%`
+                        : card.value.toFixed(1)}
+                    </div>
+                    <div
+                      className={`text-sm font-semibold tabular-nums ${
+                        delta == null
+                          ? "text-gray-400 dark:text-gray-500"
+                          : positive
+                          ? "text-emerald-600 dark:text-emerald-400"
+                          : "text-red-500 dark:text-red-400"
+                      }`}
+                    >
+                      {delta == null
+                        ? "No prior season"
+                        : `${positive ? "+" : ""}${card.pct ? (delta * 100).toFixed(1) : delta.toFixed(1)}`}
+                    </div>
+                  </div>
+                  <div className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                    vs {priorSeason?.season}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+
       <div className="flex flex-col md:flex-row gap-6">
         {/* Headshot */}
         <div className="flex-shrink-0">
@@ -238,6 +313,7 @@ export default function PlayerHeader({
             )}
           </div>
         )}
+      </div>
       </div>
     </div>
   );

@@ -33,6 +33,7 @@ export default function GameDetailPage() {
   const [selectedTeam, setSelectedTeam] = useState("all");
   const [selectedEventType, setSelectedEventType] = useState("all");
   const [scoringOnly, setScoringOnly] = useState(false);
+  const [selectedActionNumber, setSelectedActionNumber] = useState<number | null>(null);
   const deferredSearchQuery = useDeferredValue(searchQuery);
 
   if (!gameId) {
@@ -181,6 +182,22 @@ export default function GameDetailPage() {
     scoringOnly,
     normalizedSearch.length > 0,
   ].filter(Boolean).length;
+  const selectedEvent =
+    filteredEvents.length === 0
+      ? null
+      : selectedActionNumber == null
+      ? filteredEvents[0]
+      : filteredEvents.find((event) => event.action_number === selectedActionNumber) ?? filteredEvents[0];
+  const selectedEventIndex = selectedEvent
+    ? filteredEvents.findIndex((event) => event.action_number === selectedEvent.action_number)
+    : -1;
+  const selectedEventNeighbors =
+    selectedEventIndex >= 0
+      ? filteredEvents.slice(
+          Math.max(0, selectedEventIndex - 1),
+          Math.min(filteredEvents.length, selectedEventIndex + 2)
+        )
+      : [];
 
   return (
     <div className="mx-auto max-w-6xl space-y-8">
@@ -429,9 +446,15 @@ export default function GameDetailPage() {
               </div>
             ) : (
               filteredTimeline.map((point) => (
-                <div
+                <button
                   key={`${point.action_number}-${point.clock ?? "na"}`}
-                  className="grid gap-3 rounded-3xl border border-gray-200 p-4 dark:border-gray-800 md:grid-cols-[6rem,1fr,7rem]"
+                  type="button"
+                  onClick={() => setSelectedActionNumber(point.action_number)}
+                  className={`grid w-full gap-3 rounded-3xl border p-4 text-left transition-colors md:grid-cols-[6rem,1fr,7rem] ${
+                    selectedEvent?.action_number === point.action_number
+                      ? "border-blue-300 bg-blue-50 dark:border-blue-700 dark:bg-blue-950/20"
+                      : "border-gray-200 dark:border-gray-800"
+                  }`}
                 >
                   <div className="text-sm font-medium text-gray-500 dark:text-gray-400">
                     Q{point.period} {point.clock ?? ""}
@@ -442,13 +465,85 @@ export default function GameDetailPage() {
                   <div className="text-right text-lg font-semibold tabular-nums text-gray-900 dark:text-gray-100">
                     {point.away_score}-{point.home_score}
                   </div>
-                </div>
+                </button>
               ))
             )}
           </div>
         </section>
 
         <section className="space-y-6">
+          <div className="rounded-[2rem] border border-gray-200 bg-white p-6 dark:border-gray-800 dark:bg-gray-900">
+            <div className="flex items-end justify-between gap-4">
+              <div>
+                <h2 className="text-2xl font-semibold text-gray-900 dark:text-gray-100">
+                  Event Drill-Down
+                </h2>
+                <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+                  Click any timeline row or feed event to pin the possession context here.
+                </p>
+              </div>
+              <div className="rounded-full bg-gray-100 px-3 py-1 text-xs font-medium uppercase tracking-[0.18em] text-gray-500 dark:bg-gray-800 dark:text-gray-400">
+                {selectedEvent ? `Play ${selectedEvent.action_number}` : "No event selected"}
+              </div>
+            </div>
+
+            {selectedEvent ? (
+              <div className="mt-5 grid gap-4 lg:grid-cols-[0.95fr,1.05fr]">
+                <div className="rounded-3xl bg-blue-50 p-5 dark:bg-blue-950/30">
+                  <div className="text-[11px] uppercase tracking-[0.18em] text-blue-600 dark:text-blue-300">
+                    Selected event
+                  </div>
+                  <div className="mt-3 text-xl font-semibold text-gray-900 dark:text-gray-100">
+                    {selectedEvent.description ?? formatEventType(selectedEvent.event_type)}
+                  </div>
+                  <div className="mt-3 flex flex-wrap gap-2 text-xs uppercase tracking-[0.16em] text-gray-500 dark:text-gray-400">
+                    <span>Q{selectedEvent.period ?? "—"} {selectedEvent.clock ?? ""}</span>
+                    <span>{selectedEvent.team_abbreviation ?? "NBA"}</span>
+                    <span>{selectedEvent.player_name ?? "Team event"}</span>
+                    <span>{formatEventType(selectedEvent.event_type)}</span>
+                  </div>
+                  <div className="mt-4 text-3xl font-bold tabular-nums text-blue-700 dark:text-blue-200">
+                    {selectedEvent.away_score != null && selectedEvent.home_score != null
+                      ? `${selectedEvent.away_score}-${selectedEvent.home_score}`
+                      : "No score change"}
+                  </div>
+                </div>
+
+                <div className="rounded-3xl border border-gray-200 p-5 dark:border-gray-800">
+                  <div className="text-[11px] uppercase tracking-[0.18em] text-gray-500 dark:text-gray-400">
+                    Nearby sequence
+                  </div>
+                  <div className="mt-3 space-y-3">
+                    {selectedEventNeighbors.map((event) => (
+                      <button
+                        key={`neighbor-${event.action_number}`}
+                        type="button"
+                        onClick={() => setSelectedActionNumber(event.action_number)}
+                        className={`w-full rounded-2xl border px-4 py-3 text-left transition-colors ${
+                          event.action_number === selectedEvent.action_number
+                            ? "border-blue-300 bg-blue-50 dark:border-blue-700 dark:bg-blue-950/30"
+                            : "border-gray-200 hover:border-blue-200 hover:bg-gray-50 dark:border-gray-800 dark:hover:border-blue-900 dark:hover:bg-gray-900"
+                        }`}
+                      >
+                        <div className="flex items-center justify-between gap-3 text-xs uppercase tracking-[0.16em] text-gray-500 dark:text-gray-400">
+                          <span>Play {event.action_number}</span>
+                          <span>Q{event.period ?? "—"} {event.clock ?? ""}</span>
+                        </div>
+                        <div className="mt-2 text-sm font-medium text-gray-900 dark:text-gray-100">
+                          {event.description ?? formatEventType(event.event_type)}
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <div className="mt-5 rounded-3xl border border-dashed border-gray-200 p-6 text-sm text-gray-500 dark:border-gray-700 dark:text-gray-400">
+                No event matches the current filters. Reset filters to inspect a specific play.
+              </div>
+            )}
+          </div>
+
           <div className="rounded-[2rem] border border-gray-200 bg-white p-6 dark:border-gray-800 dark:bg-gray-900">
             <div className="flex items-end justify-between gap-4">
               <div>
@@ -538,9 +633,15 @@ export default function GameDetailPage() {
                 </div>
               ) : (
                 filteredEvents.map((event) => (
-                  <div
+                  <button
                     key={`${event.action_number}-${event.period}-${event.clock ?? "na"}`}
-                    className="grid gap-3 rounded-3xl border border-gray-200 p-4 dark:border-gray-800 md:grid-cols-[5.25rem,1fr,6rem]"
+                    type="button"
+                    onClick={() => setSelectedActionNumber(event.action_number)}
+                    className={`grid w-full gap-3 rounded-3xl border p-4 text-left transition-colors md:grid-cols-[5.25rem,1fr,6rem] ${
+                      selectedEvent?.action_number === event.action_number
+                        ? "border-blue-300 bg-blue-50 dark:border-blue-700 dark:bg-blue-950/20"
+                        : "border-gray-200 dark:border-gray-800"
+                    }`}
                   >
                     <div className="text-sm font-medium text-gray-500 dark:text-gray-400">
                       Q{event.period} {event.clock ?? ""}
@@ -563,7 +664,7 @@ export default function GameDetailPage() {
                         ? `${event.away_score}-${event.home_score}`
                         : "-"}
                     </div>
-                  </div>
+                  </button>
                 ))
               )}
             </div>

@@ -1,6 +1,6 @@
 # Agent Coordination
 
-Last updated: 2026-03-30 by Codex (Sprint 13 expansion)
+Last updated: 2026-03-30 by Codex (Sprint 13 product pass)
 
 > **Both agents read this file before touching any code at the start of every session.**
 > Check sprint status, your branch, this sprint's work allocation, and the Merge Order.
@@ -15,7 +15,7 @@ Last updated: 2026-03-30 by Codex (Sprint 13 expansion)
 | Field        | Value                                  |
 |--------------|----------------------------------------|
 | Sprint       | 13                                     |
-| Goal         | Warehouse reliability hardening — shared rate limiting, worker observability, recovery controls, and frontend auto-poll |
+| Goal         | Warehouse reliability hardening plus product follow-through — auto-poll, ops snapshot, Game Explorer drill-down, and YoY trend callouts |
 | Started      | 2026-03-30                             |
 | Target merge | TBD                                    |
 
@@ -33,7 +33,7 @@ Sprint 12 is closed. See `specs/sprint-12-closeout.md` for shipped work and next
 
 ### Codex
 - Branch: `codex-sprint-13-warehouse-reliability`
-- Scope: Shared NBA request throttle, warehouse queue observability, long-running worker mode, stale-job recovery, frontend auto-poll
+- Scope: Shared NBA request throttle, warehouse queue observability, long-running worker mode, stale-job recovery, frontend auto-poll, ops snapshot, Game Explorer drill-down, YoY trend callouts
 - Status: In progress
 - PR: —
 
@@ -58,6 +58,11 @@ Claim a file here before writing a single line. If a file is already claimed, re
 | `frontend/src/lib/types.ts`                            | Codex      | Warehouse summary / recovery response types |
 | `frontend/src/lib/api.ts`                              | Codex      | Warehouse summary / recovery client calls |
 | `frontend/src/components/WarehousePipelinePanel.tsx`   | Codex      | Auto-poll UI, failure visibility, recovery controls |
+| `frontend/src/app/coverage/page.tsx`                   | Codex      | Ops snapshot on coverage dashboard |
+| `frontend/src/app/games/[gameId]/page.tsx`             | Codex      | Game Explorer drill-down interactions |
+| `frontend/src/components/PlayerHeader.tsx`             | Codex      | Player YoY callouts |
+| `frontend/src/app/teams/[abbr]/page.tsx`               | Codex      | Team YoY callouts |
+| `frontend/src/components/TeamIntelligencePanel.tsx`    | Codex      | Team YoY callouts |
 | `backend/main.py`                                      | —          |         |
 
 ---
@@ -95,6 +100,11 @@ Ownership is sprint-dependent, not permanent. The table below is rewritten each 
 | `frontend/src/components/WarehousePipelinePanel.tsx`   | Codex                |
 | `frontend/src/lib/api.ts`                              | Codex                |
 | `frontend/src/lib/types.ts`                            | Codex                |
+| `frontend/src/app/coverage/page.tsx`                   | Codex                |
+| `frontend/src/app/games/[gameId]/page.tsx`             | Codex                |
+| `frontend/src/components/PlayerHeader.tsx`             | Codex                |
+| `frontend/src/app/teams/[abbr]/page.tsx`               | Codex                |
+| `frontend/src/components/TeamIntelligencePanel.tsx`    | Codex                |
 
 ### Shared files — claim in Lock Table before editing
 
@@ -180,3 +190,4 @@ Sprint number prefix makes `git branch -a` immediately readable.
 
 2026-03-30 (Claude): Sprint 12 closed. All branches merged to master. See `specs/sprint-12-closeout.md`. Warehouse is now fully operational with retry/backoff, season-scoped dispatch, daily cron, and a hardened frontend panel. Sprint 13 seeds: YoY trend indicators, warehouse auto-poll, Game Explorer PBP drill-down.
 2026-03-30 (Codex): Sprint 13 started on `codex-sprint-13-warehouse-reliability`. Current focus: shared NBA request throttling across workers, better warehouse job summaries, and a loop mode for long-running queue workers.
+2026-03-30 (Codex): Expanding Sprint 13 within the same branch for product follow-through: coverage-page ops snapshot, Game Explorer event drill-down, and explicit YoY callouts on player/team views.
