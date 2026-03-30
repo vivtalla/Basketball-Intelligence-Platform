@@ -19,6 +19,7 @@ from data.nba_client import (
 )
 from db.database import SessionLocal
 from db.models import (
+    ApiRequestState,
     GameLog,
     GamePlayerStat,
     GameTeamStat,
@@ -1157,6 +1158,83 @@ def retry_failed_jobs(db: Session, season: str) -> List[IngestionJob]:
     return rows
 
 
+def get_job_summary(db: Session, season: Optional[str] = None) -> dict:
+    base_query = db.query(IngestionJob)
+    if season:
+        base_query = base_query.filter(IngestionJob.season == season)
+
+    status_counts = {
+        JOB_STATUS_QUEUED: 0,
+        JOB_STATUS_RUNNING: 0,
+        JOB_STATUS_COMPLETE: 0,
+        JOB_STATUS_FAILED: 0,
+        JOB_STATUS_SKIPPED: 0,
+    }
+    for status, count in (
+        base_query.with_entities(IngestionJob.status, func.count(IngestionJob.id))
+        .group_by(IngestionJob.status)
+        .all()
+    ):
+        status_counts[status] = count
+
+    job_type_rows = (
+        base_query.with_entities(
+            IngestionJob.job_type,
+            IngestionJob.status,
+            func.count(IngestionJob.id),
+        )
+        .group_by(IngestionJob.job_type, IngestionJob.status)
+        .order_by(IngestionJob.job_type.asc(), IngestionJob.status.asc())
+        .all()
+    )
+    grouped_job_types: Dict[str, Dict[str, int]] = defaultdict(dict)
+    for job_type, status, count in job_type_rows:
+        grouped_job_types[job_type][status] = count
+
+    oldest_queued_job = (
+        base_query.filter(IngestionJob.status == JOB_STATUS_QUEUED)
+        .order_by(IngestionJob.run_after.asc(), IngestionJob.created_at.asc())
+        .first()
+    )
+    stalled_running = (
+        base_query.filter(
+            IngestionJob.status == JOB_STATUS_RUNNING,
+            IngestionJob.leased_until.isnot(None),
+            IngestionJob.leased_until < _utcnow(),
+        )
+        .order_by(IngestionJob.leased_until.asc())
+        .all()
+    )
+    throttle = db.query(ApiRequestState).filter_by(source="nba_public").first()
+
+    return {
+        "season": season,
+        "status_counts": status_counts,
+        "job_types": [
+            {
+                "job_type": job_type,
+                "queued": counts.get(JOB_STATUS_QUEUED, 0),
+                "running": counts.get(JOB_STATUS_RUNNING, 0),
+                "complete": counts.get(JOB_STATUS_COMPLETE, 0),
+                "failed": counts.get(JOB_STATUS_FAILED, 0),
+                "skipped": counts.get(JOB_STATUS_SKIPPED, 0),
+            }
+            for job_type, counts in sorted(grouped_job_types.items())
+        ],
+        "oldest_queued_job": _serialize_job(oldest_queued_job),
+        "stalled_running_jobs": [_serialize_job(row) for row in stalled_running[:10]],
+        "global_request_throttle": {
+            "source": throttle.source,
+            "available_at": _serialize_dt(throttle.available_at),
+            "last_request_at": _serialize_dt(throttle.last_request_at),
+            "seconds_until_available": max(
+                0.0,
+                (throttle.available_at - _utcnow()).total_seconds(),
+            ) if throttle and throttle.available_at else 0.0,
+        } if throttle else None,
+    }
+
+
 def _dispatch_job(db: Session, job: IngestionJob) -> dict:
     if job.job_type == "sync_schedule":
         return sync_schedule(db, job.season or "", (job.payload or {}).get("date_key"))
@@ -1289,6 +1367,25 @@ def list_jobs(db: Session, status: Optional[str] = None, limit: int = 50) -> Lis
     if status:
         query = query.filter_by(status=status)
     return query.order_by(IngestionJob.created_at.desc()).limit(limit).all()
+
+
+def _serialize_job(row: Optional[IngestionJob]) -> Optional[dict]:
+    if not row:
+        return None
+    return {
+        "id": row.id,
+        "job_type": row.job_type,
+        "job_key": row.job_key,
+        "season": row.season,
+        "game_id": row.game_id,
+        "priority": row.priority,
+        "status": row.status,
+        "attempt_count": row.attempt_count,
+        "last_error": row.last_error,
+        "run_after": _serialize_dt(row.run_after),
+        "leased_until": _serialize_dt(row.leased_until),
+        "completed_at": _serialize_dt(row.completed_at),
+    }
 
 
 def _infer_season_from_date(game_date: Optional[date]) -> str:

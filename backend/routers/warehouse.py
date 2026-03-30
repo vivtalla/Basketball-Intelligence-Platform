@@ -12,10 +12,12 @@ from models.warehouse import (
     QueueResponse,
     SourceRunResponse,
     WarehouseGameHealth,
+    WarehouseJobSummary,
     WarehouseSeasonHealth,
 )
 from services.warehouse_service import (
     get_game_health,
+    get_job_summary,
     get_season_health,
     list_jobs,
     materialize_game_stats,
@@ -157,3 +159,8 @@ def game_health(game_id: str, db: Session = Depends(get_db)):
 @router.get("/jobs", response_model=List[IngestionJobResponse])
 def jobs(status: Optional[str] = Query(None), limit: int = Query(50, ge=1, le=200), db: Session = Depends(get_db)):
     return [_job_response(row) for row in list_jobs(db, status=status, limit=limit)]
+
+
+@router.get("/jobs/summary", response_model=WarehouseJobSummary)
+def jobs_summary(season: Optional[str] = Query(None), db: Session = Depends(get_db)):
+    return WarehouseJobSummary(**get_job_summary(db, season=season))
