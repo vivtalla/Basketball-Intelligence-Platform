@@ -438,6 +438,28 @@ Eliminated live NBA API calls on every player profile load:
 
 ---
 
+### Sprint 17 — Team Rotation Intelligence
+**Branch:** `codex-sprint-17-team-rotation-intelligence` (Codex)
+
+**Codex — team-page analyst workflow:**
+- Added a dedicated team rotation report endpoint at `GET /api/teams/{abbr}/rotation-report?season=...`
+- Added the `Rotation Intelligence` team-page surface with:
+  - recent starter stability
+  - minute risers and fallers
+  - impact anchors
+  - recommended games to inspect next
+- Scoped the report to warehouse-backed modern seasons and added a precise limited-state fallback for historical seasons
+- Fixed a pre-existing React hook-order issue in `frontend/src/components/SeasonSplits.tsx`
+- Added Sprint 17 workflow artifacts:
+  - `specs/sprint-17-team-rotation-intelligence.md`
+  - `specs/sprint-17-review-note.md`
+  - `specs/sprint-17-optimizer-note.md`
+  - `specs/sprint-17-closeout.md`
+
+**Sprint 17 result:** the platform shifted back into feature work with a single deep analyst workflow on team pages. The next likely product-facing step is visual-system refinement, especially a deliberate platform color refresh, while warehouse catch-up continues operationally in parallel.
+
+---
+
 ## Active Branches
 
 | Branch | Owner | Status |
