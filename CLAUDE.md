@@ -362,12 +362,30 @@ Eliminated live NBA API calls on every player profile load:
 
 ---
 
+### Sprint 13 — Warehouse Reliability + Ops Visibility
+**Branch:** `codex-sprint-13-warehouse-reliability` (Codex) → PR #10
+
+**Codex — Warehouse reliability + ops visibility:**
+- `ApiRequestState` ORM model: DB-backed distributed rate limiter (`SELECT FOR UPDATE`) serializes NBA API calls across parallel worker processes
+- `warehouse_jobs.py --loop` mode: workers poll indefinitely with configurable idle sleep and progress logging
+- `warehouse_worker_pool.sh`: start/stop/restart/status for N workers with PID files + per-worker log rotation
+- `POST /api/warehouse/reset-stale`: re-queues stalled running jobs (expired lease)
+- `GET /api/warehouse/jobs/summary`: full queue snapshot by status, job type, stalled/failed jobs, throttle state
+- `WarehousePipelinePanel` auto-poll (15s while jobs active) + ops snapshot on coverage page
+- YoY trend callouts: `PlayerHeader` (PPG, TS%, AST, REB deltas) and `TeamIntelligencePanel` (net rating, scoring, assist-rate trends)
+- Game Explorer event drill-down: click PBP event → score context, formatted clock, player profile link
+- Coverage page memo stabilization
+
+**Claude — Session token limit; original tasks (auto-poll, expandable rows) shipped by Codex in broader form.**
+
+---
+
 ## Active Branches
 
 | Branch | Owner | Status |
 |--------|-------|--------|
 | `master` | — | Stable |
-| `feature/sprint-10-yoy-trends` | Claude | Open / not merged (YoY trend indicators) |
+| `feature/sprint-10-yoy-trends` | Claude | Open — YoY StatTable work already on master; can close |
 | `codex-sprint-10-game-explorer-controls` | Codex | **UNSAFE — do not merge** |
 
 ---
@@ -386,4 +404,6 @@ Eliminated live NBA API calls on every player profile load:
 | `ComparisonView` | `components/` | Side-by-side player comparison (stats + arc + radar) |
 | `LineupTable` | `components/` | 5-man lineup stats |
 | `OnOffTable` | `components/` | Player on/off splits |
-| `WarehousePipelinePanel` | `components/` | Warehouse ingestion funnel, job stats, action buttons (Sprint 11/12) |
+| `WarehousePipelinePanel` | `components/` | Warehouse ingestion funnel, job stats, action buttons, auto-poll (Sprint 11–13) |
+| `PlayerHeader` | `components/` | Player profile header with YoY stat delta callouts (Sprint 13) |
+| `TeamIntelligencePanel` | `components/` | Team season analytics with YoY trend signals (Sprint 13) |
