@@ -419,6 +419,25 @@ Eliminated live NBA API calls on every player profile load:
 
 ---
 
+### Sprint 16 — Data Foundation Closeout
+**Branch:** `codex-sprint-16-data-foundation` (Codex)
+
+**Codex — Data foundation closeout + validation fixes:**
+- Fixed the player-page backend crash in `backend/routers/gamelogs.py` by removing Python 3.8-incompatible nested `list[...]` annotations
+- Fixed the insights breakout prior-season helper in `backend/routers/insights.py`, restoring improvers/decliners across the launch-window seasons
+- Made `retry_failed_jobs()` durable from the service layer in `backend/services/warehouse_service.py`
+- Removed lingering import-first messaging from leaderboards and made historical team intelligence guidance season-aware
+- Added Sprint 16 planning/ops artifacts:
+  - `specs/sprint-16-data-gap-inventory.md`
+  - `specs/sprint-16-validation-matrix.md`
+  - `specs/sprint-16-warehouse-runbook.md`
+  - `specs/sprint-16-handoff-claude-validation-followups.md`
+- Cleaned up the live `2025-26` worker lane by restarting the attached pool from the clean worktree and normalizing stale leases before merge
+
+**Sprint 16 result:** the remaining data-foundation bugs and validation ambiguity were closed in code and docs. The only remaining follow-through after merge is operational `2025-26` warehouse catch-up, not an unresolved app/data-foundation bug.
+
+---
+
 ## Active Branches
 
 | Branch | Owner | Status |
