@@ -1,11 +1,11 @@
 # Agent Coordination
 
-Last updated: 2026-03-30 by Codex (Sprint 19 closeout, Sprint 20 kickoff state)
+Last updated: 2026-03-30 by Codex (Sprint 20 dual-team kickoff)
 
 > **Every operator reads this file before touching any code at the start of every session.**
-> Identify your current role first, then check sprint status, branch, role assignments, handoff queue, lock table, and merge gate.
+> Identify your team and role first, then check sprint status, branch, file ownership, handoff queue, and merge gate.
 > Then `git fetch origin`. Then begin work.
-> All sprint implementation work happens on the sprint branch or its isolated worktree, never directly on `master`; merge to `master` only after the branch passes both the `Reviewer` and `Optimizer` gates.
+> Sprint 20 runs as **two parallel four-role teams**. Each team must pass its own `Reviewer` and `Optimizer` gates before merging.
 > At sprint close, create/update `specs/sprint-{NN}-closeout.md`, reset `AGENTS.md` for the next sprint, and update the matching sprint summary in `CLAUDE.md`.
 
 ---
@@ -15,94 +15,84 @@ Last updated: 2026-03-30 by Codex (Sprint 19 closeout, Sprint 20 kickoff state)
 | Field        | Value |
 |--------------|-------|
 | Sprint       | 20 |
-| Goal         | TBD at kickoff |
-| Started      | — |
-| Target merge | TBD |
+| Goal         | Dual Team Analyst Workflows: Team A `Custom Metric Builder`, Team B `Recent Trajectory Tracker` |
+| Started      | 2026-03-30 |
+| Target merge | After both Team A and Team B pass Reviewer and Optimizer gates |
 
 Sprint 19 is closed. See `specs/sprint-19-closeout.md` for shipped work, deferred work, and next-sprint seeds.
 
 ---
 
-## Role Assignments
+## Team Structure
 
-All sprint execution uses a **single-branch pipeline**:
+Sprint 20 uses two parallel teams with the same four-role workflow:
 
-`Architect -> Engineer -> Reviewer -> Optimizer -> Merge`
+`Architect -> Engineer -> Reviewer -> Optimizer`
 
-Named agents like Codex or Claude may still operate inside this workflow, but the roles below are the primary operating model.
+### Team A — Metric Builder Team
+- Branch: `codex-sprint-20-metric-builder`
+- Goal: build `Build Your Own Metric` inside `Leaderboards`
+- Current status: Architect complete, waiting on Engineer start
 
-### Architect
-- Branch: sprint branch (`sprint-19-{slug}` or equivalent) created fresh from current `master`
-- Scope: define the next decision-complete sprint spec
-- Status: Unassigned
-- Output artifact: architect spec or implementation note, marked `Ready for Engineer`
-- Blocked on: Sprint 20 kickoff
+Roles:
+- Architect: Complete
+- Engineer: Unassigned
+- Reviewer: Unassigned
+- Optimizer: Unassigned
 
-### Engineer
-- Branch: same sprint branch as Architect
-- Scope: implement only from the architect-approved spec
-- Status: Unassigned
-- Output artifact: implementation branch marked `Ready for Reviewer`
-- Blocked on: Architect handoff
+### Team B — Trajectory Team
+- Branch: `codex-sprint-20-trajectory-tracker`
+- Goal: evolve `Insights` into a 2025-26 recent-window trajectory workflow
+- Current status: Architect complete, waiting on Engineer start
 
-### Reviewer
-- Branch: same sprint branch as Architect and Engineer
-- Scope: correctness, regression, compatibility, and conventions gate
-- Status: Unassigned
-- Output artifact: reviewer findings note or explicit `Ready for Optimizer`
-- Blocked on: Engineer handoff
+Roles:
+- Architect: Complete
+- Engineer: Unassigned
+- Reviewer: Unassigned
+- Optimizer: Unassigned
 
-### Optimizer
-- Branch: same sprint branch as Architect, Engineer, and Reviewer
-- Scope: performance, efficiency, and operational gate
-- Status: Unassigned
-- Output artifact: optimizer findings note or explicit `Ready to Merge`
-- Blocked on: Reviewer pass
+### Shared Integration
+- Shared kickoff branch: `codex-sprint-20-kickoff`
+- `master` remains the integration branch only
+- Each team merges independently after passing its gates
+- Sprint 20 is complete only after both Team A and Team B land in `master`
 
 > ⚠️ **PERMANENT WARNING**: Do NOT use `codex-sprint-10-game-explorer-controls`. It is at a Sprint 9 commit and its diff against master deletes all warehouse infrastructure (2,700+ lines). It cannot be merged. It is dead.
 
 ---
 
-## Role Workflow
+## Team Workflow
 
-### 1. Architect
-- Read the sprint goal and current repo state.
-- Explore the implementation area before proposing structure.
-- Write or update the sprint spec in `specs/` when needed.
-- Define the intended approach, interfaces, constraints, edge cases, and acceptance criteria.
-- Mark the handoff `Ready for Engineer`.
+### Architect
+- Explore the current implementation area before proposing changes
+- Write a decision-complete spec in `specs/`
+- Mark the handoff `Ready for Engineer`
 
-### 2. Engineer
-- Implement only from the architect-approved spec.
-- Claim files in the Lock Table before editing.
-- Keep work scoped to the approved sprint branch.
-- Update role status as implementation progresses.
-- Mark the branch or handoff `Ready for Reviewer`.
+### Engineer
+- Implement only from the architect-approved team spec
+- Respect team-owned areas and shared-file lock rules
+- Mark the branch `Ready for Reviewer`
 
-### 3. Reviewer
-- Required gate before merge.
-- Check correctness, regressions, compatibility, contracts, and repo conventions.
-- Record findings in the Handoff Queue or a lightweight review note in `specs/` if needed.
-- If issues exist, send the work back as `Blocked`.
-- If clean, mark the handoff `Ready for Optimizer`.
+### Reviewer
+- Check correctness, contract alignment, regressions, compatibility, and repo conventions
+- Record findings in a team review note or mark `Blocked`
+- If clean, mark the branch `Ready for Optimizer`
 
-### 4. Optimizer
-- Required gate before merge, even if no code changes are needed.
-- Check performance, operational efficiency, redundant work, and avoidable complexity.
-- Record findings in the Handoff Queue or a lightweight optimization note in `specs/` if needed.
-- If changes are needed, send the work back as `Blocked`.
-- If no further action is needed, mark the branch `Ready to Merge`.
+### Optimizer
+- Check avoidable N+1 work, duplicate fetches, unnecessary complexity, and efficiency issues
+- Record findings in a team optimizer note or mark `Blocked`
+- If clean, mark the branch `Ready to Merge`
 
 ### Merge Rule
-
-- No sprint branch merges until both `Reviewer` and `Optimizer` are complete.
-- “No optimization changes required” is a valid Optimizer outcome, but the gate must still run.
+- Team A and Team B each need Reviewer and Optimizer completion before merge
+- No team merges directly from an in-progress branch state
+- Final sprint merge state is reached only when both team branches are in `master`
 
 ---
 
 ## Shared File Lock Table
 
-Claim a file here before writing a single line. If a file is already claimed, read the current sprint branch state before planning — do not edit a claimed file until the claim is released or reassigned.
+Claim a file here before writing a single line. If a file is already claimed, read the owning team branch before planning.
 
 `types.ts` and `api.ts` are **append-only** — add new interfaces/functions at the bottom only.
 
@@ -110,17 +100,21 @@ Claim a file here before writing a single line. If a file is already claimed, re
 
 | File                                                   | Claimed by | Purpose |
 |--------------------------------------------------------|------------|---------|
-| `backend/db/models.py`                                 | —          |         |
-| `backend/db/ensure_schema.py`                          | —          |         |
-| `frontend/src/lib/types.ts`                            | —          |         |
-| `frontend/src/lib/api.ts`                              | —          |         |
-| `backend/main.py`                                      | —          |         |
+| `backend/db/models.py`                                 | —          | Shared schema changes if any become necessary |
+| `backend/db/ensure_schema.py`                          | —          | Shared schema changes if any become necessary |
+| `frontend/src/lib/types.ts`                            | —          | Shared frontend contracts for both teams; append-only |
+| `frontend/src/lib/api.ts`                              | —          | Shared frontend API functions for both teams; append-only |
+| `backend/main.py`                                      | —          | Shared router registration if needed |
+
+Shared integration note:
+- If both teams need shared files, coordinate the order first in this file and keep append-only rules intact
+- Prefer team-local helper files over reshaping shared files mid-sprint
 
 ---
 
 ## Handoff Queue
 
-Use this queue to move the sprint branch through the four-role pipeline.
+Use this queue to move each team through the four-role pipeline.
 
 Allowed statuses:
 - `Ready for Engineer`
@@ -129,47 +123,49 @@ Allowed statuses:
 - `Ready to Merge`
 - `Blocked`
 
-Required artifact convention:
-- Architect may attach a spec file in `specs/`
-- Reviewer may attach a findings note in `specs/`
-- Optimizer may attach a findings note in `specs/`
-- For small sprints, the queue row itself can be the artifact if it is decision-complete
-
-| Artifact / Spec file | From role | To role | Status | Notes |
-|----------------------|-----------|---------|--------|-------|
-| — | — | — | — | No active sprint handoff yet |
+| Team | Artifact / Spec file | From role | To role | Status | Notes |
+|------|----------------------|-----------|---------|--------|-------|
+| Team A | `specs/sprint-20-metric-builder.md` | Architect | Engineer | Ready for Engineer | Leaderboards-based custom composite metric workflow |
+| Team B | `specs/sprint-20-trajectory-tracker.md` | Architect | Engineer | Ready for Engineer | Insights-based 2025-26 recent-window trajectory workflow |
 
 ---
 
 ## Merge Order (this sprint)
 
-Single-branch pipeline:
+Parallel team flow:
 
-1. `Architect`
-2. `Engineer`
-3. `Reviewer`
-4. `Optimizer`
-5. Merge sprint branch to `master`
-
-If multiple named agents participate, they still preserve this role order on the same sprint branch.
-
-Sprint 18 already completed this flow and merged to `master`.
+1. Shared kickoff docs land on `codex-sprint-20-kickoff`
+2. Team A completes on `codex-sprint-20-metric-builder`
+3. Team B completes on `codex-sprint-20-trajectory-tracker`
+4. Team A merges to `master` after its Reviewer and Optimizer gates
+5. Team B merges to `master` after its Reviewer and Optimizer gates
+6. Sprint 20 closes after both merges land
 
 ---
 
 ## Sprint Work Allocation
 
-Ownership is sprint-dependent, not permanent. Rewrite this table at sprint kickoff to match the current plan.
+### Team A owned areas
 
-### This sprint's owned areas
-
-| Files / Directories                                    | Assigned role |
+| Files / Directories                                    | Assigned team |
 |--------------------------------------------------------|---------------|
-| `TBD at Sprint 20 kickoff`                             | TBD |
+| `backend/routers/leaderboards.py`                      | Team A |
+| `backend/services/` custom-metric logic                | Team A |
+| `frontend/src/app/leaderboards/page.tsx`               | Team A |
+| `frontend/src/components/` metric-builder UI           | Team A |
+
+### Team B owned areas
+
+| Files / Directories                                    | Assigned team |
+|--------------------------------------------------------|---------------|
+| `backend/routers/insights.py`                          | Team B |
+| `backend/services/` trajectory logic                   | Team B |
+| `frontend/src/app/insights/page.tsx`                   | Team B |
+| `frontend/src/components/` trajectory UI               | Team B |
 
 ### Shared files — claim in Lock Table before editing
 
-- `backend/db/models.py` + `backend/db/ensure_schema.py` (always claimed together)
+- `backend/db/models.py` + `backend/db/ensure_schema.py`
 - `frontend/src/lib/types.ts`
 - `frontend/src/lib/api.ts`
 - `backend/main.py`
@@ -179,102 +175,41 @@ Ownership is sprint-dependent, not permanent. Rewrite this table at sprint kicko
 ## Session Start Checklist
 
 ```
-1. Read this file — sprint number, current role, sprint branch, handoff queue, merge rule
-2. Confirm I know my current role: Architect, Engineer, Reviewer, or Optimizer
-3. Confirm I am on the sprint branch or isolated worktree — do not implement on `master`
-4. Read the latest upstream handoff artifact for my role
-5. Check Lock Table — if the file I need is claimed, resolve that before editing
-6. git fetch origin && git log origin/master --oneline -5
-7. Confirm the prior role is complete before starting my own work
-8. Update my role status if it changed, commit: "docs: update sprint role status in AGENTS.md"
-9. Begin work
+1. Read this file — sprint number, team, role, branch, ownership, handoff queue
+2. Confirm I am on the correct team branch or isolated worktree
+3. Read my team's latest handoff artifact before editing
+4. Check the Shared File Lock Table before touching any shared file
+5. git fetch origin && git log origin/master --oneline -5
+6. Confirm the prior role for my team is complete
+7. Update this file first if ownership or lock status changes
+8. Begin work
 ```
 
 ---
 
 ## Branch Isolation Rule
 
-- Every sprint task is implemented on the sprint branch, not on `master`
-- The default model is one sprint branch shared across the four roles
-- If the current checkout is on another branch or has unsafe local changes, create an isolated worktree for the sprint branch before editing
-- `master` is the integration branch only; it should receive completed sprint work only after the branch passes both required gates
+- Team A work happens on `codex-sprint-20-metric-builder`
+- Team B work happens on `codex-sprint-20-trajectory-tracker`
+- Shared kickoff coordination happens on `codex-sprint-20-kickoff`
+- `master` is integration only
+- Do not implement Sprint 20 feature work on `master`
 
-## Work Allocation Rule
+## Cross-Team Review
 
-- File and directory ownership is decided per sprint, not as a permanent project rule
-- Rewrite the Sprint Work Allocation table at sprint kickoff to match the current plan
-- Lock ownership should be recorded by role, not by named agent
-- If a task moves mid-sprint, update this file first so the reassignment is explicit before code changes begin
+Before either team branch merges to `master`, the other team should do a quick convention spot-check:
 
----
-
-## Reviewer Gate
-
-Before a branch can move to `Ready for Optimizer`, the Reviewer checks:
-
-- correctness and regression risk
-- API/backend/frontend contract alignment
 - Python 3.8 compatibility
-- schema / `ensure_schema.py` compliance
 - shared-file claim compliance
-- router registration / wiring
-- test coverage or an explicit test gap note
-
-The Reviewer either:
-- marks the work `Blocked` with findings, or
-- marks it `Ready for Optimizer`
-
----
-
-## Optimizer Gate
-
-Before a branch can move to `Ready to Merge`, the Optimizer checks:
-
-- avoidable N+1 or repeated heavy queries
-- unnecessary duplicate writes or fetches
-- worker or process inefficiency
-- queue / retry / backoff behavior if relevant
-- frontend over-fetching or avoidable rerenders if relevant
-- unnecessary complexity where a simpler implementation would preserve behavior
-
-The Optimizer either:
-- marks the work `Blocked` with findings, or
-- marks it `Ready to Merge`
-
-“No action needed” is valid, but the gate still must be recorded.
-
----
-
-## Sprint Closeout Checklist
-
-```
-1. Confirm what actually landed in `master`
-2. Confirm the sprint branch passed Reviewer and Optimizer
-3. Create or update `specs/sprint-{NN}-closeout.md` with shipped work, deferred work, coordination lessons, technical lessons, and next-sprint seeds
-4. Clean `AGENTS.md` for the next sprint kickoff state while preserving this four-role workflow
-5. Update the matching sprint summary in `CLAUDE.md`
-6. Leave the next sprint kickoff readable from `AGENTS.md` + latest closeout note + `CLAUDE.md`
-```
-
----
-
-## Branch Naming Convention
-
-| Branch type | Format | Example |
-|-------------|--------|---------|
-| Sprint branch | `sprint-N-{slug}` | `sprint-17-role-workflow` |
-| Codex sprint branch | `codex-sprint-N-{slug}` | `codex-sprint-17-role-workflow` |
-| Claude sprint branch | `feature/sprint-N-{slug}` | `feature/sprint-17-role-workflow` |
-
-The workflow is role-first, but existing branch naming conventions can still be used by the named operator if needed.
+- router registration if new router wiring is needed
+- no raw schema changes outside `ensure_schema.py`
+- append-only compliance in `types.ts` and `api.ts`
 
 ---
 
 ## Notes
 
-*Free-form, dated, newest first. For cross-role communication mid-sprint.*
+*Free-form, dated, newest first. For cross-team coordination mid-sprint.*
 
-2026-03-30 (Codex): Sprint 19 closed and merged to `master`. Shipped Player Trend Intelligence, local-font build hardening, and backend coverage for missing-on/off and sparse-data fallback. See `specs/sprint-19-closeout.md`.
-2026-03-30 (Codex): Sprint 18 closed and merged to `master`. Hardwood Editorial is now the active platform palette. See `specs/sprint-18-closeout.md`, `specs/sprint-18-review-note.md`, and `specs/sprint-18-optimizer-note.md`.
-2026-03-30 (Engineer): Sprint 18 started on `codex-sprint-18-hardwood-editorial`. Selected direction: Hardwood Editorial. Initial scope is shared theme tokens plus home, nav, player, and team entry surfaces.
-2026-03-30 (Codex): Sprint 17 closed and merged to `master`. See `specs/sprint-17-closeout.md`. Sprint 18 kickoff seed: consider a platform color refresh with explicit palette options rather than ad hoc style tweaks.
+2026-03-30 (Architect): Sprint 20 kicked off as a dual-team sprint. Team A owns `Custom Metric Builder` in `Leaderboards`; Team B owns `Recent Trajectory Tracker` in `Insights`.
+2026-03-30 (Codex): Sprint 19 closed and merged to `master`. See `specs/sprint-19-closeout.md`.
