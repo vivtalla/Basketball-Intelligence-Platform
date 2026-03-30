@@ -279,3 +279,53 @@ export async function getCareerLeaderboard(
 export async function getLeaderboardTeams(season: string): Promise<string[]> {
   return fetchApi<string[]>(`/api/leaderboards/teams?season=${encodeURIComponent(season)}`);
 }
+
+// ── Warehouse pipeline API ────────────────────────────────────────────────────
+
+import type { WarehouseSeasonHealth, IngestionJobResponse } from "./types";
+
+export async function getWarehouseSeasonHealth(season: string): Promise<WarehouseSeasonHealth> {
+  return fetchApi<WarehouseSeasonHealth>(`/api/warehouse/health/${encodeURIComponent(season)}`);
+}
+
+export async function getWarehouseJobs(
+  status?: string,
+  season?: string,
+  limit = 50
+): Promise<IngestionJobResponse[]> {
+  const params = new URLSearchParams({ limit: String(limit) });
+  if (status) params.set("status", status);
+  if (season) params.set("season", season);
+  return fetchApi<IngestionJobResponse[]>(`/api/warehouse/jobs?${params.toString()}`);
+}
+
+export async function queueSeasonBackfill(season: string): Promise<{ queued: number }> {
+  return fetchApi<{ queued: number }>(
+    `/api/warehouse/queue/season-backfill?season=${encodeURIComponent(season)}`,
+    { method: "POST" }
+  );
+}
+
+export async function queueCurrentSeason(season: string): Promise<{ queued: number }> {
+  return fetchApi<{ queued: number }>(
+    `/api/warehouse/queue/current-season?season=${encodeURIComponent(season)}`,
+    { method: "POST" }
+  );
+}
+
+export async function runNextWarehouseJob(
+  season?: string
+): Promise<{ status: string; result?: Record<string, unknown> }> {
+  const params = season ? `?season=${encodeURIComponent(season)}` : "";
+  return fetchApi<{ status: string; result?: Record<string, unknown> }>(
+    `/api/warehouse/run-next${params}`,
+    { method: "POST" }
+  );
+}
+
+export async function retryFailedJobs(season: string): Promise<{ queued: number }> {
+  return fetchApi<{ queued: number }>(
+    `/api/warehouse/retry-failed?season=${encodeURIComponent(season)}`,
+    { method: "POST" }
+  );
+}
