@@ -24,6 +24,7 @@ from services.warehouse_service import (
     queue_current_season_daily_sync,
     queue_date_sync,
     queue_game_resync,
+    retry_failed_jobs,
     run_next_job,
     sync_game_boxscore,
     sync_game_pbp,
@@ -83,8 +84,8 @@ def queue_daily_current_season(season: str = Query(...), db: Session = Depends(g
 
 
 @router.post("/run-next", response_model=JobRunResponse)
-def run_one_job(db: Session = Depends(get_db)):
-    result = run_next_job(db)
+def run_one_job(season: Optional[str] = Query(None), db: Session = Depends(get_db)):
+    result = run_next_job(db, season=season)
     job_id = result.get("job_id")
     job = None
     if job_id:
@@ -100,6 +101,13 @@ def run_one_job(db: Session = Depends(get_db)):
         job=_job_response(job) if job else None,
         result=response_result,
     )
+
+
+@router.post("/retry-failed", response_model=QueueResponse)
+def retry_failed(season: str = Query(...), db: Session = Depends(get_db)):
+    jobs = retry_failed_jobs(db, season)
+    db.commit()
+    return QueueResponse(queued=len(jobs), jobs=[_job_response(job) for job in jobs])
 
 
 @router.post("/sync/schedule")

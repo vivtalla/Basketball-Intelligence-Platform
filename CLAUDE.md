@@ -97,6 +97,9 @@ python data/epm_rapm_import.py data.csv --metrics lebron,raptor,pipm
 python data/bulk_import.py --season 2024-25
 ```
 
+Cron:
+`0 6 * * * /path/to/backend/data/daily_sync.sh`
+
 ### Re-Sync PBP Stats (after schema or logic changes)
 
 ```bash
