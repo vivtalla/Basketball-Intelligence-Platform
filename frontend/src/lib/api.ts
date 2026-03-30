@@ -348,3 +348,11 @@ export async function resetStaleWarehouseJobs(
     { method: "POST" }
   );
 }
+
+export async function getGameSummary(
+  gameId: string
+): Promise<import("./types").GameSummaryResponse> {
+  return fetchApi<import("./types").GameSummaryResponse>(
+    `/api/games/${encodeURIComponent(gameId)}/summary`
+  );
+}

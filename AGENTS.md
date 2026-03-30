@@ -28,13 +28,13 @@ Sprint 13 is closed. See `specs/sprint-13-closeout.md` for shipped work and next
 ### Claude
 - Branch: `feature/sprint-14-game-summary-ui`
 - Scope: `GameSummaryResponse` TS types + API fn + SWR hook; Game Explorer team box score section + player box score table; coverage page memo fix
-- Status: In progress
+- Status: Complete — merged to master
 - PR: —
 
 ### Codex
 - Branch: `codex-sprint-14-data-layer`
 - Scope: `GameTeamBoxScore`/`GamePlayerBoxScore`/`GameSummaryResponse` Pydantic models; `game_summary_service.py` (new); `GET /api/games/{game_id}/summary` endpoint; SIGTERM fix in `warehouse_jobs.py`
-- Status: In progress
+- Status: Complete — merged to master
 - PR: —
 
 > ⚠️ **PERMANENT WARNING**: Do NOT use `codex-sprint-10-game-explorer-controls`. It is at a Sprint 9 commit and its diff against master deletes all warehouse infrastructure (2,700+ lines). It cannot be merged. It is dead.

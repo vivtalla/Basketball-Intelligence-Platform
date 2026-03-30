@@ -66,8 +66,8 @@ export default function CoveragePage() {
   const { data, error, isLoading } = usePbpCoverageDashboard(season);
   const { data: warehouseSummary } = useWarehouseJobSummary(season);
 
-  const teamRows = useMemo(() => data?.teams ?? [], [data?.teams]);
-  const playerRows = useMemo(() => data?.players ?? [], [data?.players]);
+  const teamRows = useMemo(() => data?.teams ?? [], [data]);
+  const playerRows = useMemo(() => data?.players ?? [], [data]);
   const focusTeam = useMemo(() => {
     const ranked = [...teamRows].sort((a, b) => {
       const aMissing = a.eligible_games - a.synced_games;
