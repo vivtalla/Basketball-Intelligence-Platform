@@ -269,7 +269,7 @@ export default function TeamDetailPage() {
                 href="/coverage"
                 className="inline-flex rounded-full border border-gray-200 px-4 py-2 text-sm font-medium text-gray-700 transition-colors hover:border-gray-300 hover:bg-gray-50 dark:border-gray-700 dark:text-gray-200 dark:hover:border-gray-600 dark:hover:bg-gray-800"
               >
-                Open coverage board
+                {effectiveSeason >= "2024-25" ? "Open coverage board" : "Open coverage board (modern seasons)"}
               </Link>
               <button
                 type="button"
@@ -282,7 +282,9 @@ export default function TeamDetailPage() {
                 <div className="text-sm text-gray-500 dark:text-gray-400">
                   {pbpCoverage.status === "ready"
                     ? "This team is fully ready for lineup and on/off analysis."
-                    : `${pbpCoverage.eligible_games - pbpCoverage.synced_games} games still need play-by-play sync for full team intelligence.`}
+                    : effectiveSeason >= "2024-25"
+                    ? `${pbpCoverage.eligible_games - pbpCoverage.synced_games} games still need play-by-play sync for full team intelligence.`
+                    : "Historical seasons use legacy-plus-derived support in Sprint 16, so partial coverage here is an accepted scope limit unless validation shows a real product bug."}
                 </div>
               ) : null}
             </div>
@@ -368,6 +370,7 @@ export default function TeamDetailPage() {
                 intelligence={intelligence}
                 currentAnalytics={currentAnalytics ?? null}
                 priorAnalytics={priorAnalytics ?? null}
+                season={effectiveSeason}
               />
           )}
         </section>

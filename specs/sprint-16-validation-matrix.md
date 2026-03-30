@@ -17,8 +17,8 @@ Legend:
 | Surface | `2022-23` | `2023-24` | `2024-25` | `2025-26` | Primary dependency / note |
 |--------|-----------|-----------|-----------|-----------|---------------------------|
 | Player page | `Needs Validation` | `Needs Validation` | `Needs Validation` | `Needs Validation` | External metrics are out of scope; validate native data only |
-| Team page | `Needs Validation` | `Needs Validation` | `Ready` | `In Progress` | `2025-26` still depends on warehouse/PBP catch-up |
-| Leaderboards | `Needs Validation` | `Needs Validation` | `Needs Validation` | `Needs Validation` | Validate native stats / on-off / lineup views only |
+| Team page | `Needs Validation` | `Needs Validation` | `Ready` | `In Progress` | Historical warehouse guidance copy has been corrected; still needs page-level verification |
+| Leaderboards | `Needs Validation` | `Needs Validation` | `Needs Validation` | `Needs Validation` | Old import-first empty-state copy has been removed; validate native stats / on-off / lineup views only |
 | Compare | `Needs Validation` | `Needs Validation` | `Needs Validation` | `Needs Validation` | Native multi-season data should be sufficient |
 | Insights | `Needs Validation` | `Needs Validation` | `Needs Validation` | `Needs Validation` | Should work from existing season stats |
 | Standings | `Needs Validation` | `Needs Validation` | `Needs Validation` | `Needs Validation` | Driven by local `player_game_logs` |
