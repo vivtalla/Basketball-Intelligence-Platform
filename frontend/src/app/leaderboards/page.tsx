@@ -766,7 +766,7 @@ function LeaderboardsPageContent() {
               {!isLoading && (careerBoard.data?.entries.length ?? 0) === 0 && (
                 <tr>
                   <td colSpan={5} className="text-center py-12 text-gray-400 dark:text-gray-500 text-sm">
-                    No career data available. Run bulk import for multiple seasons first.
+                    No career data is available for this selection yet.
                   </td>
                 </tr>
               )}
@@ -832,7 +832,7 @@ function LeaderboardsPageContent() {
                 </tr>
               ))}
               {!isLoading && onOffBoard.data?.players.length === 0 && (
-                <tr><td colSpan={6} className="text-center py-12 text-gray-400 dark:text-gray-500 text-sm">No on/off data found. Run play-by-play import for this season.</td></tr>
+                <tr><td colSpan={6} className="text-center py-12 text-gray-400 dark:text-gray-500 text-sm">No on/off data is available for this season yet. Local play-by-play coverage may still be catching up.</td></tr>
               )}
               {!isLoading && onOffBoard.data?.players.map((entry, idx) => (
                 <tr key={entry.player_id} className="border-b border-gray-100 dark:border-gray-700/50 last:border-0 hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors">
@@ -877,7 +877,7 @@ function LeaderboardsPageContent() {
                 </tr>
               ))}
               {!isLoading && lineupsBoard.data?.lineups.length === 0 && (
-                <tr><td colSpan={6} className="text-center py-12 text-gray-400 dark:text-gray-500 text-sm">No lineup data found. Run play-by-play import for this season.</td></tr>
+                <tr><td colSpan={6} className="text-center py-12 text-gray-400 dark:text-gray-500 text-sm">No lineup data is available for this season yet. Local play-by-play coverage may still be catching up.</td></tr>
               )}
               {!isLoading && lineupsBoard.data?.lineups.map((lineup, idx) => (
                 <tr key={lineup.lineup_key} className="border-b border-gray-100 dark:border-gray-700/50 last:border-0 hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors">
@@ -905,7 +905,7 @@ function LeaderboardsPageContent() {
           : mode === "career"
           ? "Career averages across all seasons with ≥15 games played. Includes all available seasons in the database."
           : mode === "onoff"
-          ? "On/Off requires play-by-play import and minimum on-court minutes threshold."
+          ? "On/Off depends on local play-by-play-derived coverage and the minimum on-court minutes threshold."
           : "Lineup ratings are possession-based and filtered by minimum lineup minutes."}
       </p>
     </div>

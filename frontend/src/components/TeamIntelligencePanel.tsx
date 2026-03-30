@@ -5,6 +5,7 @@ interface TeamIntelligencePanelProps {
   intelligence: TeamIntelligence;
   currentAnalytics?: TeamAnalytics | null;
   priorAnalytics?: TeamAnalytics | null;
+  season?: string | null;
 }
 
 function fmt(value: number | null | undefined, digits = 1) {
@@ -25,6 +26,13 @@ function coverageTone(status: TeamIntelligence["pbp_coverage"]["status"]) {
 function coveragePct(numerator: number, denominator: number) {
   if (!denominator) return 0;
   return Math.round((numerator / denominator) * 100);
+}
+
+function isWarehouseTargetSeason(season: string | null | undefined) {
+  if (!season) return false;
+  const startYear = Number(season.slice(0, 4));
+  if (Number.isNaN(startYear)) return false;
+  return startYear >= 2024;
 }
 
 function LineupMiniCard({
@@ -96,7 +104,10 @@ export default function TeamIntelligencePanel({
   intelligence,
   currentAnalytics = null,
   priorAnalytics = null,
+  season = null,
 }: TeamIntelligencePanelProps) {
+  const effectiveSeason = season ?? intelligence.season;
+  const warehouseTargetSeason = isWarehouseTargetSeason(effectiveSeason);
   const coverage = intelligence.pbp_coverage;
   const gameCoveragePct = coveragePct(coverage.synced_games, coverage.eligible_games);
   const playerCoverageTarget = Math.max(intelligence.impact_leaders.length, coverage.players_with_on_off);
@@ -108,8 +119,12 @@ export default function TeamIntelligencePanel({
     coverage.status === "ready"
       ? "Coverage is complete. Use lineups and impact leaders to evaluate rotation decisions."
       : coverage.status === "partial"
-      ? `${coverage.eligible_games - coverage.synced_games} games are still missing from local play-by-play. Finish the season sync, then revisit lineup and on/off sections.`
-      : "This team has no meaningful play-by-play coverage yet. Start from the coverage dashboard and run a season sync before trusting derived insights.";
+      ? warehouseTargetSeason
+        ? `${coverage.eligible_games - coverage.synced_games} games are still missing from local play-by-play. Finish the season sync, then revisit lineup and on/off sections.`
+        : `${coverage.eligible_games - coverage.synced_games} tracked games are still missing derived coverage. Historical seasons rely on legacy-plus-derived support, so use this page as directional context rather than waiting for full warehouse sync.`
+      : warehouseTargetSeason
+      ? "This team has no meaningful play-by-play coverage yet. Start from the coverage dashboard and run a season sync before trusting derived insights."
+      : "This historical season is using legacy-plus-derived support. If key team signals still look empty after validation, log it as a product gap instead of assuming a warehouse sync is required.";
   const yoySignals = currentAnalytics && priorAnalytics
     ? [
         {
@@ -259,7 +274,9 @@ export default function TeamIntelligencePanel({
             <div className="mt-4 text-sm text-gray-500 dark:text-gray-400">
               {coverage.status === "ready"
                 ? "Best lineups and impact leaders now have enough support to drive analysis."
-                : "Run more sync work from the coverage board, then use this page to validate lineup and impact changes."}
+                : warehouseTargetSeason
+                ? "Run more sync work from the coverage board, then use this page to validate lineup and impact changes."
+                : "Historical seasons are not full warehouse targets in Sprint 16, so use this page to confirm native and derived signals rather than expecting full coverage-board parity."}
             </div>
           </div>
         </div>
@@ -323,7 +340,9 @@ export default function TeamIntelligencePanel({
           <div className="mt-5 space-y-3">
             {intelligence.impact_leaders.length === 0 ? (
               <div className="rounded-3xl border border-dashed border-gray-200 p-6 text-sm text-gray-500 dark:border-gray-700 dark:text-gray-400">
-                No team impact leaders yet. Sync more play-by-play to unlock this section.
+                {warehouseTargetSeason
+                  ? "No team impact leaders yet. Sync more play-by-play to unlock this section."
+                  : "No team impact leaders are available yet for this historical season. If this blocks analysis, log it in the Sprint 16 validation matrix rather than treating it as a mandatory warehouse task."}
               </div>
             ) : (
               intelligence.impact_leaders.map((leader, index) => (

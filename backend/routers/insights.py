@@ -27,7 +27,9 @@ _DELTA_WEIGHTS: list[tuple[str, float]] = [
 def _prior_season(season: str) -> str:
     """'2024-25' → '2023-24'"""
     start, end = season.split("-")
-    return f"{int(start) - 1}-{str(int(start) - 1)[2:]}"
+    prior_start = int(start) - 1
+    prior_end = int(end) - 1
+    return f"{prior_start}-{prior_end:02d}"
 
 
 def _stat_snapshot(row: SeasonStat) -> dict:

@@ -1176,7 +1176,7 @@ def retry_failed_jobs(db: Session, season: str) -> List[IngestionJob]:
         row.completed_at = None
         row.leased_until = None
         row.run_after = now
-    db.flush()
+    db.commit()
     return rows
 
 
