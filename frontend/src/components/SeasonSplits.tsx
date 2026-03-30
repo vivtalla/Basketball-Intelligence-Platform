@@ -129,10 +129,6 @@ export default function SeasonSplits({ playerId, season }: SeasonSplitsProps) {
     [data]
   );
 
-  // Need at least 10 games to show splits
-  if (!data || games.length < 10) return null;
-
-  // Monthly groupings
   const byMonth = useMemo(() => {
     const map: Record<string, GameLogEntry[]> = {};
     for (const g of games) {
@@ -142,6 +138,9 @@ export default function SeasonSplits({ playerId, season }: SeasonSplitsProps) {
     }
     return map;
   }, [games]);
+
+  // Need at least 10 games to show splits
+  if (!data || games.length < 10) return null;
 
   const months = MONTH_ORDER.filter((m) => byMonth[m]);
 

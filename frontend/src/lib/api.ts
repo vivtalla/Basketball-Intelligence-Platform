@@ -356,3 +356,12 @@ export async function getGameSummary(
     `/api/games/${encodeURIComponent(gameId)}/summary`
   );
 }
+
+export async function getTeamRotationReport(
+  teamAbbreviation: string,
+  season: string
+): Promise<import("./types").TeamRotationReport> {
+  return fetchApi<import("./types").TeamRotationReport>(
+    `/api/teams/${encodeURIComponent(teamAbbreviation)}/rotation-report?season=${encodeURIComponent(season)}`
+  );
+}

@@ -15,10 +15,12 @@ from models.team import (
     TeamIntelligenceResponse,
     TeamPbpCoverage,
     TeamRecentGame,
+    TeamRotationReport,
     TeamRosterPlayer,
     TeamRosterResponse,
     TeamSummary,
 )
+from services.team_rotation_service import build_team_rotation_report
 
 router = APIRouter()
 
@@ -474,3 +476,19 @@ def team_intelligence(
         worst_lineups=worst_lineups,
         recent_games=recent_games,
     )
+
+
+@router.get("/{abbr}/rotation-report", response_model=TeamRotationReport)
+def team_rotation_report(
+    abbr: str,
+    season: str = Query("2024-25"),
+    db: Session = Depends(get_db),
+):
+    team = db.query(Team).filter(Team.abbreviation == abbr.upper()).first()
+    if not team:
+        raise HTTPException(
+            status_code=404,
+            detail=f"Team '{abbr}' not found. View a player on that team to load it.",
+        )
+
+    return build_team_rotation_report(db=db, team=team, season=season)
