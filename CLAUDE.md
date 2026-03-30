@@ -380,6 +380,24 @@ Eliminated live NBA API calls on every player profile load:
 
 ---
 
+### Sprint 14 — Game Summary API + Game Explorer Box Score
+**Branch:** `codex-sprint-14-data-layer` (Codex), `feature/sprint-14-game-summary-ui` (Claude)
+
+**Codex — Backend data layer:**
+- `GET /api/games/{game_id}/summary` backed by warehouse `games`, `game_team_stats`, and `game_player_stats`
+- `GameTeamBoxScore`, `GamePlayerBoxScore`, and `GameSummaryResponse` backend models
+- `game_summary_service.py` for home/away team box scores plus sorted player rows
+- `warehouse_jobs.py` SIGTERM exit-through-Python fix
+
+**Claude — Game Explorer frontend:**
+- `getGameSummary()` API client + `useGameSummary()` SWR hook
+- Game Explorer box score section with team stat comparison and per-team player tables
+- Coverage page memo dependency fix
+
+**Merge note:** Claude's branch needed a final contract-alignment fix before merge so the frontend matched the shipped backend response shape (`home_team_stats`, `away_team_stats`, `players`, `materialized`).
+
+---
+
 ## Active Branches
 
 | Branch | Owner | Status |
