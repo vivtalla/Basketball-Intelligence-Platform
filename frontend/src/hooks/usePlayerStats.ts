@@ -4,6 +4,7 @@ import useSWR from "swr";
 import type {
   PlayerProfile,
   CareerStatsResponse,
+  PlayerTrendReport,
   ShotChartResponse,
   LeaderboardResponse,
   TeamSummary,
@@ -30,6 +31,7 @@ import type {
 import {
   getPlayerProfile,
   getPlayerCareerStats,
+  getPlayerTrendReport,
   getPlayerShotChart,
   getLeaderboard,
   getTeams,
@@ -65,6 +67,13 @@ export function usePlayerCareerStats(playerId: number | null) {
   return useSWR<CareerStatsResponse>(
     playerId ? `player-career-${playerId}` : null,
     () => getPlayerCareerStats(playerId!)
+  );
+}
+
+export function usePlayerTrendReport(playerId: number | null, season: string | null) {
+  return useSWR<PlayerTrendReport>(
+    playerId && season ? `player-trend-report-${playerId}-${season}` : null,
+    () => getPlayerTrendReport(playerId!, season!)
   );
 }
 

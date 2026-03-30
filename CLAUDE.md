@@ -478,6 +478,30 @@ Eliminated live NBA API calls on every player profile load:
 
 ---
 
+### Sprint 19 — Player Trend Intelligence
+**Branch:** `codex-sprint-19-player-trend-intelligence` (Codex)
+
+**Codex — player-page analyst workflow:**
+- Added a dedicated player trend report endpoint at `GET /api/players/{player_id}/trend-report?season=...`
+- Added the `Player Trend Intelligence` player-page surface with:
+  - role-status summary strip
+  - recent-vs-season comparison
+  - trust signals
+  - impact snapshot
+  - recommended games to inspect next
+- Scoped the workflow to regular-season windows and added precise playoff-mode and sparse-data limited-state fallbacks
+- Removed `next/font/google` from the app shell and replaced it with deterministic local font stacks
+- Added backend coverage for missing `player_on_off` degradation and sparse-data limited responses
+- Added Sprint 19 workflow artifacts:
+  - `specs/sprint-19-player-trend-intelligence.md`
+  - `specs/sprint-19-review-note.md`
+  - `specs/sprint-19-optimizer-note.md`
+  - `specs/sprint-19-closeout.md`
+
+**Sprint 19 result:** the platform now has parallel flagship decision workflows on both team and player pages. The next likely product step is connecting those workflows into a broader investigation path rather than adding another isolated panel.
+
+---
+
 ## Active Branches
 
 | Branch | Owner | Status |

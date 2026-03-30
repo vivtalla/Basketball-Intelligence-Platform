@@ -5,7 +5,8 @@ from sqlalchemy.orm import Session
 
 from data.nba_client import search_players
 from db.database import get_db
-from models.player import PlayerProfile, PlayerSearchResult
+from models.player import PlayerProfile, PlayerSearchResult, PlayerTrendReport
+from services.player_trend_service import build_player_trend_report
 from services.sync_service import sync_player_if_needed
 
 router = APIRouter()
@@ -63,3 +64,17 @@ def resync_player(player_id: int, db: Session = Depends(get_db)):
         return {"status": "ok", "message": f"Player {player_id} synced"}
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Sync failed: {e}")
+
+
+@router.get("/{player_id}/trend-report", response_model=PlayerTrendReport)
+def get_player_trend_report(
+    player_id: int,
+    season: str = Query("2024-25"),
+    db: Session = Depends(get_db),
+):
+    try:
+        player = sync_player_if_needed(db, player_id)
+    except Exception as e:
+        raise HTTPException(status_code=404, detail=f"Player not found: {e}")
+
+    return build_player_trend_report(db=db, player=player, season=season)

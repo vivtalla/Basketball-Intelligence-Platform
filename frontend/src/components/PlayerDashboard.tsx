@@ -8,6 +8,7 @@ import RadarChart from "./RadarChart";
 import CareerArcChart from "./CareerArcChart";
 import ShotChart from "./ShotChart";
 import PlayerPbpInsights from "./PlayerPbpInsights";
+import PlayerTrendIntelligencePanel from "./PlayerTrendIntelligencePanel";
 import GameLogTable from "./GameLogTable";
 import PlayerSimilarity from "./PlayerSimilarity";
 import SeasonSplits from "./SeasonSplits";
@@ -124,6 +125,12 @@ export default function PlayerDashboard({ playerId }: PlayerDashboardProps) {
           </div>
         </div>
       )}
+
+      <PlayerTrendIntelligencePanel
+        playerId={playerId}
+        season={effectiveSeasonStr}
+        isPlayoffs={isPlayoffs}
+      />
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {selectedSeasonData && (
