@@ -92,7 +92,9 @@ class WarehouseJobSummary(BaseModel):
     status_counts: Dict[str, int]
     job_types: List[WarehouseJobTypeSummary]
     oldest_queued_job: Optional[IngestionJobResponse] = None
+    stalled_running_count: int = 0
     stalled_running_jobs: List[IngestionJobResponse]
+    recent_failed_jobs: List[IngestionJobResponse]
     global_request_throttle: Optional[WarehouseRequestThrottleStatus] = None
 
 

@@ -329,3 +329,22 @@ export async function retryFailedJobs(season: string): Promise<{ queued: number 
     { method: "POST" }
   );
 }
+
+export async function getWarehouseJobSummary(
+  season?: string
+): Promise<import("./types").WarehouseJobSummary> {
+  const params = season ? `?season=${encodeURIComponent(season)}` : "";
+  return fetchApi<import("./types").WarehouseJobSummary>(
+    `/api/warehouse/jobs/summary${params}`
+  );
+}
+
+export async function resetStaleWarehouseJobs(
+  season?: string
+): Promise<{ queued: number }> {
+  const params = season ? `?season=${encodeURIComponent(season)}` : "";
+  return fetchApi<{ queued: number }>(
+    `/api/warehouse/reset-stale${params}`,
+    { method: "POST" }
+  );
+}

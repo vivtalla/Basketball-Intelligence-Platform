@@ -1158,6 +1158,26 @@ def retry_failed_jobs(db: Session, season: str) -> List[IngestionJob]:
     return rows
 
 
+def reset_stale_jobs(db: Session, season: Optional[str] = None) -> List[IngestionJob]:
+    now = _utcnow()
+    query = db.query(IngestionJob).filter(
+        IngestionJob.status == JOB_STATUS_RUNNING,
+        IngestionJob.leased_until.isnot(None),
+        IngestionJob.leased_until < now,
+    )
+    if season:
+        query = query.filter(IngestionJob.season == season)
+    rows = query.all()
+    for row in rows:
+        row.status = JOB_STATUS_QUEUED
+        row.leased_until = None
+        row.completed_at = None
+        row.run_after = now
+        row.last_error = row.last_error or "Lease expired; returned to queue"
+    db.flush()
+    return rows
+
+
 def get_job_summary(db: Session, season: Optional[str] = None) -> dict:
     base_query = db.query(IngestionJob)
     if season:
@@ -1205,6 +1225,12 @@ def get_job_summary(db: Session, season: Optional[str] = None) -> dict:
         .order_by(IngestionJob.leased_until.asc())
         .all()
     )
+    recent_failed_jobs = (
+        base_query.filter(IngestionJob.status == JOB_STATUS_FAILED)
+        .order_by(IngestionJob.updated_at.desc(), IngestionJob.id.desc())
+        .limit(10)
+        .all()
+    )
     throttle = db.query(ApiRequestState).filter_by(source="nba_public").first()
 
     return {
@@ -1222,7 +1248,9 @@ def get_job_summary(db: Session, season: Optional[str] = None) -> dict:
             for job_type, counts in sorted(grouped_job_types.items())
         ],
         "oldest_queued_job": _serialize_job(oldest_queued_job),
+        "stalled_running_count": len(stalled_running),
         "stalled_running_jobs": [_serialize_job(row) for row in stalled_running[:10]],
+        "recent_failed_jobs": [_serialize_job(row) for row in recent_failed_jobs],
         "global_request_throttle": {
             "source": throttle.source,
             "available_at": _serialize_dt(throttle.available_at),
@@ -1362,10 +1390,17 @@ def get_season_health(db: Session, season: str) -> dict:
     }
 
 
-def list_jobs(db: Session, status: Optional[str] = None, limit: int = 50) -> List[IngestionJob]:
+def list_jobs(
+    db: Session,
+    status: Optional[str] = None,
+    season: Optional[str] = None,
+    limit: int = 50,
+) -> List[IngestionJob]:
     query = db.query(IngestionJob)
     if status:
         query = query.filter_by(status=status)
+    if season:
+        query = query.filter(IngestionJob.season == season)
     return query.order_by(IngestionJob.created_at.desc()).limit(limit).all()
 
 

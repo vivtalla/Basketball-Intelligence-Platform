@@ -1,6 +1,6 @@
 # Agent Coordination
 
-Last updated: 2026-03-30 by Codex (Sprint 13 kickoff)
+Last updated: 2026-03-30 by Codex (Sprint 13 expansion)
 
 > **Both agents read this file before touching any code at the start of every session.**
 > Check sprint status, your branch, this sprint's work allocation, and the Merge Order.
@@ -15,7 +15,7 @@ Last updated: 2026-03-30 by Codex (Sprint 13 kickoff)
 | Field        | Value                                  |
 |--------------|----------------------------------------|
 | Sprint       | 13                                     |
-| Goal         | Warehouse reliability hardening — shared rate limiting, worker observability, long-running queue runner |
+| Goal         | Warehouse reliability hardening — shared rate limiting, worker observability, recovery controls, and frontend auto-poll |
 | Started      | 2026-03-30                             |
 | Target merge | TBD                                    |
 
@@ -33,7 +33,7 @@ Sprint 12 is closed. See `specs/sprint-12-closeout.md` for shipped work and next
 
 ### Codex
 - Branch: `codex-sprint-13-warehouse-reliability`
-- Scope: Shared NBA request throttle, warehouse queue observability, long-running worker mode
+- Scope: Shared NBA request throttle, warehouse queue observability, long-running worker mode, stale-job recovery, frontend auto-poll
 - Status: In progress
 - PR: —
 
@@ -55,9 +55,9 @@ Claim a file here before writing a single line. If a file is already claimed, re
 | `backend/db/ensure_schema.py`                          | Codex      | Shared throttle state table / schema support |
 | `backend/routers/warehouse.py`                         | Codex      | Operational warehouse summary endpoint |
 | `backend/services/warehouse_service.py`                | Codex      | Queue summary helpers / reliability support |
-| `frontend/src/lib/types.ts`                            | —          |         |
-| `frontend/src/lib/api.ts`                              | —          |         |
-| `frontend/src/components/WarehousePipelinePanel.tsx`   | —          |         |
+| `frontend/src/lib/types.ts`                            | Codex      | Warehouse summary / recovery response types |
+| `frontend/src/lib/api.ts`                              | Codex      | Warehouse summary / recovery client calls |
+| `frontend/src/components/WarehousePipelinePanel.tsx`   | Codex      | Auto-poll UI, failure visibility, recovery controls |
 | `backend/main.py`                                      | —          |         |
 
 ---
@@ -91,6 +91,10 @@ Ownership is sprint-dependent, not permanent. The table below is rewritten each 
 | `backend/db/ensure_schema.py`                          | Codex                |
 | `backend/services/warehouse_service.py`                | Codex                |
 | `backend/routers/warehouse.py`                         | Codex                |
+| `frontend/src/hooks/usePlayerStats.ts`                 | Codex                |
+| `frontend/src/components/WarehousePipelinePanel.tsx`   | Codex                |
+| `frontend/src/lib/api.ts`                              | Codex                |
+| `frontend/src/lib/types.ts`                            | Codex                |
 
 ### Shared files — claim in Lock Table before editing
 
