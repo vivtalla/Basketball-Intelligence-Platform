@@ -26,7 +26,7 @@ Last updated: 2026-03-30 by Claude (Sprint 13 closeout)
 ### Claude
 - Branch: `feature/sprint-14-game-summary-ui`
 - Scope: `GameSummaryResponse` TS types + API fn + SWR hook; Game Explorer team box score section + player box score table; coverage page memo fix
-- Status: In progress
+- Status: Complete — awaiting Codex backend (codex-sprint-14-data-layer) before PR
 - PR: —
 
 ### Codex
