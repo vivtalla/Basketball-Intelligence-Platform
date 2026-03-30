@@ -1,6 +1,6 @@
 # Agent Coordination
 
-Last updated: 2026-03-29 by Codex (Sprint 12 Game Explorer kickoff)
+Last updated: 2026-03-30 by Claude (Sprint 12 closeout)
 
 > **Both agents read this file before touching any code at the start of every session.**
 > Check sprint status, your branch, this sprint's work allocation, and the Merge Order.
@@ -12,33 +12,32 @@ Last updated: 2026-03-29 by Codex (Sprint 12 Game Explorer kickoff)
 
 ## Sprint Status
 
-| Field        | Value                                                                 |
-|--------------|-----------------------------------------------------------------------|
-| Sprint       | 12                                                                    |
-| Goal         | Warehouse completion — retry/backoff, season-scoped dispatch, daily cron, frontend hardening |
-| Started      | 2026-03-29                                                            |
-| Target merge | TBD                                                                   |
+| Field        | Value                                  |
+|--------------|----------------------------------------|
+| Sprint       | 13 (not yet started)                   |
+| Goal         | TBD at kickoff                         |
+| Started      | —                                      |
+| Target merge | —                                      |
+
+Sprint 12 is closed. See `specs/sprint-12-closeout.md` for shipped work and next-sprint seeds.
 
 ---
 
 ## Agent Assignments
 
 ### Claude
-- Branch: `feature/sprint-12-warehouse-frontend`
-- Scope: Season-scoped Run Next Job button, Retry Failed button + endpoint call, failed job details panel
-- Status: Paused — session limit reached before frontend follow-up
+- Branch: TBD
+- Scope: TBD
+- Status: Idle — awaiting Sprint 13 kickoff
 - PR: —
-- Blocked on: nothing
 
 ### Codex
-- Branch: `codex-sprint-12-warehouse-ops`
-- Scope: Season-scoped `/run-next` endpoint, retry/backoff logic in `run_next_job`, `retry_failed_jobs()` service + `/retry-failed` endpoint, `daily_sync.sh` cron script
-- Optional second branch: `codex-sprint-12-game-explorer` (Game Explorer rebuild — only if warehouse-ops scope allows)
-- Status: Warehouse ops complete on `codex-sprint-12-warehouse-ops`; Game Explorer rebuild in progress on `codex-sprint-12-game-explorer`
+- Branch: TBD
+- Scope: TBD
+- Status: Idle — awaiting Sprint 13 kickoff
 - PR: —
-- Blocked on: nothing
 
-> ⚠️ **IMPORTANT FOR CODEX**: Do NOT use or reference the `codex-sprint-10-game-explorer-controls` branch. It is at a Sprint 9 commit and its diff against master deletes all warehouse infrastructure (2,700+ lines including warehouse_service.py, warehouse.py router, warehouse_jobs.py). It cannot be merged. If building Game Explorer features, create `codex-sprint-12-game-explorer` fresh from current master.
+> ⚠️ **PERMANENT WARNING**: Do NOT use `codex-sprint-10-game-explorer-controls`. It is at a Sprint 9 commit and its diff against master deletes all warehouse infrastructure (2,700+ lines). It cannot be merged. It is dead.
 
 ---
 
@@ -50,18 +49,16 @@ Claim a file here before writing a single line. If a file is already claimed, re
 
 `models.py` and `ensure_schema.py` are always claimed together.
 
-| File                                                   | Claimed by | Purpose                                              |
-|--------------------------------------------------------|------------|------------------------------------------------------|
-| `backend/db/models.py`                                 | —          |                                                      |
-| `backend/db/ensure_schema.py`                          | —          |                                                      |
-| `backend/routers/warehouse.py`                         | Codex      | Season-scoped /run-next, /retry-failed endpoint      |
-| `backend/services/warehouse_service.py`                | Codex      | retry_failed_jobs(), backoff logic in run_next_job   |
-| `backend/data/daily_sync.sh`                           | Codex      | Daily warehouse cron wrapper                         |
-| `frontend/src/app/games/[gameId]/page.tsx`             | Codex      | Game Explorer controls rebuild                       |
-| `frontend/src/lib/types.ts`                            | —          |                                                      |
-| `frontend/src/lib/api.ts`                              | Claude     | retryFailedJobs(), runNextWarehouseJob(season?)      |
-| `frontend/src/components/WarehousePipelinePanel.tsx`   | Claude     | Retry Failed button, season-scoped run-next          |
-| `backend/main.py`                                      | —          |                                                      |
+| File                                                   | Claimed by | Purpose |
+|--------------------------------------------------------|------------|---------|
+| `backend/db/models.py`                                 | —          |         |
+| `backend/db/ensure_schema.py`                          | —          |         |
+| `backend/routers/warehouse.py`                         | —          |         |
+| `backend/services/warehouse_service.py`                | —          |         |
+| `frontend/src/lib/types.ts`                            | —          |         |
+| `frontend/src/lib/api.ts`                              | —          |         |
+| `frontend/src/components/WarehousePipelinePanel.tsx`   | —          |         |
+| `backend/main.py`                                      | —          |         |
 
 ---
 
@@ -76,11 +73,7 @@ Specs written by one agent for the other. Check this before starting work — if
 
 ## Merge Order (this sprint)
 
-```
-1. codex-sprint-12-warehouse-ops          (Codex) — backend first; Claude reviews before merge
-2. feature/sprint-12-warehouse-frontend   (Claude) — depends on /retry-failed endpoint; Codex reviews before merge
-3. codex-sprint-12-game-explorer          (Codex, optional) — independent; can merge in any order
-```
+TBD at Sprint 13 kickoff.
 
 ---
 
@@ -90,14 +83,7 @@ Ownership is sprint-dependent, not permanent. The table below is rewritten each 
 
 ### This sprint's owned areas
 
-| Files / Directories                                    | Assigned this sprint |
-|--------------------------------------------------------|----------------------|
-| `backend/routers/warehouse.py`                         | Codex                |
-| `backend/services/warehouse_service.py`                | Codex                |
-| `backend/data/daily_sync.sh` (new)                     | Codex                |
-| `frontend/src/app/games/[gameId]/page.tsx`             | Codex                |
-| `frontend/src/lib/api.ts`                              | Claude               |
-| `frontend/src/components/WarehousePipelinePanel.tsx`   | Claude               |
+TBD at Sprint 13 kickoff.
 
 ### Shared files — claim in Lock Table before editing
 
@@ -181,10 +167,4 @@ Sprint number prefix makes `git branch -a` immediately readable.
 
 *Free-form, dated, newest first. For cross-agent communication mid-sprint.*
 
-2026-03-29 (Codex): Optional Game Explorer rebuild started on fresh branch `codex-sprint-12-game-explorer` from current `origin/master`. Unsafe Sprint 10 branch is not being used.
-
-2026-03-29 (Codex): Warehouse ops backend completed on `codex-sprint-12-warehouse-ops` with season-scoped `/run-next`, retry/backoff, `/retry-failed`, and `daily_sync.sh`.
-
-2026-03-29 (Claude): Sprint 12 kicked off. Codex owns warehouse-ops backend (retry logic, season-scoped /run-next, /retry-failed, cron). Claude owns frontend hardening (season-scoped button, retry failed UI) — blocked on Codex's /retry-failed endpoint. Game Explorer branch is UNSAFE to merge — must rebuild from master if pursued this sprint.
-
-2026-03-29 (Claude): Sprint 11 closed. Warehouse foundation shipped across two Codex phases + Claude coverage dashboard. See `specs/sprint-11-closeout.md`. Deferred to Sprint 12: season-scoped /run-next endpoint, daily cron, retry logic, Game Explorer controls (carry from Sprint 10).
+2026-03-30 (Claude): Sprint 12 closed. All branches merged to master. See `specs/sprint-12-closeout.md`. Warehouse is now fully operational with retry/backoff, season-scoped dispatch, daily cron, and a hardened frontend panel. Sprint 13 seeds: YoY trend indicators, warehouse auto-poll, Game Explorer PBP drill-down.

@@ -319,6 +319,46 @@ Eliminated live NBA API calls on every player profile load:
 - Claude implemented player-profile year-over-year trend indicators and season-selector work on branch
 - Codex implemented Game Explorer controls and backend game-summary improvements on branch
 - Neither Sprint 10 branch landed in `master`; see `specs/sprint-10-closeout.md` for deferred follow-up
+- `codex-sprint-10-game-explorer-controls` is **UNSAFE to merge** — it is at a Sprint 9 commit and its diff deletes all warehouse infrastructure
+
+---
+
+### Sprint 11 — Warehouse Ingestion Foundation
+**Branch:** `codex-sprint-11-warehouse-foundation` (Codex) → PR #7; `feature/sprint-11-coverage-dashboard` (Claude) → carried into Sprint 12
+
+**Codex — Warehouse foundation:**
+- ORM models: SourceRun, IngestionJob, RawSchedulePayload, WarehouseGame, RawGamePayload, GameTeamStat, GamePlayerStat, PlayByPlayEvent
+- Three-layer warehouse model: raw payloads → normalized facts → derived analytics
+- Idempotent job pipeline with `WarehouseGame` completeness flags (has_box_score, has_pbp_payload, has_parsed_pbp, materialized)
+- `warehouse_jobs.py` CLI, `warehouse.py` router, `warehouse_service.py` service layer
+- Reworked canonical PBP pipeline to write to warehouse `PlayByPlayEvent` model
+
+**Claude — Coverage dashboard frontend (carried forward into Sprint 12):**
+- `WarehousePipelinePanel` component with pipeline funnel, job stats, action buttons, collapsible recent runs table
+- SWR hooks and API functions for warehouse health and job management
+- Integrated into `/coverage` page
+
+---
+
+### Sprint 12 — Warehouse Completion + Operational Hardening
+**Branch:** `codex-sprint-12-warehouse-ops`, `codex-sprint-12-game-explorer` (Codex); `feature/sprint-12-warehouse-frontend` (Claude) → PR #9
+
+**Codex — Warehouse ops hardening:**
+- Season-scoped `/run-next` endpoint
+- Retry/backoff in `run_next_job()`: exponential backoff (5m/10m/15m), permanent FAILED at attempt_count ≥ 3
+- `retry_failed_jobs()` service + `POST /api/warehouse/retry-failed?season=` endpoint
+- `backend/data/daily_sync.sh` cron wrapper
+
+**Codex — Game Explorer rebuild:**
+- `frontend/src/app/games/[gameId]/page.tsx` rebuilt fresh from master (not the unsafe Sprint 10 branch)
+- Dual-write to legacy `play_by_play` + idempotent `PlayerGameLog` upsert during warehouse migration window
+
+**Claude — Frontend hardening:**
+- Season-scoped Run Next Job button (passes season to `/run-next`)
+- Retry Failed button + `retryFailedJobs()` API function
+- Collapsible Failed Jobs panel (job_type, job_key, last_error, attempt_count)
+- Sync Today hidden for historical seasons
+- Server-side season filtering for failed jobs fetch; SWR invalidation covers pbp-dashboard keys
 
 ---
 
@@ -327,10 +367,8 @@ Eliminated live NBA API calls on every player profile load:
 | Branch | Owner | Status |
 |--------|-------|--------|
 | `master` | — | Stable |
-| `feature/sprint-10-yoy-trends` | Claude | Open / not merged |
-| `codex-sprint-10-game-explorer-controls` | Codex | Open / not merged |
-| `feature/sprint9-leaderboard-enhancements` | Claude | Merged to master |
-| `codex-sprint-9-team-sync-dashboard` | Codex | Merged to master |
+| `feature/sprint-10-yoy-trends` | Claude | Open / not merged (YoY trend indicators) |
+| `codex-sprint-10-game-explorer-controls` | Codex | **UNSAFE — do not merge** |
 
 ---
 
@@ -348,3 +386,4 @@ Eliminated live NBA API calls on every player profile load:
 | `ComparisonView` | `components/` | Side-by-side player comparison (stats + arc + radar) |
 | `LineupTable` | `components/` | 5-man lineup stats |
 | `OnOffTable` | `components/` | Player on/off splits |
+| `WarehousePipelinePanel` | `components/` | Warehouse ingestion funnel, job stats, action buttons (Sprint 11/12) |
