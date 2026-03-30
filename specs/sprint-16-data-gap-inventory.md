@@ -2,7 +2,7 @@
 
 **Sprint:** 16  
 **Date:** 2026-03-30  
-**Status:** Kickoff baseline
+**Status:** Active validation state
 
 ## Current Coverage Snapshot
 
@@ -11,14 +11,14 @@
 | `2022-23` | `40931` | `554` | `17094` | `0` | `0` | `0` |
 | `2023-24` | `43394` | `595` | `16190` | `0` | `0` | `0` |
 | `2024-25` | `43369` | `587` | `18395` | `1230` | `43369` | `2460` |
-| `2025-26` | `39293` | `551` | `9392` | `1230` | `39293` | `2238` |
+| `2025-26` | `39279` | `552` | `10378` | `1230` | `39279` | `2238` |
 
-Warehouse-specific kickoff state:
+Warehouse-specific live state:
 
 | Season | Scheduled games | Box complete | Parsed PBP | Materialized | Jobs |
 |--------|------------------|--------------|------------|--------------|------|
-| `2024-25` | `1230` | `1230` | `1230` | `1230` | `2441 complete`, `1 running`, `1250 queued` |
-| `2025-26` | `1230` | `1119` | `501` | `1119` | `1563 complete`, `4 running`, `1792 queued` |
+| `2024-25` | `1230` | `1230` | `1230` | `1230` | `3692 complete` |
+| `2025-26` | `1230` | `1119` | `579` | `1119` | `1617 complete`, `6 running`, `1736 queued` after clean worker restart |
 
 ## Sprint 16 Launch Assumptions
 
@@ -32,20 +32,20 @@ Warehouse-specific kickoff state:
 
 | Surface | Required data layers | Kickoff status | Gap class | Sprint 16 remediation |
 |--------|-----------------------|----------------|-----------|-----------------------|
-| Player page | `players`, `season_stats`, `player_game_logs`, `player_on_off`, PBP-derived splits | Should be usable across all launch-window seasons | needs validation | Validate representative players and fix any null/partial-data bugs |
-| Team page | `teams`, `player_game_logs`, `player_on_off`, `lineup_stats` | `2024-25` should be ready; `2025-26` still depends on warehouse/PBP finishing | in progress | Keep workers running and validate team intelligence/lineup sections |
-| Leaderboards | `season_stats`, `player_on_off`, `lineup_stats`, career rollups | Should be broadly usable without external metrics | needs validation | Remove misleading empty-state behavior if data already exists |
-| Compare | player profile + career rollups | Should be usable on native data alone | needs validation | Validate multi-season compare flows and fix any partial-data rendering bugs |
-| Insights | multi-season `season_stats` | Expected to be usable now | needs validation | Validate representative player/team outputs |
-| Standings | `player_game_logs`-driven standings computation | Expected to be usable across launch-window seasons | needs validation | Confirm representative seasons and note any accepted limits |
-| Coverage | warehouse/PBP coverage + job summary | `2024-25` ready; `2025-26` in progress; historical seasons intentionally not warehouse-backed | in progress + accepted scope limit | Finish `2025-26`; treat historical warehouse coverage as out of scope unless product validation proves a blocker |
-| Game Explorer | warehouse `games`, `game_player_stats`, `game_team_stats`, PBP | `2024-25` ready; `2025-26` in progress; historical seasons use legacy PBP without warehouse summaries | in progress + accepted scope limit | Finish `2025-26`; only add selective historical warehouse support if validation proves necessary |
+| Player page | `players`, `season_stats`, `player_game_logs`, `player_on_off`, PBP-derived splits | Validated on native data across all launch-window seasons | resolved | Fixed `gamelogs.py` Python 3.8 crash and confirmed representative player flows |
+| Team page | `teams`, `player_game_logs`, `player_on_off`, `lineup_stats` | `2024-25` ready; `2025-26` still depends on warehouse/PBP finishing | in progress + accepted scope limit | Keep workers running for `2025-26`; treat `2022-23` / `2023-24` as legacy-plus-derived scope |
+| Leaderboards | `season_stats`, `player_on_off`, `lineup_stats`, career rollups | Validated | resolved | Import-first messaging removed; native leaderboards return data |
+| Compare | player profile + career rollups | Validated through the player/profile/career stack | resolved | No extra Sprint 16 data work required |
+| Insights | multi-season `season_stats` | Validated after bug fix | resolved | Fixed prior-season calculation so breakouts populate again |
+| Standings | `player_game_logs`-driven standings computation | Validated across all launch-window seasons | resolved | No extra Sprint 16 data work required |
+| Coverage | warehouse/PBP coverage + job summary | `2024-25` ready; `2025-26` in progress; historical seasons intentionally not warehouse-backed | in progress + accepted scope limit | Finish `2025-26`; historical warehouse coverage remains out of scope |
+| Game Explorer | warehouse `games`, `game_player_stats`, `game_team_stats`, PBP | `2024-25` ready; `2025-26` in progress; historical seasons use legacy PBP without warehouse summaries | in progress + accepted scope limit | Finish `2025-26`; no broad historical warehouse expansion planned |
 
 ## Explicit Sprint 16 Exit Criteria
 
-- `2024-25` remains at zero failed and zero stalled warehouse jobs
-- `2025-26` materially advances from the kickoff baseline, with warehouse-backed current-season pages working reliably
-- `2023-24` historical PBP retry path is confirmed healthy on the idempotent write path
+- `2024-25` remains warehouse-complete and stable
+- `2025-26` materially advances from the kickoff baseline, with warehouse-backed current-season pages continuing to improve from the clean attached-worker path
+- the player-page and insights regressions found during Sprint 16 validation are fixed
 - every launch-window page is either:
   - validated working, or
   - explicitly marked as an accepted non-blocking scope limit

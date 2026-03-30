@@ -177,7 +177,7 @@ def player_game_logs(
         }
 
     # Compute rolling 5-game averages for pts/reb/ast (newest-first order)
-    def _rolling_avg(values: list[Optional[int]], window: int = 5) -> list[Optional[float]]:
+    def _rolling_avg(values: List[Optional[int]], window: int = 5) -> List[Optional[float]]:
         result = []
         for i in range(len(values)):
             end = min(i + window, len(values))
@@ -198,7 +198,7 @@ def player_game_logs(
         game["reb_roll5"] = reb_roll[i]
         game["ast_roll5"] = ast_roll[i]
 
-    def _avg(vals: list) -> Optional[float]:
+    def _avg(vals: List[Optional[float]]) -> Optional[float]:
         clean = [v for v in vals if v is not None]
         return round(sum(clean) / len(clean), 1) if clean else None
 

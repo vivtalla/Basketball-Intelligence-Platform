@@ -1,6 +1,6 @@
 # Agent Coordination
 
-Last updated: 2026-03-30 by Codex (Sprint 16 kickoff)
+Last updated: 2026-03-30 by Codex (Sprint 16 validation + worker hardening)
 
 > **Both agents read this file before touching any code at the start of every session.**
 > Check sprint status, your branch, this sprint's work allocation, and the Merge Order.
@@ -192,4 +192,6 @@ Sprint number prefix makes `git branch -a` immediately readable.
 2026-03-30 (Codex): Historical support baseline remains strong enough for legacy-plus-derived handling: `2022-23` has `40931` game logs / `554` on-off / `17094` lineups, and `2023-24` has `43394` game logs / `595` on-off / `16190` lineups.
 2026-03-30 (Codex): Initial Sprint 16 validation sweep found frontend messaging drift from the old import-first workflow. Highest-priority Claude follow-ups are leaderboards empty-state copy (`Run bulk import` / `Run play-by-play import`) and historical team intelligence guidance that still pushes users toward the coverage board as if `2022-23` / `2023-24` were warehouse-target seasons.
 2026-03-30 (Codex): Vivek reassigned all Sprint 16 validation/UI follow-up items to Codex. Claude is no longer the active owner for the validation branch work.
+2026-03-30 (Codex): Sprint 16 validation found and fixed two backend blockers: the player-page `gamelogs.py` Python 3.8 crash (`list[...]` in a request-time helper) and the insights prior-season helper (`2024-25` incorrectly mapped to `2023-23`). Player page and insights validation are now green on native data.
+2026-03-30 (Codex): Cleaned up the live `2025-26` worker lane by stopping stale-root workers, fixing `retry_failed_jobs()` to commit, requeueing stale/failed jobs, and restarting the active worker pool from the clean Sprint 16 worktree. The remaining live gap is `2025-26` warehouse catch-up, not ambiguous app behavior.
 2026-03-30 (Codex): Sprint 15 closed. See `specs/sprint-15-closeout.md`.
