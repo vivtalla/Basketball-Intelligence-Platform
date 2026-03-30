@@ -882,6 +882,7 @@ def rematerialize_pbp_derived_metrics(db: Session, game_id: str) -> dict:
 
     db.query(PlayerOnOff).filter_by(season=season, is_playoff=False).delete(synchronize_session=False)
     db.query(LineupStats).filter_by(season=season).delete(synchronize_session=False)
+    db.flush()
 
     for parsed_game in parsed_games:
         player_stats = db.query(GamePlayerStat).filter_by(game_id=parsed_game.game_id).all()
@@ -999,41 +1000,39 @@ def rematerialize_pbp_derived_metrics(db: Session, game_id: str) -> dict:
         off_poss = payload["off_possessions"]
         on_net = round((payload["on_team_pts"] - payload["on_opp_pts"]) / on_poss * 100, 1) if on_poss else None
         off_net = round((payload["off_team_pts"] - payload["off_opp_pts"]) / off_poss * 100, 1) if off_poss else None
-        db.add(
-            PlayerOnOff(
-                player_id=player_id,
-                season=season,
-                is_playoff=False,
-                on_minutes=round(payload["on_seconds"] / 60.0, 1) if payload["on_seconds"] else None,
-                off_minutes=round(payload["off_seconds"] / 60.0, 1) if payload["off_seconds"] else None,
-                on_net_rating=on_net,
-                off_net_rating=off_net,
-                on_off_net=round(on_net - off_net, 1) if on_net is not None and off_net is not None else None,
-                on_ortg=round(payload["on_team_pts"] / on_poss * 100, 1) if on_poss else None,
-                on_drtg=round(payload["on_opp_pts"] / on_poss * 100, 1) if on_poss else None,
-                off_ortg=round(payload["off_team_pts"] / off_poss * 100, 1) if off_poss else None,
-                off_drtg=round(payload["off_opp_pts"] / off_poss * 100, 1) if off_poss else None,
-            )
-        )
+        row = db.query(PlayerOnOff).filter_by(
+            player_id=player_id, season=season, is_playoff=False
+        ).first()
+        if not row:
+            row = PlayerOnOff(player_id=player_id, season=season, is_playoff=False)
+            db.add(row)
+        row.on_minutes = round(payload["on_seconds"] / 60.0, 1) if payload["on_seconds"] else None
+        row.off_minutes = round(payload["off_seconds"] / 60.0, 1) if payload["off_seconds"] else None
+        row.on_net_rating = on_net
+        row.off_net_rating = off_net
+        row.on_off_net = round(on_net - off_net, 1) if on_net is not None and off_net is not None else None
+        row.on_ortg = round(payload["on_team_pts"] / on_poss * 100, 1) if on_poss else None
+        row.on_drtg = round(payload["on_opp_pts"] / on_poss * 100, 1) if on_poss else None
+        row.off_ortg = round(payload["off_team_pts"] / off_poss * 100, 1) if off_poss else None
+        row.off_drtg = round(payload["off_opp_pts"] / off_poss * 100, 1) if off_poss else None
 
     for lineup_key, team_id in sorted(lineup_totals.keys(), key=lambda item: (item[1] or 0, item[0])):
         acc = lineup_totals[(lineup_key, team_id)]
         possessions = acc.possessions
         ortg = round(acc.team_pts / possessions * 100, 1) if possessions else None
         drtg = round(acc.opp_pts / possessions * 100, 1) if possessions else None
-        db.add(
-            LineupStats(
-                lineup_key=lineup_key,
-                season=season,
-                team_id=team_id,
-                minutes=round(acc.seconds / 60.0, 1) if getattr(acc, "seconds", 0.0) else None,
-                net_rating=round(ortg - drtg, 1) if ortg is not None and drtg is not None else None,
-                ortg=ortg,
-                drtg=drtg,
-                plus_minus=acc.plus_minus,
-                possessions=possessions,
-            )
-        )
+        row = db.query(LineupStats).filter_by(lineup_key=lineup_key, season=season).first()
+        if not row:
+            row = LineupStats(lineup_key=lineup_key, season=season, team_id=team_id)
+            db.add(row)
+        row.team_id = team_id
+        seconds = getattr(acc, "seconds", 0.0)
+        row.minutes = round(seconds / 60.0, 1) if seconds > 0 else (round(possessions / 2.0, 1) if possessions else None)
+        row.net_rating = round(ortg - drtg, 1) if ortg is not None and drtg is not None else None
+        row.ortg = ortg
+        row.drtg = drtg
+        row.plus_minus = acc.plus_minus
+        row.possessions = possessions
 
     game.pbp_parse_status = "complete"
     game.has_parsed_pbp = True
