@@ -4,7 +4,6 @@ import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useDeferredValue, useState } from "react";
 import { useGameDetail, useGameSummary } from "@/hooks/usePlayerStats";
-import type { GameTeamBoxScore, GamePlayerBoxScore } from "@/lib/types";
 
 function formatScore(value: number | null) {
   return value == null ? "-" : String(value);
@@ -387,7 +386,7 @@ export default function GameDetailPage() {
         </div>
       </section>
 
-      {summary && (summary.home_team_box_score || summary.away_team_box_score || summary.player_box_scores.length > 0) && (
+      {summary && (summary.home_team_stats || summary.away_team_stats || summary.players.length > 0) && (
         <section className="rounded-[2rem] border border-gray-200 bg-white p-6 dark:border-gray-800 dark:bg-gray-900">
           <div className="mb-6 flex items-end justify-between gap-4">
             <div>
@@ -396,9 +395,9 @@ export default function GameDetailPage() {
             </div>
           </div>
 
-          {(summary.home_team_box_score || summary.away_team_box_score) && (() => {
-            const away = summary.away_team_box_score;
-            const home = summary.home_team_box_score;
+          {(summary.home_team_stats || summary.away_team_stats) && (() => {
+            const away = summary.away_team_stats;
+            const home = summary.home_team_stats;
             const awayAbbr = summary.away_team_abbreviation ?? "Away";
             const homeAbbr = summary.home_team_abbreviation ?? "Home";
             return (
@@ -423,11 +422,11 @@ export default function GameDetailPage() {
             );
           })()}
 
-          {summary.player_box_scores.length > 0 && (() => {
-            const awayPlayers = summary.player_box_scores.filter(
+          {summary.players.length > 0 && (() => {
+            const awayPlayers = summary.players.filter(
               (p) => p.team_abbreviation === summary.away_team_abbreviation
             );
-            const homePlayers = summary.player_box_scores.filter(
+            const homePlayers = summary.players.filter(
               (p) => p.team_abbreviation === summary.home_team_abbreviation
             );
             return (

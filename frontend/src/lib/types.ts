@@ -735,10 +735,13 @@ export interface GameTeamBoxScore {
   tov: number;
   fgm: number;
   fga: number;
+  fg_pct: number | null;
   fg3m: number;
   fg3a: number;
+  fg3_pct: number | null;
   ftm: number;
   fta: number;
+  ft_pct: number | null;
   oreb: number;
   dreb: number;
   pf: number;
@@ -778,16 +781,14 @@ export interface GameSummaryResponse {
   game_id: string;
   season: string;
   game_date: string | null;
-  matchup: string | null;
   home_team_id: number | null;
   away_team_id: number | null;
-  home_team_name: string | null;
   home_team_abbreviation: string | null;
-  away_team_name: string | null;
   away_team_abbreviation: string | null;
   home_score: number | null;
   away_score: number | null;
-  home_team_box_score: GameTeamBoxScore | null;
-  away_team_box_score: GameTeamBoxScore | null;
-  player_box_scores: GamePlayerBoxScore[];
+  materialized: boolean;
+  home_team_stats: GameTeamBoxScore | null;
+  away_team_stats: GameTeamBoxScore | null;
+  players: GamePlayerBoxScore[];
 }
