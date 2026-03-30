@@ -7,7 +7,7 @@ from collections import defaultdict
 from datetime import date, datetime, timedelta
 from typing import Any, Dict, Iterable, List, Optional, Set, Tuple
 
-from sqlalchemy import func
+from sqlalchemy import func, text
 from sqlalchemy.orm import Session
 
 from data.nba_client import (
@@ -83,6 +83,13 @@ def _parse_iso_date(value: Optional[str]) -> Optional[date]:
         return datetime.strptime(value, "%Y-%m-%d").date()
     except ValueError:
         return None
+
+
+def _acquire_season_advisory_lock(db: Session, season: str, purpose: str) -> None:
+    db.execute(
+        text("SELECT pg_advisory_xact_lock(hashtext(:lock_key))"),
+        {"lock_key": "{0}:{1}".format(purpose, season)},
+    )
 
 
 def _schedule_status_from_code(code: Any) -> str:
@@ -857,6 +864,8 @@ def rematerialize_pbp_derived_metrics(db: Session, game_id: str) -> dict:
         db.commit()
         return {"status": "skipped", "reason": "no parsed games in season", "game_id": game_id}
 
+    _acquire_season_advisory_lock(db, season, "pbp_rematerialize")
+
     clutch_totals: Dict[int, dict] = defaultdict(lambda: {"clutch_pts": 0, "clutch_fga": 0, "clutch_fgm": 0})
     pace_totals: Dict[int, dict] = defaultdict(lambda: {"second_chance_pts": 0, "fast_break_pts": 0})
     on_off_totals: Dict[int, dict] = {}
@@ -984,7 +993,8 @@ def rematerialize_pbp_derived_metrics(db: Session, game_id: str) -> dict:
         season_row.second_chance_pts = stat_payload.get("second_chance_pts")
         season_row.fast_break_pts = stat_payload.get("fast_break_pts")
 
-    for player_id, payload in on_off_totals.items():
+    for player_id in sorted(on_off_totals.keys()):
+        payload = on_off_totals[player_id]
         on_poss = payload["on_possessions"]
         off_poss = payload["off_possessions"]
         on_net = round((payload["on_team_pts"] - payload["on_opp_pts"]) / on_poss * 100, 1) if on_poss else None
@@ -1006,7 +1016,8 @@ def rematerialize_pbp_derived_metrics(db: Session, game_id: str) -> dict:
             )
         )
 
-    for (lineup_key, team_id), acc in lineup_totals.items():
+    for lineup_key, team_id in sorted(lineup_totals.keys(), key=lambda item: (item[1] or 0, item[0])):
+        acc = lineup_totals[(lineup_key, team_id)]
         possessions = acc.possessions
         ortg = round(acc.team_pts / possessions * 100, 1) if possessions else None
         drtg = round(acc.opp_pts / possessions * 100, 1) if possessions else None
