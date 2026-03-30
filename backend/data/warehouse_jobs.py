@@ -16,7 +16,7 @@ from db.models import IngestionJob
 from services.warehouse_service import get_job_summary, queue_backfill_season, run_next_job
 
 def _handle_termination(_signum: int, _frame: object) -> None:
-    raise SystemExit(0)
+    sys.exit(0)
 
 
 def main() -> None:

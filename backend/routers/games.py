@@ -1,13 +1,21 @@
 from __future__ import annotations
 
 from collections import defaultdict
+from typing import Dict, List
 
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
 from db.database import get_db
 from db.models import GameLog, PlayByPlay, Player, Team
-from models.game import GameDetailResponse, GameEvent, GamePlayerSummary, GameTimelinePoint
+from models.game import (
+    GameDetailResponse,
+    GameEvent,
+    GamePlayerSummary,
+    GameSummaryResponse,
+    GameTimelinePoint,
+)
+from services.game_summary_service import get_game_summary
 
 router = APIRouter()
 
@@ -17,6 +25,14 @@ def _safe_int(value, default=0) -> int:
         return int(value) if value is not None else default
     except (TypeError, ValueError):
         return default
+
+
+@router.get("/{game_id}/summary", response_model=GameSummaryResponse)
+def get_game_summary_route(game_id: str, db: Session = Depends(get_db)):
+    summary = get_game_summary(db, game_id)
+    if not summary:
+        raise HTTPException(status_code=404, detail=f"Game {game_id} not found.")
+    return summary
 
 
 @router.get("/{game_id}", response_model=GameDetailResponse)
@@ -45,11 +61,11 @@ def get_game_detail(game_id: str, db: Session = Depends(get_db)):
         for player in db.query(Player).filter(Player.id.in_(player_ids)).all()
     }
 
-    timeline: list[GameTimelinePoint] = []
-    player_accum: dict[int, dict] = defaultdict(
+    timeline: List[GameTimelinePoint] = []
+    player_accum: Dict[int, Dict[str, int]] = defaultdict(
         lambda: {"pts": 0, "reb": 0, "ast": 0, "stl": 0, "blk": 0, "tov": 0}
     )
-    event_rows: list[GameEvent] = []
+    event_rows: List[GameEvent] = []
 
     for event in events:
         score_home = _safe_int(event.score_home, 0)
@@ -111,7 +127,7 @@ def get_game_detail(game_id: str, db: Session = Depends(get_db)):
         reverse=True,
     )[:10]
 
-    top_players: list[GamePlayerSummary] = []
+    top_players: List[GamePlayerSummary] = []
     for player_id in top_player_ids:
         player = players.get(player_id)
         if not player:
