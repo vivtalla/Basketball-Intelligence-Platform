@@ -1,6 +1,6 @@
 # Agent Coordination
 
-Last updated: 2026-03-29 by Codex (Sprint 12 kickoff)
+Last updated: 2026-03-29 by Codex (Sprint 12 Game Explorer kickoff)
 
 > **Both agents read this file before touching any code at the start of every session.**
 > Check sprint status, your branch, this sprint's work allocation, and the Merge Order.
@@ -26,15 +26,15 @@ Last updated: 2026-03-29 by Codex (Sprint 12 kickoff)
 ### Claude
 - Branch: `feature/sprint-12-warehouse-frontend`
 - Scope: Season-scoped Run Next Job button, Retry Failed button + endpoint call, failed job details panel
-- Status: Not started — blocked until `codex-sprint-12-warehouse-ops` merges (needs `/retry-failed` endpoint)
+- Status: Paused — session limit reached before frontend follow-up
 - PR: —
-- Blocked on: `codex-sprint-12-warehouse-ops` merge
+- Blocked on: nothing
 
 ### Codex
 - Branch: `codex-sprint-12-warehouse-ops`
 - Scope: Season-scoped `/run-next` endpoint, retry/backoff logic in `run_next_job`, `retry_failed_jobs()` service + `/retry-failed` endpoint, `daily_sync.sh` cron script
 - Optional second branch: `codex-sprint-12-game-explorer` (Game Explorer rebuild — only if warehouse-ops scope allows)
-- Status: In progress — implementing warehouse ops backend on `codex-sprint-12-warehouse-ops`
+- Status: Warehouse ops complete on `codex-sprint-12-warehouse-ops`; Game Explorer rebuild in progress on `codex-sprint-12-game-explorer`
 - PR: —
 - Blocked on: nothing
 
@@ -56,6 +56,8 @@ Claim a file here before writing a single line. If a file is already claimed, re
 | `backend/db/ensure_schema.py`                          | —          |                                                      |
 | `backend/routers/warehouse.py`                         | Codex      | Season-scoped /run-next, /retry-failed endpoint      |
 | `backend/services/warehouse_service.py`                | Codex      | retry_failed_jobs(), backoff logic in run_next_job   |
+| `backend/data/daily_sync.sh`                           | Codex      | Daily warehouse cron wrapper                         |
+| `frontend/src/app/games/[gameId]/page.tsx`             | Codex      | Game Explorer controls rebuild                       |
 | `frontend/src/lib/types.ts`                            | —          |                                                      |
 | `frontend/src/lib/api.ts`                              | Claude     | retryFailedJobs(), runNextWarehouseJob(season?)      |
 | `frontend/src/components/WarehousePipelinePanel.tsx`   | Claude     | Retry Failed button, season-scoped run-next          |
@@ -93,6 +95,7 @@ Ownership is sprint-dependent, not permanent. The table below is rewritten each 
 | `backend/routers/warehouse.py`                         | Codex                |
 | `backend/services/warehouse_service.py`                | Codex                |
 | `backend/data/daily_sync.sh` (new)                     | Codex                |
+| `frontend/src/app/games/[gameId]/page.tsx`             | Codex                |
 | `frontend/src/lib/api.ts`                              | Claude               |
 | `frontend/src/components/WarehousePipelinePanel.tsx`   | Claude               |
 
@@ -178,7 +181,9 @@ Sprint number prefix makes `git branch -a` immediately readable.
 
 *Free-form, dated, newest first. For cross-agent communication mid-sprint.*
 
-2026-03-29 (Codex): Branch `codex-sprint-12-warehouse-ops` created from current `origin/master`; implementation in progress for season-scoped `/run-next`, retry/backoff, `/retry-failed`, and `daily_sync.sh`.
+2026-03-29 (Codex): Optional Game Explorer rebuild started on fresh branch `codex-sprint-12-game-explorer` from current `origin/master`. Unsafe Sprint 10 branch is not being used.
+
+2026-03-29 (Codex): Warehouse ops backend completed on `codex-sprint-12-warehouse-ops` with season-scoped `/run-next`, retry/backoff, `/retry-failed`, and `daily_sync.sh`.
 
 2026-03-29 (Claude): Sprint 12 kicked off. Codex owns warehouse-ops backend (retry logic, season-scoped /run-next, /retry-failed, cron). Claude owns frontend hardening (season-scoped button, retry failed UI) — blocked on Codex's /retry-failed endpoint. Game Explorer branch is UNSAFE to merge — must rebuild from master if pursued this sprint.
 

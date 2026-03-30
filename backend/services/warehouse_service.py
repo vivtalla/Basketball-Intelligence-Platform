@@ -27,6 +27,7 @@ from db.models import (
     Player,
     PlayerGameLog,
     PlayerOnOff,
+    PlayByPlay,
     PlayByPlayEvent,
     RawGamePayload,
     RawSchedulePayload,
@@ -146,6 +147,7 @@ def _get_or_create_player(
             is_active=True,
         )
         db.add(player)
+        db.flush()
     else:
         if full_name:
             player.full_name = full_name
@@ -594,6 +596,7 @@ def sync_game_pbp(db: Session, game_id: str) -> dict:
         warehouse_game.pbp_source = "cdn_pbp"
         warehouse_game.last_pbp_sync_at = _utcnow()
 
+        db.query(PlayByPlay).filter_by(game_id=game_id).delete(synchronize_session=False)
         db.query(PlayByPlayEvent).filter_by(game_id=game_id).delete(synchronize_session=False)
 
         for idx, event in enumerate(normalized_events, start=1):
@@ -602,6 +605,7 @@ def sync_game_pbp(db: Session, game_id: str) -> dict:
             action_type = (event.get("actionType") or "")[:50]
             sub_type = (event.get("subType") or "")[:50]
             action_family = _event_family(action_type)
+            _get_or_create_player(db, event.get("personId"), event.get("playerName"), event.get("teamId"))
             db.add(
                 PlayByPlayEvent(
                     game_id=game_id,
@@ -620,6 +624,21 @@ def sync_game_pbp(db: Session, game_id: str) -> dict:
                     score_home=_to_int(event.get("scoreHome")),
                     score_away=_to_int(event.get("scoreAway")),
                     raw_event=event,
+                )
+            )
+            db.add(
+                PlayByPlay(
+                    game_id=game_id,
+                    action_number=action_number if isinstance(action_number, int) else idx,
+                    period=event.get("period"),
+                    clock=event.get("clock"),
+                    team_id=event.get("teamId"),
+                    player_id=event.get("personId"),
+                    action_type=action_type,
+                    sub_type=sub_type,
+                    description=(event.get("description") or "")[:500],
+                    score_home=_to_int(event.get("scoreHome")),
+                    score_away=_to_int(event.get("scoreAway")),
                 )
             )
 
@@ -655,40 +674,48 @@ def materialize_game_stats(db: Session, game_id: str) -> dict:
     row.home_score = game.home_score
     row.away_score = game.away_score
 
-    db.query(PlayerGameLog).filter_by(game_id=game_id, season_type="Regular Season").delete(synchronize_session=False)
     player_rows = db.query(GamePlayerStat).filter_by(game_id=game_id).all()
+    existing_logs = {
+        (existing.player_id, existing.game_id, existing.season_type): existing
+        for existing in db.query(PlayerGameLog).filter_by(game_id=game_id, season_type="Regular Season").all()
+    }
     for stat in player_rows:
-        db.add(
-            PlayerGameLog(
+        key = (stat.player_id, game_id, "Regular Season")
+        log_row = existing_logs.get(key)
+        if not log_row:
+            log_row = PlayerGameLog(
                 player_id=stat.player_id,
                 game_id=game_id,
                 season=stat.season,
                 season_type="Regular Season",
-                game_date=stat.game_date,
-                matchup=stat.matchup,
-                wl=stat.wl,
-                min=stat.min,
-                pts=stat.pts,
-                reb=stat.reb,
-                ast=stat.ast,
-                stl=stat.stl,
-                blk=stat.blk,
-                tov=stat.tov,
-                fgm=stat.fgm,
-                fga=stat.fga,
-                fg_pct=stat.fg_pct,
-                fg3m=stat.fg3m,
-                fg3a=stat.fg3a,
-                fg3_pct=stat.fg3_pct,
-                ftm=stat.ftm,
-                fta=stat.fta,
-                ft_pct=stat.ft_pct,
-                oreb=stat.oreb,
-                dreb=stat.dreb,
-                pf=stat.pf,
-                plus_minus=int(stat.plus_minus) if stat.plus_minus is not None else None,
             )
-        )
+            db.add(log_row)
+            existing_logs[key] = log_row
+
+        log_row.season = stat.season
+        log_row.game_date = stat.game_date
+        log_row.matchup = stat.matchup
+        log_row.wl = stat.wl
+        log_row.min = stat.min
+        log_row.pts = stat.pts
+        log_row.reb = stat.reb
+        log_row.ast = stat.ast
+        log_row.stl = stat.stl
+        log_row.blk = stat.blk
+        log_row.tov = stat.tov
+        log_row.fgm = stat.fgm
+        log_row.fga = stat.fga
+        log_row.fg_pct = stat.fg_pct
+        log_row.fg3m = stat.fg3m
+        log_row.fg3a = stat.fg3a
+        log_row.fg3_pct = stat.fg3_pct
+        log_row.ftm = stat.ftm
+        log_row.fta = stat.fta
+        log_row.ft_pct = stat.ft_pct
+        log_row.oreb = stat.oreb
+        log_row.dreb = stat.dreb
+        log_row.pf = stat.pf
+        log_row.plus_minus = int(stat.plus_minus) if stat.plus_minus is not None else None
 
     game.has_materialized_game_stats = True
     game.last_materialized_at = _utcnow()
