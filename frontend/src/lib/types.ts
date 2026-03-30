@@ -692,3 +692,30 @@ export interface WarehouseGameHealth {
   last_pbp_sync_at: string | null;
   last_materialized_at: string | null;
 }
+
+export interface WarehouseJobTypeSummary {
+  job_type: string;
+  queued: number;
+  running: number;
+  complete: number;
+  failed: number;
+  skipped: number;
+}
+
+export interface WarehouseRequestThrottleStatus {
+  source: string;
+  available_at: string | null;
+  last_request_at: string | null;
+  seconds_until_available: number;
+}
+
+export interface WarehouseJobSummary {
+  season: string | null;
+  status_counts: Record<string, number>;
+  job_types: WarehouseJobTypeSummary[];
+  oldest_queued_job: IngestionJobResponse | null;
+  stalled_running_count: number;
+  stalled_running_jobs: IngestionJobResponse[];
+  recent_failed_jobs: IngestionJobResponse[];
+  global_request_throttle: WarehouseRequestThrottleStatus | null;
+}

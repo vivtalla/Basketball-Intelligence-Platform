@@ -54,10 +54,17 @@ export default function TeamDetailPage() {
     activeTab === "intelligence" ? teamAbbreviation : null,
     effectiveSeason
   );
-  const { data: analytics, isLoading: analyticsLoading, error: analyticsError } = useTeamAnalytics(
-    activeTab === "analytics" ? teamAbbreviation : null,
-    effectiveSeason
-  );
+  const {
+    data: currentAnalytics,
+    isLoading: analyticsLoading,
+    error: analyticsError,
+  } = useTeamAnalytics(teamAbbreviation, effectiveSeason);
+  const effectiveSeasonIndex = availableSeasons.indexOf(effectiveSeason);
+  const priorSeason =
+    effectiveSeasonIndex >= 0 && effectiveSeasonIndex < availableSeasons.length - 1
+      ? availableSeasons[effectiveSeasonIndex + 1]
+      : null;
+  const { data: priorAnalytics } = useTeamAnalytics(teamAbbreviation, priorSeason);
 
   const sortedPlayers = useMemo(
     () =>
@@ -103,6 +110,35 @@ export default function TeamDetailPage() {
     pbpCoverage && pbpCoverage.eligible_games > 0
       ? Math.round((pbpCoverage.synced_games / pbpCoverage.eligible_games) * 100)
       : 0;
+  const teamTrendCards =
+    currentAnalytics && priorAnalytics
+      ? [
+          {
+            label: "Net Rating YoY",
+            value: currentAnalytics.net_rating,
+            delta:
+              currentAnalytics.net_rating != null && priorAnalytics.net_rating != null
+                ? currentAnalytics.net_rating - priorAnalytics.net_rating
+                : null,
+          },
+          {
+            label: "PTS YoY",
+            value: currentAnalytics.pts_pg,
+            delta:
+              currentAnalytics.pts_pg != null && priorAnalytics.pts_pg != null
+                ? currentAnalytics.pts_pg - priorAnalytics.pts_pg
+                : null,
+          },
+          {
+            label: "AST YoY",
+            value: currentAnalytics.ast_pg,
+            delta:
+              currentAnalytics.ast_pg != null && priorAnalytics.ast_pg != null
+                ? currentAnalytics.ast_pg - priorAnalytics.ast_pg
+                : null,
+          },
+        ]
+      : [];
 
   if (error) {
     return (
@@ -250,6 +286,42 @@ export default function TeamDetailPage() {
                 </div>
               ) : null}
             </div>
+
+            {teamTrendCards.length > 0 && (
+              <div className="mt-6 grid gap-3 md:grid-cols-3">
+                {teamTrendCards.map((card) => (
+                  <div
+                    key={card.label}
+                    className="rounded-2xl border border-gray-200 bg-gray-50 p-4 dark:border-gray-800 dark:bg-gray-950/50"
+                  >
+                    <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-gray-500 dark:text-gray-400">
+                      {card.label}
+                    </div>
+                    <div className="mt-2 flex items-end justify-between gap-3">
+                      <div className="text-2xl font-bold tabular-nums text-gray-900 dark:text-gray-100">
+                        {formatValue(card.value)}
+                      </div>
+                      <div
+                        className={`text-sm font-semibold tabular-nums ${
+                          card.delta == null
+                            ? "text-gray-400 dark:text-gray-500"
+                            : card.delta >= 0
+                            ? "text-emerald-600 dark:text-emerald-400"
+                            : "text-red-500 dark:text-red-400"
+                        }`}
+                      >
+                        {card.delta == null
+                          ? "—"
+                          : `${card.delta >= 0 ? "+" : ""}${card.delta.toFixed(1)}`}
+                      </div>
+                    </div>
+                    <div className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                      vs {priorSeason}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         )}
       </div>
@@ -292,7 +364,11 @@ export default function TeamDetailPage() {
             </div>
           )}
           {intelligence && !intelligenceLoading && (
-            <TeamIntelligencePanel intelligence={intelligence} />
+              <TeamIntelligencePanel
+                intelligence={intelligence}
+                currentAnalytics={currentAnalytics ?? null}
+                priorAnalytics={priorAnalytics ?? null}
+              />
           )}
         </section>
       )}
@@ -316,8 +392,8 @@ export default function TeamDetailPage() {
               Could not load team analytics for {effectiveSeason}. The NBA API may be temporarily unavailable.
             </div>
           )}
-          {analytics && !analyticsLoading && (
-            <TeamAnalyticsPanel analytics={analytics} />
+          {currentAnalytics && !analyticsLoading && (
+              <TeamAnalyticsPanel analytics={currentAnalytics} />
           )}
         </section>
       )}

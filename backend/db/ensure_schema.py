@@ -28,10 +28,11 @@ def ensure_new_tables(engine):
 
 
 def apply_schema_updates():
-    # Create all ORM-declared tables, including Sprint 11 warehouse tables:
+    # Create all ORM-declared tables, including Sprint 11 warehouse tables,
+    # Sprint 13 request-throttle state, and legacy tables:
     # source_runs, ingestion_jobs, raw_schedule_payloads, games,
     # raw_game_payloads, game_team_stats, game_player_stats,
-    # play_by_play_events, plus legacy tables.
+    # play_by_play_events, api_request_state, plus legacy tables.
     ensure_new_tables(engine)
 
     # Existing season_stats columns added incrementally over earlier sprints.

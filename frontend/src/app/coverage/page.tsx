@@ -4,7 +4,11 @@ import Link from "next/link";
 import { useMemo, useState } from "react";
 import { useSWRConfig } from "swr";
 import { syncPlayerPbp, syncSeasonPbp } from "@/lib/api";
-import { usePbpCoverageDashboard, usePbpCoverageSeasons } from "@/hooks/usePlayerStats";
+import {
+  usePbpCoverageDashboard,
+  usePbpCoverageSeasons,
+  useWarehouseJobSummary,
+} from "@/hooks/usePlayerStats";
 import WarehousePipelinePanel from "@/components/WarehousePipelinePanel";
 
 const DEFAULT_SEASONS = ["2025-26", "2024-25", "2023-24", "2022-23"];
@@ -60,9 +64,10 @@ export default function CoveragePage() {
   const season =
     selectedSeason && seasons.includes(selectedSeason) ? selectedSeason : recommendedSeason;
   const { data, error, isLoading } = usePbpCoverageDashboard(season);
+  const { data: warehouseSummary } = useWarehouseJobSummary(season);
 
-  const teamRows = data?.teams ?? [];
-  const playerRows = data?.players ?? [];
+  const teamRows = useMemo(() => data?.teams ?? [], [data?.teams]);
+  const playerRows = useMemo(() => data?.players ?? [], [data?.players]);
   const focusTeam = useMemo(() => {
     const ranked = [...teamRows].sort((a, b) => {
       const aMissing = a.eligible_games - a.synced_games;
@@ -89,6 +94,10 @@ export default function CoveragePage() {
     });
     return ranked[0] ?? null;
   }, [playerRows]);
+  const activeWarehouseJobType = useMemo(
+    () => warehouseSummary?.job_types.find((row) => row.queued > 0 || row.running > 0) ?? null,
+    [warehouseSummary]
+  );
 
   async function refreshCoverageState(teamAbbreviation?: string | null) {
     await Promise.all([
@@ -232,6 +241,78 @@ export default function CoveragePage() {
             </div>
           </div>
         </div>
+
+        {warehouseSummary && (
+          <div className="mt-6 rounded-3xl border border-gray-200 bg-gray-50 p-5 dark:border-gray-800 dark:bg-gray-950/40">
+            <div className="flex flex-wrap items-end justify-between gap-4">
+              <div>
+                <div className="text-xs font-medium uppercase tracking-[0.18em] text-gray-500 dark:text-gray-400">
+                  Ops Snapshot
+                </div>
+                <div className="mt-2 text-sm text-gray-500 dark:text-gray-400">
+                  Real-time queue posture for {season}, including stalled jobs and the oldest blocked item.
+                </div>
+              </div>
+              <div className="flex flex-wrap gap-2 text-xs">
+                <span className="rounded-full bg-gray-200 px-3 py-1 text-gray-700 dark:bg-gray-800 dark:text-gray-300">
+                  {warehouseSummary.status_counts.queued ?? 0} queued
+                </span>
+                <span className="rounded-full bg-blue-100 px-3 py-1 text-blue-700 dark:bg-blue-900/20 dark:text-blue-300">
+                  {warehouseSummary.status_counts.running ?? 0} running
+                </span>
+                <span className="rounded-full bg-red-100 px-3 py-1 text-red-700 dark:bg-red-900/20 dark:text-red-300">
+                  {warehouseSummary.status_counts.failed ?? 0} failed
+                </span>
+                {(warehouseSummary.stalled_running_count ?? 0) > 0 && (
+                  <span className="rounded-full bg-amber-100 px-3 py-1 text-amber-700 dark:bg-amber-900/20 dark:text-amber-300">
+                    {warehouseSummary.stalled_running_count} stalled
+                  </span>
+                )}
+              </div>
+            </div>
+            <div className="mt-4 grid gap-3 md:grid-cols-3">
+              <div className="rounded-2xl bg-white p-4 dark:bg-gray-900">
+                <div className="text-[11px] uppercase tracking-[0.18em] text-gray-400 dark:text-gray-500">
+                  Oldest queued
+                </div>
+                <div className="mt-2 font-mono text-sm text-gray-900 dark:text-gray-100">
+                  {warehouseSummary.oldest_queued_job?.job_type ?? "—"}
+                </div>
+                <div className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                  {warehouseSummary.oldest_queued_job?.job_key ?? "No queued job"}
+                </div>
+              </div>
+              <div className="rounded-2xl bg-white p-4 dark:bg-gray-900">
+                <div className="text-[11px] uppercase tracking-[0.18em] text-gray-400 dark:text-gray-500">
+                  Hottest queue
+                </div>
+                <div className="mt-2 font-mono text-sm text-gray-900 dark:text-gray-100">
+                  {activeWarehouseJobType?.job_type ?? "—"}
+                </div>
+                <div className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                  {activeWarehouseJobType
+                    ? `${activeWarehouseJobType.queued} queued · ${activeWarehouseJobType.running} running`
+                    : "No active warehouse jobs"}
+                </div>
+              </div>
+              <div className="rounded-2xl bg-white p-4 dark:bg-gray-900">
+                <div className="text-[11px] uppercase tracking-[0.18em] text-gray-400 dark:text-gray-500">
+                  Shared throttle
+                </div>
+                <div className="mt-2 text-sm font-semibold text-gray-900 dark:text-gray-100">
+                  {warehouseSummary.global_request_throttle
+                    ? `${warehouseSummary.global_request_throttle.seconds_until_available.toFixed(1)}s`
+                    : "Awaiting new workers"}
+                </div>
+                <div className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                  {warehouseSummary.global_request_throttle?.last_request_at
+                    ? `Last request ${new Date(warehouseSummary.global_request_throttle.last_request_at).toLocaleTimeString()}`
+                    : "Current workers were started before shared-throttle rollout"}
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
 
         {(syncMessage || syncError) && (
           <div

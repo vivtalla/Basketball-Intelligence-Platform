@@ -71,6 +71,33 @@ class WarehouseSeasonHealth(BaseModel):
     latest_runs: List[SourceRunResponse]
 
 
+class WarehouseJobTypeSummary(BaseModel):
+    job_type: str
+    queued: int = 0
+    running: int = 0
+    complete: int = 0
+    failed: int = 0
+    skipped: int = 0
+
+
+class WarehouseRequestThrottleStatus(BaseModel):
+    source: str
+    available_at: Optional[str] = None
+    last_request_at: Optional[str] = None
+    seconds_until_available: float = 0.0
+
+
+class WarehouseJobSummary(BaseModel):
+    season: Optional[str] = None
+    status_counts: Dict[str, int]
+    job_types: List[WarehouseJobTypeSummary]
+    oldest_queued_job: Optional[IngestionJobResponse] = None
+    stalled_running_count: int = 0
+    stalled_running_jobs: List[IngestionJobResponse]
+    recent_failed_jobs: List[IngestionJobResponse]
+    global_request_throttle: Optional[WarehouseRequestThrottleStatus] = None
+
+
 class QueueResponse(BaseModel):
     queued: int
     jobs: List[IngestionJobResponse]

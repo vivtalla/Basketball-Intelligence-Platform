@@ -2,12 +2,14 @@ from __future__ import annotations
 
 import json
 import time
+from datetime import datetime, timedelta
 from typing import Optional
 import unicodedata
 from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
 
 import pandas as pd
+from sqlalchemy.exc import IntegrityError
 from nba_api.stats.endpoints import (
     boxscoretraditionalv2,
     commonplayerinfo,
@@ -25,8 +27,11 @@ from nba_api.stats.static import players as static_players
 
 from config import NBA_API_DELAY, NBA_API_TIMEOUT
 from data.cache import CacheManager
+from db.database import SessionLocal
+from db.models import ApiRequestState
 
 _last_request_time = 0.0
+_REQUEST_SOURCE = "nba_public"
 NBA_LIVE_BASE_URL = "https://cdn.nba.com/static/json/liveData"
 NBA_STATIC_BASE_URL = "https://cdn.nba.com/static/json/staticData"
 NBA_MOBILE_BASE_URL = "https://data.nba.com/data/10s/v2015/json/mobile_teams/nba"
@@ -49,10 +54,43 @@ def _canonical_name(name: str) -> str:
 
 def _rate_limit():
     global _last_request_time
-    elapsed = time.time() - _last_request_time
-    if elapsed < NBA_API_DELAY:
-        time.sleep(NBA_API_DELAY - elapsed)
-    _last_request_time = time.time()
+
+    wait_seconds = 0.0
+    while True:
+        if wait_seconds > 0:
+            time.sleep(wait_seconds)
+        db = SessionLocal()
+        try:
+            now = datetime.utcnow()
+            state = (
+                db.query(ApiRequestState)
+                .filter(ApiRequestState.source == _REQUEST_SOURCE)
+                .with_for_update()
+                .first()
+            )
+            if not state:
+                state = ApiRequestState(source=_REQUEST_SOURCE, available_at=now)
+                db.add(state)
+                try:
+                    db.flush()
+                except IntegrityError:
+                    db.rollback()
+                    wait_seconds = NBA_API_DELAY
+                    continue
+
+            available_at = state.available_at or now
+            if available_at > now:
+                wait_seconds = max((available_at - now).total_seconds(), 0.05)
+                db.rollback()
+                continue
+
+            state.last_request_at = now
+            state.available_at = now + timedelta(seconds=NBA_API_DELAY)
+            db.commit()
+            _last_request_time = time.time()
+            return
+        finally:
+            db.close()
 
 
 def _active_nba_season() -> str:

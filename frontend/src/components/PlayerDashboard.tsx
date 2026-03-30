@@ -58,6 +58,10 @@ export default function PlayerDashboard({ playerId }: PlayerDashboardProps) {
 
   // currentSeason used only for PlayerHeader (always latest)
   const currentSeason = latestSeason;
+  const priorSeason =
+    latestSeason && activeSeasonsArr.length > 1
+      ? activeSeasonsArr[activeSeasonsArr.length - 2]
+      : null;
 
   function handleModeChange(next: Mode) {
     setMode(next);
@@ -66,7 +70,7 @@ export default function PlayerDashboard({ playerId }: PlayerDashboardProps) {
 
   return (
     <div className="space-y-6">
-      <PlayerHeader profile={profile} currentSeason={currentSeason} />
+      <PlayerHeader profile={profile} currentSeason={currentSeason} priorSeason={priorSeason} />
 
       {/* RS / Playoffs toggle — only shown when player has playoff data */}
       {hasPlayoffs && (

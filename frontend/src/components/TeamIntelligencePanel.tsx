@@ -1,10 +1,10 @@
-"use client";
-
 import Link from "next/link";
-import type { LineupStatsResponse, TeamImpactLeader, TeamIntelligence } from "@/lib/types";
+import type { LineupStatsResponse, TeamAnalytics, TeamImpactLeader, TeamIntelligence } from "@/lib/types";
 
 interface TeamIntelligencePanelProps {
   intelligence: TeamIntelligence;
+  currentAnalytics?: TeamAnalytics | null;
+  priorAnalytics?: TeamAnalytics | null;
 }
 
 function fmt(value: number | null | undefined, digits = 1) {
@@ -92,7 +92,11 @@ function LeaderRow({ leader, rank }: { leader: TeamImpactLeader; rank: number })
   );
 }
 
-export default function TeamIntelligencePanel({ intelligence }: TeamIntelligencePanelProps) {
+export default function TeamIntelligencePanel({
+  intelligence,
+  currentAnalytics = null,
+  priorAnalytics = null,
+}: TeamIntelligencePanelProps) {
   const coverage = intelligence.pbp_coverage;
   const gameCoveragePct = coveragePct(coverage.synced_games, coverage.eligible_games);
   const playerCoverageTarget = Math.max(intelligence.impact_leaders.length, coverage.players_with_on_off);
@@ -106,6 +110,31 @@ export default function TeamIntelligencePanel({ intelligence }: TeamIntelligence
       : coverage.status === "partial"
       ? `${coverage.eligible_games - coverage.synced_games} games are still missing from local play-by-play. Finish the season sync, then revisit lineup and on/off sections.`
       : "This team has no meaningful play-by-play coverage yet. Start from the coverage dashboard and run a season sync before trusting derived insights.";
+  const yoySignals = currentAnalytics && priorAnalytics
+    ? [
+        {
+          label: "Net rating",
+          delta:
+            currentAnalytics.net_rating != null && priorAnalytics.net_rating != null
+              ? currentAnalytics.net_rating - priorAnalytics.net_rating
+              : null,
+        },
+        {
+          label: "Points scored",
+          delta:
+            currentAnalytics.pts_pg != null && priorAnalytics.pts_pg != null
+              ? currentAnalytics.pts_pg - priorAnalytics.pts_pg
+              : null,
+        },
+        {
+          label: "Assist rate",
+          delta:
+            currentAnalytics.ast_pct != null && priorAnalytics.ast_pct != null
+              ? (currentAnalytics.ast_pct - priorAnalytics.ast_pct) * 100
+              : null,
+        },
+      ]
+    : [];
 
   return (
     <div className="space-y-6">
@@ -235,6 +264,49 @@ export default function TeamIntelligencePanel({ intelligence }: TeamIntelligence
           </div>
         </div>
       </section>
+
+      {yoySignals.length > 0 && (
+        <section className="rounded-[2rem] border border-gray-200 bg-white p-6 dark:border-gray-800 dark:bg-gray-900">
+          <div className="flex items-end justify-between gap-4">
+            <div>
+              <h2 className="text-2xl font-semibold text-gray-900 dark:text-gray-100">
+                Year-over-Year Signals
+              </h2>
+              <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+                Quick deltas against the previous tracked season to show where this team is moving.
+              </p>
+            </div>
+            <div className="text-xs uppercase tracking-[0.18em] text-gray-400 dark:text-gray-500">
+              vs {priorAnalytics?.season}
+            </div>
+          </div>
+          <div className="mt-5 grid gap-3 md:grid-cols-3">
+            {yoySignals.map((signal) => (
+              <div
+                key={signal.label}
+                className="rounded-3xl border border-gray-200 bg-gray-50 p-4 dark:border-gray-800 dark:bg-gray-950/40"
+              >
+                <div className="text-[11px] uppercase tracking-[0.18em] text-gray-500 dark:text-gray-400">
+                  {signal.label}
+                </div>
+                <div
+                  className={`mt-3 text-3xl font-bold tabular-nums ${
+                    signal.delta == null
+                      ? "text-gray-400 dark:text-gray-500"
+                      : signal.delta >= 0
+                      ? "text-emerald-600 dark:text-emerald-300"
+                      : "text-red-500 dark:text-red-300"
+                  }`}
+                >
+                  {signal.delta == null
+                    ? "—"
+                    : `${signal.delta >= 0 ? "+" : ""}${signal.delta.toFixed(1)}`}
+                </div>
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
 
       <div className="grid gap-6 xl:grid-cols-[1.05fr,0.95fr]">
         <section className="rounded-[2rem] border border-gray-200 bg-white p-6 dark:border-gray-800 dark:bg-gray-900">

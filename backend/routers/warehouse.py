@@ -12,10 +12,12 @@ from models.warehouse import (
     QueueResponse,
     SourceRunResponse,
     WarehouseGameHealth,
+    WarehouseJobSummary,
     WarehouseSeasonHealth,
 )
 from services.warehouse_service import (
     get_game_health,
+    get_job_summary,
     get_season_health,
     list_jobs,
     materialize_game_stats,
@@ -24,6 +26,7 @@ from services.warehouse_service import (
     queue_current_season_daily_sync,
     queue_date_sync,
     queue_game_resync,
+    reset_stale_jobs,
     retry_failed_jobs,
     run_next_job,
     sync_game_boxscore,
@@ -89,7 +92,7 @@ def run_one_job(season: Optional[str] = Query(None), db: Session = Depends(get_d
     job_id = result.get("job_id")
     job = None
     if job_id:
-        rows = [row for row in list_jobs(db, limit=100) if row.id == job_id]
+        rows = [row for row in list_jobs(db, season=season, limit=100) if row.id == job_id]
         job = rows[0] if rows else None
     response_result = result.get("result")
     if response_result is None and result.get("reason"):
@@ -106,6 +109,13 @@ def run_one_job(season: Optional[str] = Query(None), db: Session = Depends(get_d
 @router.post("/retry-failed", response_model=QueueResponse)
 def retry_failed(season: str = Query(...), db: Session = Depends(get_db)):
     jobs = retry_failed_jobs(db, season)
+    db.commit()
+    return QueueResponse(queued=len(jobs), jobs=[_job_response(job) for job in jobs])
+
+
+@router.post("/reset-stale", response_model=QueueResponse)
+def reset_stale(season: Optional[str] = Query(None), db: Session = Depends(get_db)):
+    jobs = reset_stale_jobs(db, season=season)
     db.commit()
     return QueueResponse(queued=len(jobs), jobs=[_job_response(job) for job in jobs])
 
@@ -155,5 +165,15 @@ def game_health(game_id: str, db: Session = Depends(get_db)):
 
 
 @router.get("/jobs", response_model=List[IngestionJobResponse])
-def jobs(status: Optional[str] = Query(None), limit: int = Query(50, ge=1, le=200), db: Session = Depends(get_db)):
-    return [_job_response(row) for row in list_jobs(db, status=status, limit=limit)]
+def jobs(
+    status: Optional[str] = Query(None),
+    season: Optional[str] = Query(None),
+    limit: int = Query(50, ge=1, le=200),
+    db: Session = Depends(get_db),
+):
+    return [_job_response(row) for row in list_jobs(db, status=status, season=season, limit=limit)]
+
+
+@router.get("/jobs/summary", response_model=WarehouseJobSummary)
+def jobs_summary(season: Optional[str] = Query(None), db: Session = Depends(get_db)):
+    return WarehouseJobSummary(**get_job_summary(db, season=season))

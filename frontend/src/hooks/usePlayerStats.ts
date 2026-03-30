@@ -251,8 +251,16 @@ export function useCareerLeaderboard(
 
 // ── Warehouse pipeline hooks ──────────────────────────────────────────────────
 
-import type { WarehouseSeasonHealth, IngestionJobResponse } from "@/lib/types";
-import { getWarehouseSeasonHealth, getWarehouseJobs } from "@/lib/api";
+import type {
+  WarehouseJobSummary,
+  WarehouseSeasonHealth,
+  IngestionJobResponse,
+} from "@/lib/types";
+import {
+  getWarehouseJobSummary,
+  getWarehouseSeasonHealth,
+  getWarehouseJobs,
+} from "@/lib/api";
 
 export function useWarehouseSeasonHealth(season: string | null) {
   return useSWR<WarehouseSeasonHealth>(
@@ -265,5 +273,12 @@ export function useWarehouseJobs(status?: string, season?: string) {
   return useSWR<IngestionJobResponse[]>(
     `warehouse-jobs-${status ?? "all"}${season ? `-${season}` : ""}`,
     () => getWarehouseJobs(status, season)
+  );
+}
+
+export function useWarehouseJobSummary(season?: string | null) {
+  return useSWR<WarehouseJobSummary>(
+    `warehouse-job-summary-${season ?? "all"}`,
+    () => getWarehouseJobSummary(season ?? undefined)
   );
 }

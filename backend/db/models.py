@@ -317,6 +317,18 @@ class IngestionJob(Base):
     completed_at = Column(DateTime)
 
 
+class ApiRequestState(Base):
+    __tablename__ = "api_request_state"
+    __table_args__ = (
+        Index("ix_api_request_state_updated", "updated_at"),
+    )
+
+    source = Column(String(50), primary_key=True)
+    available_at = Column(DateTime, nullable=False, server_default=func.now())
+    last_request_at = Column(DateTime)
+    updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
+
+
 class RawSchedulePayload(Base):
     __tablename__ = "raw_schedule_payloads"
     __table_args__ = (
