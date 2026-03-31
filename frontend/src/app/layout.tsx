@@ -40,16 +40,22 @@ export default function RootLayout({
                 Insights
               </Link>
               <Link
+                href="/player-stats"
+                className="text-sm text-[var(--muted)] bip-link"
+              >
+                Player Stats
+              </Link>
+              <Link
+                href="/metrics"
+                className="text-sm text-[var(--muted)] bip-link"
+              >
+                Metrics
+              </Link>
+              <Link
                 href="/compare"
                 className="text-sm text-[var(--muted)] bip-link"
               >
                 Compare
-              </Link>
-              <Link
-                href="/leaderboards"
-                className="text-sm text-[var(--muted)] bip-link"
-              >
-                Leaderboards
               </Link>
               <Link
                 href="/teams"

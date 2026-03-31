@@ -465,10 +465,10 @@ export default function TeamDetailPage() {
                 </p>
               </div>
               <Link
-                href="/leaderboards"
+                href="/player-stats"
                 className="text-sm text-blue-500 hover:text-blue-600 transition-colors"
               >
-                Cross-team leaderboards →
+                Cross-team player stats →
               </Link>
             </div>
 
