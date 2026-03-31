@@ -315,6 +315,7 @@ def build_custom_metric_report(db: Session, config: CustomMetricRequest) -> Cust
 
         sortable_rows.append(
             {
+                "player_id": player.id,
                 "player_name": player.full_name,
                 "team": season_row.team_abbreviation,
                 "score": round(total, 2),
@@ -327,6 +328,7 @@ def build_custom_metric_report(db: Session, config: CustomMetricRequest) -> Cust
         rankings.append(
             CustomMetricPlayerRanking(
                 rank=index,
+                player_id=row["player_id"],
                 player_name=row["player_name"],
                 team=row["team"],
                 composite_score=row["score"],

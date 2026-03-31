@@ -23,7 +23,7 @@ const platformAreas = [
     eyebrow: "Metrics Workspace",
     title: "Build your own metric",
     description:
-      "Load starter presets, save local composites, and rank the player pool through your own weighted model.",
+      "Load starter presets, share metric links, and rank the player pool through your own weighted model.",
   },
   {
     href: "/teams",
@@ -57,16 +57,15 @@ export default function HomePage() {
         <div className="absolute right-[-4rem] top-[-5rem] h-56 w-56 rounded-full bg-[rgba(33,72,59,0.12)] blur-3xl" />
         <div className="relative text-center">
           <p className="bip-kicker mb-4">
-            Hardwood Editorial
+            CourtVue
           </p>
           <h1 className="bip-display text-5xl font-bold tracking-tight mb-4 text-[var(--foreground)] sm:text-6xl">
-            Basketball Intelligence
+            Court-side intelligence,
             <br />
-            <span className="text-[var(--accent)]">Platform</span>
+            <span className="text-[var(--accent)]">in full view.</span>
           </h1>
           <p className="text-lg text-[var(--muted)] mb-8 max-w-2xl mx-auto leading-8">
-            Explore player analytics, team context, and play-by-play-driven
-            insights across one connected research surface.
+            CourtVue brings player analytics, team context, custom metrics, and play-by-play-backed decision support into one connected research surface.
           </p>
           <PlayerSearchBar />
           <div className="mt-8 flex flex-wrap items-center justify-center gap-3">

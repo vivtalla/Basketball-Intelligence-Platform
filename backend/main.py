@@ -7,11 +7,11 @@ from config import CORS_ORIGINS
 from data.cache import CacheManager
 from db.database import engine
 from db.models import Base
-from routers import players, stats, shotchart, leaderboards, teams, advanced, gamelogs, games, similarity, standings, insights, warehouse
+from routers import players, stats, shotchart, leaderboards, teams, advanced, gamelogs, games, similarity, standings, insights, warehouse, metrics
 
 logging.basicConfig(level=logging.INFO)
 
-app = FastAPI(title="Basketball Intelligence Platform", version="0.2.0")
+app = FastAPI(title="CourtVue", version="0.2.0")
 
 app.add_middleware(
     CORSMiddleware,
@@ -33,6 +33,7 @@ app.include_router(similarity.router, prefix="/api/similarity", tags=["similarit
 app.include_router(standings.router, prefix="/api/standings", tags=["standings"])
 app.include_router(insights.router, prefix="/api/insights", tags=["insights"])
 app.include_router(warehouse.router, prefix="/api/warehouse", tags=["warehouse"])
+app.include_router(metrics.router, prefix="/api/metrics", tags=["metrics"])
 
 
 @app.on_event("startup")

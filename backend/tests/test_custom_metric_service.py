@@ -71,6 +71,7 @@ def test_custom_metric_service_normalizes_weights_and_excludes_missing_players()
             )
 
         assert report.player_rankings[0].player_name == "Alpha Guard"
+        assert report.player_rankings[0].player_id == 1
         assert any("normalized proportionally" in warning for warning in report.validation_warnings)
         assert any("Excluded players" in warning for warning in report.validation_warnings)
         assert len(report.player_rankings) == 5

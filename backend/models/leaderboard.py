@@ -62,6 +62,7 @@ class CustomMetricRequest(BaseModel):
 
 class CustomMetricPlayerRanking(BaseModel):
     rank: int
+    player_id: int
     player_name: str
     team: str
     composite_score: float

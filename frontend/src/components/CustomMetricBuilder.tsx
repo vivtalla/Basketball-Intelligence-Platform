@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter, useSearchParams } from "next/navigation";
 import { type FormEvent, useEffect, useMemo, useState } from "react";
 import { getAvailableSeasons, getLeaderboardTeams } from "@/lib/api";
 import {
@@ -193,19 +194,66 @@ function writeSavedPresets(presets: SavedMetricPreset[]) {
   window.localStorage.setItem(PRESET_STORAGE_KEY, JSON.stringify(presets));
 }
 
+function encodeMetricConfig(config: BuilderConfig): string {
+  const json = JSON.stringify(config);
+  const bytes = new TextEncoder().encode(json);
+  let binary = "";
+  bytes.forEach((byte) => {
+    binary += String.fromCharCode(byte);
+  });
+  return window
+    .btoa(binary)
+    .replace(/\+/g, "-")
+    .replace(/\//g, "_")
+    .replace(/=+$/g, "");
+}
+
+function decodeMetricConfig(encoded: string): BuilderConfig | null {
+  try {
+    const padded = encoded.replace(/-/g, "+").replace(/_/g, "/");
+    const normalized = padded + "=".repeat((4 - (padded.length % 4 || 4)) % 4);
+    const binary = window.atob(normalized);
+    const bytes = Uint8Array.from(binary, (char) => char.charCodeAt(0));
+    const parsed = JSON.parse(new TextDecoder().decode(bytes)) as BuilderConfig;
+    if (!parsed || !Array.isArray(parsed.components)) {
+      return null;
+    }
+    return {
+      metricName: parsed.metricName || "",
+      season: parsed.season || "",
+      playerPool: parsed.playerPool || "all",
+      teamAbbreviation: parsed.teamAbbreviation || "",
+      position: parsed.position || "G",
+      components: cloneComponents(parsed.components),
+    };
+  } catch {
+    return null;
+  }
+}
+
 export function CustomMetricBuilder() {
-  const [metricName, setMetricName] = useState("");
-  const [season, setSeason] = useState("");
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const sharedConfig = useMemo(() => {
+    const encoded = searchParams.get("metric");
+    return encoded ? decodeMetricConfig(encoded) : null;
+  }, [searchParams]);
+  const [metricName, setMetricName] = useState(sharedConfig?.metricName ?? "");
+  const [season, setSeason] = useState(sharedConfig?.season ?? "");
   const [seasons, setSeasons] = useState<string[]>([]);
   const [teams, setTeams] = useState<string[]>([]);
-  const [playerPool, setPlayerPool] = useState<PlayerPool>("all");
-  const [teamAbbreviation, setTeamAbbreviation] = useState("");
-  const [position, setPosition] = useState("G");
-  const [components, setComponents] = useState<CustomMetricComponentInput[]>([
-    { stat_id: "pts_pg", label: "Points Per Game", weight: 0.4, inverse: false },
-    { stat_id: "ast_pg", label: "Assists Per Game", weight: 0.35, inverse: false },
-    { stat_id: "tov_pg", label: "Turnovers Per Game", weight: 0.25, inverse: true },
-  ]);
+  const [playerPool, setPlayerPool] = useState<PlayerPool>(sharedConfig?.playerPool ?? "all");
+  const [teamAbbreviation, setTeamAbbreviation] = useState(sharedConfig?.teamAbbreviation ?? "");
+  const [position, setPosition] = useState(sharedConfig?.position ?? "G");
+  const [components, setComponents] = useState<CustomMetricComponentInput[]>(
+    sharedConfig?.components
+      ? cloneComponents(sharedConfig.components)
+      : [
+          { stat_id: "pts_pg", label: "Points Per Game", weight: 0.4, inverse: false },
+          { stat_id: "ast_pg", label: "Assists Per Game", weight: 0.35, inverse: false },
+          { stat_id: "tov_pg", label: "Turnovers Per Game", weight: 0.25, inverse: true },
+        ]
+  );
   const [savedPresets, setSavedPresets] = useState<SavedMetricPreset[]>(() => readSavedPresets());
   const [presetMessage, setPresetMessage] = useState<string | null>(null);
   const { data, error, isLoading, runMetric, resetMetric } = useCustomMetric();
@@ -232,6 +280,24 @@ export function CustomMetricBuilder() {
     () => components.reduce((sum, component) => sum + Number(component.weight || 0), 0),
     [components]
   );
+
+  const currentConfig = useMemo<BuilderConfig>(
+    () => ({
+      metricName,
+      season,
+      playerPool,
+      teamAbbreviation,
+      position,
+      components: cloneComponents(components),
+    }),
+    [components, metricName, playerPool, position, season, teamAbbreviation]
+  );
+
+  useEffect(() => {
+    if (!season) return;
+    const encoded = encodeMetricConfig(currentConfig);
+    router.replace(`/metrics?metric=${encodeURIComponent(encoded)}`, { scroll: false });
+  }, [currentConfig, router, season]);
 
   function addComponent() {
     const fallback = ALL_STATS.find(
@@ -305,6 +371,20 @@ export function CustomMetricBuilder() {
     setPresetMessage(`Saved preset: ${presetName}.`);
   }
 
+  async function copyShareLink() {
+    if (typeof window === "undefined" || !season) return;
+    const encoded = encodeMetricConfig(currentConfig);
+    const shareUrl = new URL(window.location.href);
+    shareUrl.pathname = "/metrics";
+    shareUrl.search = `metric=${encodeURIComponent(encoded)}`;
+    try {
+      await navigator.clipboard.writeText(shareUrl.toString());
+      setPresetMessage("Copied CourtVue metric link.");
+    } catch {
+      setPresetMessage("Metric link is in the address bar if clipboard access is blocked.");
+    }
+  }
+
   function loadSavedPreset(preset: SavedMetricPreset) {
     applyConfig(preset.config);
     setPresetMessage(`Loaded saved preset: ${preset.name}.`);
@@ -340,18 +420,28 @@ export function CustomMetricBuilder() {
           <div className="max-w-3xl">
             <p className="bip-kicker mb-2">Metrics Workspace</p>
             <h2 className="bip-display text-3xl font-semibold text-[var(--foreground)]">
-              Build Your Own Metric
+              CourtVue Metrics
             </h2>
             <p className="mt-3 text-sm leading-7 text-[var(--muted-strong)]">
-              Shape the leaderboard around the traits you care about, keep the math sound with z-score normalization, and save your favorite composites for repeat use.
+              Shape the leaderboard around the traits you care about, keep the math sound with z-score normalization, and hand the results straight into player or compare workflows.
             </p>
           </div>
-          <Link
-            href="/player-stats"
-            className="inline-flex rounded-full border border-[var(--border-strong)] px-4 py-2 text-xs font-semibold uppercase tracking-[0.18em] text-[var(--accent-strong)] transition hover:bg-[rgba(33,72,59,0.08)]"
-          >
-            Open Player Stats
-          </Link>
+          <div className="flex flex-wrap gap-3">
+            <button
+              type="button"
+              onClick={copyShareLink}
+              disabled={!season}
+              className="inline-flex rounded-full border border-[var(--border-strong)] px-4 py-2 text-xs font-semibold uppercase tracking-[0.18em] text-[var(--accent-strong)] transition hover:bg-[rgba(33,72,59,0.08)] disabled:opacity-50"
+            >
+              Copy Share Link
+            </button>
+            <Link
+              href="/player-stats"
+              className="inline-flex rounded-full border border-[var(--border-strong)] px-4 py-2 text-xs font-semibold uppercase tracking-[0.18em] text-[var(--accent-strong)] transition hover:bg-[rgba(33,72,59,0.08)]"
+            >
+              Open Player Stats
+            </Link>
+          </div>
         </div>
       </div>
 
@@ -407,7 +497,7 @@ export function CustomMetricBuilder() {
             </button>
           </div>
           <p className="mt-3 text-sm leading-6 text-[var(--muted-strong)]">
-            Saved presets live in this browser only. Use the metric label field if you want a custom name before saving.
+            Saved presets live in this browser only. Share links are URL-based, so you can still hand a CourtVue metric to someone else without account storage.
           </p>
           {presetMessage ? (
             <div className="mt-4 rounded-[1rem] border border-[rgba(33,72,59,0.18)] bg-[rgba(33,72,59,0.08)] px-4 py-3 text-sm text-[var(--accent-strong)]">
@@ -664,6 +754,23 @@ export function CustomMetricBuilder() {
               </p>
             </div>
 
+            {data?.player_rankings && data.player_rankings.length >= 2 ? (
+              <div className="flex flex-wrap gap-3">
+                <Link
+                  href={`/compare?p1=${data.player_rankings[0].player_id}&p2=${data.player_rankings[1].player_id}`}
+                  className="inline-flex rounded-full border border-[var(--border-strong)] px-4 py-2 text-xs font-semibold uppercase tracking-[0.18em] text-[var(--accent-strong)] transition hover:bg-[rgba(33,72,59,0.08)]"
+                >
+                  Compare Top Two
+                </Link>
+                <Link
+                  href={`/players/${data.player_rankings[0].player_id}`}
+                  className="inline-flex rounded-full border border-[var(--border)] px-4 py-2 text-xs font-semibold uppercase tracking-[0.18em] text-[var(--muted-strong)] transition hover:bg-[rgba(244,238,223,0.7)]"
+                >
+                  Open Top Player
+                </Link>
+              </div>
+            ) : null}
+
             {error ? (
               <div className="rounded-[1.25rem] border border-[rgba(140,58,42,0.24)] bg-[var(--danger-soft)] px-4 py-3 text-sm text-[var(--danger-ink)]">
                 {error}
@@ -766,12 +873,14 @@ export function CustomMetricBuilder() {
                 <tbody>
                   {data.player_rankings.slice(0, 15).map((row) => (
                     <tr
-                      key={`${row.rank}-${row.player_name}`}
+                      key={`${row.rank}-${row.player_id}`}
                       className="border-b border-[var(--border)] last:border-0"
                     >
                       <td className="px-4 py-3 text-sm text-[var(--muted-strong)]">{row.rank}</td>
                       <td className="px-4 py-3 text-sm font-semibold text-[var(--foreground)]">
-                        {row.player_name}
+                        <Link href={`/players/${row.player_id}`} className="bip-link">
+                          {row.player_name}
+                        </Link>
                       </td>
                       <td className="px-4 py-3 text-sm text-[var(--muted-strong)]">{row.team}</td>
                       <td
