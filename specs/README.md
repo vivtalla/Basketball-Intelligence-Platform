@@ -15,6 +15,7 @@ Sprint closeout notes are not handoffs; they are the shared end-of-sprint memory
 | File | Type | From | To | Sprint | Status |
 |------|------|------|----|--------|--------|
 | [SPRINT_COLLABORATION_GUIDE.md](SPRINT_COLLABORATION_GUIDE.md) | Process | Shared | Vivek | — | Active |
+| [BACKLOG.md](BACKLOG.md) | Planning | Shared | Shared | — | Active |
 | [sprint-22-closeout.md](sprint-22-closeout.md) | Closeout | Shared | Shared | 22 | Final |
 | [sprint-22-team-a-courtvue-metrics.md](sprint-22-team-a-courtvue-metrics.md) | Spec | Team A Architect | Team A Engineer | 22 | Final |
 | [sprint-22-team-b-courtvue-trajectory.md](sprint-22-team-b-courtvue-trajectory.md) | Spec | Team B Architect | Team B Engineer | 22 | Final |
