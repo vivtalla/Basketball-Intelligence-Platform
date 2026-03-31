@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
 
 interface LegacyLeaderboardsPageProps {
-  searchParams?: Record<string, string | string[] | undefined>;
+  searchParams?: Promise<Record<string, string | string[] | undefined>>;
 }
 
 function toQueryString(searchParams?: Record<string, string | string[] | undefined>) {
@@ -18,7 +18,8 @@ function toQueryString(searchParams?: Record<string, string | string[] | undefin
   return params.toString();
 }
 
-export default function LegacyLeaderboardsPage({ searchParams }: LegacyLeaderboardsPageProps) {
-  const query = toQueryString(searchParams);
+export default async function LegacyLeaderboardsPage({ searchParams }: LegacyLeaderboardsPageProps) {
+  const resolvedSearchParams = searchParams ? await searchParams : undefined;
+  const query = toQueryString(resolvedSearchParams);
   redirect(query ? `/player-stats?${query}` : "/player-stats");
 }
