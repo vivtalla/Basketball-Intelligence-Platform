@@ -10,6 +10,8 @@ from sqlalchemy.orm import Session
 
 from db.database import get_db
 from db.models import Player, SeasonStat
+from models.insights import TrajectoryResponse
+from services.trajectory_service import build_trajectory_report
 
 router = APIRouter()
 
@@ -80,6 +82,27 @@ class BreakoutsResponse(BaseModel):
     prior_season: str
     improvers: List[BreakoutEntry]
     decliners: List[BreakoutEntry]
+
+
+@router.get("/trajectory", response_model=TrajectoryResponse)
+def get_trajectory(
+    season: str = Query("2025-26"),
+    last_n_games: int = Query(10, ge=3, le=30),
+    player_pool: str = Query("all"),
+    min_minutes_per_game: float = Query(20.0, ge=0),
+    team_abbreviation: Optional[str] = Query(None),
+    position: Optional[str] = Query(None),
+    db: Session = Depends(get_db),
+):
+    return build_trajectory_report(
+        db=db,
+        season=season,
+        last_n_games=last_n_games,
+        player_pool=player_pool,
+        min_minutes_per_game=min_minutes_per_game,
+        team_abbreviation=team_abbreviation,
+        position=position,
+    )
 
 
 @router.get("/breakouts", response_model=BreakoutsResponse)

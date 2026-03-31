@@ -502,6 +502,39 @@ Eliminated live NBA API calls on every player profile load:
 
 ---
 
+### Sprint 20 — Dual Team Analyst Workflows
+**Branch:** `codex-sprint-20-kickoff` (Codex integration branch with Team A + Team B feature branches)
+
+**Codex — dual-team sprint execution + shipped workflows:**
+- Reworked sprint operations around two parallel teams using the same four-role flow:
+  - Team A `Metric Builder Team`
+  - Team B `Trajectory Team`
+- Added the Team A `Custom Metric Builder` workflow on `Leaderboards` with:
+  - a dedicated `POST /api/leaderboards/custom-metric` backend contract
+  - stat and weight validation
+  - z-score normalization before weighting
+  - composite rankings
+  - metric naming / interpretation
+  - anomaly detection for weight-sensitive outliers
+- Added the Team B `Trajectory Tracker` workflow on `Insights` with:
+  - a dedicated `GET /api/insights/trajectory` backend contract
+  - recent-window vs out-of-window baseline comparisons
+  - breakout and decline rankings
+  - trajectory labels
+  - context flags and exclusion handling
+- Added Sprint 20 workflow artifacts:
+  - `specs/sprint-20-metric-builder.md`
+  - `specs/sprint-20-trajectory-tracker.md`
+  - `specs/sprint-20-team-a-review-note.md`
+  - `specs/sprint-20-team-a-optimizer-note.md`
+  - `specs/sprint-20-team-b-review-note.md`
+  - `specs/sprint-20-team-b-optimizer-note.md`
+  - `specs/sprint-20-closeout.md`
+
+**Sprint 20 result:** the platform now has two new analyst-facing investigation workflows and a proven dual-team sprint structure. The next likely product step is connecting those workflows with saved analyst state, deeper drill-down handoffs, or another two-track feature sprint using the same operating model.
+
+---
+
 ## Active Branches
 
 | Branch | Owner | Status |

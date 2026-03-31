@@ -11,9 +11,12 @@ from db.models import Player, SeasonStat
 from models.leaderboard import (
     CareerLeaderboardEntry,
     CareerLeaderboardResponse,
+    CustomMetricRequest,
+    CustomMetricResponse,
     LeaderboardEntry,
     LeaderboardResponse,
 )
+from services.custom_metric_service import build_custom_metric_report
 
 router = APIRouter()
 
@@ -30,6 +33,14 @@ CAREER_SORTABLE_STATS = {
     "pts_pg", "reb_pg", "ast_pg", "stl_pg", "blk_pg",
     "bpm", "ws", "vorp", "per", "ts_pct",
 }
+
+
+@router.post("/custom-metric", response_model=CustomMetricResponse)
+def custom_metric(
+    payload: CustomMetricRequest,
+    db: Session = Depends(get_db),
+):
+    return build_custom_metric_report(db, payload)
 
 
 @router.get("/seasons")

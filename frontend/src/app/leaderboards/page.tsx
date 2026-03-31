@@ -5,6 +5,7 @@ import { useState, useEffect, useMemo, useId } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
+import { CustomMetricBuilder } from "@/components/CustomMetricBuilder";
 import {
   useLeaderboard,
   useOnOffLeaderboard,
@@ -331,6 +332,8 @@ function LeaderboardsPageContent() {
           Compare players and lineups across box-score and play-by-play metrics.
         </p>
       </div>
+
+      <CustomMetricBuilder />
 
       {/* ── Mode tabs ── */}
       <div className="flex flex-wrap gap-2 mb-4">
