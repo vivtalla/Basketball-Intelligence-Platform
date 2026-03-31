@@ -563,6 +563,28 @@ Eliminated live NBA API calls on every player profile load:
 
 ---
 
+### Sprint 22 — CourtVue Launch Rebrand + Metrics + Trajectory
+**Branch:** `codex-sprint-22-kickoff`
+
+**Codex — CourtVue launch sprint:**
+- Renamed the product to `CourtVue` across the app shell, metadata, Learn metadata, API title, and operational bulk-import banner
+- Added the new primary custom-metric route:
+  - `POST /api/metrics/custom`
+- Upgraded the `Metrics` workspace to support:
+  - URL-shareable metric state
+  - direct player-page links from ranking rows
+  - direct Compare handoff for the top two metric results
+- Extended custom-metric ranking rows with player identifiers so frontend handoffs are linkable instead of name-only
+- Kept the recency-first `Trajectory Tracker` on `/insights` and refreshed its CourtVue-facing copy
+- Added Sprint 22 workflow artifacts:
+  - `specs/sprint-22-team-a-courtvue-metrics.md`
+  - `specs/sprint-22-team-b-courtvue-trajectory.md`
+  - `specs/sprint-22-closeout.md`
+
+**Sprint 22 result:** the platform now has a cohesive CourtVue brand and a stronger analyst loop around custom metrics, with shareable setup state and direct handoff into deeper player comparison. The next likely product step is deciding whether analyst state stays URL-first or moves into persistent saved workflows.
+
+---
+
 ## Active Branches
 
 | Branch | Owner | Status |
