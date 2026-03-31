@@ -30,6 +30,12 @@
 - 3-5 concrete candidate tasks or follow-ups
 - Write these so kickoff can reuse them directly
 
+## Backlog Refresh
+
+- Update `specs/BACKLOG.md` with the best future-work seeds from this sprint
+- Remove anything that shipped and rewrite it as a follow-on only if future work still exists
+- Reprioritize the backlog if this sprint changed what should come next
+
 ---
 
 Keep this note short: roughly 10-20 lines total. It is a lightweight sprint closeout, not a full retro or postmortem.

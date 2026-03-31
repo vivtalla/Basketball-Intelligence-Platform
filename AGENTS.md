@@ -6,7 +6,7 @@ Last updated: 2026-03-30 by Codex (post-Sprint-22 closeout)
 > Check sprint status, your branch/worktree, the lock table, the Handoff Queue, and the Merge Order.
 > Then `git fetch origin`. Then begin work.
 > All implementation happens on sprint branches or isolated worktrees, never directly on `master`.
-> At sprint close, create/update `specs/sprint-{NN}-closeout.md`, reset `AGENTS.md`, and update the matching sprint summary in `CLAUDE.md`.
+> At sprint close, create/update `specs/sprint-{NN}-closeout.md`, refresh `specs/BACKLOG.md` with new seeds and shifted priorities, reset `AGENTS.md`, and update the matching sprint summary in `CLAUDE.md`.
 
 ---
 
@@ -91,6 +91,7 @@ Preferred closeout outcome:
 - `master` is clean
 - only current sprint branches remain open
 - old merged branches are removed locally and remotely
+- `specs/BACKLOG.md` reflects the latest future-work seeds and reprioritization
 - intentionally preserved exceptions are listed in Notes
 
 ---
@@ -117,9 +118,10 @@ Preferred closeout outcome:
 3. Cherry-pick any last useful commits off stale branches
 4. Delete merged / abandoned sprint branches locally and remotely
 5. Create or update specs/sprint-{NN}-closeout.md
-6. Reset AGENTS.md for the next sprint kickoff state
-7. Update the matching sprint summary in CLAUDE.md
-8. Leave the next kickoff readable from AGENTS.md + closeout + CLAUDE.md
+6. Refresh specs/BACKLOG.md so new ideas, deferred work, and next-sprint seeds survive beyond the closeout note
+7. Reset AGENTS.md for the next sprint kickoff state
+8. Update the matching sprint summary in CLAUDE.md
+9. Leave the next kickoff readable from AGENTS.md + closeout + BACKLOG.md + CLAUDE.md
 ```
 
 ---

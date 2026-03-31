@@ -9,6 +9,7 @@ To write a new spec, copy `TEMPLATE.md` and name it:
 
 After creating a spec, add it here and add it to the Handoff Queue in `AGENTS.md`.
 Sprint closeout notes are not handoffs; they are the shared end-of-sprint memory layer and should be updated once per sprint.
+At sprint close, refresh `BACKLOG.md` as well so the best future-work ideas survive beyond the closeout note.
 
 ---
 
