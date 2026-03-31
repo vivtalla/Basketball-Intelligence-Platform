@@ -535,6 +535,34 @@ Eliminated live NBA API calls on every player profile load:
 
 ---
 
+### Sprint 21 — Metrics Workspace, Player Stats Split, and Name Consistency
+**Branch:** `codex-sprint-21-kickoff` (Codex integration branch with Team A + Team B feature branches)
+
+**Codex — dual-team frontend split + cleanup sprint:**
+- Split the old `Leaderboards` surface into two dedicated top-level workspaces:
+  - `Metrics`
+  - `Player Stats`
+- Moved `Build Your Own Metric` onto the new `Metrics` page and added:
+  - built-in starter presets
+  - local saved presets stored in browser storage
+  - direct follow-through back to `Player Stats`
+- Moved the existing leaderboard experience onto the new `Player Stats` route without the metric builder
+- Replaced `/leaderboards` with a compatibility redirect to `/player-stats`
+- Updated app-shell and home-page navigation to feature `Metrics` and `Player Stats` as first-class workspaces
+- Fixed visible player-name shortening on high-traffic UI, including the compare-page legend labels
+- Added Sprint 21 workflow artifacts:
+  - `specs/sprint-21-team-a-metrics-workspace.md`
+  - `specs/sprint-21-team-b-player-stats-name-consistency.md`
+  - `specs/sprint-21-team-a-review-note.md`
+  - `specs/sprint-21-team-a-optimizer-note.md`
+  - `specs/sprint-21-team-b-review-note.md`
+  - `specs/sprint-21-team-b-optimizer-note.md`
+  - `specs/sprint-21-closeout.md`
+
+**Sprint 21 result:** the platform now has cleaner top-level analyst workspaces and more consistent player-name presentation, while preserving the Sprint 20 metric and ranking capabilities. The next likely product step is making saved metric state portable or shareable rather than browser-local only.
+
+---
+
 ## Active Branches
 
 | Branch | Owner | Status |
