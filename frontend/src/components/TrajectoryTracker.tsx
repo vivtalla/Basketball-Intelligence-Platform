@@ -332,8 +332,8 @@ export function TrajectoryTracker() {
             <p>
               For team-level context, cross-check a riser against the Rotation Intelligence workflow on the team page to see whether the role change is tied to a wider lineup shift.
             </p>
-            <Link href="/leaderboards" className="inline-flex rounded-full border border-[var(--border-strong)] px-4 py-2 text-xs font-semibold uppercase tracking-[0.18em] text-[var(--accent-strong)] transition hover:bg-[rgba(33,72,59,0.08)]">
-              Open Leaderboards Context
+            <Link href="/player-stats" className="inline-flex rounded-full border border-[var(--border-strong)] px-4 py-2 text-xs font-semibold uppercase tracking-[0.18em] text-[var(--accent-strong)] transition hover:bg-[rgba(33,72,59,0.08)]">
+              Open Player Stats Context
             </Link>
           </div>
         </div>
