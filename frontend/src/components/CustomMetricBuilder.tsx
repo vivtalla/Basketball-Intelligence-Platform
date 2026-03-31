@@ -206,7 +206,7 @@ export function CustomMetricBuilder() {
     { stat_id: "ast_pg", label: "Assists Per Game", weight: 0.35, inverse: false },
     { stat_id: "tov_pg", label: "Turnovers Per Game", weight: 0.25, inverse: true },
   ]);
-  const [savedPresets, setSavedPresets] = useState<SavedMetricPreset[]>([]);
+  const [savedPresets, setSavedPresets] = useState<SavedMetricPreset[]>(() => readSavedPresets());
   const [presetMessage, setPresetMessage] = useState<string | null>(null);
   const { data, error, isLoading, runMetric, resetMetric } = useCustomMetric();
 
@@ -219,10 +219,6 @@ export function CustomMetricBuilder() {
         }
       })
       .catch(() => setSeasons([]));
-  }, []);
-
-  useEffect(() => {
-    setSavedPresets(readSavedPresets());
   }, []);
 
   useEffect(() => {

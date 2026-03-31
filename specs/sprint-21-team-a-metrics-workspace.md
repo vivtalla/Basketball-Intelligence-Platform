@@ -1,6 +1,6 @@
 # Sprint 21 — Team A Metrics Workspace
 
-Status: Ready for Engineer
+Status: Ready to Merge
 
 ## Summary
 
@@ -40,3 +40,21 @@ Move the custom metric workflow out of `Leaderboards` and into a dedicated `Metr
 - A built-in preset loads and can be scored successfully
 - A local preset can be saved, loaded, and deleted
 - No regression in custom metric scoring behavior
+
+## Shipped
+
+- Added `/metrics` as a dedicated top-level workspace
+- Moved `Build Your Own Metric` into that route as the page centerpiece
+- Added four built-in starter presets:
+  - `Scoring Engine`
+  - `Playmaking Load`
+  - `Two-Way Impact`
+  - `Efficiency Big`
+- Added local saved presets backed by browser storage with save, load, and delete actions
+- Added a contextual path back to `Player Stats`
+
+## Verification Completed
+
+- `npm run lint`
+- `npm run build`
+- Live route check on `/metrics` in the Sprint 21 frontend server

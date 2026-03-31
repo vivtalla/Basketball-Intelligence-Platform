@@ -36,7 +36,7 @@ Sprint 21 runs as two parallel teams, each using:
   - built-in starter presets
   - local saved presets
   - metric-builder component and supporting hook-layer adjustments
-- Status: In progress
+- Status: Ready to Merge
 
 ### Team B — Player Stats + Name Consistency Team
 - Branch: `codex-sprint-21-player-stats-name-consistency`
@@ -45,7 +45,7 @@ Sprint 21 runs as two parallel teams, each using:
   - `/leaderboards` compatibility redirect
   - nav and home-page route updates
   - visible full-name cleanup
-- Status: In progress
+- Status: Ready to Merge
 
 ### Integration
 - Branch: `codex-sprint-21-kickoff`
@@ -113,8 +113,8 @@ Allowed statuses:
 
 | Team | Artifact / Spec file | From role | To role | Status | Notes |
 |------|----------------------|-----------|---------|--------|-------|
-| Team A | `specs/sprint-21-team-a-metrics-workspace.md` | Architect | Engineer | Ready for Engineer | `/metrics`, built-in presets, local saved presets |
-| Team B | `specs/sprint-21-team-b-player-stats-name-consistency.md` | Architect | Engineer | Ready for Engineer | `/player-stats`, redirect split, nav/home updates, visible full-name cleanup |
+| Team A | `specs/sprint-21-team-a-metrics-workspace.md` | Optimizer | Merge | Ready to Merge | Verified with `npm run lint`, `npm run build`, and live `/metrics` route checks |
+| Team B | `specs/sprint-21-team-b-player-stats-name-consistency.md` | Optimizer | Merge | Ready to Merge | Verified with `npm run lint`, `npm run build`, `/leaderboards` redirect, and live `/player-stats` checks |
 
 ---
 
@@ -197,6 +197,7 @@ Before any Sprint 21 branch merges to `master`, do a quick convention spot-check
 
 *Free-form, dated, newest first. For cross-agent coordination mid-sprint.*
 
+2026-03-30 (Codex): Sprint 21 implementation is complete on `codex-sprint-21-kickoff`. Team A and Team B both passed integrated verification and are marked Ready to Merge.
 2026-03-30 (Codex): Sprint 21 kicked off as a dual-team frontend sprint. Team A owns the Metrics workspace and presets. Team B owns the Player Stats split, nav updates, redirect behavior, and visible full-name cleanup.
 2026-03-30 (Codex): Sprint 20 closed. The dual-team workflow proved workable and is now the default template for future multi-feature sprints.
 2026-03-30 (Codex): Sprint 19 closed and merged to `master`. See `specs/sprint-19-closeout.md`.
