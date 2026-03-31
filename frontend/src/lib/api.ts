@@ -374,3 +374,37 @@ export async function getPlayerTrendReport(
     `/api/players/${playerId}/trend-report?season=${encodeURIComponent(season)}`
   );
 }
+
+export async function postCustomMetric(
+  config: import("./types").CustomMetricConfig
+): Promise<import("./types").CustomMetricResponse> {
+  return fetchApi<import("./types").CustomMetricResponse>(
+    `/api/leaderboards/custom-metric`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(config),
+    }
+  );
+}
+
+export async function getTrajectoryReport(
+  season: string,
+  lastNGames: number,
+  playerPool: "all" | "position_filter" | "team_filter",
+  minMinutesPerGame: number,
+  teamAbbreviation?: string,
+  position?: string
+): Promise<import("./types").TrajectoryResponse> {
+  const params = new URLSearchParams({
+    season,
+    last_n_games: String(lastNGames),
+    player_pool: playerPool,
+    min_minutes_per_game: String(minMinutesPerGame),
+  });
+  if (teamAbbreviation) params.set("team_abbreviation", teamAbbreviation);
+  if (position) params.set("position", position);
+  return fetchApi<import("./types").TrajectoryResponse>(
+    `/api/insights/trajectory?${params.toString()}`
+  );
+}

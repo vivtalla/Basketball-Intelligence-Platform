@@ -1,6 +1,6 @@
 # Sprint 20 — Team B: Recent Trajectory Tracker
 
-Status: Ready for Engineer
+Status: Ready to Merge
 
 ## Goal
 
@@ -70,3 +70,9 @@ Replace the current year-over-year `Breakout Tracker` framing with a 2025-26 rec
 - label bands map correctly
 - context flags populate when conditions are met
 - insights page no longer falls back to the old YoY breakout framing
+
+## Implementation notes
+
+- Implemented on Team B branch and merged into the Sprint 20 integration branch.
+- Backend verification passed via compile check and `pytest backend/tests/test_trajectory_service.py`.
+- Frontend verification passed via `npm run lint` and integrated build validation on the kickoff branch.

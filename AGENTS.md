@@ -32,24 +32,24 @@ Sprint 20 uses two parallel teams with the same four-role workflow:
 ### Team A — Metric Builder Team
 - Branch: `codex-sprint-20-metric-builder`
 - Goal: build `Build Your Own Metric` inside `Leaderboards`
-- Current status: Architect complete, waiting on Engineer start
+- Current status: Engineer, Reviewer, and Optimizer complete; ready to merge
 
 Roles:
 - Architect: Complete
-- Engineer: Unassigned
-- Reviewer: Unassigned
-- Optimizer: Unassigned
+- Engineer: Complete
+- Reviewer: Complete
+- Optimizer: Complete
 
 ### Team B — Trajectory Team
 - Branch: `codex-sprint-20-trajectory-tracker`
 - Goal: evolve `Insights` into a 2025-26 recent-window trajectory workflow
-- Current status: Architect complete, waiting on Engineer start
+- Current status: Engineer, Reviewer, and Optimizer complete; ready to merge
 
 Roles:
 - Architect: Complete
-- Engineer: Unassigned
-- Reviewer: Unassigned
-- Optimizer: Unassigned
+- Engineer: Complete
+- Reviewer: Complete
+- Optimizer: Complete
 
 ### Shared Integration
 - Shared kickoff branch: `codex-sprint-20-kickoff`
@@ -102,8 +102,8 @@ Claim a file here before writing a single line. If a file is already claimed, re
 |--------------------------------------------------------|------------|---------|
 | `backend/db/models.py`                                 | —          | Shared schema changes if any become necessary |
 | `backend/db/ensure_schema.py`                          | —          | Shared schema changes if any become necessary |
-| `frontend/src/lib/types.ts`                            | —          | Shared frontend contracts for both teams; append-only |
-| `frontend/src/lib/api.ts`                              | —          | Shared frontend API functions for both teams; append-only |
+| `frontend/src/lib/types.ts`                            | Shared Integration | Shared frontend contracts for both teams; append-only |
+| `frontend/src/lib/api.ts`                              | Shared Integration | Shared frontend API functions for both teams; append-only |
 | `backend/main.py`                                      | —          | Shared router registration if needed |
 
 Shared integration note:
@@ -125,8 +125,8 @@ Allowed statuses:
 
 | Team | Artifact / Spec file | From role | To role | Status | Notes |
 |------|----------------------|-----------|---------|--------|-------|
-| Team A | `specs/sprint-20-metric-builder.md` | Architect | Engineer | Ready for Engineer | Leaderboards-based custom composite metric workflow |
-| Team B | `specs/sprint-20-trajectory-tracker.md` | Architect | Engineer | Ready for Engineer | Insights-based 2025-26 recent-window trajectory workflow |
+| Team A | `specs/sprint-20-metric-builder.md` | Optimizer | Shared / Merge | Ready to Merge | Review + optimizer notes recorded; integration complete |
+| Team B | `specs/sprint-20-trajectory-tracker.md` | Optimizer | Shared / Merge | Ready to Merge | Review + optimizer notes recorded; integration complete |
 
 ---
 
@@ -212,4 +212,5 @@ Before either team branch merges to `master`, the other team should do a quick c
 *Free-form, dated, newest first. For cross-team coordination mid-sprint.*
 
 2026-03-30 (Architect): Sprint 20 kicked off as a dual-team sprint. Team A owns `Custom Metric Builder` in `Leaderboards`; Team B owns `Recent Trajectory Tracker` in `Insights`.
+2026-03-30 (Codex): Team A and Team B implementations are integrated on `codex-sprint-20-kickoff`. Verification passed: backend compile, both backend test files, `npm run lint`, and `npm run build` (build required elevated execution due sandbox Turbopack restrictions).
 2026-03-30 (Codex): Sprint 19 closed and merged to `master`. See `specs/sprint-19-closeout.md`.

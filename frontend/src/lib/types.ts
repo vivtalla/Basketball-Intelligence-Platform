@@ -892,3 +892,66 @@ export interface PlayerTrendReport {
   impact_snapshot: PlayerTrendImpactSnapshot;
   recommended_games: PlayerTrendGame[];
 }
+
+export interface CustomMetricComponent {
+  stat_id: string;
+  label: string;
+  weight: number;
+  inverse: boolean;
+}
+
+export interface CustomMetricConfig {
+  metric_name?: string;
+  player_pool: "all" | "position_filter" | "team_filter";
+  season: string;
+  team_abbreviation?: string;
+  position?: string;
+  components: CustomMetricComponent[];
+}
+
+export interface CustomMetricPlayerRanking {
+  rank: number;
+  player_name: string;
+  team: string;
+  composite_score: number;
+  component_breakdown: Record<string, number>;
+}
+
+export interface CustomMetricNarrative {
+  player_name: string;
+  narrative: string;
+}
+
+export interface CustomMetricAnomaly {
+  player_name: string;
+  dominant_stat: string;
+  contribution_pct: number;
+}
+
+export interface CustomMetricResponse {
+  metric_label: string;
+  metric_interpretation: string;
+  player_rankings: CustomMetricPlayerRanking[];
+  top_player_narratives: CustomMetricNarrative[];
+  anomalies: CustomMetricAnomaly[];
+  validation_warnings: string[];
+}
+
+export interface TrajectoryPlayerRow {
+  rank: number;
+  player_name: string;
+  team: string;
+  trajectory_label: string;
+  trajectory_score: number;
+  key_stat_deltas: Record<string, number>;
+  narrative: string;
+  context_flags: string[];
+}
+
+export interface TrajectoryResponse {
+  window: string;
+  breakout_leaders: TrajectoryPlayerRow[];
+  decline_watch: TrajectoryPlayerRow[];
+  excluded_players: string[];
+  warnings: string[];
+}

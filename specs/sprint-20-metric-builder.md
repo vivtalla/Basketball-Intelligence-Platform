@@ -1,6 +1,6 @@
 # Sprint 20 — Team A: Custom Metric Builder
 
-Status: Ready for Engineer
+Status: Ready to Merge
 
 ## Goal
 
@@ -66,3 +66,9 @@ Extend `Leaderboards` with a user-defined composite metric workflow that validat
 - <5 qualifying players returns insufficient-pool error
 - anomaly detection flags >60% single-stat dominance
 - leaderboards page still works for normal stat boards
+
+## Implementation notes
+
+- Implemented on Team A branch and merged into the Sprint 20 integration branch.
+- Backend verification passed via compile check and `pytest backend/tests/test_custom_metric_service.py`.
+- Frontend verification passed via `npm run lint` and integrated build validation on the kickoff branch.
