@@ -12,6 +12,39 @@ from models.standings import StandingsEntry
 
 router = APIRouter()
 
+TEAM_METADATA_FALLBACK = {
+    "ATL": {"conference": "East", "division": "Southeast"},
+    "BOS": {"conference": "East", "division": "Atlantic"},
+    "BKN": {"conference": "East", "division": "Atlantic"},
+    "CHA": {"conference": "East", "division": "Southeast"},
+    "CHI": {"conference": "East", "division": "Central"},
+    "CLE": {"conference": "East", "division": "Central"},
+    "DET": {"conference": "East", "division": "Central"},
+    "IND": {"conference": "East", "division": "Central"},
+    "MIA": {"conference": "East", "division": "Southeast"},
+    "MIL": {"conference": "East", "division": "Central"},
+    "NYK": {"conference": "East", "division": "Atlantic"},
+    "ORL": {"conference": "East", "division": "Southeast"},
+    "PHI": {"conference": "East", "division": "Atlantic"},
+    "TOR": {"conference": "East", "division": "Atlantic"},
+    "WAS": {"conference": "East", "division": "Southeast"},
+    "DAL": {"conference": "West", "division": "Southwest"},
+    "DEN": {"conference": "West", "division": "Northwest"},
+    "GSW": {"conference": "West", "division": "Pacific"},
+    "HOU": {"conference": "West", "division": "Southwest"},
+    "LAC": {"conference": "West", "division": "Pacific"},
+    "LAL": {"conference": "West", "division": "Pacific"},
+    "MEM": {"conference": "West", "division": "Southwest"},
+    "MIN": {"conference": "West", "division": "Northwest"},
+    "NOP": {"conference": "West", "division": "Southwest"},
+    "OKC": {"conference": "West", "division": "Northwest"},
+    "PHX": {"conference": "West", "division": "Pacific"},
+    "POR": {"conference": "West", "division": "Northwest"},
+    "SAC": {"conference": "West", "division": "Pacific"},
+    "SAS": {"conference": "West", "division": "Southwest"},
+    "UTA": {"conference": "West", "division": "Northwest"},
+}
+
 
 def _compute_standings(season: str, db: Session) -> List[StandingsEntry]:
     """Compute standings from player_game_logs. No external API needed."""
@@ -110,20 +143,22 @@ def _compute_standings(season: str, db: Session) -> List[StandingsEntry]:
         current_streak = f"{streak_char}{streak_count}" if streak_char else ""
 
         # Normalise conference to "East" / "West"
-        raw_conf = (team.conference or "").strip()
+        fallback = TEAM_METADATA_FALLBACK.get(abbr, {})
+        raw_conf = (team.conference or fallback.get("conference") or "").strip()
         if raw_conf.startswith("East"):
             conference = "East"
         elif raw_conf.startswith("West"):
             conference = "West"
         else:
             conference = raw_conf
+        division = (team.division or fallback.get("division") or "").strip()
 
         entries.append({
             "team_id":        team.id,
             "team_city":      team.city or "",
             "team_name":      team.name or "",
             "conference":     conference,
-            "division":       team.division or "",
+            "division":       division,
             "playoff_rank":   0,      # assigned below
             "wins":           wins,
             "losses":         losses,
