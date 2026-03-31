@@ -15,6 +15,7 @@ Sprint closeout notes are not handoffs; they are the shared end-of-sprint memory
 | File | Type | From | To | Sprint | Status |
 |------|------|------|----|--------|--------|
 | [SPRINT_COLLABORATION_GUIDE.md](SPRINT_COLLABORATION_GUIDE.md) | Process | Shared | Vivek | — | Active |
+| [sprint-20-closeout.md](sprint-20-closeout.md) | Closeout | Shared | Shared | 20 | Final |
 | [sprint-20-team-a-review-note.md](sprint-20-team-a-review-note.md) | Gate Note | Team A Reviewer | Shared | 20 | Final |
 | [sprint-20-team-a-optimizer-note.md](sprint-20-team-a-optimizer-note.md) | Gate Note | Team A Optimizer | Shared | 20 | Final |
 | [sprint-20-team-b-review-note.md](sprint-20-team-b-review-note.md) | Gate Note | Team B Reviewer | Shared | 20 | Final |
