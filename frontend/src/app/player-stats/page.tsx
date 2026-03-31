@@ -677,13 +677,15 @@ function PlayerStatsPageContent() {
                       <td className="px-4 py-3">
                         <Link href={`/players/${entry.player_id}`} className="flex items-center gap-3 group">
                           <div className="relative w-8 h-8 rounded-full overflow-hidden bg-gray-100 dark:bg-gray-700 shrink-0">
-                            <Image
-                              src={entry.headshot_url}
-                              alt={entry.player_name}
-                              fill
-                              className="object-cover object-top"
-                              onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
-                            />
+                            {entry.headshot_url ? (
+                              <Image
+                                src={entry.headshot_url}
+                                alt={entry.player_name}
+                                fill
+                                className="object-cover object-top"
+                                onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
+                              />
+                            ) : null}
                           </div>
                           <span className="font-medium text-gray-900 dark:text-gray-100 group-hover:text-blue-500 dark:group-hover:text-blue-400 transition-colors">
                             {entry.player_name}
@@ -779,13 +781,15 @@ function PlayerStatsPageContent() {
                   <td className="px-4 py-3">
                     <Link href={`/players/${entry.player_id}`} className="flex items-center gap-3 group">
                       <div className="relative w-8 h-8 rounded-full overflow-hidden bg-gray-100 dark:bg-gray-700 shrink-0">
-                        <Image
-                          src={entry.headshot_url}
-                          alt={entry.player_name}
-                          fill
-                          className="object-cover object-top"
-                          onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
-                        />
+                        {entry.headshot_url ? (
+                          <Image
+                            src={entry.headshot_url}
+                            alt={entry.player_name}
+                            fill
+                            className="object-cover object-top"
+                            onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
+                          />
+                        ) : null}
                       </div>
                       <span className="font-medium text-gray-900 dark:text-gray-100 group-hover:text-blue-500 dark:group-hover:text-blue-400 transition-colors">
                         {entry.player_name}

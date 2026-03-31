@@ -92,13 +92,15 @@ function PlayerAvatar({ profile, align }: { profile: PlayerProfile; align: "left
   return (
     <div className={`flex items-center gap-3 ${align === "right" ? "flex-row-reverse text-right" : ""}`}>
       <div className="relative h-16 w-16 shrink-0 overflow-hidden rounded-full border-2 border-[var(--border)] bg-[var(--surface-alt)]">
-        <Image
-          src={profile.headshot_url}
-          alt={profile.full_name}
-          fill
-          className="object-cover object-top"
-          onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
-        />
+        {profile.headshot_url ? (
+          <Image
+            src={profile.headshot_url}
+            alt={profile.full_name}
+            fill
+            className="object-cover object-top"
+            onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
+          />
+        ) : null}
       </div>
       <div>
         <div className="leading-tight font-bold text-[var(--foreground)]">{profile.full_name}</div>

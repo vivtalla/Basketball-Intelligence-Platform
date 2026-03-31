@@ -28,13 +28,15 @@ function PlayerSlot({ slotLabel, selectedId, onSelect, onClear }: PlayerSlotProp
     return (
       <div className="bip-panel flex items-center gap-3 rounded-2xl p-4">
         <div className="relative h-14 w-14 shrink-0 overflow-hidden rounded-full border border-[var(--border)] bg-[var(--surface-alt)]">
-          <Image
-            src={profile.headshot_url}
-            alt={profile.full_name}
-            fill
-            className="object-cover object-top"
-            onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
-          />
+          {profile.headshot_url ? (
+            <Image
+              src={profile.headshot_url}
+              alt={profile.full_name}
+              fill
+              className="object-cover object-top"
+              onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
+            />
+          ) : null}
         </div>
         <div className="flex-1 min-w-0">
           <div className="truncate font-semibold text-[var(--foreground)]">{profile.full_name}</div>
