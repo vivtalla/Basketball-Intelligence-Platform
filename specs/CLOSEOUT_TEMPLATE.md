@@ -21,6 +21,10 @@
 
 - File lock friction, branch/worktree issues, merge-order surprises, stale docs, or handoff gaps
 
+## Workflow Lessons
+
+- Anything that should change the sprint process, worker usage, branch hygiene, or token efficiency next time
+
 ## Technical Lessons
 
 - Fragile code paths, data surprises, tooling gaps, validation misses, or anything likely to matter next sprint

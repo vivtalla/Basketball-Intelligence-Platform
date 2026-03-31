@@ -187,6 +187,11 @@ POST /api/advanced/sync-season   body: {"season": "2024-25"}
 - **Simplicity first**: The simplest model that captures the signal wins.
 - **Only touch what's necessary**: Don't refactor adjacent code while fixing a bug. Scope changes tightly.
 
+## Sprint Process
+
+- CourtVue Labs uses a hybrid sprint model: major feature sprints typically run as two parallel teams, while small or tightly coupled sprints can use one sequential `Architect -> Engineer -> Reviewer -> Optimizer` stream.
+- Compact handoff artifacts, selective bounded worker usage, and branch/worktree cleanup are part of the default operating model.
+
 ---
 
 ## Sprint History
