@@ -1,6 +1,6 @@
-# CourtVue
+# CourtVue Labs
 
-CourtVue is a full-stack NBA analytics platform for player evaluation, team analysis, advanced metrics, and play-by-play insights. It is built for analysts and basketball enthusiasts who need rigorous, data-driven basketball context.
+CourtVue Labs is a full-stack NBA analytics platform for player evaluation, team analysis, advanced metrics, and play-by-play insights. It is built for analysts and basketball enthusiasts who need rigorous, data-driven basketball context.
 
 ---
 
@@ -563,11 +563,11 @@ Eliminated live NBA API calls on every player profile load:
 
 ---
 
-### Sprint 22 — CourtVue Launch Rebrand + Metrics + Trajectory
+### Sprint 22 — CourtVue Labs Rebrand + Metrics + Trajectory
 **Branch:** `codex-sprint-22-kickoff`
 
-**Codex — CourtVue launch sprint:**
-- Renamed the product to `CourtVue` across the app shell, metadata, Learn metadata, API title, and operational bulk-import banner
+**Codex — CourtVue Labs launch sprint:**
+- Renamed the product to `CourtVue Labs` across the app shell, metadata, Learn metadata, API title, and operational bulk-import banner
 - Added the new primary custom-metric route:
   - `POST /api/metrics/custom`
 - Upgraded the `Metrics` workspace to support:
@@ -575,13 +575,13 @@ Eliminated live NBA API calls on every player profile load:
   - direct player-page links from ranking rows
   - direct Compare handoff for the top two metric results
 - Extended custom-metric ranking rows with player identifiers so frontend handoffs are linkable instead of name-only
-- Kept the recency-first `Trajectory Tracker` on `/insights` and refreshed its CourtVue-facing copy
+- Kept the recency-first `Trajectory Tracker` on `/insights` and refreshed its CourtVue Labs-facing copy
 - Added Sprint 22 workflow artifacts:
   - `specs/sprint-22-team-a-courtvue-metrics.md`
   - `specs/sprint-22-team-b-courtvue-trajectory.md`
   - `specs/sprint-22-closeout.md`
 
-**Sprint 22 result:** the platform now has a cohesive CourtVue brand and a stronger analyst loop around custom metrics, with shareable setup state and direct handoff into deeper player comparison. The next likely product step is deciding whether analyst state stays URL-first or moves into persistent saved workflows.
+**Sprint 22 result:** the platform now has a cohesive CourtVue Labs brand and a stronger analyst loop around custom metrics, with shareable setup state and direct handoff into deeper player comparison. The next likely product step is deciding whether analyst state stays URL-first or moves into persistent saved workflows.
 
 ---
 

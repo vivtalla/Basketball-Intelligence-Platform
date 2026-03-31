@@ -4,15 +4,15 @@ Status: Final
 
 ## Shipped work
 
-- Renamed the platform to `CourtVue` across the shared app shell, metadata, Learn page metadata, API title, and operational bulk-import banner
+- Renamed the platform to `CourtVue Labs` across the shared app shell, metadata, Learn page metadata, API title, and operational bulk-import banner
 - Added `POST /api/metrics/custom` as the new primary custom-metric endpoint while preserving the existing metrics math and validation behavior
 - Upgraded the `Metrics` workspace to support:
   - URL-shareable metric state
   - direct player-page links from ranking rows
   - direct Compare handoff for the top-ranked players
-  - refreshed CourtVue copy in the metrics surface
+  - refreshed CourtVue Labs copy in the metrics surface
 - Preserved and exposed linkable identifiers in the custom metric response for better frontend handoff behavior
-- Kept the recency-first `Trajectory Tracker` on `/insights` and updated its visible CourtVue branding/copy
+- Kept the recency-first `Trajectory Tracker` on `/insights` and updated its visible CourtVue Labs branding/copy
 - Added Sprint 22 kickoff/architect artifacts:
   - `specs/sprint-22-team-a-courtvue-metrics.md`
   - `specs/sprint-22-team-b-courtvue-trajectory.md`
@@ -29,7 +29,7 @@ Status: Final
 
 - Reviewer and Optimizer note files were not recorded as separate sprint artifacts for Sprint 22
 - No live browser QA was recorded after the merge; verification was compile, test, lint, and production build based
-- The shared frontend API/types still carry some legacy custom-metric shapes alongside the new CourtVue route helper
+- The shared frontend API/types still carry some legacy custom-metric shapes alongside the new CourtVue Labs route helper
 
 ## Coordination lessons
 
@@ -47,4 +47,4 @@ Status: Final
 
 - Add richer handoff from custom metric results into player and compare analysis flows
 - Decide whether saved analyst state should stay URL-based or move toward persistent accounts/sync
-- Build the next CourtVue flagship analyst workflow on top of the new brand and workspace structure
+- Build the next CourtVue Labs flagship analyst workflow on top of the new brand and workspace structure

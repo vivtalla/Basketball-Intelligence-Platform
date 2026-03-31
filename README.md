@@ -1,4 +1,4 @@
-# Basketball Intelligence Platform
+# CourtVue Labs
 
 A full-stack NBA analytics platform built for people who take basketball seriously. Not a stats lookup tool — a thinking tool. It surfaces the numbers that matter, in the context that makes them meaningful.
 

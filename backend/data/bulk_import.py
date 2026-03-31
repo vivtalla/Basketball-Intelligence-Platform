@@ -79,7 +79,7 @@ Examples:
     do_pbp = args.pbp_only or (not args.players_only and not args.game_logs_only)
 
     print(f"\n{'='*60}")
-    print(f"  CourtVue — Bulk Import")
+    print(f"  CourtVue Labs — Bulk Import")
     print(f"  Season: {season}")
     print(f"  Sync: {'players ' if do_players else ''}{'game_logs ' if do_game_logs else ''}{'pbp' if do_pbp else ''}")
     print(f"{'='*60}\n")

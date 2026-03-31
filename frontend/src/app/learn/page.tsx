@@ -2,8 +2,8 @@ import Link from "next/link";
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
-  title: "Learn — CourtVue",
-  description: "Explanations of the metrics and data sources used throughout CourtVue.",
+  title: "Learn — CourtVue Labs",
+  description: "Explanations of the metrics and data sources used throughout CourtVue Labs.",
 };
 
 // ─── Types ───────────────────────────────────────────────────────────────────

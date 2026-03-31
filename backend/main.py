@@ -11,7 +11,7 @@ from routers import players, stats, shotchart, leaderboards, teams, advanced, ga
 
 logging.basicConfig(level=logging.INFO)
 
-app = FastAPI(title="CourtVue", version="0.2.0")
+app = FastAPI(title="CourtVue Labs", version="0.2.0")
 
 app.add_middleware(
     CORSMiddleware,

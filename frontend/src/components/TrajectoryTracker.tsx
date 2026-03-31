@@ -58,7 +58,7 @@ export function TrajectoryTracker() {
           <div className="max-w-3xl">
             <p className="bip-kicker mb-2">Decision Surface</p>
             <h1 className="bip-display text-4xl font-semibold text-[var(--foreground)]">
-              CourtVue Trajectory Tracker
+              CourtVue Labs Trajectory Tracker
             </h1>
             <p className="mt-3 text-sm leading-6 text-[var(--muted-strong)]">
               Track who is breaking out or slipping in the 2025-26 season by comparing the last N games against the earlier season baseline, not the full-season average blur.
@@ -147,7 +147,7 @@ export function TrajectoryTracker() {
               </label>
             ) : (
               <div className="rounded-2xl border border-[var(--border)] bg-[rgba(255,255,255,0.6)] px-4 py-3 text-sm text-[var(--muted-strong)]">
-                CourtVue excludes the selected window from the baseline, so the tracker stays focused on recency instead of full-season smoothing.
+                CourtVue Labs excludes the selected window from the baseline, so the tracker stays focused on recency instead of full-season smoothing.
               </div>
             )}
           </div>

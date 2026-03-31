@@ -379,7 +379,7 @@ export function CustomMetricBuilder() {
     shareUrl.search = `metric=${encodeURIComponent(encoded)}`;
     try {
       await navigator.clipboard.writeText(shareUrl.toString());
-      setPresetMessage("Copied CourtVue metric link.");
+      setPresetMessage("Copied CourtVue Labs metric link.");
     } catch {
       setPresetMessage("Metric link is in the address bar if clipboard access is blocked.");
     }
@@ -420,7 +420,7 @@ export function CustomMetricBuilder() {
           <div className="max-w-3xl">
             <p className="bip-kicker mb-2">Metrics Workspace</p>
             <h2 className="bip-display text-3xl font-semibold text-[var(--foreground)]">
-              CourtVue Metrics
+              CourtVue Labs Metrics
             </h2>
             <p className="mt-3 text-sm leading-7 text-[var(--muted-strong)]">
               Shape the leaderboard around the traits you care about, keep the math sound with z-score normalization, and hand the results straight into player or compare workflows.
@@ -497,7 +497,7 @@ export function CustomMetricBuilder() {
             </button>
           </div>
           <p className="mt-3 text-sm leading-6 text-[var(--muted-strong)]">
-            Saved presets live in this browser only. Share links are URL-based, so you can still hand a CourtVue metric to someone else without account storage.
+            Saved presets live in this browser only. Share links are URL-based, so you can still hand a CourtVue Labs metric to someone else without account storage.
           </p>
           {presetMessage ? (
             <div className="mt-4 rounded-[1rem] border border-[rgba(33,72,59,0.18)] bg-[rgba(33,72,59,0.08)] px-4 py-3 text-sm text-[var(--accent-strong)]">

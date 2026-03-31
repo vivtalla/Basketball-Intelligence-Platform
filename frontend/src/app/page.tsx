@@ -57,7 +57,7 @@ export default function HomePage() {
         <div className="absolute right-[-4rem] top-[-5rem] h-56 w-56 rounded-full bg-[rgba(33,72,59,0.12)] blur-3xl" />
         <div className="relative text-center">
           <p className="bip-kicker mb-4">
-            CourtVue
+            CourtVue Labs
           </p>
           <h1 className="bip-display text-5xl font-bold tracking-tight mb-4 text-[var(--foreground)] sm:text-6xl">
             Court-side intelligence,
@@ -65,7 +65,7 @@ export default function HomePage() {
             <span className="text-[var(--accent)]">in full view.</span>
           </h1>
           <p className="text-lg text-[var(--muted)] mb-8 max-w-2xl mx-auto leading-8">
-            CourtVue brings player analytics, team context, custom metrics, and play-by-play-backed decision support into one connected research surface.
+            The basketball-IQ lab where strategy, analytics, and decisions are built and tested.
           </p>
           <PlayerSearchBar />
           <div className="mt-8 flex flex-wrap items-center justify-center gap-3">

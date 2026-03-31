@@ -101,4 +101,4 @@ Claim a file here before writing code. If a file is already claimed, read that b
 
 *Free-form, dated, newest first.*
 
-2026-03-30 (Codex): Sprint 22 is complete and merged. CourtVue is now the user-facing product name, `/api/metrics/custom` is live, the Metrics workspace supports URL-shareable state and compare/player handoff, and the recency-first Trajectory Tracker remains active on `/insights`.
+2026-03-30 (Codex): Sprint 22 is complete and merged. CourtVue Labs is now the user-facing product name, `/api/metrics/custom` is live, the Metrics workspace supports URL-shareable state and compare/player handoff, and the recency-first Trajectory Tracker remains active on `/insights`.
