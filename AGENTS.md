@@ -71,6 +71,30 @@ Claim a file here before writing code. If a file is already claimed, read that b
 
 ---
 
+## Branch Maintenance Policy
+
+Branch sprawl is a real project risk. Old sprint branches become stale quickly, hide what is actually active, and make accidental merges more likely.
+
+Best practices:
+- Keep `master`, the current active sprint branches, and any explicitly active hotfix branches.
+- Delete merged sprint branches at sprint close once the work is confirmed on `master`.
+- If a branch still contains one useful commit, cherry-pick that commit forward instead of keeping the whole branch alive.
+- If a branch is stale, superseded, or unsafe to merge, mark it clearly in `AGENTS.md`, salvage anything valuable, then delete it.
+- Do not keep abandoned branches around as "just in case" history. The history already exists in commits, PRs, and closeout notes.
+- Before deleting any branch, confirm it is not the working checkout of a dirty worktree and that no uncommitted changes still need review.
+
+Branch audit cadence:
+- Run a branch audit at sprint close.
+- Run another quick audit at the next sprint kickoff before new branches are created.
+
+Preferred closeout outcome:
+- `master` is clean
+- only current sprint branches remain open
+- old merged branches are removed locally and remotely
+- intentionally preserved exceptions are listed in Notes
+
+---
+
 ## Session Start Checklist
 
 ```
@@ -89,10 +113,13 @@ Claim a file here before writing code. If a file is already claimed, read that b
 
 ```
 1. Confirm what landed in master
-2. Create or update specs/sprint-{NN}-closeout.md
-3. Reset AGENTS.md for the next sprint kickoff state
-4. Update the matching sprint summary in CLAUDE.md
-5. Leave the next kickoff readable from AGENTS.md + closeout + CLAUDE.md
+2. Audit branches: merged, stale, unsafe, and still-active
+3. Cherry-pick any last useful commits off stale branches
+4. Delete merged / abandoned sprint branches locally and remotely
+5. Create or update specs/sprint-{NN}-closeout.md
+6. Reset AGENTS.md for the next sprint kickoff state
+7. Update the matching sprint summary in CLAUDE.md
+8. Leave the next kickoff readable from AGENTS.md + closeout + CLAUDE.md
 ```
 
 ---
@@ -100,5 +127,7 @@ Claim a file here before writing code. If a file is already claimed, read that b
 ## Notes
 
 *Free-form, dated, newest first.*
+
+2026-03-30 (Codex): Branch audit: most historical sprint branches are already merged and should be deleted during the next cleanup pass. `feature/sprint-10-yoy-trends`, `feature/sprint-11-coverage-dashboard`, and `feature/sprint-12-warehouse-frontend` are stale and should not be merged wholesale. `feature/sprint-12-warehouse-frontend` still has a dirty worktree and needs explicit cleanup before deletion. `codex-sprint-10-game-explorer-controls` remains unsafe to merge.
 
 2026-03-30 (Codex): Sprint 22 is complete and merged. CourtVue Labs is now the user-facing product name, `/api/metrics/custom` is live, the Metrics workspace supports URL-shareable state and compare/player handoff, and the recency-first Trajectory Tracker remains active on `/insights`.
