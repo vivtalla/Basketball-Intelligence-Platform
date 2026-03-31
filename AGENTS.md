@@ -1,6 +1,6 @@
 # Agent Coordination
 
-Last updated: 2026-03-30 by Codex (post-Sprint-20 closeout)
+Last updated: 2026-03-30 by Codex (post-Sprint-21 closeout)
 
 > **Every operator reads this file before touching any code at the start of every session.**
 > Check sprint status, branch, shared-file locks, handoff queue, and merge notes first.
@@ -12,14 +12,14 @@ Last updated: 2026-03-30 by Codex (post-Sprint-20 closeout)
 
 ## Sprint Status
 
-| Field        | Value |
-|--------------|-------|
-| Sprint       | 21 |
-| Goal         | Planning / not kicked off yet |
-| Started      | — |
+| Field | Value |
+|-------|-------|
+| Sprint | 22 |
+| Goal | Planning / not kicked off yet |
+| Started | — |
 | Target merge | — |
 
-Sprint 20 is closed. See `specs/sprint-20-closeout.md` for shipped work, verification, lessons, and next-sprint seeds.
+Sprint 21 is closed. See `specs/sprint-21-closeout.md` for shipped work, verification, lessons, and next-sprint seeds.
 
 ---
 
@@ -29,7 +29,7 @@ Default sprint workflow:
 
 `Architect -> Engineer -> Reviewer -> Optimizer`
 
-If a sprint uses parallel teams again, copy this structure per team and give each team its own branch, handoff row, and merge gate.
+If a sprint uses parallel teams, copy this structure per team and give each team its own branch, handoff row, and merge gate.
 
 ### Architect
 - Explore the current implementation area before proposing changes
@@ -63,19 +63,19 @@ Claim a file here before writing a single line. If a file is already claimed, re
 
 `models.py` and `ensure_schema.py` are always claimed together.
 
-| File                                                   | Claimed by | Purpose |
-|--------------------------------------------------------|------------|---------|
-| `backend/db/models.py`                                 | —          | Shared schema changes if any become necessary |
-| `backend/db/ensure_schema.py`                          | —          | Shared schema changes if any become necessary |
-| `frontend/src/lib/types.ts`                            | —          | Shared frontend contracts; append-only by default |
-| `frontend/src/lib/api.ts`                              | —          | Shared frontend API functions; append-only by default |
-| `backend/main.py`                                      | —          | Shared router registration if needed |
+| File | Claimed by | Purpose |
+|------|------------|---------|
+| `backend/db/models.py` | — | Shared schema changes if any become necessary |
+| `backend/db/ensure_schema.py` | — | Shared schema changes if any become necessary |
+| `frontend/src/lib/types.ts` | — | Shared frontend contracts; append-only by default |
+| `frontend/src/lib/api.ts` | — | Shared frontend API functions; append-only by default |
+| `backend/main.py` | — | Shared router registration if needed |
 
 ---
 
 ## Handoff Queue
 
-Use this queue for the current sprint only.
+Use this queue for the active sprint only.
 
 Allowed statuses:
 - `Ready for Engineer`
@@ -92,7 +92,7 @@ Allowed statuses:
 ## Merge Order
 
 ```
-1. Sprint 20 is already closed
+1. Sprint 21 is already closed
 2. Next sprint should rewrite this section at kickoff
 3. master remains the integration branch only
 ```
@@ -150,5 +150,6 @@ Before any sprint branch merges to `master`, do a quick convention spot-check:
 
 *Free-form, dated, newest first. For cross-agent coordination mid-sprint.*
 
+2026-03-30 (Codex): Sprint 21 closed. `Metrics` and `Player Stats` are now split into dedicated top-level workspaces, `/leaderboards` redirects to `/player-stats`, and visible player-name shortening was cleaned up.
 2026-03-30 (Codex): Sprint 20 closed. The dual-team workflow proved workable and is now the default template for future multi-feature sprints.
 2026-03-30 (Codex): Sprint 19 closed and merged to `master`. See `specs/sprint-19-closeout.md`.

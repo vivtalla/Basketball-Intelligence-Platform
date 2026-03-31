@@ -335,13 +335,13 @@ export default function ComparisonView({ playerA, playerB }: ComparisonViewProps
               <div className="h-2 w-12 overflow-hidden rounded-full bg-[var(--surface-alt)]">
                 <div className="h-full w-1/2 rounded-full" style={{ backgroundColor: "#21483b" }} />
               </div>
-              <span>{playerA.profile.full_name.split(" ")[1] ?? playerA.profile.full_name} (top bar)</span>
+              <span>{playerA.profile.full_name} (top bar)</span>
             </div>
             <div className="flex items-center gap-1.5">
               <div className="h-2 w-12 overflow-hidden rounded-full bg-[var(--surface-alt)]">
                 <div className="h-full w-1/2 rounded-full" style={{ backgroundColor: "#b4893d" }} />
               </div>
-              <span>{playerB.profile.full_name.split(" ")[1] ?? playerB.profile.full_name} (bottom bar)</span>
+              <span>{playerB.profile.full_name} (bottom bar)</span>
             </div>
             <div className="flex items-center gap-3 ml-auto">
               {[["≥80th", "#10b981"], ["60–79th", "#21483b"], ["40–59th", "#b4893d"], ["<40th", "#ef4444"]].map(([label, color]) => (

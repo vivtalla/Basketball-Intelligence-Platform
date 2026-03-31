@@ -12,11 +12,18 @@ const platformAreas = [
       "Conference standings with W-L records, last 10, home/away splits, and scoring differential.",
   },
   {
-    href: "/leaderboards",
-    eyebrow: "Find Leaders",
-    title: "Scan the league",
+    href: "/player-stats",
+    eyebrow: "Player Stats",
+    title: "Scan player leaderboards",
     description:
       "Advanced, external, and play-by-play-informed leaderboards across every key stat.",
+  },
+  {
+    href: "/metrics",
+    eyebrow: "Metrics Workspace",
+    title: "Build your own metric",
+    description:
+      "Load starter presets, save local composites, and rank the player pool through your own weighted model.",
   },
   {
     href: "/teams",
@@ -71,7 +78,7 @@ export default function HomePage() {
       </div>
 
       {/* Platform areas */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-5 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
         {platformAreas.map((area) => (
           <Link
             key={area.href}

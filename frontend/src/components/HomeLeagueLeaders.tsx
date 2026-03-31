@@ -89,10 +89,10 @@ function LeaderColumn({ stat, label, unit, isPercent }: LeaderColumnProps) {
 
       <div className="px-4 py-2.5 border-t border-[var(--border)]">
         <Link
-          href={`/leaderboards`}
+          href="/player-stats"
           className="text-xs bip-link"
         >
-          Full leaderboard →
+          Full player stats →
         </Link>
       </div>
     </div>
@@ -110,10 +110,10 @@ export default function HomeLeagueLeaders() {
           </p>
         </div>
         <Link
-          href="/leaderboards"
+          href="/player-stats"
           className="text-sm bip-link"
         >
-          All leaderboards →
+          All player stats →
         </Link>
       </div>
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
