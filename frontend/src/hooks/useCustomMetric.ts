@@ -53,6 +53,11 @@ export function useCustomMetric() {
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
 
+  function resetMetric() {
+    setData(null);
+    setError(null);
+  }
+
   async function runMetric(config: CustomMetricConfig) {
     setIsLoading(true);
     setError(null);
@@ -82,5 +87,6 @@ export function useCustomMetric() {
     error,
     isLoading,
     runMetric,
+    resetMetric,
   };
 }
