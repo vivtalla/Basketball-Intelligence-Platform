@@ -1,6 +1,6 @@
-# Basketball Intelligence Platform
+# CourtVue
 
-Full-stack NBA analytics platform providing player evaluation, team analysis, advanced metrics, and play-by-play insights. Built for analysts and basketball enthusiasts who need rigorous, data-driven basketball insight.
+CourtVue is a full-stack NBA analytics platform for player evaluation, team analysis, advanced metrics, and play-by-play insights. It is built for analysts and basketball enthusiasts who need rigorous, data-driven basketball context.
 
 ---
 

@@ -1,155 +1,183 @@
 # Agent Coordination
 
-Last updated: 2026-03-30 by Codex (post-Sprint-21 closeout)
+Last updated: 2026-03-30 by Codex (Sprint 22 kickoff)
 
-> **Every operator reads this file before touching any code at the start of every session.**
-> Check sprint status, branch, shared-file locks, handoff queue, and merge notes first.
+> **Every agent reads this file before touching code at the start of a session.**
+> Check sprint status, your team branch, the lock table, the Handoff Queue, and the Merge Order.
 > Then `git fetch origin`. Then begin work.
-> Sprint work happens on isolated sprint branches or worktrees, never directly on `master`.
-> At sprint close, create/update `specs/sprint-{NN}-closeout.md`, reset `AGENTS.md` for the next sprint kickoff state, and update the matching sprint summary in `CLAUDE.md`.
+> All sprint implementation happens on sprint branches or isolated worktrees, never directly on `master`.
+> At sprint close, create/update `specs/sprint-22-closeout.md`, reset `AGENTS.md` for the next sprint, and update the matching sprint summary in `CLAUDE.md`.
 
 ---
 
 ## Sprint Status
 
-| Field | Value |
-|-------|-------|
-| Sprint | 22 |
-| Goal | Planning / not kicked off yet |
-| Started | — |
-| Target merge | — |
-
-Sprint 21 is closed. See `specs/sprint-21-closeout.md` for shipped work, verification, lessons, and next-sprint seeds.
+| Field        | Value |
+|--------------|-------|
+| Sprint       | 22 |
+| Goal         | CourtVue launch rebrand plus two analyst workflows: CourtVue Metrics and Trajectory Tracker |
+| Started      | 2026-03-30 |
+| Target merge | Merge Team A and Team B independently after Reviewer + Optimizer pass; sprint closes only after both land |
 
 ---
 
-## Team Workflow Template
+## Team Assignments
 
-Default sprint workflow:
+### Team A — CourtVue Metrics Team
+- Branch: `codex-sprint-22-courtvue-metrics`
+- Roles: Architect -> Engineer -> Reviewer -> Optimizer
+- Scope:
+  - CourtVue app-shell and user-facing rebrand
+  - `/metrics` workspace polish and URL-shareable metric state
+  - `POST /api/metrics/custom`
+  - metric result handoff into player and compare workflows
+- Status: In progress
+- PR: —
 
-`Architect -> Engineer -> Reviewer -> Optimizer`
+### Team B — CourtVue Trajectory Team
+- Branch: `codex-sprint-22-courtvue-trajectory`
+- Roles: Architect -> Engineer -> Reviewer -> Optimizer
+- Scope:
+  - `/insights` recent-window trajectory workflow
+  - `GET /api/insights/trajectory`
+  - player-pool controls, exclusions, context flags, and CourtVue copy updates inside touched surfaces
+- Status: In progress
+- PR: —
 
-If a sprint uses parallel teams, copy this structure per team and give each team its own branch, handoff row, and merge gate.
+### Integration
+- Branch: `codex-sprint-22-kickoff`
+- Scope:
+  - kickoff docs
+  - shared-file coordination
+  - final integration, verification, and merge prep
 
-### Architect
-- Explore the current implementation area before proposing changes
-- Write a decision-complete spec in `specs/`
-- Mark the handoff `Ready for Engineer`
-
-### Engineer
-- Implement only from the architect-approved spec
-- Respect file ownership and shared-file lock rules
-- Mark the branch `Ready for Reviewer`
-
-### Reviewer
-- Check correctness, contract alignment, regressions, compatibility, and repo conventions
-- Record findings in a review note or mark `Blocked`
-- If clean, mark the branch `Ready for Optimizer`
-
-### Optimizer
-- Check avoidable N+1 work, duplicate fetches, unnecessary complexity, and efficiency issues
-- Record findings in an optimizer note or mark `Blocked`
-- If clean, mark the branch `Ready to Merge`
-
-> ⚠️ **PERMANENT WARNING**: Do NOT use `codex-sprint-10-game-explorer-controls`. It is at a Sprint 9 commit and its diff against master deletes all warehouse infrastructure (2,700+ lines). It cannot be merged. It is dead.
+> ⚠️ **PERMANENT WARNING**: Do NOT use `codex-sprint-10-game-explorer-controls`. It is at a Sprint 9 commit and its diff against master deletes warehouse infrastructure. It cannot be merged.
 
 ---
 
 ## Shared File Lock Table
 
-Claim a file here before writing a single line. If a file is already claimed, read the owning branch before planning.
+Claim a file here before writing code. If a file is already claimed by the other team, read their branch first and do not edit it until their work lands or the claim is reassigned.
 
-`types.ts` and `api.ts` are **append-only** unless a sprint explicitly states otherwise.
-
-`models.py` and `ensure_schema.py` are always claimed together.
+`frontend/src/lib/types.ts` and `frontend/src/lib/api.ts` are **append-only**. Add new interfaces/functions at the bottom only.
 
 | File | Claimed by | Purpose |
 |------|------------|---------|
-| `backend/db/models.py` | — | Shared schema changes if any become necessary |
-| `backend/db/ensure_schema.py` | — | Shared schema changes if any become necessary |
-| `frontend/src/lib/types.ts` | — | Shared frontend contracts; append-only by default |
-| `frontend/src/lib/api.ts` | — | Shared frontend API functions; append-only by default |
-| `backend/main.py` | — | Shared router registration if needed |
+| `frontend/src/app/layout.tsx` | Team A | CourtVue branding in app shell |
+| `frontend/src/app/page.tsx` | Team A | CourtVue hero and workspace copy |
+| `frontend/src/app/metrics/page.tsx` | Team A | Metrics workspace |
+| `frontend/src/components/CustomMetricBuilder.tsx` | Team A | Metric builder UX, URL state, handoff links |
+| `frontend/src/hooks/useCustomMetric.ts` | Team A | Metrics client hook |
+| `backend/routers/metrics.py` | Team A | New metrics route |
+| `backend/services/custom_metric_service.py` | Team A | Metric validation and scoring |
+| `frontend/src/app/insights/page.tsx` | Team B | Trajectory page shell |
+| `frontend/src/components/TrajectoryTracker.tsx` | Team B | Trajectory UX |
+| `frontend/src/hooks/useTrajectory.ts` | Team B | Trajectory client hook |
+| `backend/routers/insights.py` | Team B | Trajectory endpoint + legacy breakouts handoff |
+| `backend/services/trajectory_service.py` | Team B | Recent-window trajectory report |
+| `frontend/src/lib/types.ts` | Shared | Append-only Sprint 22 contracts |
+| `frontend/src/lib/api.ts` | Shared | Append-only Sprint 22 API helpers |
+| `backend/main.py` | Shared | Router registration + CourtVue API title |
 
 ---
 
 ## Handoff Queue
 
-Use this queue for the active sprint only.
-
-Allowed statuses:
-- `Ready for Engineer`
-- `Ready for Reviewer`
-- `Ready for Optimizer`
-- `Ready to Merge`
-- `Blocked`
-
-| Team | Artifact / Spec file | From role | To role | Status | Notes |
-|------|----------------------|-----------|---------|--------|-------|
+| Spec file | From | To | Status |
+|-----------|------|----|--------|
+| `specs/sprint-22-team-a-courtvue-metrics.md` | Architect | Team A | Ready |
+| `specs/sprint-22-team-b-courtvue-trajectory.md` | Architect | Team B | Ready |
 
 ---
 
-## Merge Order
+## Merge Order (this sprint)
 
 ```
-1. Sprint 21 is already closed
-2. Next sprint should rewrite this section at kickoff
-3. master remains the integration branch only
+1. Team A lands CourtVue app-shell branding, `/metrics` upgrades, and `POST /api/metrics/custom`
+2. Team B rebases if shared copy or shared types moved, then lands Trajectory Tracker upgrades on `/insights`
+3. Shared file edits stay append-only where required
+4. Final sprint merge is complete only after both team branches land and integrated verification passes
 ```
+
+---
+
+## Sprint Work Allocation
+
+### Team A owned areas
+
+| Files / Directories | Assigned this sprint |
+|---------------------|----------------------|
+| `frontend/src/app/layout.tsx` | Team A |
+| `frontend/src/app/page.tsx` | Team A |
+| `frontend/src/app/metrics/page.tsx` | Team A |
+| `frontend/src/components/CustomMetricBuilder.tsx` | Team A |
+| `frontend/src/hooks/useCustomMetric.ts` | Team A |
+| `backend/routers/metrics.py` | Team A |
+| `backend/services/custom_metric_service.py` | Team A |
+
+### Team B owned areas
+
+| Files / Directories | Assigned this sprint |
+|---------------------|----------------------|
+| `frontend/src/app/insights/page.tsx` | Team B |
+| `frontend/src/components/TrajectoryTracker.tsx` | Team B |
+| `frontend/src/hooks/useTrajectory.ts` | Team B |
+| `backend/routers/insights.py` | Team B |
+| `backend/services/trajectory_service.py` | Team B |
+
+### Shared files — claim before editing
+
+- `frontend/src/lib/types.ts`
+- `frontend/src/lib/api.ts`
+- `backend/main.py`
+
+### Shared integration note
+
+- If both teams need shared files, land Team A first and keep shared changes additive.
+- Prefer new isolated modules over reshaping existing shared files unless the contract requires it.
 
 ---
 
 ## Session Start Checklist
 
 ```
-1. Read this file — sprint number, branch expectations, locks, and handoff queue
-2. Confirm I am on the correct sprint branch or isolated worktree
-3. Read the latest sprint spec or closeout note if relevant
-4. Check the Shared File Lock Table before touching any shared file
-5. git fetch origin && git log origin/master --oneline -5
-6. Update this file first if ownership or lock status changes
+1. Read this file — sprint, team branch, lock table, Merge Order
+2. Confirm I am on my assigned sprint branch or isolated worktree
+3. Check Handoff Queue and read any spec marked Ready for my team
+4. git fetch origin && git log origin/master --oneline -5
+5. Claim shared files before editing
+6. Update status here if team state changes materially
 7. Begin work
 ```
-
----
-
-## Branch Isolation Rule
-
-- Every sprint task is implemented on its assigned sprint branch, not on `master`
-- If the current checkout is dirty or belongs to another sprint, create a fresh branch/worktree before editing
-- `master` is the integration branch only
-- When a sprint assigns multiple teams, each team gets its own branch/worktree
 
 ---
 
 ## Sprint Closeout Checklist
 
 ```
-1. Confirm what actually landed in master
-2. Create or update specs/sprint-{NN}-closeout.md with shipped work, deferred work, lessons, and next-sprint seeds
-3. Clean AGENTS.md for the next sprint kickoff state
-4. Update the matching sprint summary in CLAUDE.md
-5. Leave the next sprint kickoff readable from AGENTS.md + latest closeout note + CLAUDE.md
+1. Confirm what landed in master
+2. Create or update specs/sprint-22-closeout.md with shipped work, deferred work, lessons, and sprint seeds
+3. Reset AGENTS.md for the next sprint kickoff state
+4. Update Sprint 22 summary in CLAUDE.md
+5. Leave the next kickoff readable from AGENTS.md + closeout + CLAUDE.md
 ```
 
 ---
 
-## Cross-Agent Review
+## Cross-Team Review
 
-Before any sprint branch merges to `master`, do a quick convention spot-check:
+Before either team branch merges to `master`, the other team should spot-check the diff for:
 
-- Python 3.8 compatibility
-- schema changes go through `ensure_schema.py`
-- no direct `stats.nba.com` calls outside the existing wrapper approach
-- shared-file claim compliance
-- router registration in `main.py` if new routers are added
+- Python 3.8-compatible typing
+- no raw schema edits or Alembic
+- shared files claimed before edit
+- new FastAPI routers registered in `backend/main.py`
+- append-only updates in `frontend/src/lib/types.ts` and `frontend/src/lib/api.ts`
 
 ---
 
 ## Notes
 
-*Free-form, dated, newest first. For cross-agent coordination mid-sprint.*
+*Free-form, dated, newest first.*
 
-2026-03-30 (Codex): Sprint 21 closed. `Metrics` and `Player Stats` are now split into dedicated top-level workspaces, `/leaderboards` redirects to `/player-stats`, and visible player-name shortening was cleaned up.
-2026-03-30 (Codex): Sprint 20 closed. The dual-team workflow proved workable and is now the default template for future multi-feature sprints.
-2026-03-30 (Codex): Sprint 19 closed and merged to `master`. See `specs/sprint-19-closeout.md`.
+2026-03-30 (Codex): Sprint 22 kickoff. Product baseline on `master` already includes `/metrics`, `/player-stats`, legacy `/leaderboards` redirect, custom metric service, and trajectory service. This sprint is about CourtVue rebrand, metrics contract/path alignment, URL-shareable metric state, and trajectory workflow completion.

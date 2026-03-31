@@ -408,3 +408,16 @@ export async function getTrajectoryReport(
     `/api/insights/trajectory?${params.toString()}`
   );
 }
+
+export async function postMetricReport(
+  config: import("./types").CustomMetricConfig
+): Promise<import("./types").CourtVueMetricResponse> {
+  return fetchApi<import("./types").CourtVueMetricResponse>(
+    `/api/metrics/custom`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(config),
+    }
+  );
+}

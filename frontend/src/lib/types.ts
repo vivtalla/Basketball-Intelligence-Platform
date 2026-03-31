@@ -955,3 +955,21 @@ export interface TrajectoryResponse {
   excluded_players: string[];
   warnings: string[];
 }
+
+export interface CourtVueMetricPlayerRanking {
+  rank: number;
+  player_id: number;
+  player_name: string;
+  team: string;
+  composite_score: number;
+  component_breakdown: Record<string, number>;
+}
+
+export interface CourtVueMetricResponse {
+  metric_label: string;
+  metric_interpretation: string;
+  player_rankings: CourtVueMetricPlayerRanking[];
+  top_player_narratives: CustomMetricNarrative[];
+  anomalies: CustomMetricAnomaly[];
+  validation_warnings: string[];
+}

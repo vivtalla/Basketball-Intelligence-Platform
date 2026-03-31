@@ -4,8 +4,8 @@ import NavSearch from "@/components/NavSearch";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Basketball Intelligence Platform",
-  description: "NBA player analytics and advanced statistics dashboard",
+  title: "CourtVue",
+  description: "CourtVue is an NBA analytics workspace for player, team, and play-by-play intelligence.",
 };
 
 export default function RootLayout({
@@ -20,9 +20,9 @@ export default function RootLayout({
         <nav className="sticky top-0 z-40 border-b border-[var(--border)] bg-[rgba(247,239,228,0.86)] backdrop-blur-xl">
           <div className="max-w-7xl mx-auto px-4 py-4 flex items-center gap-4">
             <Link href="/" className="flex items-center gap-2 shrink-0">
-              <span className="bip-display text-2xl font-bold tracking-tight text-[var(--foreground)]">BIP</span>
+              <span className="bip-display text-2xl font-bold tracking-tight text-[var(--foreground)]">CourtVue</span>
               <span className="text-sm text-[var(--muted)] hidden lg:inline">
-                Basketball Intelligence Platform
+                NBA intelligence workspace
               </span>
             </Link>
             <NavSearch />
@@ -86,7 +86,7 @@ export default function RootLayout({
 
         {/* Footer */}
         <footer className="border-t border-[var(--border)] py-5 text-center text-sm text-[var(--muted)] bg-[rgba(247,239,228,0.78)]">
-          Basketball Intelligence Platform · Hardwood Editorial prototype · Data from NBA.com
+          CourtVue · Hardwood Editorial system · Data from NBA.com
         </footer>
       </body>
     </html>

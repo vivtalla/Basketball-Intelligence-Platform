@@ -22,6 +22,7 @@ export interface CustomMetricConfig {
 
 export interface CustomMetricRankingRow {
   rank: number;
+  player_id: number;
   player_name: string;
   team: string;
   composite_score: number;
@@ -62,7 +63,7 @@ export function useCustomMetric() {
     setIsLoading(true);
     setError(null);
     try {
-      const response = await fetch(`${API_BASE}/api/leaderboards/custom-metric`, {
+      const response = await fetch(`${API_BASE}/api/metrics/custom`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(config),
