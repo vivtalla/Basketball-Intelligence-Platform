@@ -1088,3 +1088,306 @@ export interface PreReadDeckResponse {
   adjustments: PreReadAdjustment[];
   slides: PreReadSlide[];
 }
+
+export interface ConfidenceSummary {
+  level: "high" | "medium" | "low";
+  label: string;
+  note: string;
+}
+
+export interface InsightDrilldown {
+  label: string;
+  href: string;
+  reason: string;
+}
+
+export interface FollowThroughSupportingMetric {
+  label: string;
+  value: number | string | null;
+}
+
+export interface FollowThroughGame {
+  game_id: string;
+  game_date: string | null;
+  opponent_abbreviation: string | null;
+  why_this_game: string;
+  relevance_score: number;
+  supporting_metrics: FollowThroughSupportingMetric[];
+  deep_link_url: string;
+}
+
+export interface FollowThroughResponse {
+  source_type: string;
+  source_id: string;
+  games: FollowThroughGame[];
+}
+
+export interface LineupImpactRow {
+  lineup_key: string;
+  player_names: string[];
+  minutes: number | null;
+  possessions: number | null;
+  observed_net_rating: number | null;
+  shrunk_net_rating: number | null;
+  expected_points_delta_per_game: number | null;
+  expected_points_delta_per_100: number | null;
+  recommended_minute_delta: number | null;
+  confidence: ConfidenceSummary;
+  top_drivers: string[];
+  drilldowns: InsightDrilldown[];
+}
+
+export interface LineupImpactRotationSummary {
+  current_rotation_note: string;
+  recommended_rotation_note: string;
+}
+
+export interface LineupImpactResponse {
+  team: string;
+  opponent: string | null;
+  season: string;
+  filters: Record<string, string | number | null>;
+  current_rotation: LineupImpactRotationSummary;
+  recommended_rotation: LineupImpactRotationSummary;
+  lineup_rows: LineupImpactRow[];
+  impact_summary: string;
+  confidence: ConfidenceSummary;
+  warnings: string[];
+}
+
+export interface PlayTypeEvidence {
+  label: string;
+  value: number | string | null;
+}
+
+export interface PlayTypeActionRow {
+  action_family: string;
+  usage_rate: number | null;
+  efficiency_value: number | null;
+  turnover_drag: number | null;
+  foul_pressure_bonus: number | null;
+  second_chance_bonus: number | null;
+  contextual_percentile: number | null;
+  confidence: ConfidenceSummary;
+  proxy_note: string;
+  evidence: PlayTypeEvidence[];
+}
+
+export interface PlayTypeFlag {
+  action_family: string;
+  title: string;
+  summary: string;
+  severity: "high" | "medium" | "low";
+  confidence: ConfidenceSummary;
+}
+
+export interface PlayTypeEVResponse {
+  team: string;
+  opponent: string | null;
+  season: string;
+  window: number;
+  action_rows: PlayTypeActionRow[];
+  overused_flags: PlayTypeFlag[];
+  underused_flags: PlayTypeFlag[];
+  warnings: string[];
+}
+
+export interface MatchupFlagEvidence {
+  label: string;
+  value: number | string | null;
+}
+
+export interface MatchupFlag {
+  flag_id: string;
+  title: string;
+  summary: string;
+  severity: "high" | "medium" | "low";
+  confidence: ConfidenceSummary;
+  evidence: MatchupFlagEvidence[];
+  drilldowns: InsightDrilldown[];
+}
+
+export interface MatchupFlagsResponse {
+  team: string;
+  opponent: string;
+  season: string;
+  flags: MatchupFlag[];
+  warnings: string[];
+}
+
+export interface StyleMetric {
+  stat_id: string;
+  label: string;
+  team_value: number | null;
+  league_percentile: number | null;
+  trend_delta: number | null;
+  note: string;
+}
+
+export interface StyleScenarioBin {
+  label: string;
+  pace_band: string;
+  sample_size: number;
+  expected_offense_delta: number | null;
+  expected_defense_delta: number | null;
+  summary: string;
+}
+
+export interface TeamStyleProfileResponse {
+  team_abbreviation: string;
+  season: string;
+  window: number;
+  current_profile: StyleMetric[];
+  recent_drift: StyleMetric[];
+  opponent_comparison: StyleMetric[] | null;
+  scenario_bins: StyleScenarioBin[];
+  warnings: string[];
+}
+
+export interface StyleNeighbor {
+  team_abbreviation: string;
+  season: string;
+  distance: number;
+  reason: string;
+}
+
+export interface StyleXRayResponse {
+  team_abbreviation: string;
+  season: string;
+  window: number;
+  archetype: string;
+  stability: string;
+  feature_contributors: StyleMetric[];
+  nearest_neighbors: StyleNeighbor[];
+  adjacent_archetypes: string[];
+  warnings: string[];
+}
+
+export interface ScenarioDriverFeature {
+  label: string;
+  weight: number | null;
+  explanation: string;
+}
+
+export interface ScenarioComparablePattern {
+  label: string;
+  season: string;
+  summary: string;
+}
+
+export interface WhatIfScenarioResponse {
+  team_abbreviation: string;
+  season: string;
+  scenario_type: string;
+  delta: number;
+  expected_direction: string;
+  confidence: ConfidenceSummary;
+  range: {
+    low: number | null;
+    median: number | null;
+    high: number | null;
+  };
+  driver_features: ScenarioDriverFeature[];
+  comparable_patterns: ScenarioComparablePattern[];
+  warnings: string[];
+}
+
+export interface TrendCardStat {
+  label: string;
+  value: number | null;
+}
+
+export interface TrendCardPoint {
+  label: string;
+  value: number | null;
+}
+
+export interface TrendCard {
+  card_id: string;
+  title: string;
+  direction: "up" | "down" | "flat";
+  magnitude: string;
+  significance: "high" | "medium" | "low";
+  summary: string;
+  series: TrendCardPoint[];
+  supporting_stats: TrendCardStat[];
+  drilldowns: InsightDrilldown[];
+}
+
+export interface TrendCardsResponse {
+  team_abbreviation: string;
+  season: string;
+  window: string;
+  cards: TrendCard[];
+  warnings: string[];
+}
+
+export interface ScoutingClaim {
+  claim_id: string;
+  title: string;
+  summary: string;
+  evidence: MatchupFlagEvidence[];
+  drilldowns: InsightDrilldown[];
+}
+
+export interface ScoutingSection {
+  title: string;
+  claims: ScoutingClaim[];
+}
+
+export interface PlayTypeScoutingReportResponse {
+  team_abbreviation: string;
+  opponent_abbreviation: string;
+  season: string;
+  report: string;
+  sections: ScoutingSection[];
+  print_meta: {
+    title: string;
+    subtitle: string;
+  };
+  warnings: string[];
+}
+
+export interface LineupComparisonEntity {
+  lineup_key: string;
+  player_names: string[];
+  team_abbreviation: string;
+  minutes: number | null;
+  possessions: number | null;
+  net_rating: number | null;
+}
+
+export interface LineupComparisonRow {
+  stat_id: string;
+  label: string;
+  entity_a_value: number | null;
+  entity_b_value: number | null;
+  higher_better: boolean;
+  format: "number" | "percent" | "signed";
+  edge: "entity_a" | "entity_b" | "even";
+}
+
+export interface LineupComparisonResponse {
+  season: string;
+  entity_a: LineupComparisonEntity;
+  entity_b: LineupComparisonEntity;
+  rows: LineupComparisonRow[];
+  stories: TeamComparisonStory[];
+  source_context: Record<string, string | null>;
+}
+
+export interface StyleComparisonEntity {
+  team_abbreviation: string;
+  archetype: string;
+  season: string;
+  window: number;
+}
+
+export interface StyleComparisonResponse {
+  season: string;
+  entity_a: StyleComparisonEntity;
+  entity_b: StyleComparisonEntity;
+  rows: TeamComparisonRow[];
+  stories: TeamComparisonStory[];
+  source_context: Record<string, string | null>;
+}

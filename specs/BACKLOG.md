@@ -17,66 +17,63 @@ Guidelines:
 
 ## Now
 
-### Decision-Driven Coaching Tools
+### Counterfactual What-If Suggestions
 Why it matters:
-CourtVue Labs is strongest when it answers "what should we do?" rather than only describing what already happened.
+The first directional scenario layer is live, but it still needs stronger calibration and better coaching trust signals before it feels like a dependable decision workflow.
 
 Likely shape:
-- `Lineup Expected Points Dashboard`
-  Estimate points gained or lost if a lineup gets more or fewer minutes, with views by quarter, opponent style, and recent form.
-- `Play-Type Expected Value`
-  Grade actions such as pick-and-roll, post-up, spot-up, and drive-and-kick by scoring efficiency, turnover cost, and offensive rebound impact.
-- `Matchup Exploit Flags`
-  Surface pregame offensive and defensive edges such as weak coverages, favorable fronts, or isolation mismatches against a specific opponent.
+- improve the current bounded scenario engine with clearer confidence framing, stronger comparable-pattern outputs, and opponent-aware variants where support is strong
+- connect recommendations directly into compare, trend cards, and Game Explorer follow-through
+- keep every scenario directional, bounded, and fully explainable
 
-### Guided Game Follow-Through
+### Play-Style X-Ray
 Why it matters:
-When the product detects a meaningful trend or tactical edge, it should also point the user to the right game to inspect next.
+The first style-identity layer is live, but teams will want richer archetype movement, stronger nearest-neighbor context, and more useful bridges from archetype to action.
 
 Likely shape:
-- connect decision surfaces directly to Game Explorer
-- attach short reasons such as role flip, scoring spike, or matchup exploit
-- preserve context so the user does not have to reconstruct the investigation manually
+- deepen archetype labels, neighbor quality, and movement explanations
+- show how style changes connect to matchup prep, compare, and what-if scenarios
+- make the x-ray feel like a coaching identity tool rather than a standalone data-science card
+
+### Comparison Sandbox Follow-Ons
+Why it matters:
+The sandbox is stronger after Sprint 25, but it still needs better printing, sharing, and follow-through to become a true staff workflow.
+
+Likely shape:
+- improve printable and shareable compare outputs for teams, lineups, and styles
+- preserve source context more deeply when compare launches from decision tools, scouting, or scenarios
+- deepen story labels with matchup-aware and trend-aware framing instead of season-only summaries
+
+### Play-Type Scouting and Clip Workflow
+Why it matters:
+Sprint 25 proved that inferred action families can support coach-readable prep, but the workflow is still early and should become more actionable for staff review.
+
+Likely shape:
+- strengthen inferred action-family confidence and opponent-specific scouting claims
+- add event-based clip anchors and clip-list export so reports connect more directly to film review
+- keep all action-family claims evidence-backed and explicit about inference quality
 
 ---
 
 ## Next
 
-### Pace and Style Profiles
+### Decision-Tool Calibration and Opponent Context
 Why it matters:
-Teams need a way to describe identity beyond basic record and offensive rating.
+The new lineup-impact and matchup-flag layer is useful, but it should keep getting sharper before the product relies on it as a primary coaching surface.
 
 Likely shape:
-- define style through pace, shot mix, paint emphasis, transition rate, and three-point aggression
-- let coaches test simple tempo or style shifts against historical outcomes
-- frame the results as "if we play faster/slower, what tends to happen?"
+- improve minute-redistribution logic, uncertainty wording, and opponent-style adjustments
+- connect lineup suggestions more directly into rotation review and game-prep workflows
+- expand matchup exploit flags without losing explainability
 
-### Counterfactual What-If Suggestions
+### Trend Cards Follow-Ons
 Why it matters:
-Minimal viable AI should make the product feel smarter without turning it into a black box.
+The weekly card format is now live, and the next gain comes from making it more exportable and more useful for lineup and game-review workflows.
 
 Likely shape:
-- use regression-style possession modeling to answer questions like reducing isolation or increasing pick-and-roll volume
-- return directional efficiency changes rather than overconfident predictions
-- keep the model explainable and coach-readable
-
-### Play-Style X-Ray
-Why it matters:
-Clustering can help a team understand not just how good it is, but what kind of team it actually is.
-
-Likely shape:
-- cluster teams into offensive styles such as pick-and-roll-heavy, drive-and-kick, post-oriented, or iso-heavy
-- show where a team sits today and what shifts correlate with more efficient archetypes
-- make style movement feel like a practical coaching discussion, not a data-science artifact
-
-### In-Season Trend Cards
-Why it matters:
-A weekly coach workflow needs a tight summary of what is drifting, improving, or breaking.
-
-Likely shape:
-- compact weekly team cards for shot profile, bench vs starter performance, late-game choices, and rotation drift
-- emphasize direction and significance over raw stat volume
-- make the cards easy to scan, export, and discuss
+- add lineup-level weekly cards where sample support is strong
+- improve export/share formatting for staff review
+- connect meaningful card changes directly into follow-through games and compare launches
 
 ### Event-Based Clip Anchors
 Why it matters:
@@ -86,24 +83,6 @@ Likely shape:
 - tag possessions by event type, quarter, team, and play-type context
 - export clip-ready lists for shot attempts, turnovers, free-throw trips, and similar events
 - keep the workflow video-adjacent rather than trying to replace film tools
-
-### Play-Type Scouting Report Builder
-Why it matters:
-Opposition prep is a natural bridge between analytics and coaching communication.
-
-Likely shape:
-- generate a one-page scouting report for an opponent
-- include top actions, weakest coverages, and preferred rotation patterns
-- tie every claim to data points that staff can cross-check in film
-
-### Comparison Sandbox Follow-Ons
-Why it matters:
-The first team-vs-team sandbox is live, but coaches will get more value once compare expands beyond one static team lens.
-
-Likely shape:
-- add lineup-to-lineup and style-to-style compare modes
-- improve printable and shareable compare outputs for staff workflows
-- deepen story labels with opponent-aware context instead of season-only comparisons
 
 ### Focus Levers Follow-Ons
 Why it matters:

@@ -7,7 +7,27 @@ from config import CORS_ORIGINS
 from data.cache import CacheManager
 from db.database import engine
 from db.models import Base
-from routers import compare, insights, leaderboards, metrics, players, pre_read, shotchart, similarity, standings, stats, teams, advanced, gamelogs, games, warehouse
+from routers import (
+    advanced,
+    compare,
+    decision,
+    gamelogs,
+    games,
+    insights,
+    leaderboards,
+    metrics,
+    players,
+    pre_read,
+    scouting,
+    shotchart,
+    similarity,
+    standings,
+    stats,
+    styles,
+    teams,
+    trends,
+    warehouse,
+)
 
 logging.basicConfig(level=logging.INFO)
 
@@ -34,6 +54,12 @@ app.include_router(compare.router, prefix="/api/compare", tags=["compare"])
 app.include_router(standings.router, prefix="/api/standings", tags=["standings"])
 app.include_router(insights.router, prefix="/api/insights", tags=["insights"])
 app.include_router(pre_read.router, prefix="/api/pre-read", tags=["pre-read"])
+app.include_router(scouting.router, prefix="/api/scouting", tags=["scouting"])
+app.include_router(decision.router, prefix="/api/decision", tags=["decision"])
+app.include_router(decision.follow_router, prefix="/api/follow-through", tags=["follow-through"])
+app.include_router(styles.router, prefix="/api/styles", tags=["styles"])
+app.include_router(trends.router, prefix="/api/trends", tags=["trends"])
+app.include_router(trends.scenarios_router, prefix="/api/scenarios", tags=["scenarios"])
 app.include_router(warehouse.router, prefix="/api/warehouse", tags=["warehouse"])
 app.include_router(metrics.router, prefix="/api/metrics", tags=["metrics"])
 

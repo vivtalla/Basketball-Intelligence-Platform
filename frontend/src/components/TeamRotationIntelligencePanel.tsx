@@ -3,6 +3,9 @@ import type { TeamImpactLeader, TeamRotationGame, TeamRotationPlayerRow, TeamRot
 
 interface TeamRotationIntelligencePanelProps {
   report: TeamRotationReport;
+  teamAbbreviation?: string;
+  season?: string | null;
+  returnHref?: string | null;
 }
 
 function fmt(value: number | null | undefined, digits = 1) {
@@ -138,10 +141,31 @@ function AnchorRow({ anchor, rank }: { anchor: TeamImpactLeader; rank: number })
   );
 }
 
-function ReviewGameCard({ game }: { game: TeamRotationGame }) {
+function ReviewGameCard({
+  game,
+  teamAbbreviation,
+  season,
+  returnHref,
+}: {
+  game: TeamRotationGame;
+  teamAbbreviation?: string;
+  season?: string | null;
+  returnHref?: string | null;
+}) {
+  const href =
+    teamAbbreviation && season
+      ? `/games/${game.game_id}?${new URLSearchParams({
+          source: "rotation-intelligence",
+          source_id: `${teamAbbreviation}:${game.game_id}`,
+          team: teamAbbreviation,
+          season,
+          reason: game.rotation_note,
+          return_to: returnHref ?? `/teams/${teamAbbreviation}?tab=intelligence`,
+        }).toString()}`
+      : `/games/${game.game_id}`;
   return (
     <Link
-      href={`/games/${game.game_id}`}
+      href={href}
       className="bip-panel block rounded-3xl p-4 transition-colors hover:border-[rgba(33,72,59,0.28)] hover:bg-[rgba(216,228,221,0.24)]"
     >
       <div className="flex items-start justify-between gap-4">
@@ -177,6 +201,9 @@ function ReviewGameCard({ game }: { game: TeamRotationGame }) {
 
 export default function TeamRotationIntelligencePanel({
   report,
+  teamAbbreviation,
+  season,
+  returnHref,
 }: TeamRotationIntelligencePanelProps) {
   const largestRiser = report.rotation_risers[0] ?? null;
   const largestFaller = report.rotation_fallers[0] ?? null;
@@ -357,7 +384,13 @@ export default function TeamRotationIntelligencePanel({
                     </div>
                   ) : (
                     report.recommended_games.map((game) => (
-                      <ReviewGameCard key={game.game_id} game={game} />
+                      <ReviewGameCard
+                        key={game.game_id}
+                        game={game}
+                        teamAbbreviation={teamAbbreviation}
+                        season={season}
+                        returnHref={returnHref}
+                      />
                     ))
                   )}
                 </div>

@@ -1,6 +1,6 @@
 # Agent Coordination
 
-Last updated: 2026-04-01 by Codex (post-Sprint-24 branch audit and workspace canonicalization)
+Last updated: 2026-04-01 by Codex (post-Sprint-25 closeout)
 
 > Both agents read this file before touching code at the start of every session.
 > The canonical source of truth is the clean `master` checkout at `/Users/viv/Documents/Basketball Intelligence Platform`.
@@ -14,13 +14,13 @@ Last updated: 2026-04-01 by Codex (post-Sprint-24 branch audit and workspace can
 
 | Field | Value |
 |-------|-------|
-| Sprint | 24 |
-| Goal | Branch audit and workspace canonicalization complete; `master` is now the only source of truth |
+| Sprint | 26 |
+| Goal | Next sprint planning state — choose the next product priority from the refreshed backlog on top of the new platform-intelligence foundation |
 | Started | 2026-04-01 |
-| Target merge | Merged directly to `master` as an operational cleanup sprint |
-| Sprint shape | Single-pipeline |
-| Reason | Platform operations: resolve stale-branch confusion and restore one canonical workspace |
-| Worker policy | None by default for cleanup work; use selective bounded workers only if a future sprint justifies them |
+| Target merge | To be defined at Sprint 26 kickoff |
+| Sprint shape | To be decided at kickoff |
+| Reason | Sprint 25 is complete; leave the repo in a clean planning-ready state |
+| Worker policy | Hybrid default: choose single-pipeline or multi-agent at kickoff based on sprint shape |
 
 ---
 
@@ -39,12 +39,12 @@ If repo state, sprint numbering, or shipped features appear to disagree across l
 
 ### Claude
 - Branch: `master` or next assigned sprint branch
-- Scope: available for next-sprint planning, review, or bounded implementation work
+- Scope: available for planning, review, or bounded implementation on the next sprint
 - Status: Available
 
 ### Codex
 - Branch: `master` or next assigned sprint branch/worktree
-- Scope: next-sprint planning, kickoff, and implementation
+- Scope: available for next-sprint kickoff, planning, and implementation
 - Status: Available
 
 ---
@@ -72,13 +72,15 @@ Specs or review notes written by one stream for another. Check this before start
 
 | Spec file | From | To | Status |
 |-----------|------|----|--------|
+| `specs/sprint-25-review-note.md` | Sprint 25 | Next sprint | Reference |
+| `specs/sprint-25-optimizer-note.md` | Sprint 25 | Next sprint | Reference |
 
 ---
 
 ## Merge Order
 
-1. Sprint 24 branch/worktree cleanup merged to `master`
-2. The next feature sprint should rewrite this section at kickoff
+1. Sprint 25 should merge to `master`
+2. Sprint 26 should rewrite this section at kickoff
 
 ---
 
@@ -86,7 +88,7 @@ Specs or review notes written by one stream for another. Check this before start
 
 | Files / Directories | Assigned this sprint |
 |---------------------|----------------------|
-| To be defined at the next feature sprint kickoff | — |
+| To be defined at Sprint 26 kickoff | — |
 
 ---
 
@@ -159,3 +161,4 @@ Specs or review notes written by one stream for another. Check this before start
 
 2026-04-01 (Codex): Sprint 24 completed a full branch audit and canonicalized the repo root back to `master` at `/Users/viv/Documents/Basketball Intelligence Platform`. All stale temporary worktrees and stale remote sprint branches should now be treated as cleanup targets, not alternate truths.
 2026-04-01 (Codex): The prior confusion came from starting in stale `feature/sprint-12-warehouse-frontend` while the real product history had advanced on `master` through Sprint 23. Future sessions should never plan from a stale worktree when `master` is available.
+2026-04-01 (Codex): Sprint 25 shipped the first platform-intelligence layer across team pages, insights, compare, pre-read, and Game Explorer. Use `specs/sprint-25-closeout.md`, `specs/sprint-25-review-note.md`, and `specs/BACKLOG.md` as the next-sprint starting point.
