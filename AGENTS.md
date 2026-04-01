@@ -1,6 +1,6 @@
 # Agent Coordination
 
-Last updated: 2026-04-01 by Codex (post-Sprint-25 closeout)
+Last updated: 2026-04-01 by Codex (post-Sprint-25 patch handoff)
 
 > Both agents read this file before touching code at the start of every session.
 > The canonical source of truth is the clean `master` checkout at `/Users/viv/Documents/Basketball Intelligence Platform`.
@@ -74,6 +74,7 @@ Specs or review notes written by one stream for another. Check this before start
 |-----------|------|----|--------|
 | `specs/sprint-25-review-note.md` | Sprint 25 | Next sprint | Reference |
 | `specs/sprint-25-optimizer-note.md` | Sprint 25 | Next sprint | Reference |
+| `specs/sprint-25-post-closeout-patches.md` | Codex | Claude / Next session | Ready |
 
 ---
 
@@ -159,6 +160,8 @@ Specs or review notes written by one stream for another. Check this before start
 
 *Free-form, dated, newest first. Use this for coordination and repo-state exceptions.*
 
+2026-04-01 (Codex): Post-closeout patch pass is complete and pushed on `master` in commit `18d9a13` (`fix: patch local testing regressions`). This bundled four small fixes discovered during manual QA: home-page league leaders now use canonical full names, `TrajectoryTracker` no longer renders raw `Error` objects, `CustomMetricBuilder` got the same error rendering fix, and `frontend/next.config.ts` now allows `127.0.0.1` / `localhost` in local dev. Use `specs/sprint-25-post-closeout-patches.md` as the handoff note before doing more patch work or Sprint 26 planning.
+2026-04-01 (Codex): Local manual-testing assumptions changed during the patch pass: the frontend local env is intentionally pointed at `http://127.0.0.1:8001` via ignored `frontend/.env.local`, and manual testing should use `http://127.0.0.1:3001` for frontend and `http://127.0.0.1:8001` for backend. If pages look blank, verify those two processes first before assuming a product regression.
 2026-04-01 (Codex): Sprint 24 completed a full branch audit and canonicalized the repo root back to `master` at `/Users/viv/Documents/Basketball Intelligence Platform`. All stale temporary worktrees and stale remote sprint branches should now be treated as cleanup targets, not alternate truths.
 2026-04-01 (Codex): The prior confusion came from starting in stale `feature/sprint-12-warehouse-frontend` while the real product history had advanced on `master` through Sprint 23. Future sessions should never plan from a stale worktree when `master` is available.
 2026-04-01 (Codex): Sprint 25 shipped the first platform-intelligence layer across team pages, insights, compare, pre-read, and Game Explorer. Use `specs/sprint-25-closeout.md`, `specs/sprint-25-review-note.md`, and `specs/BACKLOG.md` as the next-sprint starting point.

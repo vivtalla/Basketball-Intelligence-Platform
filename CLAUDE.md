@@ -196,6 +196,15 @@ POST /api/advanced/sync-season   body: {"season": "2024-25"}
 
 ## Sprint History
 
+### Post-Sprint 25 Patch Pass
+**Branch:** `master`
+
+- Fixed small manual-QA regressions after Sprint 25 closeout
+- Home-page league leaders now show canonical full names
+- `TrajectoryTracker` and `CustomMetricBuilder` no longer try to render raw `Error` objects
+- Local Next dev config now explicitly supports `127.0.0.1` / `localhost`
+- Pushed in `18d9a13` `fix: patch local testing regressions`
+
 ### Sprint 25 — Platform Intelligence Core
 **Branch:** `codex-sprint-25-kickoff`
 
