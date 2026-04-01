@@ -17,6 +17,7 @@ from models.leaderboard import (
     LeaderboardResponse,
 )
 from services.custom_metric_service import build_custom_metric_report
+from services.sync_service import canonical_player_name
 
 router = APIRouter()
 
@@ -125,7 +126,11 @@ def leaderboard(
         LeaderboardEntry(
             rank=rank,
             player_id=player.id,
-            player_name=player.full_name,
+            player_name=canonical_player_name(
+                player.full_name,
+                player.first_name or "",
+                player.last_name or "",
+            ),
             team_abbreviation=stat_row.team_abbreviation,
             headshot_url=player.headshot_url or "",
             gp=stat_row.gp or 0,
@@ -187,7 +192,11 @@ def career_leaderboard(
         CareerLeaderboardEntry(
             rank=rank,
             player_id=player.id,
-            player_name=player.full_name,
+            player_name=canonical_player_name(
+                player.full_name,
+                player.first_name or "",
+                player.last_name or "",
+            ),
             headshot_url=player.headshot_url or "",
             seasons_played=int(seasons_played),
             career_gp=int(career_gp) if career_gp else 0,

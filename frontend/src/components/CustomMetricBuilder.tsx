@@ -90,6 +90,11 @@ interface SavedMetricPreset {
   config: BuilderConfig;
 }
 
+function getErrorMessage(error: unknown) {
+  if (error instanceof Error) return error.message;
+  return typeof error === "string" ? error : "Unable to run the metric right now.";
+}
+
 const BUILT_IN_PRESETS: BuiltInMetricPreset[] = [
   {
     id: "scoring-engine",
@@ -773,7 +778,7 @@ export function CustomMetricBuilder() {
 
             {error ? (
               <div className="rounded-[1.25rem] border border-[rgba(140,58,42,0.24)] bg-[var(--danger-soft)] px-4 py-3 text-sm text-[var(--danger-ink)]">
-                {error}
+                {getErrorMessage(error)}
               </div>
             ) : null}
 

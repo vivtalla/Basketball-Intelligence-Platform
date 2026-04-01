@@ -36,6 +36,11 @@ function formatDelta(key: string, value: number) {
   return `${signed} ${key.toUpperCase()}`;
 }
 
+function getErrorMessage(error: unknown) {
+  if (error instanceof Error) return error.message;
+  return typeof error === "string" ? error : "Unable to load trajectory data right now.";
+}
+
 export function TrajectoryTracker() {
   const [lastNGames, setLastNGames] = useState(10);
   const [playerPool, setPlayerPool] = useState<"all" | "position_filter" | "team_filter">("all");
@@ -156,7 +161,7 @@ export function TrajectoryTracker() {
 
       {error ? (
         <div className="rounded-[1.5rem] border border-[rgba(140,58,42,0.24)] bg-[var(--danger-soft)] px-5 py-4 text-sm text-[var(--danger-ink)]">
-          {error}
+          {getErrorMessage(error)}
         </div>
       ) : null}
 
