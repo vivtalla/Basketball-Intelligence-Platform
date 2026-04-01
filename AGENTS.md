@@ -1,10 +1,10 @@
 # Agent Coordination
 
-Last updated: 2026-03-31 by Codex (post-Sprint-23 closeout)
+Last updated: 2026-04-01 by Codex (post-Sprint-24 branch audit and workspace canonicalization)
 
 > Both agents read this file before touching code at the start of every session.
-> Check sprint status, sprint shape, your branch/worktree, shared-file locks, and merge order.
-> Then check the handoff queue. Then `git fetch origin`. Then begin work.
+> The canonical source of truth is the clean `master` checkout at `/Users/viv/Documents/Basketball Intelligence Platform`.
+> If a future session starts from another branch or worktree, return to this canonical root first unless the sprint explicitly says otherwise.
 > All new sprint implementation happens on sprint branches/worktrees, never directly on `master`.
 > At sprint close, update the sprint closeout note, refresh `specs/BACKLOG.md`, reset this file for the next sprint, and update the sprint summary in `CLAUDE.md`.
 
@@ -15,22 +15,23 @@ Last updated: 2026-03-31 by Codex (post-Sprint-23 closeout)
 | Field | Value |
 |-------|-------|
 | Sprint | 24 |
-| Goal | Planning state — choose the next sprint from `specs/BACKLOG.md` and current product gaps |
-| Started | 2026-03-31 |
-| Target merge | TBD at Sprint 24 kickoff |
-| Sprint shape | Not chosen yet |
-| Reason | To be decided at kickoff |
-| Worker policy | Selective bounded by default |
+| Goal | Branch audit and workspace canonicalization complete; `master` is now the only source of truth |
+| Started | 2026-04-01 |
+| Target merge | Merged directly to `master` as an operational cleanup sprint |
+| Sprint shape | Single-pipeline |
+| Reason | Platform operations: resolve stale-branch confusion and restore one canonical workspace |
+| Worker policy | None by default for cleanup work; use selective bounded workers only if a future sprint justifies them |
 
 ---
 
-## Sprint Shape Decision
+## Canonical Workspace
 
-- Default repo policy remains hybrid:
-  - major product sprints: two parallel teams
-  - smaller or tightly coupled sprints: one sequential four-role stream
-- The exact sprint shape is chosen at kickoff and recorded here before implementation starts.
-- Spawned workers are allowed only for bounded, independent, non-blocking subtasks with clear ownership.
+- Canonical repo root: `/Users/viv/Documents/Basketball Intelligence Platform`
+- Canonical branch: `master`
+- Canonical remote: `origin/master`
+- Extra temporary worktrees should only exist during an active sprint and must be removed at sprint close
+
+If repo state, sprint numbering, or shipped features appear to disagree across locations, trust this workspace on `master` first and reconcile from there.
 
 ---
 
@@ -38,15 +39,13 @@ Last updated: 2026-03-31 by Codex (post-Sprint-23 closeout)
 
 ### Claude
 - Branch: `master` or next assigned sprint branch
-- Scope: available for Sprint 24 planning, review, or bounded implementation work
+- Scope: available for next-sprint planning, review, or bounded implementation work
 - Status: Available
 
 ### Codex
 - Branch: `master` or next assigned sprint branch/worktree
-- Scope: Sprint 24 planning, kickoff, and next implementation stream
+- Scope: next-sprint planning, kickoff, and implementation
 - Status: Available
-
-> Permanent warning: do not use `codex-sprint-10-game-explorer-controls`. It is stale and unsafe against current `master`.
 
 ---
 
@@ -78,8 +77,8 @@ Specs or review notes written by one stream for another. Check this before start
 
 ## Merge Order
 
-1. Sprint 23 merged to `master`
-2. Next sprint should rewrite this section at kickoff
+1. Sprint 24 branch/worktree cleanup merged to `master`
+2. The next feature sprint should rewrite this section at kickoff
 
 ---
 
@@ -87,14 +86,14 @@ Specs or review notes written by one stream for another. Check this before start
 
 | Files / Directories | Assigned this sprint |
 |---------------------|----------------------|
-| To be defined at Sprint 24 kickoff | — |
+| To be defined at the next feature sprint kickoff | — |
 
 ---
 
 ## Session Start Checklist
 
-1. Read this file: sprint number, sprint shape, branch/worktree, shared locks, merge order
-2. Confirm you are on your assigned sprint branch or isolated worktree, never `master`
+1. Read this file: canonical root, sprint status, branch/worktree rules, shared locks
+2. Confirm you are in `/Users/viv/Documents/Basketball Intelligence Platform` on `master`, or on the explicitly assigned sprint branch/worktree
 3. Check the lock table before editing shared files
 4. Check the handoff queue for any ready spec or review note
 5. `git fetch origin` and inspect recent `origin/master`
@@ -131,14 +130,15 @@ Specs or review notes written by one stream for another. Check this before start
 
 ## Branch and Worktree Discipline
 
+- `master` is the only durable source of truth
 - Every active sprint branch must have a clearly named worktree
 - Every worktree maps to exactly one active branch
 - Temporary merge/testing worktrees should be deleted right after merge
-- Dirty worktrees that block cleanup must be called out in Notes
+- Do not leave a stale feature branch as the default repo root
 - At sprint close:
   1. prune merged worktrees
-  2. delete merged local branches
-  3. delete merged remote branches
+  2. delete merged or superseded local branches
+  3. delete merged or superseded remote branches
   4. `git fetch --prune origin`
 
 ---
@@ -155,7 +155,7 @@ Specs or review notes written by one stream for another. Check this before start
 
 ## Notes
 
-*Free-form, dated, newest first. Use this for cross-team coordination during the sprint.*
+*Free-form, dated, newest first. Use this for coordination and repo-state exceptions.*
 
-2026-03-31 (Codex): Sprint 23 shipped four coach-facing workflows: team-vs-team compare, focus levers, usage vs efficiency, and pre-read deck. Resetting `AGENTS.md` to Sprint 24 planning state after closeout.
-2026-03-31 (Codex): Sprint 23 kickoff ran from clean worktree `/private/tmp/bip-sprint23-kickoff` on branch `codex-sprint-23-kickoff`. Main working directory remained on old dirty `feature/sprint-12-warehouse-frontend` and was not used for Sprint 23 implementation.
+2026-04-01 (Codex): Sprint 24 completed a full branch audit and canonicalized the repo root back to `master` at `/Users/viv/Documents/Basketball Intelligence Platform`. All stale temporary worktrees and stale remote sprint branches should now be treated as cleanup targets, not alternate truths.
+2026-04-01 (Codex): The prior confusion came from starting in stale `feature/sprint-12-warehouse-frontend` while the real product history had advanced on `master` through Sprint 23. Future sessions should never plan from a stale worktree when `master` is available.

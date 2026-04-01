@@ -196,6 +196,16 @@ POST /api/advanced/sync-season   body: {"season": "2024-25"}
 
 ## Sprint History
 
+### Sprint 24 — Branch Audit and Workspace Canonicalization
+**Branch:** `master`
+
+- Restored `/Users/viv/Documents/Basketball Intelligence Platform` as the canonical clean `master` workspace
+- Audited all remaining local and remote sprint branches against current `master`
+- Removed stale temporary worktrees and deleted merged, superseded, or abandoned sprint branches
+- Deleted stale remote feature branches so `origin/master` is the only remote source of truth
+- Confirmed that no valuable code or docs remained only on the stale Sprint 12 worktree; local-only leftovers were backed up to `/tmp` and discarded as superseded
+- Updated `AGENTS.md` and Sprint 24 closeout docs so future sessions start from canonical `master`, not a stale branch workspace
+
 ### Sprint 23 — Coach Decision Support Quartet
 **Branch:** `codex-sprint-23-kickoff`
 
