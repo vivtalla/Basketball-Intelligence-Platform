@@ -475,3 +475,182 @@ export async function getPreReadDeck(
     `/api/pre-read?${params.toString()}`
   );
 }
+
+export async function getLineupImpactReport(
+  team: string,
+  season: string,
+  opponent?: string,
+  window = 10,
+  minPossessions = 25
+): Promise<import("./types").LineupImpactResponse> {
+  const params = new URLSearchParams({
+    team,
+    season,
+    window: String(window),
+    min_possessions: String(minPossessions),
+  });
+  if (opponent) params.set("opponent", opponent);
+  return fetchApi<import("./types").LineupImpactResponse>(
+    `/api/decision/lineup-impact?${params.toString()}`
+  );
+}
+
+export async function getPlayTypeEVReport(
+  team: string,
+  season: string,
+  opponent?: string,
+  window = 10
+): Promise<import("./types").PlayTypeEVResponse> {
+  const params = new URLSearchParams({
+    team,
+    season,
+    window: String(window),
+  });
+  if (opponent) params.set("opponent", opponent);
+  return fetchApi<import("./types").PlayTypeEVResponse>(
+    `/api/decision/play-type-ev?${params.toString()}`
+  );
+}
+
+export async function getMatchupFlagsReport(
+  team: string,
+  opponent: string,
+  season: string
+): Promise<import("./types").MatchupFlagsResponse> {
+  const params = new URLSearchParams({
+    team,
+    opponent,
+    season,
+  });
+  return fetchApi<import("./types").MatchupFlagsResponse>(
+    `/api/decision/matchup-flags?${params.toString()}`
+  );
+}
+
+export async function postFollowThroughGames(
+  payload: Record<string, unknown>
+): Promise<import("./types").FollowThroughResponse> {
+  return fetchApi<import("./types").FollowThroughResponse>(
+    `/api/follow-through/games`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    }
+  );
+}
+
+export async function getTeamStyleProfile(
+  teamAbbreviation: string,
+  season: string,
+  window = 10,
+  opponent?: string
+): Promise<import("./types").TeamStyleProfileResponse> {
+  const params = new URLSearchParams({
+    season,
+    window: String(window),
+  });
+  if (opponent) params.set("opponent", opponent);
+  return fetchApi<import("./types").TeamStyleProfileResponse>(
+    `/api/styles/teams/${encodeURIComponent(teamAbbreviation)}?${params.toString()}`
+  );
+}
+
+export async function getStyleXRay(
+  team: string,
+  season: string,
+  window = 10
+): Promise<import("./types").StyleXRayResponse> {
+  const params = new URLSearchParams({
+    team,
+    season,
+    window: String(window),
+  });
+  return fetchApi<import("./types").StyleXRayResponse>(
+    `/api/styles/xray?${params.toString()}`
+  );
+}
+
+export async function postWhatIfScenario(
+  payload: {
+    team: string;
+    season: string;
+    scenario_type: string;
+    delta: number;
+    window?: number;
+    opponent?: string;
+  }
+): Promise<import("./types").WhatIfScenarioResponse> {
+  return fetchApi<import("./types").WhatIfScenarioResponse>(
+    `/api/scenarios/what-if`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    }
+  );
+}
+
+export async function getTrendCards(
+  team: string,
+  season: string,
+  window = "4w"
+): Promise<import("./types").TrendCardsResponse> {
+  const params = new URLSearchParams({
+    team,
+    season,
+    window,
+  });
+  return fetchApi<import("./types").TrendCardsResponse>(
+    `/api/trends/cards?${params.toString()}`
+  );
+}
+
+export async function getPlayTypeScoutingReport(
+  team: string,
+  opponent: string,
+  season: string
+): Promise<import("./types").PlayTypeScoutingReportResponse> {
+  const params = new URLSearchParams({
+    team,
+    opponent,
+    season,
+  });
+  return fetchApi<import("./types").PlayTypeScoutingReportResponse>(
+    `/api/scouting/play-types?${params.toString()}`
+  );
+}
+
+export async function getLineupComparison(
+  team: string,
+  lineupA: string,
+  lineupB: string,
+  season: string
+): Promise<import("./types").LineupComparisonResponse> {
+  const params = new URLSearchParams({
+    team,
+    lineup_a: lineupA,
+    lineup_b: lineupB,
+    season,
+  });
+  return fetchApi<import("./types").LineupComparisonResponse>(
+    `/api/compare/lineups?${params.toString()}`
+  );
+}
+
+export async function getStyleComparison(
+  teamA: string,
+  teamB: string,
+  season: string,
+  window = 10
+): Promise<import("./types").StyleComparisonResponse> {
+  const params = new URLSearchParams({
+    team_a: teamA,
+    team_b: teamB,
+    season,
+    window: String(window),
+  });
+  return fetchApi<import("./types").StyleComparisonResponse>(
+    `/api/compare/styles?${params.toString()}`
+  );
+}

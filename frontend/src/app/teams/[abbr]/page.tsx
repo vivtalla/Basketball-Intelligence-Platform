@@ -3,12 +3,13 @@
 import Image from "next/image";
 import Link from "next/link";
 import { useMemo, useState } from "react";
-import { useParams } from "next/navigation";
+import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { useTeamRoster, useTeamAnalytics, useTeamFocusLevers, useTeamIntelligence, useTeamRotationReport } from "@/hooks/usePlayerStats";
 import TeamAnalyticsPanel from "@/components/TeamAnalyticsPanel";
 import TeamIntelligencePanel from "@/components/TeamIntelligencePanel";
 import TeamRotationIntelligencePanel from "@/components/TeamRotationIntelligencePanel";
 import TeamLineupsPanel from "@/components/TeamLineupsPanel";
+import TeamDecisionToolsPanel from "@/components/TeamDecisionToolsPanel";
 import type { TeamRosterPlayer } from "@/lib/types";
 
 const DEFAULT_SEASON = "2024-25";
@@ -23,13 +24,20 @@ function coverageTone(status: "none" | "partial" | "ready") {
   return "bg-[var(--surface-alt)] text-[var(--muted)]";
 }
 
-type Tab = "intelligence" | "roster" | "analytics" | "lineups";
+type Tab = "decision" | "intelligence" | "roster" | "analytics" | "lineups";
 
 export default function TeamDetailPage() {
   const params = useParams<{ abbr: string }>();
+  const router = useRouter();
+  const searchParams = useSearchParams();
   const teamAbbreviation = params.abbr?.toUpperCase() ?? null;
-  const [activeTab, setActiveTab] = useState<Tab>("intelligence");
+  const activeTabParam = searchParams.get("tab");
+  const [selectedTab, setSelectedTab] = useState<Tab>("intelligence");
   const [selectedSeason, setSelectedSeason] = useState<string>("");
+  const activeTab =
+    (activeTabParam && (["decision", "intelligence", "roster", "analytics", "lineups"] as Tab[]).includes(activeTabParam as Tab)
+      ? (activeTabParam as Tab)
+      : selectedTab);
 
   const { data: roster, error } = useTeamRoster(teamAbbreviation);
   const availableSeasons = useMemo(() => {
@@ -52,11 +60,11 @@ export default function TeamDetailPage() {
     isLoading: intelligenceLoading,
     error: intelligenceError,
   } = useTeamIntelligence(
-    activeTab === "intelligence" ? teamAbbreviation : null,
+    activeTab === "intelligence" || activeTab === "decision" ? teamAbbreviation : null,
     effectiveSeason
   );
   const { data: focusLevers } = useTeamFocusLevers(
-    activeTab === "intelligence" ? teamAbbreviation : null,
+    activeTab === "intelligence" || activeTab === "decision" ? teamAbbreviation : null,
     effectiveSeason
   );
   const {
@@ -64,7 +72,7 @@ export default function TeamDetailPage() {
     isLoading: rotationLoading,
     error: rotationError,
   } = useTeamRotationReport(
-    activeTab === "intelligence" ? teamAbbreviation : null,
+    activeTab === "intelligence" || activeTab === "decision" ? teamAbbreviation : null,
     effectiveSeason
   );
   const {
@@ -78,6 +86,7 @@ export default function TeamDetailPage() {
       ? availableSeasons[effectiveSeasonIndex + 1]
       : null;
   const { data: priorAnalytics } = useTeamAnalytics(teamAbbreviation, priorSeason);
+  const currentPath = teamAbbreviation ? `/teams/${teamAbbreviation}` : "/teams";
 
   const sortedPlayers = useMemo(
     () =>
@@ -286,7 +295,11 @@ export default function TeamDetailPage() {
               </Link>
               <button
                 type="button"
-                onClick={() => setActiveTab("intelligence")}
+                onClick={() => {
+                  const params = new URLSearchParams(searchParams.toString());
+                  params.set("tab", "intelligence");
+                  router.replace(`${currentPath}?${params.toString()}`);
+                }}
                 className="bip-btn-primary inline-flex rounded-full px-4 py-2 text-sm font-medium"
               >
                 View sync intelligence
@@ -343,10 +356,15 @@ export default function TeamDetailPage() {
 
       {/* Tab bar */}
       <div className="flex rounded-xl overflow-hidden border border-gray-200 dark:border-gray-700 w-fit text-sm">
-        {(["intelligence", "roster", "analytics", "lineups"] as Tab[]).map((tab) => (
+        {(["decision", "intelligence", "roster", "analytics", "lineups"] as Tab[]).map((tab) => (
           <button
             key={tab}
-            onClick={() => setActiveTab(tab)}
+            onClick={() => {
+              setSelectedTab(tab);
+              const params = new URLSearchParams(searchParams.toString());
+              params.set("tab", tab);
+              router.replace(`${currentPath}?${params.toString()}`);
+            }}
             className={`px-5 py-2 capitalize transition-colors ${
               activeTab === tab
                 ? "bip-toggle-active"
@@ -357,6 +375,20 @@ export default function TeamDetailPage() {
           </button>
         ))}
       </div>
+
+      {activeTab === "decision" && roster && intelligence && (
+        <section>
+          <TeamDecisionToolsPanel
+            teamAbbreviation={teamAbbreviation ?? roster.abbreviation}
+            season={effectiveSeason}
+            intelligence={intelligence}
+            currentAnalytics={currentAnalytics ?? null}
+            priorAnalytics={priorAnalytics ?? null}
+            focusLevers={focusLevers ?? null}
+            rotationReport={rotationReport ?? null}
+          />
+        </section>
+      )}
 
       {activeTab === "intelligence" && (
         <section>
@@ -389,7 +421,12 @@ export default function TeamDetailPage() {
           )}
           {rotationReport && !rotationLoading && (
             <div className="mb-6">
-              <TeamRotationIntelligencePanel report={rotationReport} />
+              <TeamRotationIntelligencePanel
+                report={rotationReport}
+                teamAbbreviation={teamAbbreviation ?? roster?.abbreviation ?? undefined}
+                season={effectiveSeason}
+                returnHref={`${currentPath}?tab=decision`}
+              />
             </div>
           )}
           {intelligence && !intelligenceLoading && (

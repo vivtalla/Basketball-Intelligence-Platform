@@ -1,9 +1,10 @@
 "use client";
 
 import Link from "next/link";
-import { useParams } from "next/navigation";
+import { useParams, useSearchParams } from "next/navigation";
 import { useDeferredValue, useState } from "react";
 import { useGameDetail, useGameSummary } from "@/hooks/usePlayerStats";
+import GameContextBanner from "@/components/GameContextBanner";
 
 function formatScore(value: number | null) {
   return value == null ? "-" : String(value);
@@ -147,7 +148,15 @@ function formatEventType(value: string | null | undefined) {
 
 export default function GameDetailPage() {
   const params = useParams<{ gameId: string }>();
+  const searchParams = useSearchParams();
   const gameId = params.gameId ?? null;
+  const source = searchParams.get("source");
+  const sourceId = searchParams.get("source_id");
+  const team = searchParams.get("team");
+  const opponent = searchParams.get("opponent");
+  const seasonParam = searchParams.get("season");
+  const reason = searchParams.get("reason");
+  const returnHref = searchParams.get("return_to");
   const { data, error, isLoading } = useGameDetail(gameId);
   const { data: summary } = useGameSummary(gameId);
   const [searchQuery, setSearchQuery] = useState("");
@@ -325,12 +334,22 @@ export default function GameDetailPage() {
     <div className="mx-auto max-w-6xl space-y-8">
       <div>
         <Link
-          href="/"
+          href={returnHref ?? "/"}
           className="inline-flex items-center gap-1 text-sm text-gray-500 transition-colors hover:text-blue-500 dark:text-gray-400 dark:hover:text-blue-400"
         >
-          ← Back to Home
+          ← Back to {returnHref ? "source" : "Home"}
         </Link>
       </div>
+
+      <GameContextBanner
+        source={source}
+        sourceId={sourceId}
+        team={team}
+        opponent={opponent}
+        season={seasonParam}
+        reason={reason}
+        returnHref={returnHref}
+      />
 
       <section className="rounded-[2rem] border border-gray-200 bg-white p-8 dark:border-gray-800 dark:bg-gray-900">
         <div className="flex flex-col gap-8 lg:flex-row lg:items-end lg:justify-between">

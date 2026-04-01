@@ -196,6 +196,15 @@ POST /api/advanced/sync-season   body: {"season": "2024-25"}
 
 ## Sprint History
 
+### Sprint 25 — Platform Intelligence Core
+**Branch:** `codex-sprint-25-kickoff`
+
+- Added the first platform-intelligence layer across team pages, insights, compare, pre-read, and Game Explorer
+- Shipped team decision tools, guided game follow-through, pace/style profiles, and in-season trend cards
+- Added beta/foundation workflows for what-if scenarios, play-style x-ray, play-type scouting, and lineup/style compare follow-ons
+- Added new backend analytics/report services plus Sprint 25 response models, routers, and QA coverage
+- Validation: backend compile, targeted pytest suite, frontend lint, production frontend build, and DB-backed smokes on lineup impact and style/trend services
+
 ### Sprint 24 — Branch Audit and Workspace Canonicalization
 **Branch:** `master`
 
