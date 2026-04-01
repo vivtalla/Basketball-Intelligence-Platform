@@ -1,6 +1,6 @@
 # Agent Coordination
 
-Last updated: 2026-04-01 by Codex (post-Sprint-25 patch handoff)
+Last updated: 2026-03-31 by Claude (Sprint 26 data foundation in progress)
 
 > Both agents read this file before touching code at the start of every session.
 > The canonical source of truth is the clean `master` checkout at `/Users/viv/Documents/Basketball Intelligence Platform`.
@@ -15,12 +15,12 @@ Last updated: 2026-04-01 by Codex (post-Sprint-25 patch handoff)
 | Field | Value |
 |-------|-------|
 | Sprint | 26 |
-| Goal | Next sprint planning state — choose the next product priority from the refreshed backlog on top of the new platform-intelligence foundation |
-| Started | 2026-04-01 |
-| Target merge | To be defined at Sprint 26 kickoff |
-| Sprint shape | To be decided at kickoff |
-| Reason | Sprint 25 is complete; leave the repo in a clean planning-ready state |
-| Worker policy | Hybrid default: choose single-pipeline or multi-agent at kickoff based on sprint shape |
+| Goal | Data foundation maturation — injuries ingestion, shot chart persistence, standings materialization, architecture document |
+| Started | 2026-03-31 |
+| Target merge | To be defined at sprint close |
+| Sprint shape | Single-stream sequential |
+| Branch | `feature/sprint-26-data-foundation` |
+| Worker policy | N/A — single stream |
 
 ---
 
@@ -38,9 +38,9 @@ If repo state, sprint numbering, or shipped features appear to disagree across l
 ## Current Assignments
 
 ### Claude
-- Branch: `master` or next assigned sprint branch
-- Scope: available for planning, review, or bounded implementation on the next sprint
-- Status: Available
+- Branch: `feature/sprint-26-data-foundation`
+- Scope: data foundation — all 4 deliverables shipped (architecture doc, injuries, shot chart, standings)
+- Status: In progress — pending merge to master
 
 ### Codex
 - Branch: `master` or next assigned sprint branch/worktree
@@ -89,7 +89,20 @@ Specs or review notes written by one stream for another. Check this before start
 
 | Files / Directories | Assigned this sprint |
 |---------------------|----------------------|
-| To be defined at Sprint 26 kickoff | — |
+| `specs/data-architecture.md` | Claude — new architecture doc |
+| `backend/db/models.py`, `backend/db/ensure_schema.py` | Claude — 3 new ORM models |
+| `backend/data/nba_client.py` | Claude — get_injuries_payload() |
+| `backend/services/sync_service.py` | Claude — sync_injuries() |
+| `backend/services/standings_service.py` | Claude — new file, materialize_standings() |
+| `backend/routers/injuries.py` | Claude — new router |
+| `backend/routers/shotchart.py` | Claude — DB cache layer |
+| `backend/routers/standings.py` | Claude — DB-first + fallback |
+| `backend/main.py` | Claude — register injuries router |
+| `backend/services/warehouse_service.py` | Claude — sync_injuries dispatch |
+| `backend/data/daily_sync.sh` | Claude — standings + injuries steps |
+| `frontend/src/lib/types.ts` | Claude — InjuryEntry, InjuryReportResponse |
+| `frontend/src/lib/api.ts` | Claude — getCurrentInjuries, getPlayerInjuries |
+| `frontend/src/components/PlayerHeader.tsx` | Claude — injury status badge |
 
 ---
 
