@@ -59,6 +59,12 @@ def apply_schema_updates():
     # No new columns were added to existing tables in Sprint 11 Phase 2.
     # Warehouse changes are additive new tables picked up by create_all().
 
+    # Sprint 26 — Data Foundation: new tables picked up by create_all():
+    #   player_injuries  (PlayerInjury)   — daily CDN injury report
+    #   player_shot_charts (PlayerShotChart) — persisted shot chart JSONB
+    #   team_standings   (TeamStanding)   — materialized standings per season
+    # No new columns on existing tables this sprint.
+
 
 if __name__ == "__main__":
     apply_schema_updates()

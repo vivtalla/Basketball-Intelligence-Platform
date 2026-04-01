@@ -1,7 +1,9 @@
 "use client";
 
 import Image from "next/image";
+import useSWR from "swr";
 import type { PlayerProfile, SeasonStats } from "@/lib/types";
+import { getPlayerInjuries } from "@/lib/api";
 import StatCard from "./StatCard";
 import { usePlayerPercentiles, useLeagueContext } from "@/hooks/usePlayerStats";
 import { useFavorites } from "@/hooks/useFavorites";
@@ -87,6 +89,16 @@ export default function PlayerHeader({
 
   const { isFavorite, toggleFavorite } = useFavorites();
   const starred = isFavorite(profile.id);
+
+  const { data: injuryData } = useSWR(
+    `injuries-${profile.id}`,
+    () => getPlayerInjuries(profile.id)
+  );
+  const latestInjury = injuryData?.entries?.[0] ?? null;
+  const showInjuryBadge =
+    latestInjury?.injury_status === "Out" ||
+    latestInjury?.injury_status === "Questionable" ||
+    latestInjury?.injury_status === "Doubtful";
 
   const draftInfo =
     profile.draft_year && profile.draft_year !== "Undrafted"
@@ -191,6 +203,18 @@ export default function PlayerHeader({
             <h1 className="bip-display text-4xl font-bold text-[var(--foreground)]">{profile.full_name}</h1>
             {profile.jersey && (
               <span className="text-2xl text-[var(--muted)]">#{profile.jersey}</span>
+            )}
+            {showInjuryBadge && latestInjury && (
+              <span
+                title={latestInjury.detail || latestInjury.injury_type || ""}
+                className={`px-2 py-0.5 rounded-full text-xs font-semibold uppercase tracking-wide ${
+                  latestInjury.injury_status === "Out"
+                    ? "bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-400"
+                    : "bg-orange-100 text-orange-700 dark:bg-orange-900/40 dark:text-orange-400"
+                }`}
+              >
+                {latestInjury.injury_status}
+              </span>
             )}
             {/* Star / watchlist button */}
             <button

@@ -153,6 +153,16 @@ def get_schedule_payload_for_season(season: str, timeout: int = NBA_API_TIMEOUT)
     return {"source": "mobile_schedule", "payload": payload}
 
 
+def get_injuries_payload(timeout: int = NBA_API_TIMEOUT) -> dict:
+    """Fetch the current league-wide injury report from the NBA CDN.
+
+    Returns the raw payload dict. The caller is responsible for parsing
+    and persisting the results. No rate limiting applied — injuries endpoint
+    is a single lightweight JSON document, not a per-entity call.
+    """
+    return _fetch_live_json("injuries/injuries.json", timeout=timeout)
+
+
 def get_game_box_score_payload(game_id: str, timeout: int = NBA_API_TIMEOUT) -> dict:
     """Fetch the raw live box score payload for a game."""
     _rate_limit()

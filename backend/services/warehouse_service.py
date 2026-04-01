@@ -1310,6 +1310,10 @@ def _dispatch_job(db: Session, job: IngestionJob) -> dict:
         return materialize_game_stats(db, job.game_id or job.job_key)
     if job.job_type == "materialize_season_aggregates":
         return materialize_season_aggregates(db, job.season or job.job_key)
+    if job.job_type == "sync_injuries":
+        from services.sync_service import sync_injuries as _sync_injuries
+        summary = _sync_injuries(db, job.season or "2024-25")
+        return {"status": "ok", **summary}
     if job.job_type == "backfill_season":
         result = sync_schedule(db, job.season or job.job_key)
         completed_games = db.query(WarehouseGame).filter(
