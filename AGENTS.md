@@ -95,13 +95,14 @@ Specs or review notes written by one stream for another. Check this before start
 
 ## Session Start Checklist
 
-1. Read this file: canonical root, sprint status, branch/worktree rules, shared locks
-2. Confirm you are in `/Users/viv/Documents/Basketball Intelligence Platform` on `master`, or on the explicitly assigned sprint branch/worktree
-3. Check the lock table before editing shared files
-4. Check the handoff queue for any ready spec or review note
-5. `git fetch origin` and inspect recent `origin/master`
-6. Update your status here if it changed materially
-7. Begin work
+1. Review `tasks/lessons.md` — apply any standing rules before touching code
+2. Read this file: canonical root, sprint status, branch/worktree rules, shared locks
+3. Confirm you are in `/Users/viv/Documents/Basketball Intelligence Platform` on `master`, or on the explicitly assigned sprint branch/worktree
+4. Check the lock table before editing shared files
+5. Check the handoff queue for any ready spec or review note
+6. `git fetch origin` and inspect recent `origin/master`
+7. Update your status here if it changed materially
+8. Begin work
 
 ---
 

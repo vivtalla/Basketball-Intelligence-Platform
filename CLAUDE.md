@@ -80,7 +80,7 @@ npm run lint                                 # ESLint
 python -m db.ensure_schema
 ```
 
-> **Note:** There is no Alembic setup. New ORM models are picked up by `Base.metadata.create_all()` inside `ensure_schema.py`. New columns on existing tables require an `ensure_column_exists()` call in `apply_schema_updates()`.
+> **Note:** No Alembic. New ORM models are picked up by `Base.metadata.create_all()`. New columns on existing tables require an `ensure_column_exists()` call in `apply_schema_updates()`.
 
 ### Data Import
 
@@ -97,13 +97,11 @@ python data/epm_rapm_import.py data.csv --metrics lebron,raptor,pipm
 python data/bulk_import.py --season 2024-25
 ```
 
-Cron:
-`0 6 * * * /path/to/backend/data/daily_sync.sh`
+Cron: `0 6 * * * /path/to/backend/data/daily_sync.sh`
 
-### Re-Sync PBP Stats (after schema or logic changes)
+### Re-Sync PBP Stats
 
 ```bash
-# Recompute on/off and lineup stats for a season
 POST /api/advanced/sync-season   body: {"season": "2024-25"}
 ```
 
@@ -136,7 +134,7 @@ POST /api/advanced/sync-season   body: {"season": "2024-25"}
 - Lineup data requires ≥100 possessions together to be reportable.
 - Offensive and defensive ratings use opponent-adjusted values for cross-team comparison.
 - Clutch = last 5 minutes, score within 5 points.
-- On/off splits come from PBP stint data, not box scores. Stint minutes are measured from clock timestamps (not estimated from possessions).
+- On/off splits come from PBP stint data, not box scores. Stint minutes measured from clock timestamps.
 - External metrics (LEBRON, RAPTOR, EPM, PIPM, RAPM) are imported. Never present as platform-original. Always attribute source.
 - Possession counting: FGA + TOV + last-FT-in-sequence (excluding and-ones and technical FTs).
 
@@ -169,7 +167,7 @@ POST /api/advanced/sync-season   body: {"season": "2024-25"}
 
 ## Gotchas
 
-- **Read `AGENTS.md` at session start before touching any code.** It contains the current sprint scope, your branch, this sprint's work allocation, the shared file Lock Table, and the Handoff Queue. If `AGENTS.md` doesn't reflect the current sprint, that is the first thing to fix.
+- **Read `AGENTS.md` at session start before touching any code.** It contains the current sprint scope, your branch, this sprint's work allocation, the shared file Lock Table, and the Handoff Queue.
 - **nba_api rate limits aggressively** — `nba_client.py` enforces 0.6s delays. Never call `nba_api` directly outside this wrapper.
 - **Player names are not unique.** Multiple players share names (e.g., Marcus Morris Sr./Jr.). Always resolve to `person_id`.
 - **The salary cap changes every season.** Never hardcode cap numbers.
@@ -184,35 +182,80 @@ POST /api/advanced/sync-season   body: {"season": "2024-25"}
 
 - **Data integrity over speed**: Never ship a pipeline without output schema validation.
 - **Context is everything**: A stat without context (sample size, opponent adjustment, era normalization) is misleading.
-- **Simplicity first**: The simplest model that captures the signal wins.
+- **Simplicity first**: Make every change as simple as possible and minimize code impact.
 - **Only touch what's necessary**: Don't refactor adjacent code while fixing a bug. Scope changes tightly.
-
-## Sprint Process
-
-- CourtVue Labs uses a hybrid sprint model: major feature sprints typically run as two parallel teams, while small or tightly coupled sprints can use one sequential `Architect -> Engineer -> Reviewer -> Optimizer` stream.
-- Compact handoff artifacts, selective bounded worker usage, and branch/worktree cleanup are part of the default operating model.
+- **No laziness**: Find root causes. Avoid temporary fixes. Maintain senior-level engineering standards.
 
 ---
 
-## Sprint History
+## Agent Behaviors
 
-### Post-Sprint 25 Patch Pass
-**Branch:** `master`
+### Plan Mode Default
+- Enter plan mode for any task with 3+ steps or an architectural decision.
+- If something goes wrong mid-execution, stop and re-plan immediately — don't keep pushing.
+- Use plan mode for verification steps, not just building.
+- Write a detailed spec upfront to reduce ambiguity before any code is written.
 
-- Fixed small manual-QA regressions after Sprint 25 closeout
-- Home-page league leaders now show canonical full names
-- `TrajectoryTracker` and `CustomMetricBuilder` no longer try to render raw `Error` objects
-- Local Next dev config now explicitly supports `127.0.0.1` / `localhost`
-- Pushed in `18d9a13` `fix: patch local testing regressions`
+### Subagent Strategy
+- Use subagents frequently to keep the main context window clean.
+- Offload research, exploration, and parallel analysis to subagents.
+- For complex problems, throw more compute via subagents rather than reasoning linearly.
+- One task per subagent — focused execution, not omnibus prompts.
 
-### Sprint 25 — Platform Intelligence Core
-**Branch:** `codex-sprint-25-kickoff`
+### Self-Improvement Loop
+- After any correction from the user, update `tasks/lessons.md` with the pattern as a rule.
+- Write the lesson as a rule, not a narrative, to prevent repeating the same mistake.
+- Review `tasks/lessons.md` at the start of each session.
+- Iterate ruthlessly until the mistake rate drops.
 
-- Added the first platform-intelligence layer across team pages, insights, compare, pre-read, and Game Explorer
-- Shipped team decision tools, guided game follow-through, pace/style profiles, and in-season trend cards
-- Added beta/foundation workflows for what-if scenarios, play-style x-ray, play-type scouting, and lineup/style compare follow-ons
-- Added new backend analytics/report services plus Sprint 25 response models, routers, and QA coverage
-- Validation: backend compile, targeted pytest suite, frontend lint, production frontend build, and DB-backed smokes on lineup impact and style/trend services
+### Verification Before Done
+- Never mark a task complete without proving it works.
+- Diff behavior between `master` and your changes when relevant.
+- Ask: "Would a staff engineer approve this?"
+- Run tests, check logs, and demonstrate correctness before declaring done.
+
+### Demand Elegance (Balanced)
+- For non-trivial changes, ask: "Is there a more elegant solution?"
+- If a fix feels hacky, ask: "Knowing everything I know now, implement the elegant solution."
+- Skip this for simple fixes — don't over-engineer straightforward changes.
+- Challenge your own work before presenting it to the user.
+
+### Autonomous Bug Fixing
+- When given a bug report, fix it — don't ask for re-explanation of what's broken.
+- Use logs, error messages, and failing tests to diagnose root cause.
+- Require zero context-switching from the user.
+- Fix failing CI/lint tests automatically when encountered.
+
+---
+
+## Task Management
+
+Convention:
+```
+tasks/
+  todo.md      → per-session work plan (transient — create at session start when needed)
+  lessons.md   → self-improvement log (persistent — never reset)
+```
+
+Workflow:
+1. **Plan First** — write the plan in `tasks/todo.md` with checkable items.
+2. **Verify Plan** — confirm the plan before any implementation begins.
+3. **Track Progress** — mark items complete as you go; don't batch-check at the end.
+4. **Explain Changes** — provide a high-level summary at each step.
+5. **Document Results** — add a review section to `tasks/todo.md` when done.
+6. **Capture Lessons** — update `tasks/lessons.md` after any correction.
+
+---
+
+## Sprint Process
+
+CourtVue Labs uses a hybrid sprint model: major feature sprints typically run as two parallel teams, while small or tightly coupled sprints use one sequential `Architect → Engineer → Reviewer → Optimizer` stream. Branch/worktree cleanup is part of the default operating model.
+
+---
+
+## Recent Sprints
+
+> Full history (Sprints 1–23) → `specs/sprint-history.md`
 
 ### Sprint 24 — Branch Audit and Workspace Canonicalization
 **Branch:** `master`
@@ -221,409 +264,22 @@ POST /api/advanced/sync-season   body: {"season": "2024-25"}
 - Audited all remaining local and remote sprint branches against current `master`
 - Removed stale temporary worktrees and deleted merged, superseded, or abandoned sprint branches
 - Deleted stale remote feature branches so `origin/master` is the only remote source of truth
-- Confirmed that no valuable code or docs remained only on the stale Sprint 12 worktree; local-only leftovers were backed up to `/tmp` and discarded as superseded
-- Updated `AGENTS.md` and Sprint 24 closeout docs so future sessions start from canonical `master`, not a stale branch workspace
+- Updated `AGENTS.md` and Sprint 24 closeout docs so future sessions start from canonical `master`
 
-### Sprint 23 — Coach Decision Support Quartet
-**Branch:** `codex-sprint-23-kickoff`
+### Sprint 25 — Platform Intelligence Core
+**Branch:** `codex-sprint-25-kickoff`
 
-- Added team-vs-team Comparison Sandbox mode on `/compare`
-- Added coach-facing Four-Factor Focus Levers on team pages
-- Added Usage vs Efficiency as a second `/insights` workflow
-- Added printable `/pre-read` game-day deck built from focus levers and matchup context
-- Post-closeout hotfixes improved compare loading, local dev CORS, full-name normalization, usage-efficiency deduplication, and selected-tab readability
-- Validation: backend compile, frontend lint/build, and DB-backed smoke checks on the four new reports
-### Sprint 1 — MVP
-**Branch:** `feature/mvp-initial` → PR #1
+- Added the first platform-intelligence layer across team pages, insights, compare, pre-read, and Game Explorer
+- Shipped team decision tools, guided game follow-through, pace/style profiles, and in-season trend cards
+- Added beta/foundation workflows for what-if scenarios, play-style x-ray, play-type scouting, and lineup/style compare follow-ons
+- Added new backend analytics/report services, routers, response models, and Sprint 25 QA coverage
 
-Core platform foundation:
-- Player profiles with season stats, shot charts, leaderboards
-- Player comparison view
-- PostgreSQL migration from SQLite cache
-- Teams and learn pages
+### Post-Sprint 25 Patch Pass
+**Branch:** `master` — commit `18d9a13`
 
----
-
-### Sprint 2 — PBP Sync + Advanced Dashboards
-**Branch:** `codex-play-by-play-sync-and-dashboards` → PR #2
-
-- Play-by-play sync pipeline (`pbp_import.py`, `pbp_service.py`, `pbp_sync_service.py`)
-- On/off splits and lineup stats from PBP stints
-- Advanced stats dashboard (clutch, second-chance, fast-break)
-- PBP coverage status on player profiles
-- Per-game log view on player profiles
-- Team explorer and roster intelligence pages
-- Player similarity engine (statistical comps across eras)
-
----
-
-### Sprint 3 — Platform Enrichment
-**Branch:** `master` (direct)
-
-- League standings page + dynamic home page
-- Team analytics dashboard with efficiency ratings and four factors
-- Breakout Tracker (YoY improvement/decline rankings)
-- Aging curve overlay + percentile comparison mode on player profiles
-- Favorites/Watchlist feature
-- Shot chart heatmap view + enhanced zone breakdown
-- Monthly splits + streak detection on player profiles
-
----
-
-### Sprint 4 — Playoff Mode + Team Lineups
-**Branch:** `master` (direct)
-
-- Playoff mode toggle across player and team views
-- Team lineups tab (5-man lineup stats from PBP)
-- League context on player cards (percentile positioning)
-- PBP advanced stats: clutch FGA sample size, on/off ORTG/DRTG display, loading skeletons
-
----
-
-### Sprint 5 — Compound Leaderboard Filters
-**Branch:** `feature/compound-leaderboard-filters` → PR #3
-
-- Multi-stat compound filtering on leaderboards (filter by multiple stat thresholds simultaneously)
-- Multi-column stat display in leaderboard table
-- Fixed React hooks rules violation: pre-allocated fixed SWR hook slots for dynamic filter count
-
----
-
-### Sprint 6 — External Metrics + Career Arc Comparison
-**Branch:** `feature/sprint6-external-metrics-compare` → PR #4
-
-- `ExternalMetricsPanel` component on player profiles — shows EPM, RAPTOR, PIPM, LEBRON, RAPM per season with color coding and source attribution
-- `DualCareerArcChart` component — overlays two players' career trajectories across BPM, PPG, PER, WS, TS%, VORP with age alignment
-- `ComparisonView` updated: new "Arc" tab, EPM/RAPTOR/PIPM rows in advanced table, external metric footnotes
-- Game Explorer page for synced PBP data
-
----
-
-### PBP Accuracy Fix
-**Branch:** `feature/pbp-accuracy-fix` → PR #5
-
-Fixed two systematic errors in PBP-derived stats:
-
-1. **Free-throw possession counting** — possessions ending in last FT (no prior FGA in that possession) were not counted. Added `_poss_had_fga` flag + `_LAST_FT_RE` regex to `build_stints()`. Also fixed edge case: DREB resets `_poss_had_fga` so a subsequent foul→FT sequence isn't skipped.
-
-2. **Actual stint duration from clock** — `Stint.seconds` was always `0.0` (unused stub). Wired up clock tracking in `build_stints()` using `_parse_clock_seconds()`. NBA clock counts DOWN, so `duration = clock_start - clock_end`. `PlayerOnOffAccumulator.on_seconds/off_seconds` and `LineupAccumulator.seconds` (also stubs) are now accumulated. `_upsert_on_off()` and `_upsert_lineup()` use real seconds with fallback to possession estimate.
-
-After merging: run `POST /api/advanced/sync-season {"season": "2024-25"}` to recompute with accurate numbers.
-
----
-
-### Sprint 7 — Team Intelligence + PBP Coverage Dashboard
-**Branch:** `codex-team-intelligence-dashboard`, `codex-pbp-coverage-dashboard` (Codex)
-
-- Team Intelligence Dashboard: full team season analytics, efficiency breakdowns, roster on/off splits
-- PBP Coverage Dashboard: visibility into which games/players have synced play-by-play data
-
----
-
-### Sprint 8 — Data Persistence
-**Branch:** `feature/data-persistence` → PR #6
-
-Eliminated live NBA API calls on every player profile load:
-
-- **`PlayerGameLog` ORM model + `player_game_logs` table** — stores per-game stats in PostgreSQL. Unique on `(player_id, game_id, season_type)` with `synced_at` timestamp.
-- **Lazy-populate gamelogs router** — serves from DB if present and fresh. Falls back to NBA API, stores result. Historical seasons cached forever; current season refreshes after 24h.
-- **Shot chart SQLite caching** — `get_shot_chart_data()` wrapped with `CacheManager.get/set` using `_cache_ttl_for_season()`.
-
----
-
-### Sprint 9 — Leaderboards, Team Ops, And Workflow Hardening
-**Branch:** `feature/sprint9-leaderboard-enhancements` (Claude), `codex-sprint-9-team-sync-dashboard` (Codex)
-
-**Claude — Leaderboard enhancements + historical data:**
-- **Career Leaders tab** — career averages (pts, reb, ast, bpm, ws, vorp, per, ts%) ranked across all seasons in DB; shows Seasons + GP columns
-- **Team filter** — dropdown filters Player Stats leaderboard to a single team; backed by new `GET /api/leaderboards/teams` endpoint
-- **Multi-column table** — primary stat highlighted + always-visible Pts/Reb/Ast/TS%/PER/BPM context columns (no extra fetches)
-- **Stat tooltips** — one-sentence definition on every column header
-- **URL state persistence** — `useSearchParams` + `useRouter` deep-link to any leaderboard view
-- **Historical data pipeline** — added `_historical_schedule_game_ids()` to `nba_client.py` using `data.nba.com` mobile schedule feed (avoids blocked `stats.nba.com`); synced 2021-22, 2022-23, 2023-24 (~595–633 players per season, 1230 games each)
-- New Pydantic models: `CareerLeaderboardEntry`, `CareerLeaderboardResponse`; `LeaderboardEntry` enriched with context columns
-
-**Codex — Team/PBP sync operations dashboard:**
-- Coverage page season sync actions and team detail handoff
-- Team Intelligence Panel improvements and lineup visibility
-
-**Workflow hardening (Codex):**
-- Sprint-dependent work allocation table in `AGENTS.md` (replaces permanent ownership)
-- Explicit branch isolation rule — all sprint work on assigned branch, never directly on `master`
-- Sprint closeout checklist + `specs/CLOSEOUT_TEMPLATE.md`
-- `specs/sprint-09-closeout.md` written as first closeout record
-
----
-
-### Sprint 10 — Branch-Only Work, Not Merged
-**Branch:** `feature/sprint-10-yoy-trends` (Claude), `codex-sprint-10-game-explorer-controls` (Codex)
-
-- Claude implemented player-profile year-over-year trend indicators and season-selector work on branch
-- Codex implemented Game Explorer controls and backend game-summary improvements on branch
-- Neither Sprint 10 branch landed in `master`; see `specs/sprint-10-closeout.md` for deferred follow-up
-- `codex-sprint-10-game-explorer-controls` is **UNSAFE to merge** — it is at a Sprint 9 commit and its diff deletes all warehouse infrastructure
-
----
-
-### Sprint 11 — Warehouse Ingestion Foundation
-**Branch:** `codex-sprint-11-warehouse-foundation` (Codex) → PR #7; `feature/sprint-11-coverage-dashboard` (Claude) → carried into Sprint 12
-
-**Codex — Warehouse foundation:**
-- ORM models: SourceRun, IngestionJob, RawSchedulePayload, WarehouseGame, RawGamePayload, GameTeamStat, GamePlayerStat, PlayByPlayEvent
-- Three-layer warehouse model: raw payloads → normalized facts → derived analytics
-- Idempotent job pipeline with `WarehouseGame` completeness flags (has_box_score, has_pbp_payload, has_parsed_pbp, materialized)
-- `warehouse_jobs.py` CLI, `warehouse.py` router, `warehouse_service.py` service layer
-- Reworked canonical PBP pipeline to write to warehouse `PlayByPlayEvent` model
-
-**Claude — Coverage dashboard frontend (carried forward into Sprint 12):**
-- `WarehousePipelinePanel` component with pipeline funnel, job stats, action buttons, collapsible recent runs table
-- SWR hooks and API functions for warehouse health and job management
-- Integrated into `/coverage` page
-
----
-
-### Sprint 12 — Warehouse Completion + Operational Hardening
-**Branch:** `codex-sprint-12-warehouse-ops`, `codex-sprint-12-game-explorer` (Codex); `feature/sprint-12-warehouse-frontend` (Claude) → PR #9
-
-**Codex — Warehouse ops hardening:**
-- Season-scoped `/run-next` endpoint
-- Retry/backoff in `run_next_job()`: exponential backoff (5m/10m/15m), permanent FAILED at attempt_count ≥ 3
-- `retry_failed_jobs()` service + `POST /api/warehouse/retry-failed?season=` endpoint
-- `backend/data/daily_sync.sh` cron wrapper
-
-**Codex — Game Explorer rebuild:**
-- `frontend/src/app/games/[gameId]/page.tsx` rebuilt fresh from master (not the unsafe Sprint 10 branch)
-- Dual-write to legacy `play_by_play` + idempotent `PlayerGameLog` upsert during warehouse migration window
-
-**Claude — Frontend hardening:**
-- Season-scoped Run Next Job button (passes season to `/run-next`)
-- Retry Failed button + `retryFailedJobs()` API function
-- Collapsible Failed Jobs panel (job_type, job_key, last_error, attempt_count)
-- Sync Today hidden for historical seasons
-- Server-side season filtering for failed jobs fetch; SWR invalidation covers pbp-dashboard keys
-
----
-
-### Sprint 13 — Warehouse Reliability + Ops Visibility
-**Branch:** `codex-sprint-13-warehouse-reliability` (Codex) → PR #10
-
-**Codex — Warehouse reliability + ops visibility:**
-- `ApiRequestState` ORM model: DB-backed distributed rate limiter (`SELECT FOR UPDATE`) serializes NBA API calls across parallel worker processes
-- `warehouse_jobs.py --loop` mode: workers poll indefinitely with configurable idle sleep and progress logging
-- `warehouse_worker_pool.sh`: start/stop/restart/status for N workers with PID files + per-worker log rotation
-- `POST /api/warehouse/reset-stale`: re-queues stalled running jobs (expired lease)
-- `GET /api/warehouse/jobs/summary`: full queue snapshot by status, job type, stalled/failed jobs, throttle state
-- `WarehousePipelinePanel` auto-poll (15s while jobs active) + ops snapshot on coverage page
-- YoY trend callouts: `PlayerHeader` (PPG, TS%, AST, REB deltas) and `TeamIntelligencePanel` (net rating, scoring, assist-rate trends)
-- Game Explorer event drill-down: click PBP event → score context, formatted clock, player profile link
-- Coverage page memo stabilization
-
-**Claude — Session token limit; original tasks (auto-poll, expandable rows) shipped by Codex in broader form.**
-
----
-
-### Sprint 14 — Game Summary API + Game Explorer Box Score
-**Branch:** `codex-sprint-14-data-layer` (Codex), `feature/sprint-14-game-summary-ui` (Claude)
-
-**Codex — Backend data layer:**
-- `GET /api/games/{game_id}/summary` backed by warehouse `games`, `game_team_stats`, and `game_player_stats`
-- `GameTeamBoxScore`, `GamePlayerBoxScore`, and `GameSummaryResponse` backend models
-- `game_summary_service.py` for home/away team box scores plus sorted player rows
-- `warehouse_jobs.py` SIGTERM exit-through-Python fix
-
-**Claude — Game Explorer frontend:**
-- `getGameSummary()` API client + `useGameSummary()` SWR hook
-- Game Explorer box score section with team stat comparison and per-team player tables
-- Coverage page memo dependency fix
-
-**Merge note:** Claude's branch needed a final contract-alignment fix before merge so the frontend matched the shipped backend response shape (`home_team_stats`, `away_team_stats`, `players`, `materialized`).
-
----
-
-### Sprint 15 — Data Completion + Warehouse Hardening
-**Branch:** `codex-sprint-15-data-completion` (Codex)
-
-**Codex — Data completion + warehouse hardening:**
-- Formal Sprint 15 kickoff for launch-window data completion (`2022-23` through `2025-26`)
-- `player_on_off` / `lineup_stats` rematerialization idempotency hotfix merged to `master`
-- Duplicate-safe raw payload persistence in `warehouse_service.py` for retried `raw_game_payloads` inserts
-- `reset_stale_jobs()` made durable from the service layer
-- Sprint 15 operations and planning artifacts:
-  - `specs/sprint-15-data-gap-inventory.md`
-  - `specs/sprint-15-validation-matrix.md`
-  - `specs/sprint-15-warehouse-runbook.md`
-- External metric strategy corrected to reflect real source availability:
-  - `RAPTOR` as the primary free external metric
-  - `RAPM` optional if a clean public source is chosen
-  - `EPM`, `LEBRON`, and `PIPM` treated as source-gated / licensed-only rather than launch blockers
-
-**Claude — No major shipped branch in Sprint 15; support/validation role remained available.**
-
----
-
-### Sprint 16 — Data Foundation Closeout
-**Branch:** `codex-sprint-16-data-foundation` (Codex)
-
-**Codex — Data foundation closeout + validation fixes:**
-- Fixed the player-page backend crash in `backend/routers/gamelogs.py` by removing Python 3.8-incompatible nested `list[...]` annotations
-- Fixed the insights breakout prior-season helper in `backend/routers/insights.py`, restoring improvers/decliners across the launch-window seasons
-- Made `retry_failed_jobs()` durable from the service layer in `backend/services/warehouse_service.py`
-- Removed lingering import-first messaging from leaderboards and made historical team intelligence guidance season-aware
-- Added Sprint 16 planning/ops artifacts:
-  - `specs/sprint-16-data-gap-inventory.md`
-  - `specs/sprint-16-validation-matrix.md`
-  - `specs/sprint-16-warehouse-runbook.md`
-  - `specs/sprint-16-handoff-claude-validation-followups.md`
-- Cleaned up the live `2025-26` worker lane by restarting the attached pool from the clean worktree and normalizing stale leases before merge
-
-**Sprint 16 result:** the remaining data-foundation bugs and validation ambiguity were closed in code and docs. The only remaining follow-through after merge is operational `2025-26` warehouse catch-up, not an unresolved app/data-foundation bug.
-
----
-
-### Sprint 17 — Team Rotation Intelligence
-**Branch:** `codex-sprint-17-team-rotation-intelligence` (Codex)
-
-**Codex — team-page analyst workflow:**
-- Added a dedicated team rotation report endpoint at `GET /api/teams/{abbr}/rotation-report?season=...`
-- Added the `Rotation Intelligence` team-page surface with:
-  - recent starter stability
-  - minute risers and fallers
-  - impact anchors
-  - recommended games to inspect next
-- Scoped the report to warehouse-backed modern seasons and added a precise limited-state fallback for historical seasons
-- Fixed a pre-existing React hook-order issue in `frontend/src/components/SeasonSplits.tsx`
-- Added Sprint 17 workflow artifacts:
-  - `specs/sprint-17-team-rotation-intelligence.md`
-  - `specs/sprint-17-review-note.md`
-  - `specs/sprint-17-optimizer-note.md`
-  - `specs/sprint-17-closeout.md`
-
-**Sprint 17 result:** the platform shifted back into feature work with a single deep analyst workflow on team pages. The next likely product-facing step is visual-system refinement, especially a deliberate platform color refresh, while warehouse catch-up continues operationally in parallel.
-
----
-
-### Sprint 18 — Hardwood Editorial Refresh
-**Branch:** `codex-sprint-18-hardwood-editorial` (Codex)
-
-**Codex — platform visual system refresh:**
-- Chose the `Hardwood Editorial` palette direction and shipped it as the active platform theme
-- Added shared theme tokens and reusable utility classes in `frontend/src/app/globals.css`
-- Refreshed the app shell plus primary workflow pages and panels across home, teams, players, compare, standings, insights, and learn
-- Strengthened text contrast and signal hierarchy so headings, links, tables, and state messaging read more clearly within the new palette
-- Added Sprint 18 workflow artifacts:
-  - `specs/sprint-18-hardwood-editorial-refresh.md`
-  - `specs/sprint-18-review-note.md`
-  - `specs/sprint-18-optimizer-note.md`
-  - `specs/sprint-18-closeout.md`
-
-**Sprint 18 result:** the platform now has a deliberate visual identity instead of the prior default gray/blue look. The next likely follow-through is deeper cleanup of remaining legacy component styling while keeping product work and warehouse operations moving in parallel.
-
----
-
-### Sprint 19 — Player Trend Intelligence
-**Branch:** `codex-sprint-19-player-trend-intelligence` (Codex)
-
-**Codex — player-page analyst workflow:**
-- Added a dedicated player trend report endpoint at `GET /api/players/{player_id}/trend-report?season=...`
-- Added the `Player Trend Intelligence` player-page surface with:
-  - role-status summary strip
-  - recent-vs-season comparison
-  - trust signals
-  - impact snapshot
-  - recommended games to inspect next
-- Scoped the workflow to regular-season windows and added precise playoff-mode and sparse-data limited-state fallbacks
-- Removed `next/font/google` from the app shell and replaced it with deterministic local font stacks
-- Added backend coverage for missing `player_on_off` degradation and sparse-data limited responses
-- Added Sprint 19 workflow artifacts:
-  - `specs/sprint-19-player-trend-intelligence.md`
-  - `specs/sprint-19-review-note.md`
-  - `specs/sprint-19-optimizer-note.md`
-  - `specs/sprint-19-closeout.md`
-
-**Sprint 19 result:** the platform now has parallel flagship decision workflows on both team and player pages. The next likely product step is connecting those workflows into a broader investigation path rather than adding another isolated panel.
-
----
-
-### Sprint 20 — Dual Team Analyst Workflows
-**Branch:** `codex-sprint-20-kickoff` (Codex integration branch with Team A + Team B feature branches)
-
-**Codex — dual-team sprint execution + shipped workflows:**
-- Reworked sprint operations around two parallel teams using the same four-role flow:
-  - Team A `Metric Builder Team`
-  - Team B `Trajectory Team`
-- Added the Team A `Custom Metric Builder` workflow on `Leaderboards` with:
-  - a dedicated `POST /api/leaderboards/custom-metric` backend contract
-  - stat and weight validation
-  - z-score normalization before weighting
-  - composite rankings
-  - metric naming / interpretation
-  - anomaly detection for weight-sensitive outliers
-- Added the Team B `Trajectory Tracker` workflow on `Insights` with:
-  - a dedicated `GET /api/insights/trajectory` backend contract
-  - recent-window vs out-of-window baseline comparisons
-  - breakout and decline rankings
-  - trajectory labels
-  - context flags and exclusion handling
-- Added Sprint 20 workflow artifacts:
-  - `specs/sprint-20-metric-builder.md`
-  - `specs/sprint-20-trajectory-tracker.md`
-  - `specs/sprint-20-team-a-review-note.md`
-  - `specs/sprint-20-team-a-optimizer-note.md`
-  - `specs/sprint-20-team-b-review-note.md`
-  - `specs/sprint-20-team-b-optimizer-note.md`
-  - `specs/sprint-20-closeout.md`
-
-**Sprint 20 result:** the platform now has two new analyst-facing investigation workflows and a proven dual-team sprint structure. The next likely product step is connecting those workflows with saved analyst state, deeper drill-down handoffs, or another two-track feature sprint using the same operating model.
-
----
-
-### Sprint 21 — Metrics Workspace, Player Stats Split, and Name Consistency
-**Branch:** `codex-sprint-21-kickoff` (Codex integration branch with Team A + Team B feature branches)
-
-**Codex — dual-team frontend split + cleanup sprint:**
-- Split the old `Leaderboards` surface into two dedicated top-level workspaces:
-  - `Metrics`
-  - `Player Stats`
-- Moved `Build Your Own Metric` onto the new `Metrics` page and added:
-  - built-in starter presets
-  - local saved presets stored in browser storage
-  - direct follow-through back to `Player Stats`
-- Moved the existing leaderboard experience onto the new `Player Stats` route without the metric builder
-- Replaced `/leaderboards` with a compatibility redirect to `/player-stats`
-- Updated app-shell and home-page navigation to feature `Metrics` and `Player Stats` as first-class workspaces
-- Fixed visible player-name shortening on high-traffic UI, including the compare-page legend labels
-- Added Sprint 21 workflow artifacts:
-  - `specs/sprint-21-team-a-metrics-workspace.md`
-  - `specs/sprint-21-team-b-player-stats-name-consistency.md`
-  - `specs/sprint-21-team-a-review-note.md`
-  - `specs/sprint-21-team-a-optimizer-note.md`
-  - `specs/sprint-21-team-b-review-note.md`
-  - `specs/sprint-21-team-b-optimizer-note.md`
-  - `specs/sprint-21-closeout.md`
-
-**Sprint 21 result:** the platform now has cleaner top-level analyst workspaces and more consistent player-name presentation, while preserving the Sprint 20 metric and ranking capabilities. The next likely product step is making saved metric state portable or shareable rather than browser-local only.
-
----
-
-### Sprint 22 — CourtVue Labs Rebrand + Metrics + Trajectory
-**Branch:** `codex-sprint-22-kickoff`
-
-**Codex — CourtVue Labs launch sprint:**
-- Renamed the product to `CourtVue Labs` across the app shell, metadata, Learn metadata, API title, and operational bulk-import banner
-- Added the new primary custom-metric route:
-  - `POST /api/metrics/custom`
-- Upgraded the `Metrics` workspace to support:
-  - URL-shareable metric state
-  - direct player-page links from ranking rows
-  - direct Compare handoff for the top two metric results
-- Extended custom-metric ranking rows with player identifiers so frontend handoffs are linkable instead of name-only
-- Kept the recency-first `Trajectory Tracker` on `/insights` and refreshed its CourtVue Labs-facing copy
-- Added Sprint 22 workflow artifacts:
-  - `specs/sprint-22-team-a-courtvue-metrics.md`
-  - `specs/sprint-22-team-b-courtvue-trajectory.md`
-  - `specs/sprint-22-closeout.md`
-
-**Sprint 22 result:** the platform now has a cohesive CourtVue Labs brand and a stronger analyst loop around custom metrics, with shareable setup state and direct handoff into deeper player comparison. The next likely product step is deciding whether analyst state stays URL-first or moves into persistent saved workflows.
+- Home-page league leaders now show canonical full names
+- `TrajectoryTracker` and `CustomMetricBuilder` no longer render raw `Error` objects
+- Local Next dev config now explicitly supports `127.0.0.1` / `localhost`
 
 ---
 
@@ -632,8 +288,8 @@ Eliminated live NBA API calls on every player profile load:
 | Branch | Owner | Status |
 |--------|-------|--------|
 | `master` | — | Stable |
-| `feature/sprint-10-yoy-trends` | Claude | Open — YoY StatTable work already on master; can close |
-| `codex-sprint-10-game-explorer-controls` | Codex | **UNSAFE — do not merge** |
+
+Sprint branches are created at kickoff and listed in `AGENTS.md`.
 
 ---
 
