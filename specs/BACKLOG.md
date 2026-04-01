@@ -17,6 +17,28 @@ Guidelines:
 
 ## Now
 
+### Upcoming Schedule Endpoint
+Why it matters:
+`warehouse_games` already has future games with date and team data; there's no API surface exposing them. Analysts and the frontend have no way to know what games are coming without hitting the live CDN.
+
+Likely shape:
+- `GET /api/schedule/upcoming?season=&days=7` reads `warehouse_games` where `game_date >= today` ordered by date
+- Simple response: game date, home team, away team, game_id
+- No new table needed — data is already there
+
+### Injury-Aware Team and Player Surfaces
+Why it matters:
+The injuries pipeline is now live, but it only surfaces on the individual player header. Coaches and analysts think in terms of roster availability, not per-player lookups.
+
+Likely shape:
+- Add an availability card to team pages showing current injured players with status and return timeline
+- Connect injury status into compare and pre-read surfaces ("Player X is currently questionable")
+- Show return_date prominently when available
+
+---
+
+## Now (existing items)
+
 ### Counterfactual What-If Suggestions
 Why it matters:
 The first directional scenario layer is live, but it still needs stronger calibration and better coaching trust signals before it feels like a dependable decision workflow.

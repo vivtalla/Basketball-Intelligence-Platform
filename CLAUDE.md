@@ -257,15 +257,6 @@ CourtVue Labs uses a hybrid sprint model: major feature sprints typically run as
 
 > Full history (Sprints 1–23) → `specs/sprint-history.md`
 
-### Sprint 24 — Branch Audit and Workspace Canonicalization
-**Branch:** `master`
-
-- Restored `/Users/viv/Documents/Basketball Intelligence Platform` as the canonical clean `master` workspace
-- Audited all remaining local and remote sprint branches against current `master`
-- Removed stale temporary worktrees and deleted merged, superseded, or abandoned sprint branches
-- Deleted stale remote feature branches so `origin/master` is the only remote source of truth
-- Updated `AGENTS.md` and Sprint 24 closeout docs so future sessions start from canonical `master`
-
 ### Sprint 25 — Platform Intelligence Core
 **Branch:** `codex-sprint-25-kickoff`
 
@@ -274,12 +265,13 @@ CourtVue Labs uses a hybrid sprint model: major feature sprints typically run as
 - Added beta/foundation workflows for what-if scenarios, play-style x-ray, play-type scouting, and lineup/style compare follow-ons
 - Added new backend analytics/report services, routers, response models, and Sprint 25 QA coverage
 
-### Post-Sprint 25 Patch Pass
-**Branch:** `master` — commit `18d9a13`
+### Sprint 26 — Data Foundation Maturation
+**Branch:** `feature/sprint-26-data-foundation` — merge commit `689b2ae`
 
-- Home-page league leaders now show canonical full names
-- `TrajectoryTracker` and `CustomMetricBuilder` no longer render raw `Error` objects
-- Local Next dev config now explicitly supports `127.0.0.1` / `localhost`
+- Architecture document (`specs/data-architecture.md`): full ingestion lineage, canonical table designations, legacy deprecation markers
+- Injuries ingestion: `player_injuries` table, CDN sync pipeline, `GET /api/injuries/current` + `/player/{id}`, injury badge on `PlayerHeader`
+- Shot chart persistence: `player_shot_charts` table, DB-first cache layer in shotchart router (6h/30d TTL)
+- Standings materialization: `team_standings` table, `materialize_standings()` service, standings router reads DB first with live fallback, `daily_sync.sh` wired up
 
 ---
 

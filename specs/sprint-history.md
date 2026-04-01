@@ -305,3 +305,35 @@ Eliminated live NBA API calls on every player profile load:
 - Added Usage vs Efficiency as a second `/insights` workflow
 - Added printable `/pre-read` game-day deck built from focus levers and matchup context
 - Post-closeout hotfixes: compare loading, local dev CORS, full-name normalization, usage-efficiency deduplication, selected-tab readability
+
+---
+
+### Sprint 24 — Branch Audit and Workspace Canonicalization
+**Branch:** `master`
+
+- Restored `/Users/viv/Documents/Basketball Intelligence Platform` as the canonical clean `master` workspace
+- Audited all remaining local and remote sprint branches against current `master`
+- Removed stale temporary worktrees and deleted merged, superseded, or abandoned sprint branches
+- Deleted stale remote feature branches so `origin/master` is the only remote source of truth
+- Updated `AGENTS.md` and Sprint 24 closeout docs so future sessions start from canonical `master`
+
+---
+
+### Sprint 25 — Platform Intelligence Core
+**Branch:** `codex-sprint-25-kickoff`
+
+- Added the first platform-intelligence layer across team pages, insights, compare, pre-read, and Game Explorer
+- Shipped team decision tools, guided game follow-through, pace/style profiles, and in-season trend cards
+- Added beta/foundation workflows for what-if scenarios, play-style x-ray, play-type scouting, and lineup/style compare follow-ons
+- Added new backend analytics/report services, routers, response models, and Sprint 25 QA coverage
+- Post-sprint patch: home-page league leaders canonical full names; TrajectoryTracker/CustomMetricBuilder error rendering fixes; Next dev config localhost support
+
+---
+
+### Sprint 26 — Data Foundation Maturation
+**Branch:** `feature/sprint-26-data-foundation` — merge commit `689b2ae`
+
+- Architecture document (`specs/data-architecture.md`): full ingestion lineage map, canonical table designations, legacy deprecation markers, missing domain registry
+- Injuries (new data domain): `player_injuries` table, `get_injuries_payload()` CDN function, `sync_injuries()` service, `GET /api/injuries/current` + `/player/{id}` + `POST /api/injuries/sync`, injury status badge on `PlayerHeader`
+- Shot chart persistence: `player_shot_charts` table, DB-first cache in shotchart router with TTL from `_cache_ttl_for_season()` (6h current, 30d historical)
+- Standings materialization: `team_standings` table, `materialize_standings()` service, standings router reads DB first with live fallback, `daily_sync.sh` wired to run all three pipeline steps

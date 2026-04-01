@@ -1,6 +1,6 @@
 # Agent Coordination
 
-Last updated: 2026-03-31 by Claude (Sprint 26 data foundation in progress)
+Last updated: 2026-03-31 by Claude (Sprint 26 closed out)
 
 > Both agents read this file before touching code at the start of every session.
 > The canonical source of truth is the clean `master` checkout at `/Users/viv/Documents/Basketball Intelligence Platform`.
@@ -14,13 +14,13 @@ Last updated: 2026-03-31 by Claude (Sprint 26 data foundation in progress)
 
 | Field | Value |
 |-------|-------|
-| Sprint | 26 |
-| Goal | Data foundation maturation — injuries ingestion, shot chart persistence, standings materialization, architecture document |
-| Started | 2026-03-31 |
-| Target merge | To be defined at sprint close |
-| Sprint shape | Single-stream sequential |
-| Branch | `feature/sprint-26-data-foundation` |
-| Worker policy | N/A — single stream |
+| Sprint | 27 |
+| Goal | Next sprint planning state — choose from backlog on top of the new data foundation |
+| Started | To be defined at Sprint 27 kickoff |
+| Target merge | To be defined at Sprint 27 kickoff |
+| Sprint shape | To be decided at kickoff |
+| Reason | Sprint 26 is complete and merged; repo is in a clean planning-ready state |
+| Worker policy | Hybrid default: choose single-pipeline or multi-agent at kickoff based on sprint shape |
 
 ---
 
@@ -38,13 +38,13 @@ If repo state, sprint numbering, or shipped features appear to disagree across l
 ## Current Assignments
 
 ### Claude
-- Branch: `feature/sprint-26-data-foundation`
-- Scope: data foundation — all 4 deliverables shipped (architecture doc, injuries, shot chart, standings)
-- Status: In progress — pending merge to master
+- Branch: `master` or next assigned sprint branch
+- Scope: available for Sprint 27 planning, review, or implementation
+- Status: Available
 
 ### Codex
 - Branch: `master` or next assigned sprint branch/worktree
-- Scope: available for next-sprint kickoff, planning, and implementation
+- Scope: available for Sprint 27 kickoff, planning, and implementation
 - Status: Available
 
 ---
@@ -72,16 +72,14 @@ Specs or review notes written by one stream for another. Check this before start
 
 | Spec file | From | To | Status |
 |-----------|------|----|--------|
-| `specs/sprint-25-review-note.md` | Sprint 25 | Next sprint | Reference |
-| `specs/sprint-25-optimizer-note.md` | Sprint 25 | Next sprint | Reference |
-| `specs/sprint-25-post-closeout-patches.md` | Codex | Claude / Next session | Ready |
+| `specs/sprint-26-closeout.md` | Sprint 26 | Next sprint | Reference |
+| `specs/data-architecture.md` | Sprint 26 | Next sprint | Reference — read before touching data layer |
 
 ---
 
 ## Merge Order
 
-1. Sprint 25 should merge to `master`
-2. Sprint 26 should rewrite this section at kickoff
+1. Sprint 27 should rewrite this section at kickoff
 
 ---
 
@@ -89,20 +87,7 @@ Specs or review notes written by one stream for another. Check this before start
 
 | Files / Directories | Assigned this sprint |
 |---------------------|----------------------|
-| `specs/data-architecture.md` | Claude — new architecture doc |
-| `backend/db/models.py`, `backend/db/ensure_schema.py` | Claude — 3 new ORM models |
-| `backend/data/nba_client.py` | Claude — get_injuries_payload() |
-| `backend/services/sync_service.py` | Claude — sync_injuries() |
-| `backend/services/standings_service.py` | Claude — new file, materialize_standings() |
-| `backend/routers/injuries.py` | Claude — new router |
-| `backend/routers/shotchart.py` | Claude — DB cache layer |
-| `backend/routers/standings.py` | Claude — DB-first + fallback |
-| `backend/main.py` | Claude — register injuries router |
-| `backend/services/warehouse_service.py` | Claude — sync_injuries dispatch |
-| `backend/data/daily_sync.sh` | Claude — standings + injuries steps |
-| `frontend/src/lib/types.ts` | Claude — InjuryEntry, InjuryReportResponse |
-| `frontend/src/lib/api.ts` | Claude — getCurrentInjuries, getPlayerInjuries |
-| `frontend/src/components/PlayerHeader.tsx` | Claude — injury status badge |
+| To be defined at Sprint 27 kickoff | — |
 
 ---
 
