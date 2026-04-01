@@ -24,6 +24,8 @@ import type {
   SimilarityResponse,
   LeagueContext,
   CareerLeaderboardResponse,
+  InjuryEntry,
+  InjuryReportResponse,
 } from "./types";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
@@ -653,4 +655,24 @@ export async function getStyleComparison(
   return fetchApi<import("./types").StyleComparisonResponse>(
     `/api/compare/styles?${params.toString()}`
   );
+}
+
+// Sprint 26 — Injuries
+
+export async function getCurrentInjuries(
+  season = "2024-25"
+): Promise<InjuryReportResponse> {
+  return fetchApi<InjuryReportResponse>(
+    `/api/injuries/current?season=${encodeURIComponent(season)}`
+  );
+}
+
+export async function getPlayerInjuries(
+  playerId: number,
+  season?: string
+): Promise<InjuryEntry[]> {
+  const params = new URLSearchParams();
+  if (season) params.set("season", season);
+  const qs = params.toString() ? `?${params.toString()}` : "";
+  return fetchApi<InjuryEntry[]>(`/api/injuries/player/${playerId}${qs}`);
 }

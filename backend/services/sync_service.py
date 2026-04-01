@@ -2,16 +2,20 @@
 from __future__ import annotations
 
 import logging
+from datetime import date, datetime
+from typing import Dict, List, Optional
+
 from sqlalchemy.orm import Session
 
 from data.nba_client import (
     get_career_stats,
+    get_injuries_payload,
     get_league_dash_player_stats,
     get_player_advanced_stats_from_league,
     get_player_info,
     search_players,
 )
-from db.models import Player, SeasonStat, Team
+from db.models import Player, PlayerInjury, SeasonStat, Team
 from services.advanced_metrics import enrich_season_with_advanced
 
 logger = logging.getLogger(__name__)
@@ -215,6 +219,99 @@ def sync_player_if_needed(db: Session, player_id: int) -> Player:
     if player and player.season_stats:
         return player
     return sync_player(db, player_id)
+
+
+def sync_injuries(db: Session, season: str) -> Dict[str, int]:
+    """Fetch the current NBA injury report from CDN and persist to player_injuries.
+
+    Upserts one row per (player_id, report_date). Returns a summary dict with
+    'fetched', 'upserted', and 'unresolved' counts.
+    """
+    logger.info("Fetching injuries payload from NBA CDN...")
+    try:
+        raw = get_injuries_payload()
+    except Exception as exc:
+        logger.error(f"Failed to fetch injuries payload: {exc}")
+        raise
+
+    payload = raw.get("payload", raw)
+    report_date_str = payload.get("date", "")
+    try:
+        report_date = datetime.strptime(report_date_str, "%Y-%m-%dT%H:%M:%S").date()
+    except (ValueError, TypeError):
+        report_date = date.today()
+
+    injury_list: List[dict] = payload.get("InjuryList", [])
+    fetched = len(injury_list)
+    upserted = 0
+    unresolved = 0
+
+    # Build a player_id lookup from NBA PersonID strings present in our DB
+    # to avoid N+1 queries.
+    person_ids = set()
+    for entry in injury_list:
+        try:
+            person_ids.add(int(entry.get("PersonID", 0)))
+        except (ValueError, TypeError):
+            pass
+
+    player_map: Dict[int, int] = {}
+    if person_ids:
+        rows = db.query(Player.id).filter(Player.id.in_(list(person_ids))).all()
+        player_map = {r[0]: r[0] for r in rows}
+
+    for entry in injury_list:
+        try:
+            nba_person_id = int(entry.get("PersonID", 0))
+        except (ValueError, TypeError):
+            unresolved += 1
+            continue
+
+        player_id = player_map.get(nba_person_id)
+        if not player_id:
+            unresolved += 1
+            logger.debug(f"Injury: player_id {nba_person_id} not in DB, skipping")
+            continue
+
+        # Parse return date if provided
+        return_date: Optional[date] = None
+        return_str = (entry.get("Return") or "").strip()
+        if return_str:
+            for fmt in ("%Y-%m-%d", "%m/%d/%Y", "%B %d, %Y"):
+                try:
+                    return_date = datetime.strptime(return_str, fmt).date()
+                    break
+                except ValueError:
+                    pass
+
+        existing = (
+            db.query(PlayerInjury)
+            .filter(
+                PlayerInjury.player_id == player_id,
+                PlayerInjury.report_date == report_date,
+            )
+            .first()
+        )
+        if existing:
+            row = existing
+        else:
+            row = PlayerInjury(player_id=player_id, report_date=report_date)
+            db.add(row)
+
+        row.team_id = None  # team_id resolution would require a team lookup; skip for now
+        row.return_date = return_date
+        row.injury_type = (entry.get("Injury") or "")[:100]
+        row.injury_status = (entry.get("Status") or "")[:50]
+        row.detail = (entry.get("Detail") or "")[:200]
+        row.comment = entry.get("Comment") or ""
+        row.season = season
+        row.fetched_at = datetime.utcnow()
+        upserted += 1
+
+    db.commit()
+    summary = {"fetched": fetched, "upserted": upserted, "unresolved": unresolved}
+    logger.info(f"sync_injuries complete: {summary}")
+    return summary
 
 
 def get_or_sync_player_profile(db: Session, player_id: int) -> Player:

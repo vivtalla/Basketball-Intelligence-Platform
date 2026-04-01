@@ -13,6 +13,7 @@ from routers import (
     decision,
     gamelogs,
     games,
+    injuries,
     insights,
     leaderboards,
     metrics,
@@ -62,6 +63,7 @@ app.include_router(trends.router, prefix="/api/trends", tags=["trends"])
 app.include_router(trends.scenarios_router, prefix="/api/scenarios", tags=["scenarios"])
 app.include_router(warehouse.router, prefix="/api/warehouse", tags=["warehouse"])
 app.include_router(metrics.router, prefix="/api/metrics", tags=["metrics"])
+app.include_router(injuries.router, prefix="/api/injuries", tags=["injuries"])
 
 
 @app.on_event("startup")

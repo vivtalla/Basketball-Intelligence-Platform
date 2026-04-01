@@ -1383,6 +1383,26 @@ export interface StyleComparisonEntity {
   window: number;
 }
 
+// Sprint 26 — Injuries
+
+export interface InjuryEntry {
+  player_id: number;
+  player_name: string;
+  report_date: string;
+  return_date: string | null;
+  injury_type: string | null;
+  injury_status: string | null;
+  detail: string | null;
+  comment: string | null;
+  season: string | null;
+}
+
+export interface InjuryReportResponse {
+  report_date: string;
+  count: number;
+  injuries: InjuryEntry[];
+}
+
 export interface StyleComparisonResponse {
   season: string;
   entity_a: StyleComparisonEntity;

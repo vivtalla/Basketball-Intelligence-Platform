@@ -1,5 +1,5 @@
 from sqlalchemy import (
-    Column, Date, Index, Integer, String, Float, Boolean, ForeignKey, DateTime, UniqueConstraint, JSON
+    Column, Date, Index, Integer, String, Float, Boolean, ForeignKey, DateTime, UniqueConstraint, JSON, Text
 )
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
@@ -500,3 +500,81 @@ class PlayByPlayEvent(Base):
     score_away = Column(Integer)
     raw_event = Column(JSON)
     updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
+
+
+# ---------------------------------------------------------------------------
+# Sprint 26 — Data Foundation Models
+# ---------------------------------------------------------------------------
+
+class PlayerInjury(Base):
+    """Current and historical injury status per player, sourced from NBA CDN."""
+    __tablename__ = "player_injuries"
+    __table_args__ = (
+        UniqueConstraint("player_id", "report_date", name="uq_player_injury_date"),
+        Index("ix_player_injuries_player", "player_id"),
+        Index("ix_player_injuries_date", "report_date"),
+    )
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    player_id = Column(Integer, ForeignKey("players.id"), nullable=False)
+    team_id = Column(Integer, ForeignKey("teams.id"), nullable=True)
+    report_date = Column(Date, nullable=False)      # date the CDN report was fetched
+    return_date = Column(Date, nullable=True)        # estimated return, if provided
+    injury_type = Column(String(100))                # "Lower Leg", "Hamstring", etc.
+    injury_status = Column(String(50))               # "Out", "Questionable", "Doubtful", "GTD", "Day-To-Day"
+    detail = Column(String(200))                     # "Left Hamstring Soreness"
+    comment = Column(Text)
+    season = Column(String(10))
+    source = Column(String(100), default="cdn.nba.com/injuries")
+    fetched_at = Column(DateTime, server_default=func.now())
+    updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
+
+    player = relationship("Player")
+
+
+class PlayerShotChart(Base):
+    """Persisted shot chart data per player/season. Eliminates live API calls on every page load."""
+    __tablename__ = "player_shot_charts"
+    __table_args__ = (
+        UniqueConstraint("player_id", "season", "season_type", name="uq_shot_chart_player_season"),
+        Index("ix_shot_charts_player", "player_id"),
+    )
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    player_id = Column(Integer, ForeignKey("players.id"), nullable=False)
+    season = Column(String(10), nullable=False)
+    season_type = Column(String(30), nullable=False, default="Regular Season")
+    shots = Column(JSON, nullable=False)             # array of shot objects from nba_api
+    shot_count = Column(Integer, default=0)
+    fetched_at = Column(DateTime, server_default=func.now())
+    expires_at = Column(DateTime, nullable=False)    # TTL: 6h current season, 30d historical
+
+    player = relationship("Player")
+
+
+class TeamStanding(Base):
+    """Materialized standings per team per season. Replaces per-request computation from player_game_logs."""
+    __tablename__ = "team_standings"
+    __table_args__ = (
+        UniqueConstraint("team_id", "season", name="uq_team_standing_season"),
+        Index("ix_team_standings_season", "season"),
+    )
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    team_id = Column(Integer, ForeignKey("teams.id"), nullable=False)
+    season = Column(String(10), nullable=False)
+    wins = Column(Integer, default=0)
+    losses = Column(Integer, default=0)
+    home_wins = Column(Integer, default=0)
+    home_losses = Column(Integer, default=0)
+    road_wins = Column(Integer, default=0)
+    road_losses = Column(Integer, default=0)
+    last_10_wins = Column(Integer, default=0)
+    last_10_losses = Column(Integer, default=0)
+    current_streak = Column(Integer, default=0)      # positive = win streak, negative = loss streak
+    streak_type = Column(String(1))                  # "W" or "L"
+    conference = Column(String(10))
+    division = Column(String(20))
+    updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
+
+    team = relationship("Team")
