@@ -29,42 +29,6 @@ Likely shape:
 - `Matchup Exploit Flags`
   Surface pregame offensive and defensive edges such as weak coverages, favorable fronts, or isolation mismatches against a specific opponent.
 
-### Four-Factor Decision Engine
-Why it matters:
-Coaches already understand the four factors. The product opportunity is turning them into clear levers instead of static diagnostics.
-
-Likely shape:
-- translate shooting, turnovers, rebounding, and free throws into actionable focus areas
-- show simple impact framing such as wins gained, efficiency lift, or game-level margin swing if one lever improves
-- produce a coach-readable answer like "improve second-chance outcomes by X and the profile changes by Y"
-
-### Usage vs Efficiency Dashboard
-Why it matters:
-Teams need a fast read on whether usage is going to the right players and actions.
-
-Likely shape:
-- compare player usage against offensive efficiency, shot quality, and turnover burden
-- flag over-used inefficients and under-used efficient options
-- suggest reasonable redistribution bands instead of absolute prescriptions
-
-### Game-Day Pre-Read Deck
-Why it matters:
-Analytics becomes far more useful when it turns into something a coach can actually carry into the day.
-
-Likely shape:
-- auto-generate a short pregame deck with focus levers, matchup edges, and one-line adjustments
-- keep it concise enough for game-day staff use
-- support export-friendly formatting for quick sharing
-
-### Comparison Sandbox
-Why it matters:
-Compare should grow from a static side-by-side page into a coach-facing decision surface.
-
-Likely shape:
-- allow team-to-team, lineup-to-lineup, and style-to-style comparisons
-- highlight differences in shooting, turnovers, rebounding, pace, and true shooting
-- add simple story labels like "wins turnover battle" or "more efficient in halfcourt"
-
 ### Guided Game Follow-Through
 Why it matters:
 When the product detects a meaningful trend or tactical edge, it should also point the user to the right game to inspect next.
@@ -131,6 +95,42 @@ Likely shape:
 - generate a one-page scouting report for an opponent
 - include top actions, weakest coverages, and preferred rotation patterns
 - tie every claim to data points that staff can cross-check in film
+
+### Comparison Sandbox Follow-Ons
+Why it matters:
+The first team-vs-team sandbox is live, but coaches will get more value once compare expands beyond one static team lens.
+
+Likely shape:
+- add lineup-to-lineup and style-to-style compare modes
+- improve printable and shareable compare outputs for staff workflows
+- deepen story labels with opponent-aware context instead of season-only comparisons
+
+### Focus Levers Follow-Ons
+Why it matters:
+The four-factor coach panel is now useful, but it should evolve from team-only heuristics into sharper opponent-aware decision support.
+
+Likely shape:
+- add matchup-aware framing against a specific opponent
+- improve impact labels from simple heuristics toward margin and win-probability context
+- connect focus levers directly into pre-read and game-review workflows
+
+### Usage vs Efficiency Follow-Ons
+Why it matters:
+The dashboard now surfaces burden allocation, but it still needs richer recommendation quality and confidence framing.
+
+Likely shape:
+- improve redistribution suggestions with clearer role and shot-profile context
+- add team-specific calibration and confidence indicators
+- connect usage flags into player trend and compare workflows
+
+### Pre-Read Deck Follow-Ons
+Why it matters:
+The browser deck is live, but staff workflows will want easier sharing, archiving, and reuse.
+
+Likely shape:
+- add export-friendly PDF or share links
+- support saved pre-read snapshots by matchup and date
+- add lineup-specific notes and game-film follow-through links
 
 ### Metrics Follow-Ons
 Why it matters:

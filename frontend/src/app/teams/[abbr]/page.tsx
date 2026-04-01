@@ -4,7 +4,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { useMemo, useState } from "react";
 import { useParams } from "next/navigation";
-import { useTeamRoster, useTeamAnalytics, useTeamIntelligence, useTeamRotationReport } from "@/hooks/usePlayerStats";
+import { useTeamRoster, useTeamAnalytics, useTeamFocusLevers, useTeamIntelligence, useTeamRotationReport } from "@/hooks/usePlayerStats";
 import TeamAnalyticsPanel from "@/components/TeamAnalyticsPanel";
 import TeamIntelligencePanel from "@/components/TeamIntelligencePanel";
 import TeamRotationIntelligencePanel from "@/components/TeamRotationIntelligencePanel";
@@ -52,6 +52,10 @@ export default function TeamDetailPage() {
     isLoading: intelligenceLoading,
     error: intelligenceError,
   } = useTeamIntelligence(
+    activeTab === "intelligence" ? teamAbbreviation : null,
+    effectiveSeason
+  );
+  const { data: focusLevers } = useTeamFocusLevers(
     activeTab === "intelligence" ? teamAbbreviation : null,
     effectiveSeason
   );
@@ -394,6 +398,7 @@ export default function TeamDetailPage() {
               currentAnalytics={currentAnalytics ?? null}
               priorAnalytics={priorAnalytics ?? null}
               season={effectiveSeason}
+              focusLevers={focusLevers ?? null}
             />
           )}
         </section>

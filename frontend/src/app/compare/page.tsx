@@ -5,10 +5,14 @@ import Link from "next/link";
 import Image from "next/image";
 import { useRouter, useSearchParams } from "next/navigation";
 import { usePlayerSearch } from "@/hooks/usePlayerSearch";
-import { usePlayerProfile, usePlayerCareerStats } from "@/hooks/usePlayerStats";
+import {
+  usePlayerProfile,
+  usePlayerCareerStats,
+  useTeamComparison,
+  useTeams,
+} from "@/hooks/usePlayerStats";
 import ComparisonView from "@/components/ComparisonView";
-
-// ─── Player search slot ───────────────────────────────────────────────────────
+import TeamComparisonView from "@/components/TeamComparisonView";
 
 interface PlayerSlotProps {
   slotLabel: string;
@@ -38,16 +42,13 @@ function PlayerSlot({ slotLabel, selectedId, onSelect, onClear }: PlayerSlotProp
             />
           ) : null}
         </div>
-        <div className="flex-1 min-w-0">
+        <div className="min-w-0 flex-1">
           <div className="truncate font-semibold text-[var(--foreground)]">{profile.full_name}</div>
           <div className="text-xs text-[var(--muted)]">
             {profile.team_name || "Free Agent"} · {profile.position || "—"}
           </div>
         </div>
-        <button
-          onClick={onClear}
-          className="bip-link shrink-0 text-xs"
-        >
+        <button onClick={onClear} className="bip-link shrink-0 text-xs">
           Change
         </button>
       </div>
@@ -66,14 +67,14 @@ function PlayerSlot({ slotLabel, selectedId, onSelect, onClear }: PlayerSlotProp
           placeholder={`Search ${slotLabel}...`}
           className="bip-input w-full rounded-2xl px-4 py-4 pr-10 text-[var(--foreground)]"
         />
-        {isLoading && (
+        {isLoading ? (
           <div className="absolute right-4 top-1/2 -translate-y-1/2">
             <div className="h-4 w-4 animate-spin rounded-full border-2 border-[var(--surface-alt)] border-t-[var(--accent)]" />
           </div>
-        )}
+        ) : null}
       </div>
 
-      {showDropdown && (
+      {showDropdown ? (
         <div className="bip-panel absolute left-0 right-0 top-full z-50 mt-1 overflow-hidden rounded-xl">
           {results.length === 0 && !isLoading ? (
             <div className="px-4 py-3 text-sm text-[var(--muted)]">No players found</div>
@@ -87,56 +88,130 @@ function PlayerSlot({ slotLabel, selectedId, onSelect, onClear }: PlayerSlotProp
                 }}
                 className="w-full px-4 py-3 text-left transition-colors hover:bg-[rgba(216,228,221,0.34)]"
               >
-                <span className="font-medium text-[var(--foreground)]">{player.full_name}</span>
-                <span
-                  className={`rounded-full px-2 py-0.5 text-xs ${
-                    player.is_active
-                      ? "bip-success"
-                      : "bg-[var(--surface-alt)] text-[var(--muted)]"
-                  }`}
-                >
-                  {player.is_active ? "Active" : "Retired"}
-                </span>
+                <div className="flex items-center justify-between gap-3">
+                  <span className="font-medium text-[var(--foreground)]">{player.full_name}</span>
+                  <span
+                    className={`rounded-full px-2 py-0.5 text-xs ${
+                      player.is_active
+                        ? "bip-success"
+                        : "bg-[var(--surface-alt)] text-[var(--muted)]"
+                    }`}
+                  >
+                    {player.is_active ? "Active" : "Retired"}
+                  </span>
+                </div>
               </button>
             ))
           )}
         </div>
-      )}
+      ) : null}
     </div>
   );
 }
 
-// ─── Inner page (needs Suspense for useSearchParams) ─────────────────────────
+interface TeamSlotProps {
+  slotLabel: string;
+  selectedTeam: string;
+  onSelect: (abbr: string) => void;
+  teams: Array<{ abbreviation: string; name: string }>;
+}
+
+function TeamSlot({ slotLabel, selectedTeam, onSelect, teams }: TeamSlotProps) {
+  return (
+    <label className="space-y-2">
+      <span className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--muted)]">
+        {slotLabel}
+      </span>
+      <select
+        value={selectedTeam}
+        onChange={(event) => onSelect(event.target.value)}
+        className="bip-input w-full rounded-2xl px-4 py-4 text-sm"
+      >
+        <option value="">Select team</option>
+        {teams.map((team) => (
+          <option key={team.abbreviation} value={team.abbreviation}>
+            {team.abbreviation} · {team.name}
+          </option>
+        ))}
+      </select>
+    </label>
+  );
+}
 
 function ComparePageInner() {
   const searchParams = useSearchParams();
   const router = useRouter();
+  const mode = searchParams.get("mode") === "teams" ? "teams" : "players";
 
   const p1Id = searchParams.get("p1") ? Number(searchParams.get("p1")) : null;
   const p2Id = searchParams.get("p2") ? Number(searchParams.get("p2")) : null;
+  const teamA = searchParams.get("team_a") ?? "";
+  const teamB = searchParams.get("team_b") ?? "";
+  const season = searchParams.get("season") ?? "2024-25";
 
   const { data: profile1 } = usePlayerProfile(p1Id);
   const { data: career1 } = usePlayerCareerStats(p1Id);
   const { data: profile2 } = usePlayerProfile(p2Id);
   const { data: career2 } = usePlayerCareerStats(p2Id);
+  const { data: teams } = useTeams();
+  const { data: teamComparison, isLoading: teamComparisonLoading } = useTeamComparison(
+    mode === "teams" && teamA ? teamA : null,
+    mode === "teams" && teamB ? teamB : null,
+    mode === "teams" ? season : null
+  );
 
-  function selectPlayer(slot: 1 | 2, id: number) {
+  function updateParams(mutator: (params: URLSearchParams) => void) {
     const params = new URLSearchParams(searchParams.toString());
-    params.set(slot === 1 ? "p1" : "p2", String(id));
+    mutator(params);
     router.push(`/compare?${params.toString()}`);
   }
 
+  function selectPlayer(slot: 1 | 2, id: number) {
+    updateParams((params) => {
+      params.set(slot === 1 ? "p1" : "p2", String(id));
+    });
+  }
+
   function clearPlayer(slot: 1 | 2) {
-    const params = new URLSearchParams(searchParams.toString());
-    params.delete(slot === 1 ? "p1" : "p2");
-    router.push(`/compare?${params.toString()}`);
+    updateParams((params) => {
+      params.delete(slot === 1 ? "p1" : "p2");
+    });
+  }
+
+  function setMode(nextMode: "players" | "teams") {
+    updateParams((params) => {
+      if (nextMode === "players") {
+        params.delete("mode");
+        params.delete("team_a");
+        params.delete("team_b");
+        params.delete("season");
+      } else {
+        params.set("mode", "teams");
+        if (!params.get("season")) params.set("season", "2024-25");
+      }
+    });
+  }
+
+  function selectTeam(slot: "team_a" | "team_b", abbr: string) {
+    updateParams((params) => {
+      params.set("mode", "teams");
+      params.set(slot, abbr);
+      if (!params.get("season")) params.set("season", "2024-25");
+    });
+  }
+
+  function selectSeason(nextSeason: string) {
+    updateParams((params) => {
+      params.set("mode", "teams");
+      params.set("season", nextSeason);
+    });
   }
 
   const bothReady = profile1 && career1 && profile2 && career2;
   const loadingComparison = (p1Id || p2Id) && (!profile1 || !profile2 || !career1 || !career2);
 
   return (
-    <div className="max-w-3xl mx-auto">
+    <div className="mx-auto max-w-5xl">
       <div className="mb-6">
         <Link href="/" className="bip-link inline-flex items-center gap-1 text-sm">
           ← Back to Home
@@ -145,55 +220,130 @@ function ComparePageInner() {
 
       <div className="bip-panel-strong mb-8 rounded-[2rem] p-8">
         <p className="bip-kicker">Compare</p>
-        <h1 className="bip-display mt-3 text-3xl font-semibold text-[var(--foreground)]">Compare Players</h1>
-        <p className="mt-2 text-[var(--muted)]">Search for two players to compare their stats side by side.</p>
+        <h1 className="bip-display mt-3 text-3xl font-semibold text-[var(--foreground)]">
+          {mode === "teams" ? "Comparison Sandbox" : "Compare Players"}
+        </h1>
+        <p className="mt-2 text-[var(--muted)]">
+          {mode === "teams"
+            ? "Switch from player scouting to team-vs-team edges in one coach-friendly sandbox."
+            : "Search for two players to compare their stats side by side."}
+        </p>
       </div>
 
-      {/* Search slots */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-8">
-        <PlayerSlot
-          slotLabel="Player 1"
-          selectedId={p1Id}
-          onSelect={(id) => selectPlayer(1, id)}
-          onClear={() => clearPlayer(1)}
-        />
-        <PlayerSlot
-          slotLabel="Player 2"
-          selectedId={p2Id}
-          onSelect={(id) => selectPlayer(2, id)}
-          onClear={() => clearPlayer(2)}
-        />
+      <div className="mb-8 flex w-fit overflow-hidden rounded-xl border border-[var(--border)] text-sm">
+        <button
+          onClick={() => setMode("players")}
+          className={`px-5 py-2 transition-colors ${
+            mode === "players"
+              ? "bg-[var(--accent)] text-white"
+              : "bg-[var(--surface)] text-[var(--muted)] hover:bg-[var(--surface-alt)]"
+          }`}
+        >
+          Players
+        </button>
+        <button
+          onClick={() => setMode("teams")}
+          className={`px-5 py-2 transition-colors ${
+            mode === "teams"
+              ? "bg-[var(--accent)] text-white"
+              : "bg-[var(--surface)] text-[var(--muted)] hover:bg-[var(--surface-alt)]"
+          }`}
+        >
+          Teams
+        </button>
       </div>
 
-      {/* Loading state */}
-      {loadingComparison && !bothReady && (
-        <div className="flex items-center justify-center gap-3 py-16 text-[var(--muted)]">
-          <div className="h-5 w-5 animate-spin rounded-full border-2 border-[var(--accent)] border-t-transparent" />
-          <span className="text-sm">Loading player data…</span>
-        </div>
-      )}
+      {mode === "players" ? (
+        <>
+          <div className="mb-8 grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <PlayerSlot
+              slotLabel="Player 1"
+              selectedId={p1Id}
+              onSelect={(id) => selectPlayer(1, id)}
+              onClear={() => clearPlayer(1)}
+            />
+            <PlayerSlot
+              slotLabel="Player 2"
+              selectedId={p2Id}
+              onSelect={(id) => selectPlayer(2, id)}
+              onClear={() => clearPlayer(2)}
+            />
+          </div>
 
-      {/* Empty state */}
-      {!p1Id && !p2Id && (
-        <div className="bip-empty py-16 text-center rounded-[2rem]">
-          <div className="text-5xl mb-4">⚖️</div>
-          <p className="text-lg font-medium text-[var(--foreground)]">Select two players to compare</p>
-          <p className="text-sm mt-1">Search above to get started</p>
-        </div>
-      )}
+          {loadingComparison && !bothReady ? (
+            <div className="flex items-center justify-center gap-3 py-16 text-[var(--muted)]">
+              <div className="h-5 w-5 animate-spin rounded-full border-2 border-[var(--accent)] border-t-transparent" />
+              <span className="text-sm">Loading player data…</span>
+            </div>
+          ) : null}
 
-      {/* Comparison */}
-      {bothReady && (
-        <ComparisonView
-          playerA={{ profile: profile1, career: career1 }}
-          playerB={{ profile: profile2, career: career2 }}
-        />
+          {!p1Id && !p2Id ? (
+            <div className="bip-empty rounded-[2rem] py-16 text-center">
+              <div className="mb-4 text-5xl">⚖️</div>
+              <p className="text-lg font-medium text-[var(--foreground)]">Select two players to compare</p>
+              <p className="mt-1 text-sm">Search above to get started</p>
+            </div>
+          ) : null}
+
+          {bothReady ? (
+            <ComparisonView
+              playerA={{ profile: profile1, career: career1 }}
+              playerB={{ profile: profile2, career: career2 }}
+            />
+          ) : null}
+        </>
+      ) : (
+        <div className="space-y-8">
+          <div className="grid gap-4 md:grid-cols-3">
+            <TeamSlot
+              slotLabel="Team A"
+              selectedTeam={teamA}
+              onSelect={(abbr) => selectTeam("team_a", abbr)}
+              teams={teams ?? []}
+            />
+            <TeamSlot
+              slotLabel="Team B"
+              selectedTeam={teamB}
+              onSelect={(abbr) => selectTeam("team_b", abbr)}
+              teams={teams ?? []}
+            />
+            <label className="space-y-2">
+              <span className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--muted)]">
+                Season
+              </span>
+              <select
+                value={season}
+                onChange={(event) => selectSeason(event.target.value)}
+                className="bip-input w-full rounded-2xl px-4 py-4 text-sm"
+              >
+                {["2025-26", "2024-25", "2023-24", "2022-23"].map((option) => (
+                  <option key={option} value={option}>
+                    {option}
+                  </option>
+                ))}
+              </select>
+            </label>
+          </div>
+
+          {teamComparisonLoading ? (
+            <div className="flex items-center justify-center gap-3 py-16 text-[var(--muted)]">
+              <div className="h-5 w-5 animate-spin rounded-full border-2 border-[var(--accent)] border-t-transparent" />
+              <span className="text-sm">Loading team comparison…</span>
+            </div>
+          ) : teamComparison ? (
+            <TeamComparisonView comparison={teamComparison} />
+          ) : (
+            <div className="bip-empty rounded-[2rem] py-16 text-center">
+              <div className="mb-4 text-5xl">🏀</div>
+              <p className="text-lg font-medium text-[var(--foreground)]">Select two teams to open the sandbox</p>
+              <p className="mt-1 text-sm">Compare efficiency, pace, rebounding, and turnover edges in one frame.</p>
+            </div>
+          )}
+        </div>
       )}
     </div>
   );
 }
-
-// ─── Page export (Suspense required for useSearchParams) ─────────────────────
 
 export default function ComparePage() {
   return (

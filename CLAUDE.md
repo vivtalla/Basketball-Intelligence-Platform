@@ -196,6 +196,14 @@ POST /api/advanced/sync-season   body: {"season": "2024-25"}
 
 ## Sprint History
 
+### Sprint 23 — Coach Decision Support Quartet
+**Branch:** `codex-sprint-23-kickoff`
+
+- Added team-vs-team Comparison Sandbox mode on `/compare`
+- Added coach-facing Four-Factor Focus Levers on team pages
+- Added Usage vs Efficiency as a second `/insights` workflow
+- Added printable `/pre-read` game-day deck built from focus levers and matchup context
+- Validation: backend compile, frontend lint/build, and DB-backed smoke checks on the four new reports
 ### Sprint 1 — MVP
 **Branch:** `feature/mvp-initial` → PR #1
 

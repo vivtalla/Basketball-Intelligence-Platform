@@ -1,11 +1,18 @@
 import Link from "next/link";
-import type { LineupStatsResponse, TeamAnalytics, TeamImpactLeader, TeamIntelligence } from "@/lib/types";
+import type {
+  LineupStatsResponse,
+  TeamAnalytics,
+  TeamFocusLeversReport,
+  TeamImpactLeader,
+  TeamIntelligence,
+} from "@/lib/types";
 
 interface TeamIntelligencePanelProps {
   intelligence: TeamIntelligence;
   currentAnalytics?: TeamAnalytics | null;
   priorAnalytics?: TeamAnalytics | null;
   season?: string | null;
+  focusLevers?: TeamFocusLeversReport | null;
 }
 
 function fmt(value: number | null | undefined, digits = 1) {
@@ -105,6 +112,7 @@ export default function TeamIntelligencePanel({
   currentAnalytics = null,
   priorAnalytics = null,
   season = null,
+  focusLevers = null,
 }: TeamIntelligencePanelProps) {
   const effectiveSeason = season ?? intelligence.season;
   const warehouseTargetSeason = isWarehouseTargetSeason(effectiveSeason);
@@ -324,6 +332,68 @@ export default function TeamIntelligencePanel({
           </div>
         </section>
       )}
+
+      {focusLevers && focusLevers.focus_levers.length > 0 ? (
+        <section className="bip-panel-strong rounded-[2rem] p-6">
+          <div className="flex items-end justify-between gap-4">
+            <div>
+              <h2 className="bip-display text-2xl font-semibold text-[var(--foreground)]">
+                Focus Levers
+              </h2>
+              <p className="mt-1 text-sm text-[var(--muted)]">
+                Four-factor decision cues that show where the clearest coachable edge or leak lives.
+              </p>
+            </div>
+            <div className="text-xs uppercase tracking-[0.18em] text-[var(--muted)]">
+              {focusLevers.season}
+            </div>
+          </div>
+          <div className="mt-5 grid gap-4 xl:grid-cols-[1.05fr,0.95fr]">
+            <div className="space-y-3">
+              {focusLevers.focus_levers.map((lever) => (
+                <div key={`${lever.factor_id}-${lever.title}`} className="bip-panel rounded-3xl p-4">
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="text-sm font-semibold text-[var(--foreground)]">{lever.title}</div>
+                    <span className="rounded-full bg-[rgba(33,72,59,0.08)] px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-[var(--accent-strong)]">
+                      {lever.impact_label}
+                    </span>
+                  </div>
+                  <p className="mt-3 text-sm leading-6 text-[var(--muted-strong)]">
+                    {lever.summary}
+                  </p>
+                </div>
+              ))}
+            </div>
+            <div className="space-y-3">
+              {focusLevers.factor_rows.map((row) => (
+                <div key={row.factor_id} className="bip-panel rounded-3xl p-4">
+                  <div className="flex items-center justify-between gap-3">
+                    <div>
+                      <div className="text-xs uppercase tracking-[0.18em] text-[var(--muted)]">
+                        {row.label}
+                      </div>
+                      <div className="mt-2 text-2xl font-semibold text-[var(--foreground)]">
+                        {fmt(row.team_value, row.factor_id === "shooting" || row.factor_id === "free_throws" ? 3 : 1)}
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <div className="text-xs uppercase tracking-[0.18em] text-[var(--muted)]">
+                        League
+                      </div>
+                      <div className="mt-2 text-lg font-semibold text-[var(--muted-strong)]">
+                        {fmt(row.league_reference, row.factor_id === "shooting" || row.factor_id === "free_throws" ? 3 : 1)}
+                      </div>
+                    </div>
+                  </div>
+                  <p className="mt-3 text-sm leading-6 text-[var(--muted-strong)]">
+                    {row.note}
+                  </p>
+                </div>
+              ))}
+            </div>
+          </div>
+        </section>
+      ) : null}
 
       <div className="grid gap-6 xl:grid-cols-[1.05fr,0.95fr]">
         <section className="bip-panel-strong rounded-[2rem] p-6">
