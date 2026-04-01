@@ -46,6 +46,13 @@ const platformAreas = [
     description:
       "Put two players in the same frame to compare production, efficiency, and arc.",
   },
+  {
+    href: "/pre-read",
+    eyebrow: "Coach Workflow",
+    title: "Build a pre-read deck",
+    description:
+      "Generate a short printable briefing with focus levers, matchup edges, and tactical adjustments.",
+  },
 ];
 
 export default function HomePage() {

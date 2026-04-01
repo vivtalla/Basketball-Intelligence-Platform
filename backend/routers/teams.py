@@ -11,6 +11,7 @@ from db.database import get_db
 from db.models import GameLog, LineupStats, PlayByPlay, Player, PlayerGameLog, PlayerOnOff, SeasonStat, Team
 from models.team import (
     TeamAnalytics,
+    TeamFocusLeversReport,
     TeamImpactLeader,
     TeamIntelligenceResponse,
     TeamPbpCoverage,
@@ -21,6 +22,7 @@ from models.team import (
     TeamSummary,
 )
 from services.team_rotation_service import build_team_rotation_report
+from services.team_focus_service import build_team_focus_levers_report
 
 router = APIRouter()
 
@@ -492,3 +494,12 @@ def team_rotation_report(
         )
 
     return build_team_rotation_report(db=db, team=team, season=season)
+
+
+@router.get("/{abbr}/focus-levers", response_model=TeamFocusLeversReport)
+def team_focus_levers(
+    abbr: str,
+    season: str = Query("2024-25"),
+    db: Session = Depends(get_db),
+):
+    return build_team_focus_levers_report(db=db, abbr=abbr, season=season)

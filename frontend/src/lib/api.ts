@@ -421,3 +421,57 @@ export async function postMetricReport(
     }
   );
 }
+
+export async function getTeamComparison(
+  teamA: string,
+  teamB: string,
+  season: string
+): Promise<import("./types").TeamComparisonResponse> {
+  const params = new URLSearchParams({
+    team_a: teamA,
+    team_b: teamB,
+    season,
+  });
+  return fetchApi<import("./types").TeamComparisonResponse>(
+    `/api/compare/teams?${params.toString()}`
+  );
+}
+
+export async function getTeamFocusLevers(
+  teamAbbreviation: string,
+  season: string
+): Promise<import("./types").TeamFocusLeversReport> {
+  return fetchApi<import("./types").TeamFocusLeversReport>(
+    `/api/teams/${encodeURIComponent(teamAbbreviation)}/focus-levers?season=${encodeURIComponent(season)}`
+  );
+}
+
+export async function getUsageEfficiencyReport(
+  season: string,
+  team?: string,
+  minMinutes = 20
+): Promise<import("./types").UsageEfficiencyResponse> {
+  const params = new URLSearchParams({
+    season,
+    min_minutes: String(minMinutes),
+  });
+  if (team) params.set("team", team);
+  return fetchApi<import("./types").UsageEfficiencyResponse>(
+    `/api/insights/usage-efficiency?${params.toString()}`
+  );
+}
+
+export async function getPreReadDeck(
+  team: string,
+  opponent: string,
+  season: string
+): Promise<import("./types").PreReadDeckResponse> {
+  const params = new URLSearchParams({
+    team,
+    opponent,
+    season,
+  });
+  return fetchApi<import("./types").PreReadDeckResponse>(
+    `/api/pre-read?${params.toString()}`
+  );
+}

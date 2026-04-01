@@ -10,8 +10,9 @@ from sqlalchemy.orm import Session
 
 from db.database import get_db
 from db.models import Player, SeasonStat
-from models.insights import TrajectoryResponse
+from models.insights import TrajectoryResponse, UsageEfficiencyResponse
 from services.trajectory_service import build_trajectory_report
+from services.usage_efficiency_service import build_usage_efficiency_report
 
 router = APIRouter()
 
@@ -102,6 +103,21 @@ def get_trajectory(
         min_minutes_per_game=min_minutes_per_game,
         team_abbreviation=team_abbreviation,
         position=position,
+    )
+
+
+@router.get("/usage-efficiency", response_model=UsageEfficiencyResponse)
+def get_usage_efficiency(
+    season: str = Query("2024-25"),
+    team: Optional[str] = Query(None),
+    min_minutes: float = Query(20.0, ge=0),
+    db: Session = Depends(get_db),
+):
+    return build_usage_efficiency_report(
+        db=db,
+        season=season,
+        team=team,
+        min_minutes=min_minutes,
     )
 
 

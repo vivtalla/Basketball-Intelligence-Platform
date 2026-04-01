@@ -58,6 +58,12 @@ export default function RootLayout({
                 Compare
               </Link>
               <Link
+                href="/pre-read"
+                className="text-sm text-[var(--muted)] bip-link"
+              >
+                Pre-Read
+              </Link>
+              <Link
                 href="/teams"
                 className="text-sm text-[var(--muted)] bip-link"
               >

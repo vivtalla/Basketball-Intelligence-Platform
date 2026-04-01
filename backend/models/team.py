@@ -165,3 +165,28 @@ class TeamIntelligenceResponse(BaseModel):
     best_lineups: List[LineupStatsResponse]
     worst_lineups: List[LineupStatsResponse]
     recent_games: List[TeamRecentGame]
+
+
+class TeamFactorRow(BaseModel):
+    factor_id: str
+    label: str
+    team_value: Optional[float] = None
+    opponent_value: Optional[float] = None
+    league_reference: Optional[float] = None
+    margin_signal: Optional[float] = None
+    note: str
+
+
+class TeamFocusLever(BaseModel):
+    title: str
+    summary: str
+    impact_label: str
+    factor_id: str
+
+
+class TeamFocusLeversReport(BaseModel):
+    team_abbreviation: str
+    team_name: str
+    season: str
+    factor_rows: List[TeamFactorRow]
+    focus_levers: List[TeamFocusLever]

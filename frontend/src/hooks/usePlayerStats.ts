@@ -12,6 +12,10 @@ import type {
   TeamAnalytics,
   TeamIntelligence,
   TeamRotationReport,
+  TeamComparisonResponse,
+  TeamFocusLeversReport,
+  UsageEfficiencyResponse,
+  PreReadDeckResponse,
   StandingsEntry,
   BreakoutsResponse,
   PercentileResult,
@@ -39,6 +43,10 @@ import {
   getTeamAnalytics,
   getTeamIntelligence,
   getTeamRotationReport,
+  getTeamComparison,
+  getTeamFocusLevers,
+  getUsageEfficiencyReport,
+  getPreReadDeck,
   getStandings,
   getBreakouts,
   getPlayerPercentiles,
@@ -239,6 +247,49 @@ export function useTeamRotationReport(
       ? `team-rotation-report-${teamAbbreviation}-${season}`
       : null,
     () => getTeamRotationReport(teamAbbreviation!, season!)
+  );
+}
+
+export function useTeamComparison(
+  teamA: string | null,
+  teamB: string | null,
+  season: string | null
+) {
+  return useSWR<TeamComparisonResponse>(
+    teamA && teamB && season ? `team-comparison-${teamA}-${teamB}-${season}` : null,
+    () => getTeamComparison(teamA!, teamB!, season!)
+  );
+}
+
+export function useTeamFocusLevers(
+  teamAbbreviation: string | null,
+  season: string | null
+) {
+  return useSWR<TeamFocusLeversReport>(
+    teamAbbreviation && season ? `team-focus-levers-${teamAbbreviation}-${season}` : null,
+    () => getTeamFocusLevers(teamAbbreviation!, season!)
+  );
+}
+
+export function useUsageEfficiencyReport(
+  season: string | null,
+  team?: string,
+  minMinutes = 20
+) {
+  return useSWR<UsageEfficiencyResponse>(
+    season ? `usage-efficiency-${season}-${team ?? "all"}-${minMinutes}` : null,
+    () => getUsageEfficiencyReport(season!, team, minMinutes)
+  );
+}
+
+export function usePreReadDeck(
+  team: string | null,
+  opponent: string | null,
+  season: string | null
+) {
+  return useSWR<PreReadDeckResponse>(
+    team && opponent && season ? `pre-read-${team}-${opponent}-${season}` : null,
+    () => getPreReadDeck(team!, opponent!, season!)
   );
 }
 

@@ -973,3 +973,118 @@ export interface CourtVueMetricResponse {
   anomalies: CustomMetricAnomaly[];
   validation_warnings: string[];
 }
+
+export interface TeamComparisonSnapshot {
+  abbreviation: string;
+  name: string;
+  season: string;
+  recent_record: string | null;
+  net_rating: number | null;
+  ts_pct: number | null;
+  efg_pct: number | null;
+  tov_pg: number | null;
+  reb_pg: number | null;
+  pace: number | null;
+}
+
+export interface TeamComparisonRow {
+  stat_id: string;
+  label: string;
+  team_a_value: number | null;
+  team_b_value: number | null;
+  higher_better: boolean;
+  format: "number" | "percent" | "signed";
+  edge: "team_a" | "team_b" | "even";
+}
+
+export interface TeamComparisonStory {
+  label: string;
+  summary: string;
+  edge: "team_a" | "team_b" | "even";
+}
+
+export interface TeamComparisonResponse {
+  season: string;
+  team_a: TeamComparisonSnapshot;
+  team_b: TeamComparisonSnapshot;
+  rows: TeamComparisonRow[];
+  stories: TeamComparisonStory[];
+}
+
+export interface TeamFactorRow {
+  factor_id: "shooting" | "turnovers" | "rebounding" | "free_throws";
+  label: string;
+  team_value: number | null;
+  opponent_value: number | null;
+  league_reference: number | null;
+  margin_signal: number | null;
+  note: string;
+}
+
+export interface TeamFocusLever {
+  title: string;
+  summary: string;
+  impact_label: string;
+  factor_id: "shooting" | "turnovers" | "rebounding" | "free_throws";
+}
+
+export interface TeamFocusLeversReport {
+  team_abbreviation: string;
+  team_name: string;
+  season: string;
+  factor_rows: TeamFactorRow[];
+  focus_levers: TeamFocusLever[];
+}
+
+export interface UsageEfficiencyPlayerRow {
+  player_id: number;
+  player_name: string;
+  team_abbreviation: string;
+  minutes_pg: number | null;
+  usg_pct: number | null;
+  ts_pct: number | null;
+  off_rating: number | null;
+  pts_pg: number | null;
+  ast_pg: number | null;
+  tov_pg: number | null;
+  burden_score: number | null;
+  efficiency_score: number | null;
+  category: "overused" | "underused";
+}
+
+export interface UsageEfficiencySuggestion {
+  player_name: string;
+  category: "overused" | "underused";
+  suggestion: string;
+}
+
+export interface UsageEfficiencyResponse {
+  season: string;
+  team: string | null;
+  min_minutes: number;
+  overused_inefficients: UsageEfficiencyPlayerRow[];
+  underused_efficients: UsageEfficiencyPlayerRow[];
+  suggestions: UsageEfficiencySuggestion[];
+  warnings: string[];
+}
+
+export interface PreReadAdjustment {
+  label: string;
+  recommendation: string;
+}
+
+export interface PreReadSlide {
+  title: string;
+  eyebrow: string;
+  bullets: string[];
+}
+
+export interface PreReadDeckResponse {
+  season: string;
+  team_abbreviation: string;
+  opponent_abbreviation: string;
+  focus_levers: TeamFocusLever[];
+  matchup_advantages: string[];
+  adjustments: PreReadAdjustment[];
+  slides: PreReadSlide[];
+}
