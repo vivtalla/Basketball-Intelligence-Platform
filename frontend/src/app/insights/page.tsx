@@ -16,8 +16,8 @@ export default function InsightsPage() {
           onClick={() => setMode("trajectory")}
           className={`px-5 py-2 transition-colors ${
             mode === "trajectory"
-              ? "bg-[var(--accent)] text-white"
-              : "bg-[var(--surface)] text-[var(--muted)] hover:bg-[var(--surface-alt)]"
+              ? "bip-toggle-active"
+              : "bip-toggle"
           }`}
         >
           Trajectory Tracker
@@ -26,8 +26,8 @@ export default function InsightsPage() {
           onClick={() => setMode("usage")}
           className={`px-5 py-2 transition-colors ${
             mode === "usage"
-              ? "bg-[var(--accent)] text-white"
-              : "bg-[var(--surface)] text-[var(--muted)] hover:bg-[var(--surface-alt)]"
+              ? "bip-toggle-active"
+              : "bip-toggle"
           }`}
         >
           Usage vs Efficiency

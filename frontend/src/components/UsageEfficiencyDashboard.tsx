@@ -88,7 +88,7 @@ export default function UsageEfficiencyDashboard() {
               ))
             ) : data?.overused_inefficients?.length ? (
               data.overused_inefficients.map((row) => (
-                <article key={`${row.player_id}-overused`} className="rounded-[1.25rem] border border-[var(--border)] bg-[rgba(255,255,255,0.7)] p-4">
+                <article key={`${row.player_id}-${row.team_abbreviation}-overused`} className="rounded-[1.25rem] border border-[var(--border)] bg-[rgba(255,255,255,0.7)] p-4">
                   <div className="flex items-start justify-between gap-3">
                     <div>
                       <div className="text-lg font-semibold text-[var(--foreground)]">
@@ -132,7 +132,7 @@ export default function UsageEfficiencyDashboard() {
               ))
             ) : data?.underused_efficients?.length ? (
               data.underused_efficients.map((row) => (
-                <article key={`${row.player_id}-underused`} className="rounded-[1.25rem] border border-[var(--border)] bg-[rgba(255,255,255,0.7)] p-4">
+                <article key={`${row.player_id}-${row.team_abbreviation}-underused`} className="rounded-[1.25rem] border border-[var(--border)] bg-[rgba(255,255,255,0.7)] p-4">
                   <div className="flex items-start justify-between gap-3">
                     <div>
                       <div className="text-lg font-semibold text-[var(--foreground)]">

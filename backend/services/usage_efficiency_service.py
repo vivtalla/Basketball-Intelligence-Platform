@@ -14,6 +14,37 @@ def _avg(values: List[float]) -> Optional[float]:
     return sum(values) / float(len(values))
 
 
+def _dedupe_player_rows(rows):
+    """Keep one season row per player.
+
+    Trade seasons can create multiple team rows for the same player. Prefer the
+    aggregate TOT row when it exists; otherwise keep the row with the largest
+    game count, then the largest minute load.
+    """
+    best = {}
+    for stat, player in rows:
+        current = best.get(player.id)
+        if current is None:
+            best[player.id] = (stat, player)
+            continue
+
+        current_stat, _ = current
+        candidate_rank = (
+            1 if (stat.team_abbreviation or "").upper() == "TOT" else 0,
+            int(stat.gp or 0),
+            float(stat.min_pg or 0.0),
+        )
+        current_rank = (
+            1 if (current_stat.team_abbreviation or "").upper() == "TOT" else 0,
+            int(current_stat.gp or 0),
+            float(current_stat.min_pg or 0.0),
+        )
+        if candidate_rank > current_rank:
+            best[player.id] = (stat, player)
+
+    return list(best.values())
+
+
 def build_usage_efficiency_report(
     db: Session,
     season: str,
@@ -34,7 +65,7 @@ def build_usage_efficiency_report(
     if team:
         query = query.filter(SeasonStat.team_abbreviation == team.upper())
 
-    rows = query.all()
+    rows = _dedupe_player_rows(query.all())
     if not rows:
         return UsageEfficiencyResponse(
             season=season,

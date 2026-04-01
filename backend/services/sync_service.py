@@ -17,6 +17,31 @@ from services.advanced_metrics import enrich_season_with_advanced
 logger = logging.getLogger(__name__)
 
 
+def canonical_player_name(
+    full_name: str = "",
+    first_name: str = "",
+    last_name: str = "",
+) -> str:
+    """Return the best available full player name.
+
+    Some historical rows were stored with `full_name` equal to only the last
+    name. Prefer a composed first+last name whenever both parts exist.
+    """
+    full_name = (full_name or "").strip()
+    first_name = (first_name or "").strip()
+    last_name = (last_name or "").strip()
+
+    if first_name and last_name:
+        combined = "{0} {1}".format(first_name, last_name).strip()
+        if not full_name:
+            return combined
+        if full_name == last_name or first_name not in full_name:
+            return combined
+        return full_name
+
+    return full_name or first_name or last_name
+
+
 def _transform_season_row(row: dict) -> dict:
     """Transform a raw nba_api season row into flat dict."""
     gp = row.get("GP", 0) or 1
@@ -85,9 +110,13 @@ def sync_player(db: Session, player_id: int) -> Player:
         player = Player(id=player_id)
         db.add(player)
 
-    player.full_name = info.get("full_name", "")
     player.first_name = info.get("first_name", "")
     player.last_name = info.get("last_name", "")
+    player.full_name = canonical_player_name(
+        info.get("full_name", ""),
+        player.first_name,
+        player.last_name,
+    )
     player.team_id = team_id if team_id else None
     player.jersey = info.get("jersey", "")
     player.position = info.get("position", "")
@@ -184,5 +213,18 @@ def sync_player_if_needed(db: Session, player_id: int) -> Player:
     """
     player = db.query(Player).filter(Player.id == player_id).first()
     if player and player.season_stats:
+        return player
+    return sync_player(db, player_id)
+
+
+def get_or_sync_player_profile(db: Session, player_id: int) -> Player:
+    """Return an existing local player row when available.
+
+    This keeps read-heavy UI surfaces like compare from triggering a full
+    career sync just to render a profile card. Only missing players are
+    fetched from the remote source here.
+    """
+    player = db.query(Player).filter(Player.id == player_id).first()
+    if player:
         return player
     return sync_player(db, player_id)

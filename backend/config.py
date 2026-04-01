@@ -4,7 +4,19 @@ from dotenv import load_dotenv
 load_dotenv()
 
 # CORS
-CORS_ORIGINS = os.getenv("CORS_ORIGINS", "http://localhost:3000").split(",")
+# Default local dev origins should cover both localhost and 127.0.0.1 on the
+# common frontend ports used during manual QA.
+CORS_ORIGINS = os.getenv(
+    "CORS_ORIGINS",
+    ",".join(
+        [
+            "http://localhost:3000",
+            "http://127.0.0.1:3000",
+            "http://localhost:3001",
+            "http://127.0.0.1:3001",
+        ]
+    ),
+).split(",")
 
 # Cache TTLs (seconds)
 CACHE_TTL_PLAYER_BIO = 7 * 24 * 3600      # 7 days

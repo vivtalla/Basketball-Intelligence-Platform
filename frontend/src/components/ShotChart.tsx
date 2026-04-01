@@ -309,8 +309,8 @@ export default function ShotChart({
                 onClick={() => setChartView(view)}
                 className={`px-3 py-1.5 capitalize transition-colors ${
                   chartView === view
-                    ? "bg-blue-500 text-white"
-                    : "bg-white dark:bg-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-600"
+                    ? "bip-toggle-active"
+                    : "bip-toggle"
                 }`}
               >
                 {view}
@@ -337,8 +337,8 @@ export default function ShotChart({
                 onClick={() => setSeasonType(type)}
                 className={`px-3 py-1.5 transition-colors ${
                   seasonType === type
-                    ? "bg-blue-500 text-white"
-                    : "bg-white dark:bg-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-600"
+                    ? "bip-toggle-active"
+                    : "bip-toggle"
                 }`}
               >
                 {type}

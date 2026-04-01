@@ -15,7 +15,7 @@
   --accent: #21483b;
   --accent-strong: #17382d;
   --accent-soft: #d8e4dd;
-  --accent-ink: #eef5f1;
+  --accent-ink: #fcfffd;
   --signal: #b4893d;
   --signal-soft: #eadbb7;
   --signal-ink: #4f3810;
@@ -209,6 +209,7 @@ select {
   color: var(--accent-ink);
   border-color: rgba(33, 72, 59, 0.25);
   box-shadow: 0 10px 26px rgba(33, 72, 59, 0.16);
+  font-weight: 600;
 }
 
 .bip-toggle-signal {

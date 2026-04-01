@@ -340,8 +340,8 @@ function PlayerStatsPageContent() {
             onClick={() => setMode(m)}
             className={`px-3 py-1.5 rounded-lg text-sm transition-colors ${
               mode === m
-                ? "bg-blue-500 text-white"
-                : "bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-300"
+                ? "bip-toggle-active"
+                : "bip-toggle"
             }`}
           >
             {m === "players" ? "Player Stats" : m === "onoff" ? "On/Off Impact" : m === "lineups" ? "Top Lineups" : "Career Leaders"}
@@ -400,8 +400,8 @@ function PlayerStatsPageContent() {
                 onClick={() => setSeasonType(type)}
                 className={`px-4 py-2 transition-colors ${
                   seasonType === type
-                    ? "bg-blue-500 text-white"
-                    : "bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700"
+                    ? "bip-toggle-active"
+                    : "bip-toggle"
                 }`}
               >
                 {type}
@@ -550,8 +550,8 @@ function PlayerStatsPageContent() {
                     onClick={() => setNewOp(op)}
                     className={`px-3 py-1.5 transition-colors ${
                       newOp === op
-                        ? "bg-blue-500 text-white"
-                        : "bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-400"
+                        ? "bip-toggle-active"
+                        : "bip-toggle"
                     }`}
                   >
                     {op === "gte" ? "≥" : "≤"}

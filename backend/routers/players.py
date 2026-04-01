@@ -7,7 +7,7 @@ from data.nba_client import search_players
 from db.database import get_db
 from models.player import PlayerProfile, PlayerSearchResult, PlayerTrendReport
 from services.player_trend_service import build_player_trend_report
-from services.sync_service import sync_player_if_needed
+from services.sync_service import canonical_player_name, get_or_sync_player_profile, sync_player_if_needed
 
 router = APIRouter()
 
@@ -21,7 +21,7 @@ def search(q: str = Query(..., min_length=2, description="Player name to search"
 @router.get("/{player_id}", response_model=PlayerProfile)
 def get_player(player_id: int, db: Session = Depends(get_db)):
     try:
-        player = sync_player_if_needed(db, player_id)
+        player = get_or_sync_player_profile(db, player_id)
     except Exception as e:
         raise HTTPException(status_code=404, detail=f"Player not found: {e}")
 
@@ -33,7 +33,7 @@ def get_player(player_id: int, db: Session = Depends(get_db)):
 
     return PlayerProfile(
         id=player.id,
-        full_name=player.full_name,
+        full_name=canonical_player_name(player.full_name, player.first_name or "", player.last_name or ""),
         first_name=player.first_name or "",
         last_name=player.last_name or "",
         team_name=team_name,

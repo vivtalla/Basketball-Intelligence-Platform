@@ -149,10 +149,10 @@ function ComparePageInner() {
   const teamB = searchParams.get("team_b") ?? "";
   const season = searchParams.get("season") ?? "2024-25";
 
-  const { data: profile1 } = usePlayerProfile(p1Id);
-  const { data: career1 } = usePlayerCareerStats(p1Id);
-  const { data: profile2 } = usePlayerProfile(p2Id);
-  const { data: career2 } = usePlayerCareerStats(p2Id);
+  const { data: profile1, error: profile1Error } = usePlayerProfile(p1Id);
+  const { data: career1, error: career1Error } = usePlayerCareerStats(p1Id);
+  const { data: profile2, error: profile2Error } = usePlayerProfile(p2Id);
+  const { data: career2, error: career2Error } = usePlayerCareerStats(p2Id);
   const { data: teams } = useTeams();
   const { data: teamComparison, isLoading: teamComparisonLoading } = useTeamComparison(
     mode === "teams" && teamA ? teamA : null,
@@ -207,8 +207,14 @@ function ComparePageInner() {
     });
   }
 
-  const bothReady = profile1 && career1 && profile2 && career2;
-  const loadingComparison = (p1Id || p2Id) && (!profile1 || !profile2 || !career1 || !career2);
+  const bothSelected = Boolean(p1Id && p2Id);
+  const comparisonError =
+    profile1Error || career1Error || profile2Error || career2Error;
+  const bothReady = Boolean(profile1 && career1 && profile2 && career2);
+  const loadingComparison =
+    bothSelected &&
+    !comparisonError &&
+    (!profile1 || !profile2 || !career1 || !career2);
 
   return (
     <div className="mx-auto max-w-5xl">
@@ -235,8 +241,8 @@ function ComparePageInner() {
           onClick={() => setMode("players")}
           className={`px-5 py-2 transition-colors ${
             mode === "players"
-              ? "bg-[var(--accent)] text-white"
-              : "bg-[var(--surface)] text-[var(--muted)] hover:bg-[var(--surface-alt)]"
+              ? "bip-toggle-active"
+              : "bip-toggle"
           }`}
         >
           Players
@@ -245,8 +251,8 @@ function ComparePageInner() {
           onClick={() => setMode("teams")}
           className={`px-5 py-2 transition-colors ${
             mode === "teams"
-              ? "bg-[var(--accent)] text-white"
-              : "bg-[var(--surface)] text-[var(--muted)] hover:bg-[var(--surface-alt)]"
+              ? "bip-toggle-active"
+              : "bip-toggle"
           }`}
         >
           Teams
@@ -282,6 +288,23 @@ function ComparePageInner() {
               <div className="mb-4 text-5xl">⚖️</div>
               <p className="text-lg font-medium text-[var(--foreground)]">Select two players to compare</p>
               <p className="mt-1 text-sm">Search above to get started</p>
+            </div>
+          ) : null}
+
+          {(p1Id || p2Id) && !bothSelected && !loadingComparison ? (
+            <div className="bip-empty rounded-[2rem] py-16 text-center">
+              <div className="mb-4 text-5xl">🧭</div>
+              <p className="text-lg font-medium text-[var(--foreground)]">Pick one more player</p>
+              <p className="mt-1 text-sm">The comparison board opens after both player slots are filled.</p>
+            </div>
+          ) : null}
+
+          {bothSelected && comparisonError ? (
+            <div className="bip-panel rounded-[2rem] border border-[rgba(239,68,68,0.25)] bg-[rgba(127,29,29,0.06)] p-6 text-center">
+              <p className="text-lg font-medium text-[var(--foreground)]">Unable to load one player comparison</p>
+              <p className="mt-2 text-sm text-[var(--muted)]">
+                One of the selected players did not return profile or career data. Try a different player or clear and reselect.
+              </p>
             </div>
           ) : null}
 

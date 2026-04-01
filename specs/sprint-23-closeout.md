@@ -13,6 +13,12 @@
 - Added `Focus Levers` backend + team-page panel driven by four-factor heuristics
 - Added `Usage vs Efficiency` coach workflow on `/insights`
 - Added printable `/pre-read` game-day briefing deck
+- Post-closeout hotfix bundle:
+  - fixed local dev CORS defaults for `localhost` and `127.0.0.1` on ports `3000` and `3001`
+  - improved player compare so profile reads do not redundantly trigger heavy sync-on-read work
+  - repaired incomplete player full names in the local database and normalized future syncs
+  - fixed duplicate traded-player rows in Usage vs Efficiency
+  - standardized selected tab/pill styles for better contrast and readability
 
 ## Deferred / Not Finished
 
