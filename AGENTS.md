@@ -153,7 +153,8 @@ Specs or review notes written by one stream for another. Check this before start
 2. Create or update `specs/sprint-{NN}-closeout.md` with shipped work, deferred work, workflow lessons, and next-sprint seeds
 3. Refresh `specs/BACKLOG.md` so shipped items are removed or rewritten as follow-ons
 4. Reset `AGENTS.md` for the next sprint kickoff state
-5. Update the matching sprint summary in `CLAUDE.md`
+5. Update `CLAUDE.md` "Recent Sprints" section (keep last 2 sprints inline; move the oldest out)
+6. Append the completed sprint summary to `specs/sprint-history.md`
 
 ---
 
