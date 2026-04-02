@@ -1,6 +1,6 @@
 # Agent Coordination
 
-Last updated: 2026-04-01 by Codex (Sprint 27 closed out)
+Last updated: 2026-04-01 by Claude (Sprint 28 closed out)
 
 > Both agents read this file before touching code at the start of every session.
 > The canonical source of truth is the clean `master` checkout at `/Users/viv/Documents/Basketball Intelligence Platform`.
@@ -14,13 +14,13 @@ Last updated: 2026-04-01 by Codex (Sprint 27 closed out)
 
 | Field | Value |
 |-------|-------|
-| Sprint | 28 |
-| Goal | Surface injury/availability context inside the compare workflow; add unresolved injury identity ops UI |
-| Started | 2026-04-01 |
-| Target merge | TBD |
-| Sprint shape | single-stream |
-| Reason | Sprint 27 injury foundation is live; compare page has zero injury awareness; 5 unresolved rows need ops surface |
-| Worker policy | Single-stream — tracks are tightly coupled (compare + injury layer share same data contracts) |
+| Sprint | 29 |
+| Goal | TBD — awaiting Vivek's sprint kickoff |
+| Started | To be defined at Sprint 29 kickoff |
+| Target merge | To be defined at Sprint 29 kickoff |
+| Sprint shape | To be decided at kickoff |
+| Reason | Sprint 28 is complete and the repo is back in kickoff-ready planning state |
+| Worker policy | Hybrid default: choose single-pipeline or multi-agent at kickoff based on sprint shape |
 
 ---
 
@@ -38,14 +38,14 @@ If repo state, sprint numbering, or shipped features appear to disagree across l
 ## Current Assignments
 
 ### Claude
-- Branch: `feature/sprint-28-compare-availability`
-- Scope: Track A (compare availability) + Track B (injury identity cleanup ops UI)
-- Status: In progress
+- Branch: `master` or next assigned sprint branch
+- Scope: available for Sprint 29 planning, review, or implementation
+- Status: Not started
 
 ### Codex
 - Branch: `master` or next assigned sprint branch/worktree
-- Scope: available for Sprint 28 planning, review, or implementation
-- Status: Available
+- Scope: available for Sprint 29 planning, review, or implementation
+- Status: Not started
 
 ---
 
@@ -58,11 +58,11 @@ Claim a shared file here before editing. If a file is already claimed, read that
 
 | File | Claimed by | Purpose |
 |------|------------|---------|
-| `frontend/src/lib/types.ts` | — | |
-| `frontend/src/lib/api.ts` | — | |
-| `backend/main.py` | — | |
-| `backend/db/models.py` | — | |
-| `backend/db/ensure_schema.py` | — | |
+| `frontend/src/lib/types.ts` | — |  |
+| `frontend/src/lib/api.ts` | — |  |
+| `backend/main.py` | — |  |
+| `backend/db/models.py` | — |  |
+| `backend/db/ensure_schema.py` | — |  |
 
 ---
 
@@ -72,14 +72,14 @@ Specs or review notes written by one stream for another. Check this before start
 
 | Spec file | From | To | Status |
 |-----------|------|----|--------|
-| `specs/sprint-26-closeout.md` | Sprint 26 | Next sprint | Reference |
 | `specs/data-architecture.md` | Sprint 26 | Next sprint | Reference — read before touching data layer |
+| `specs/sprint-28-closeout.md` | Sprint 28 | Next sprint | Reference — next sprint seeds inside |
 
 ---
 
 ## Merge Order
 
-1. `feature/sprint-28-compare-availability` → `master` (single-stream, one merge at sprint close)
+1. Sprint 29 should rewrite this section at kickoff
 
 ---
 
@@ -87,16 +87,7 @@ Specs or review notes written by one stream for another. Check this before start
 
 | Files / Directories | Assigned this sprint |
 |---------------------|----------------------|
-| `backend/routers/injuries.py` | Claude — add `/api/players/{id}/availability`, resolve/dismiss endpoints |
-| `backend/routers/compare.py` | Claude — add `/api/compare/player-availability` |
-| `backend/models/` (Pydantic schemas) | Claude — `PlayerAvailabilitySlot`, `CompareAvailabilityResponse` |
-| `frontend/src/lib/types.ts` | Claude — append `PlayerAvailabilitySlot`, `CompareAvailabilityResponse` |
-| `frontend/src/lib/api.ts` | Claude — append `fetchCompareAvailability()` |
-| `frontend/src/hooks/useCompareAvailability.ts` | Claude — new SWR hook |
-| `frontend/src/components/InjuryStatusBadge.tsx` | Claude — new component |
-| `frontend/src/components/ComparisonView.tsx` | Claude — wire badge + warning card |
-| `frontend/src/app/compare/page.tsx` | Claude — trigger availability fetch on slot fill |
-| `frontend/src/app/admin/injuries/unresolved/page.tsx` | Claude — new admin page |
+| To be defined at Sprint 29 kickoff | — |
 
 ---
 
@@ -169,6 +160,7 @@ Specs or review notes written by one stream for another. Check this before start
 
 *Free-form, dated, newest first. Use this for coordination and repo-state exceptions.*
 
+2026-04-01 (Claude): Sprint 28 closed. Shipped compare availability layer (injury badge + warning banner in ComparisonView, GET /api/compare/player-availability) and unresolved injury identity ops UI (/admin/injuries/unresolved with resolve/dismiss endpoints). Standings trend and shot zone analytics deferred to Sprint 29.
 2026-04-01 (Codex): Sprint 27 closed on branch `feature/sprint-27-availability-schedule` pending merge. Shipped scope: upcoming schedule API, team/pre-read availability surfaces, official injury-report fallback, and injury identity hardening (`player_name_aliases`, `injury_sync_unresolved`). See `specs/sprint-27-closeout.md` before Sprint 28 kickoff.
 2026-04-01 (Codex): Post-closeout patch pass is complete and pushed on `master` in commit `18d9a13` (`fix: patch local testing regressions`). This bundled four small fixes discovered during manual QA: home-page league leaders now use canonical full names, `TrajectoryTracker` no longer renders raw `Error` objects, `CustomMetricBuilder` got the same error rendering fix, and `frontend/next.config.ts` now allows `127.0.0.1` / `localhost` in local dev. Use `specs/sprint-25-post-closeout-patches.md` as the handoff note before doing more patch work or Sprint 26 planning.
 2026-04-01 (Codex): Local manual-testing assumptions changed during the patch pass: the frontend local env is intentionally pointed at `http://127.0.0.1:8001` via ignored `frontend/.env.local`, and manual testing should use `http://127.0.0.1:3001` for frontend and `http://127.0.0.1:8001` for backend. If pages look blank, verify those two processes first before assuming a product regression.

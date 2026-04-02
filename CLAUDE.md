@@ -257,21 +257,22 @@ CourtVue Labs uses a hybrid sprint model: major feature sprints typically run as
 
 > Full history → `specs/sprint-history.md`
 
-### Sprint 26 — Data Foundation Maturation
-**Branch:** `feature/sprint-26-data-foundation` — merge commit `689b2ae`
-
-- Architecture document (`specs/data-architecture.md`): full ingestion lineage, canonical table designations, legacy deprecation markers
-- Injuries ingestion: `player_injuries` table, CDN sync pipeline, `GET /api/injuries/current` + `/player/{id}`, injury badge on `PlayerHeader`
-- Shot chart persistence: `player_shot_charts` table, DB-first cache layer in shotchart router (6h/30d TTL)
-- Standings materialization: `team_standings` table, `materialize_standings()` service, standings router reads DB first with live fallback, `daily_sync.sh` wired up
-
 ### Sprint 27 — Availability + Upcoming Schedule
-**Branch:** `feature/sprint-27-availability-schedule`
+**Branch:** `feature/sprint-27-availability-schedule` — merged
 
 - Added `GET /api/schedule/upcoming` and wired future warehouse games into coaching-facing surfaces
 - Shipped injury-aware team availability on roster pages and structured availability summaries inside pre-read
 - Added official NBA injury-report PDF fallback when the live JSON feed returns `403`
 - Hardened injury identity resolution with player aliases, unresolved-row persistence, and `GET /api/injuries/unresolved`
+
+### Sprint 28 — Compare Availability + Injury Identity Cleanup
+**Branch:** `feature/sprint-28-compare-availability` — merged
+
+- `GET /api/compare/player-availability`: current injury status for both compare players in one call
+- `InjuryStatusBadge` component + `useCompareAvailability` SWR hook wired into `ComparisonView`
+- Injury badge under each player name and yellow warning banner when either player is injured
+- `POST /api/injuries/unresolved/{id}/resolve` + `DELETE /api/injuries/unresolved/{id}` endpoints
+- `/admin/injuries/unresolved` page with Resolve (player-search modal) and Dismiss actions
 
 ---
 

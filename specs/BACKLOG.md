@@ -17,23 +17,32 @@ Guidelines:
 
 ## Now
 
-### Compare Availability Follow-Through
+### Alias Backfill for Edge-Case Players
 Why it matters:
-Sprint 27 connected injuries into team pages and pre-read, but comparison workflows still lack the same roster-availability context. Analysts moving between compare and game prep lose continuity right where matchup decisions get made.
+Sprint 28 shipped the unresolved ops UI, but the underlying identity gaps (two-way players, recently traded players, inactive roster edge cases) still need targeted alias expansion to prevent future unresolved rows accumulating.
 
 Likely shape:
-- surface current availability state inside compare headers and story cards
-- carry key absences, questionable tags, and return timelines into side-by-side team/player context
-- preserve the same injury-confidence framing used on team pages and pre-read
-
-### Injury Identity Cleanup
-Why it matters:
-The sync now persists unresolved rows instead of silently dropping them, which is a big step forward, but those misses still need to shrink before the injuries layer feels fully trusted for nightly use.
-
-Likely shape:
-- review `injury_sync_unresolved` regularly and backfill missing roster/name coverage
-- add targeted alias or roster refresh support for edge cases like two-way, inactive, and recently moved players
+- identify players who regularly generate unresolved rows and add manual alias entries
+- add a targeted roster-refresh path to `sync_player_aliases` for two-way and recently moved players
 - keep stub-player creation gated until roster truth is more authoritative
+
+### Standings History / Trend Line
+Why it matters:
+Standings materialization is live, but the product still cannot show whether teams are rising or fading over the last few weeks. That trend framing would make the standings page feel more alive and more useful for game prep.
+
+Likely shape:
+- add `snapshot_date` column + change unique constraint on `team_standings` from `(team_id, season)` to `(team_id, season, snapshot_date)`
+- update `materialize_standings()` to append daily rows instead of upserting one row per season
+- show a simple last-30-days win-percentage trend line on the standings page
+
+### Shot Zone Analytics
+Why it matters:
+Shot data is now persisted in Postgres with `zone_basic` and `zone_area` fields already in the JSON blob — no new ingestion work needed. Zone-level efficiency comparisons are the next logical product step.
+
+Likely shape:
+- aggregate `zone_basic` / `zone_area` from `PlayerShotChart.shots` JSON at query time or via a materialized summary
+- add player zone summary panel (paint, mid-range, corner 3, above-the-break 3)
+- add side-by-side zone profile compare view
 
 ---
 
