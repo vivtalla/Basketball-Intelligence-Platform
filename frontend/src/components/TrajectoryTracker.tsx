@@ -320,7 +320,7 @@ export function TrajectoryTracker() {
           </p>
           <div className="mt-4 space-y-2 text-sm text-[var(--muted-strong)]">
             {data?.excluded_players?.length ? (
-              data.excluded_players.slice(0, 24).map((entry) => <div key={entry}>{entry}</div>)
+              data.excluded_players.slice(0, 24).map((entry, i) => <div key={`${i}-${entry}`}>{entry}</div>)
             ) : (
               <div>No exclusions for the current filter set.</div>
             )}
