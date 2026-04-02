@@ -39,6 +39,7 @@ from db.models import (
     WarehouseGame,
 )
 from services.advanced_metrics import enrich_season_with_advanced
+from services.sync_service import canonical_player_name
 from services.pbp_service import (
     build_stints,
     compute_clutch_stats,
@@ -151,7 +152,7 @@ def _get_or_create_player(
     if not player:
         player = Player(
             id=player_id,
-            full_name=full_name or f"Player {player_id}",
+            full_name=canonical_player_name(full_name, None, None) or "Player {0}".format(player_id),
             team_id=team_id,
             is_active=True,
         )
@@ -159,7 +160,9 @@ def _get_or_create_player(
         db.flush()
     else:
         if full_name:
-            player.full_name = full_name
+            resolved = canonical_player_name(full_name, player.first_name, player.last_name)
+            if resolved and (not player.full_name or " " not in player.full_name):
+                player.full_name = resolved
         if team_id:
             player.team_id = team_id
         player.is_active = True
@@ -284,7 +287,11 @@ def _normalize_box_payload(game_id: str, payload: dict) -> dict:
             players.append(
                 {
                     "player_id": player.get("personId"),
-                    "player_name": player.get("name", ""),
+                    "player_name": canonical_player_name(
+                        player.get("name", ""),
+                        player.get("firstName", ""),
+                        player.get("familyName", ""),
+                    ),
                     "team_id": team_id,
                     "team_abbreviation": team_tricode,
                     "start_position": player.get("position", "") if player.get("starter") == "1" else "",
