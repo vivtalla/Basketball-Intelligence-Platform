@@ -1,7 +1,7 @@
 """Injuries router: current injury report and per-player injury history."""
 from __future__ import annotations
 
-from datetime import date
+from datetime import date, datetime
 from typing import List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -9,7 +9,7 @@ from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from db.database import get_db
-from db.models import InjurySyncUnresolved, Player, PlayerInjury
+from db.models import InjurySyncUnresolved, Player, PlayerInjury, Team
 from services.sync_service import sync_injuries
 
 router = APIRouter()
@@ -176,3 +176,76 @@ def trigger_injury_sync(
     except Exception as exc:
         raise HTTPException(status_code=502, detail=f"Injury sync failed: {exc}")
     return {"status": "ok", **summary}
+
+
+class ResolveUnresolvedRequest(BaseModel):
+    player_id: int
+
+
+@router.post("/unresolved/{row_id}/resolve")
+def resolve_unresolved_injury(
+    row_id: int,
+    body: ResolveUnresolvedRequest,
+    db: Session = Depends(get_db),
+):
+    """Manually match an unresolved injury row to a player and upsert the PlayerInjury record."""
+    unresolved = db.query(InjurySyncUnresolved).filter(InjurySyncUnresolved.id == row_id).first()
+    if not unresolved:
+        raise HTTPException(status_code=404, detail="Unresolved row {0} not found.".format(row_id))
+
+    player = db.query(Player).filter(Player.id == body.player_id).first()
+    if not player:
+        raise HTTPException(status_code=404, detail="Player {0} not found.".format(body.player_id))
+
+    team_id: Optional[int] = None
+    if unresolved.team_abbreviation:
+        team = db.query(Team).filter(Team.abbreviation == unresolved.team_abbreviation).first()
+        if team:
+            team_id = team.id
+
+    existing = (
+        db.query(PlayerInjury)
+        .filter(
+            PlayerInjury.player_id == body.player_id,
+            PlayerInjury.report_date == unresolved.report_date,
+        )
+        .first()
+    )
+    if existing:
+        injury_row = existing
+    else:
+        injury_row = PlayerInjury(player_id=body.player_id, report_date=unresolved.report_date)
+        db.add(injury_row)
+
+    injury_row.team_id = team_id
+    injury_row.injury_type = (unresolved.injury_type or "")[:100]
+    injury_row.injury_status = (unresolved.injury_status or "")[:50]
+    injury_row.detail = (unresolved.detail or "")[:200]
+    injury_row.season = unresolved.season
+    injury_row.source = unresolved.source or "manual-resolve"
+    injury_row.fetched_at = datetime.utcnow()
+
+    db.delete(unresolved)
+    db.commit()
+
+    return {
+        "status": "resolved",
+        "row_id": row_id,
+        "player_id": body.player_id,
+        "player_name": player.full_name,
+        "report_date": str(unresolved.report_date),
+    }
+
+
+@router.delete("/unresolved/{row_id}")
+def dismiss_unresolved_injury(
+    row_id: int,
+    db: Session = Depends(get_db),
+):
+    """Dismiss an unresolved injury row (e.g. G-League call-up, not an NBA roster player)."""
+    unresolved = db.query(InjurySyncUnresolved).filter(InjurySyncUnresolved.id == row_id).first()
+    if not unresolved:
+        raise HTTPException(status_code=404, detail="Unresolved row {0} not found.".format(row_id))
+    db.delete(unresolved)
+    db.commit()
+    return {"status": "dismissed", "row_id": row_id}
