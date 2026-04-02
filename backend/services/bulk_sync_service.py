@@ -25,6 +25,7 @@ from db.database import SessionLocal
 from db.models import Player, PlayerGameLog, SeasonStat, SyncStatus, Team
 from services.advanced_metrics import enrich_season_with_advanced
 from services.pbp_sync_service import sync_pbp_for_season
+from services.player_identity_service import sync_player_aliases
 
 logger = logging.getLogger(__name__)
 
@@ -210,6 +211,8 @@ def sync_all_players(
                 if acc["team_id"]:
                     player.team_id = acc["team_id"]
                 player.is_active = True
+            db.flush()
+            sync_player_aliases(db, player, source="bulk_sync")
 
             # Build season data
             season_data = {
@@ -352,14 +355,23 @@ def sync_all_game_logs(
                         continue
 
                     # Ensure player exists
-                    if not db.query(Player).filter_by(id=pid).first():
-                        db.add(Player(
+                    player = db.query(Player).filter_by(id=pid).first()
+                    if not player:
+                        player = Player(
                             id=pid,
                             full_name=p.get("player_name", ""),
                             team_id=p.get("team_id"),
                             is_active=True,
-                        ))
-                        db.flush()
+                        )
+                        db.add(player)
+                    else:
+                        if p.get("player_name"):
+                            player.full_name = p.get("player_name")
+                        if p.get("team_id"):
+                            player.team_id = p.get("team_id")
+                        player.is_active = True
+                    db.flush()
+                    sync_player_aliases(db, player, source="bulk_sync")
 
                     is_home = p.get("team_id") == home_tid
                     matchup = box.get("matchup_home") if is_home else box.get("matchup_away")

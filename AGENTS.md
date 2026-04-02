@@ -1,6 +1,6 @@
 # Agent Coordination
 
-Last updated: 2026-03-31 by Claude (Sprint 26 closed out)
+Last updated: 2026-04-01 by Codex (Sprint 27 closed out)
 
 > Both agents read this file before touching code at the start of every session.
 > The canonical source of truth is the clean `master` checkout at `/Users/viv/Documents/Basketball Intelligence Platform`.
@@ -14,12 +14,12 @@ Last updated: 2026-03-31 by Claude (Sprint 26 closed out)
 
 | Field | Value |
 |-------|-------|
-| Sprint | 27 |
-| Goal | Next sprint planning state — choose from backlog on top of the new data foundation |
-| Started | To be defined at Sprint 27 kickoff |
-| Target merge | To be defined at Sprint 27 kickoff |
+| Sprint | 28 |
+| Goal | Next sprint planning state — choose from backlog on top of the stronger schedule + availability foundation |
+| Started | To be defined at Sprint 28 kickoff |
+| Target merge | To be defined at Sprint 28 kickoff |
 | Sprint shape | To be decided at kickoff |
-| Reason | Sprint 26 is complete and merged; repo is in a clean planning-ready state |
+| Reason | Sprint 27 is complete and the repo is back in kickoff-ready planning state |
 | Worker policy | Hybrid default: choose single-pipeline or multi-agent at kickoff based on sprint shape |
 
 ---
@@ -39,12 +39,12 @@ If repo state, sprint numbering, or shipped features appear to disagree across l
 
 ### Claude
 - Branch: `master` or next assigned sprint branch
-- Scope: available for Sprint 27 planning, review, or implementation
+- Scope: available for Sprint 28 planning, review, or implementation
 - Status: Available
 
 ### Codex
 - Branch: `master` or next assigned sprint branch/worktree
-- Scope: available for Sprint 27 kickoff, planning, and implementation
+- Scope: available for Sprint 28 planning, review, or implementation
 - Status: Available
 
 ---
@@ -79,7 +79,7 @@ Specs or review notes written by one stream for another. Check this before start
 
 ## Merge Order
 
-1. Sprint 27 should rewrite this section at kickoff
+1. Sprint 28 should rewrite this section at kickoff
 
 ---
 
@@ -87,7 +87,7 @@ Specs or review notes written by one stream for another. Check this before start
 
 | Files / Directories | Assigned this sprint |
 |---------------------|----------------------|
-| To be defined at Sprint 27 kickoff | — |
+| To be defined at Sprint 28 kickoff | — |
 
 ---
 
@@ -160,6 +160,7 @@ Specs or review notes written by one stream for another. Check this before start
 
 *Free-form, dated, newest first. Use this for coordination and repo-state exceptions.*
 
+2026-04-01 (Codex): Sprint 27 closed on branch `feature/sprint-27-availability-schedule` pending merge. Shipped scope: upcoming schedule API, team/pre-read availability surfaces, official injury-report fallback, and injury identity hardening (`player_name_aliases`, `injury_sync_unresolved`). See `specs/sprint-27-closeout.md` before Sprint 28 kickoff.
 2026-04-01 (Codex): Post-closeout patch pass is complete and pushed on `master` in commit `18d9a13` (`fix: patch local testing regressions`). This bundled four small fixes discovered during manual QA: home-page league leaders now use canonical full names, `TrajectoryTracker` no longer renders raw `Error` objects, `CustomMetricBuilder` got the same error rendering fix, and `frontend/next.config.ts` now allows `127.0.0.1` / `localhost` in local dev. Use `specs/sprint-25-post-closeout-patches.md` as the handoff note before doing more patch work or Sprint 26 planning.
 2026-04-01 (Codex): Local manual-testing assumptions changed during the patch pass: the frontend local env is intentionally pointed at `http://127.0.0.1:8001` via ignored `frontend/.env.local`, and manual testing should use `http://127.0.0.1:3001` for frontend and `http://127.0.0.1:8001` for backend. If pages look blank, verify those two processes first before assuming a product regression.
 2026-04-01 (Codex): Sprint 24 completed a full branch audit and canonicalized the repo root back to `master` at `/Users/viv/Documents/Basketball Intelligence Platform`. All stale temporary worktrees and stale remote sprint branches should now be treated as cleanup targets, not alternate truths.

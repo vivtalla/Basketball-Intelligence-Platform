@@ -6,6 +6,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from config import CORS_ORIGINS
 from data.cache import CacheManager
 from db.database import engine
+from db.ensure_schema import apply_schema_updates
 from db.models import Base
 from routers import (
     advanced,
@@ -19,6 +20,7 @@ from routers import (
     metrics,
     players,
     pre_read,
+    schedule,
     scouting,
     shotchart,
     similarity,
@@ -55,6 +57,7 @@ app.include_router(compare.router, prefix="/api/compare", tags=["compare"])
 app.include_router(standings.router, prefix="/api/standings", tags=["standings"])
 app.include_router(insights.router, prefix="/api/insights", tags=["insights"])
 app.include_router(pre_read.router, prefix="/api/pre-read", tags=["pre-read"])
+app.include_router(schedule.router, prefix="/api/schedule", tags=["schedule"])
 app.include_router(scouting.router, prefix="/api/scouting", tags=["scouting"])
 app.include_router(decision.router, prefix="/api/decision", tags=["decision"])
 app.include_router(decision.follow_router, prefix="/api/follow-through", tags=["follow-through"])
@@ -69,6 +72,7 @@ app.include_router(injuries.router, prefix="/api/injuries", tags=["injuries"])
 @app.on_event("startup")
 def startup():
     Base.metadata.create_all(bind=engine)
+    apply_schema_updates()
     CacheManager.initialize()
 
 

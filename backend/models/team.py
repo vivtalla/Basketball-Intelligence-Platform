@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from datetime import date
 from typing import List, Optional
 
 from pydantic import BaseModel
@@ -190,3 +191,47 @@ class TeamFocusLeversReport(BaseModel):
     season: str
     factor_rows: List[TeamFactorRow]
     focus_levers: List[TeamFocusLever]
+
+
+class TeamUpcomingGameSummary(BaseModel):
+    game_id: str
+    game_date: Optional[date] = None
+    opponent_abbreviation: Optional[str] = None
+    opponent_name: Optional[str] = None
+    is_home: bool
+    status: str
+
+
+class TeamAvailabilityPlayer(BaseModel):
+    player_id: int
+    player_name: str
+    position: str
+    jersey: str
+    headshot_url: str
+    injury_status: Optional[str] = None
+    injury_type: Optional[str] = None
+    detail: Optional[str] = None
+    comment: Optional[str] = None
+    return_date: Optional[date] = None
+    pts_pg: Optional[float] = None
+    bpm: Optional[float] = None
+    impact_label: str
+
+
+class TeamAvailabilityResponse(BaseModel):
+    team_id: int
+    abbreviation: str
+    name: str
+    season: str
+    report_date: Optional[date] = None
+    overall_status: str
+    summary: str
+    available_count: int = 0
+    unavailable_count: int = 0
+    questionable_count: int = 0
+    probable_count: int = 0
+    next_game: Optional[TeamUpcomingGameSummary] = None
+    key_absences: List[TeamAvailabilityPlayer]
+    unavailable_players: List[TeamAvailabilityPlayer]
+    questionable_players: List[TeamAvailabilityPlayer]
+    probable_players: List[TeamAvailabilityPlayer]

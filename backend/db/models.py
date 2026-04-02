@@ -47,6 +47,7 @@ class Player(Base):
 
     team = relationship("Team", back_populates="players")
     season_stats = relationship("SeasonStat", back_populates="player", cascade="all, delete-orphan")
+    name_aliases = relationship("PlayerNameAlias", back_populates="player", cascade="all, delete-orphan")
 
 
 class SeasonStat(Base):
@@ -530,6 +531,57 @@ class PlayerInjury(Base):
     updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
 
     player = relationship("Player")
+
+
+class PlayerNameAlias(Base):
+    __tablename__ = "player_name_aliases"
+    __table_args__ = (
+        UniqueConstraint("player_id", "alias_normalized", name="uq_player_alias_normalized"),
+        Index("ix_player_alias_normalized", "alias_normalized"),
+        Index("ix_player_alias_player", "player_id"),
+    )
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    player_id = Column(Integer, ForeignKey("players.id"), nullable=False)
+    alias_normalized = Column(String(150), nullable=False)
+    alias_display = Column(String(150), nullable=False)
+    source = Column(String(100), nullable=False)
+    created_at = Column(DateTime, server_default=func.now())
+    updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
+
+    player = relationship("Player", back_populates="name_aliases")
+
+
+class InjurySyncUnresolved(Base):
+    __tablename__ = "injury_sync_unresolved"
+    __table_args__ = (
+        UniqueConstraint(
+            "season",
+            "report_date",
+            "team_abbreviation",
+            "player_name",
+            "injury_status",
+            "detail",
+            name="uq_injury_sync_unresolved_entry",
+        ),
+        Index("ix_injury_sync_unresolved_report", "season", "report_date"),
+        Index("ix_injury_sync_unresolved_lookup", "normalized_lookup_key"),
+    )
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    season = Column(String(10), nullable=False, default="")
+    report_date = Column(Date, nullable=False)
+    team_abbreviation = Column(String(10), nullable=False, default="")
+    team_name = Column(String(100), nullable=False, default="")
+    player_name = Column(String(100), nullable=False, default="")
+    injury_status = Column(String(50), nullable=False, default="")
+    injury_type = Column(String(100), nullable=False, default="")
+    detail = Column(String(200), nullable=False, default="")
+    source = Column(String(100), nullable=False, default="")
+    source_url = Column(String(255))
+    normalized_lookup_key = Column(String(200), nullable=False, default="")
+    created_at = Column(DateTime, server_default=func.now())
+    updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
 
 
 class PlayerShotChart(Base):

@@ -31,6 +31,8 @@ import type {
   SimilarityResponse,
   LeagueContext,
   CareerLeaderboardResponse,
+  TeamAvailabilityResponse,
+  UpcomingScheduleGame,
 } from "@/lib/types";
 import {
   getPlayerProfile,
@@ -62,6 +64,8 @@ import {
   getSimilarPlayers,
   getLeagueContext,
   getCareerLeaderboard,
+  getTeamAvailability,
+  getUpcomingSchedule,
 } from "@/lib/api";
 
 export function usePlayerProfile(playerId: number | null) {
@@ -156,6 +160,27 @@ export function useTeamRoster(teamAbbreviation: string | null) {
   return useSWR<TeamRosterResponse>(
     teamAbbreviation ? `team-roster-${teamAbbreviation}` : null,
     () => getTeamRoster(teamAbbreviation!)
+  );
+}
+
+export function useTeamAvailability(
+  teamAbbreviation: string | null,
+  season: string | null
+) {
+  return useSWR<TeamAvailabilityResponse>(
+    teamAbbreviation && season ? `team-availability-${teamAbbreviation}-${season}` : null,
+    () => getTeamAvailability(teamAbbreviation!, season!)
+  );
+}
+
+export function useUpcomingSchedule(
+  season: string | null,
+  days = 7,
+  team?: string | null
+) {
+  return useSWR<UpcomingScheduleGame[]>(
+    season ? `upcoming-schedule-${season}-${days}-${team ?? "all"}` : null,
+    () => getUpcomingSchedule(season!, days, team ?? undefined)
   );
 }
 

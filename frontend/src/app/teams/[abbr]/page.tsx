@@ -4,7 +4,8 @@ import Image from "next/image";
 import Link from "next/link";
 import { useMemo, useState } from "react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
-import { useTeamRoster, useTeamAnalytics, useTeamFocusLevers, useTeamIntelligence, useTeamRotationReport } from "@/hooks/usePlayerStats";
+import { useTeamAvailability, useTeamRoster, useTeamAnalytics, useTeamFocusLevers, useTeamIntelligence, useTeamRotationReport } from "@/hooks/usePlayerStats";
+import AvailabilitySummaryCard from "@/components/AvailabilitySummaryCard";
 import TeamAnalyticsPanel from "@/components/TeamAnalyticsPanel";
 import TeamIntelligencePanel from "@/components/TeamIntelligencePanel";
 import TeamRotationIntelligencePanel from "@/components/TeamRotationIntelligencePanel";
@@ -80,6 +81,14 @@ export default function TeamDetailPage() {
     isLoading: analyticsLoading,
     error: analyticsError,
   } = useTeamAnalytics(teamAbbreviation, effectiveSeason);
+  const {
+    data: availability,
+    isLoading: availabilityLoading,
+    error: availabilityError,
+  } = useTeamAvailability(
+    activeTab === "roster" ? teamAbbreviation : null,
+    activeTab === "roster" ? effectiveSeason : null
+  );
   const effectiveSeasonIndex = availableSeasons.indexOf(effectiveSeason);
   const priorSeason =
     effectiveSeasonIndex >= 0 && effectiveSeasonIndex < availableSeasons.length - 1
@@ -474,6 +483,31 @@ export default function TeamDetailPage() {
       {/* Roster tab */}
       {activeTab === "roster" && roster && (
         <>
+          {availabilityLoading && (
+            <section className="mb-4 rounded-[1.8rem] border border-[var(--border)] bg-[var(--surface)] p-6">
+              <div className="animate-pulse space-y-4">
+                <div className="h-4 w-32 rounded bg-[var(--surface-alt)]" />
+                <div className="h-8 w-64 rounded bg-[var(--surface-alt)]" />
+                <div className="h-4 w-full rounded bg-[var(--surface-alt)]" />
+                <div className="grid gap-3 md:grid-cols-3">
+                  {[1, 2, 3].map((item) => (
+                    <div key={item} className="h-28 rounded-2xl bg-[var(--surface-alt)]" />
+                  ))}
+                </div>
+              </div>
+            </section>
+          )}
+          {availabilityError && (
+            <section className="mb-4 rounded-[1.8rem] border border-[var(--border)] bg-[var(--surface)] p-6 text-sm leading-6 text-[var(--muted-strong)]">
+              Could not load the latest roster availability for {effectiveSeason}. The roster board below is still available.
+            </section>
+          )}
+          {availability && !availabilityLoading && (
+            <section className="mb-4">
+              <AvailabilitySummaryCard availability={availability} />
+            </section>
+          )}
+
           <section className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
             {leaders.map((leader) => (
               <div

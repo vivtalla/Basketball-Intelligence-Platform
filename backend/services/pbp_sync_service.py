@@ -23,6 +23,7 @@ from services.pbp_service import (
     compute_on_off,
     compute_second_chance_and_fast_break,
 )
+from services.player_identity_service import sync_player_aliases
 
 PBP_REQUEST_DELAY = 1.0
 PBP_TIMEOUT = 60
@@ -130,6 +131,13 @@ def _ensure_box_score_entities(db: Session, box_score: dict) -> None:
                 existing.team_id = player.get("team_id")
 
     db.flush()
+    for player in box_score.get("players", []):
+        player_id = player.get("player_id")
+        if not player_id:
+            continue
+        synced_player = existing_players.get(player_id) or db.query(Player).filter_by(id=player_id).first()
+        if synced_player:
+            sync_player_aliases(db, synced_player, source="pbp_sync")
 
 
 def _store_pbp_events(

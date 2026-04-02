@@ -63,6 +63,9 @@ def apply_schema_updates():
     #   player_injuries  (PlayerInjury)   — daily CDN injury report
     #   player_shot_charts (PlayerShotChart) — persisted shot chart JSONB
     #   team_standings   (TeamStanding)   — materialized standings per season
+    # Sprint 27 — Injury identity hardening: new tables picked up by create_all():
+    #   player_name_aliases     — durable player identity lookup variants
+    #   injury_sync_unresolved  — unresolved official report rows for review
     # No new columns on existing tables this sprint.
 
 

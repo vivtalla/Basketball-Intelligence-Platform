@@ -9,7 +9,7 @@ from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from db.database import get_db
-from db.models import Player, PlayerInjury
+from db.models import InjurySyncUnresolved, Player, PlayerInjury
 from services.sync_service import sync_injuries
 
 router = APIRouter()
@@ -36,6 +36,24 @@ class InjuryReportResponse(BaseModel):
     injuries: List[InjuryEntry]
 
 
+class InjurySyncUnresolvedEntry(BaseModel):
+    id: int
+    season: str
+    report_date: date
+    team_abbreviation: str
+    team_name: str
+    player_name: str
+    injury_status: str
+    injury_type: str
+    detail: str
+    source: str
+    source_url: Optional[str]
+    normalized_lookup_key: str
+
+    class Config:
+        from_attributes = True
+
+
 @router.get("/current", response_model=InjuryReportResponse)
 def get_current_injuries(
     season: str = Query("2024-25", description="Season string e.g. 2024-25"),
@@ -59,10 +77,19 @@ def get_current_injuries(
     rows = (
         db.query(PlayerInjury, Player.full_name)
         .join(Player, Player.id == PlayerInjury.player_id)
-        .filter(PlayerInjury.report_date == report_date)
+        .filter(
+            PlayerInjury.report_date == report_date,
+            PlayerInjury.season == season,
+        )
         .order_by(PlayerInjury.injury_status, Player.full_name)
         .all()
     )
+
+    active_rows = [
+        (inj, name)
+        for inj, name in rows
+        if (inj.injury_status or "").strip().lower() != "available"
+    ]
 
     injuries = [
         InjuryEntry(
@@ -76,13 +103,34 @@ def get_current_injuries(
             comment=inj.comment,
             season=inj.season,
         )
-        for inj, name in rows
+        for inj, name in active_rows
     ]
     return InjuryReportResponse(
         report_date=report_date,
         count=len(injuries),
         injuries=injuries,
     )
+
+
+@router.get("/unresolved", response_model=List[InjurySyncUnresolvedEntry])
+def get_unresolved_injuries(
+    season: str = Query("2024-25", description="Season string e.g. 2024-25"),
+    report_date: Optional[date] = Query(None, description="Optional report date filter"),
+    db: Session = Depends(get_db),
+):
+    """Return unresolved injury sync rows for manual review."""
+    query = db.query(InjurySyncUnresolved).filter(InjurySyncUnresolved.season == season)
+    if report_date:
+        query = query.filter(InjurySyncUnresolved.report_date == report_date)
+    rows = (
+        query.order_by(
+            InjurySyncUnresolved.report_date.desc(),
+            InjurySyncUnresolved.team_abbreviation.asc(),
+            InjurySyncUnresolved.player_name.asc(),
+        )
+        .all()
+    )
+    return [InjurySyncUnresolvedEntry.model_validate(row) for row in rows]
 
 
 @router.get("/player/{player_id}", response_model=List[InjuryEntry])

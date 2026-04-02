@@ -1411,3 +1411,65 @@ export interface StyleComparisonResponse {
   stories: TeamComparisonStory[];
   source_context: Record<string, string | null>;
 }
+
+// Sprint 27 — Availability + upcoming schedule
+
+export interface UpcomingScheduleGame {
+  game_id: string;
+  season: string;
+  game_date: string | null;
+  status: string;
+  home_team_abbreviation: string | null;
+  home_team_name: string | null;
+  away_team_abbreviation: string | null;
+  away_team_name: string | null;
+}
+
+export interface TeamUpcomingGameSummary {
+  game_id: string;
+  game_date: string | null;
+  opponent_abbreviation: string | null;
+  opponent_name: string | null;
+  is_home: boolean;
+  status: string;
+}
+
+export interface TeamAvailabilityPlayer {
+  player_id: number;
+  player_name: string;
+  position: string;
+  jersey: string;
+  headshot_url: string;
+  injury_status: string | null;
+  injury_type: string | null;
+  detail: string | null;
+  comment: string | null;
+  return_date: string | null;
+  pts_pg: number | null;
+  bpm: number | null;
+  impact_label: string;
+}
+
+export interface TeamAvailabilityResponse {
+  team_id: number;
+  abbreviation: string;
+  name: string;
+  season: string;
+  report_date: string | null;
+  overall_status: "healthy" | "monitor" | "shorthanded" | "unknown";
+  summary: string;
+  available_count: number;
+  unavailable_count: number;
+  questionable_count: number;
+  probable_count: number;
+  next_game: TeamUpcomingGameSummary | null;
+  key_absences: TeamAvailabilityPlayer[];
+  unavailable_players: TeamAvailabilityPlayer[];
+  questionable_players: TeamAvailabilityPlayer[];
+  probable_players: TeamAvailabilityPlayer[];
+}
+
+export interface PreReadDeckResponse {
+  team_availability: TeamAvailabilityResponse;
+  opponent_availability: TeamAvailabilityResponse;
+}

@@ -17,23 +17,23 @@ Guidelines:
 
 ## Now
 
-### Upcoming Schedule Endpoint
+### Compare Availability Follow-Through
 Why it matters:
-`warehouse_games` already has future games with date and team data; there's no API surface exposing them. Analysts and the frontend have no way to know what games are coming without hitting the live CDN.
+Sprint 27 connected injuries into team pages and pre-read, but comparison workflows still lack the same roster-availability context. Analysts moving between compare and game prep lose continuity right where matchup decisions get made.
 
 Likely shape:
-- `GET /api/schedule/upcoming?season=&days=7` reads `warehouse_games` where `game_date >= today` ordered by date
-- Simple response: game date, home team, away team, game_id
-- No new table needed — data is already there
+- surface current availability state inside compare headers and story cards
+- carry key absences, questionable tags, and return timelines into side-by-side team/player context
+- preserve the same injury-confidence framing used on team pages and pre-read
 
-### Injury-Aware Team and Player Surfaces
+### Injury Identity Cleanup
 Why it matters:
-The injuries pipeline is now live, but it only surfaces on the individual player header. Coaches and analysts think in terms of roster availability, not per-player lookups.
+The sync now persists unresolved rows instead of silently dropping them, which is a big step forward, but those misses still need to shrink before the injuries layer feels fully trusted for nightly use.
 
 Likely shape:
-- Add an availability card to team pages showing current injured players with status and return timeline
-- Connect injury status into compare and pre-read surfaces ("Player X is currently questionable")
-- Show return_date prominently when available
+- review `injury_sync_unresolved` regularly and backfill missing roster/name coverage
+- add targeted alias or roster refresh support for edge cases like two-way, inactive, and recently moved players
+- keep stub-player creation gated until roster truth is more authoritative
 
 ---
 
@@ -126,12 +126,12 @@ Likely shape:
 
 ### Pre-Read Deck Follow-Ons
 Why it matters:
-The browser deck is live, but staff workflows will want easier sharing, archiving, and reuse.
+The browser deck is stronger after Sprint 27, but staff workflows will still want easier sharing, archiving, and broader decision context.
 
 Likely shape:
 - add export-friendly PDF or share links
 - support saved pre-read snapshots by matchup and date
-- add lineup-specific notes and game-film follow-through links
+- add lineup-specific notes, compare launches, and game-film follow-through links
 
 ### Metrics Follow-Ons
 Why it matters:
@@ -199,3 +199,21 @@ Likely shape:
 - improve worker visibility, backlog monitoring, and readiness messaging
 - tighten runbooks around recovery and backfill operations
 - help analysts understand when a workflow is fully trustworthy versus partially covered
+
+### Standings History / Trend Line
+Why it matters:
+Standings materialization is live, but the product still cannot show whether teams are rising or fading over the last few weeks. That trend framing would make the standings page feel more alive and more useful for game prep.
+
+Likely shape:
+- add or confirm snapshot semantics for daily standings history instead of one row per `(team_id, season)`
+- show a simple last-30-days win percentage trend line on the standings page
+- keep the visual lightweight and explicit about sample size
+
+### Shot Zone Analytics
+Why it matters:
+Shot data is now persisted in Postgres, which unlocks zone-level scoring efficiency and profile comparisons without new ingestion work.
+
+Likely shape:
+- compute paint, mid-range, corner three, and above-the-break efficiency from stored shot charts
+- add player-facing zone summaries plus side-by-side profile compare views
+- keep the first pass coaching-readable rather than over-optimized for research depth

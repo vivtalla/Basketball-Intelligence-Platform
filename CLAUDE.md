@@ -255,15 +255,7 @@ CourtVue Labs uses a hybrid sprint model: major feature sprints typically run as
 
 ## Recent Sprints
 
-> Full history (Sprints 1–23) → `specs/sprint-history.md`
-
-### Sprint 25 — Platform Intelligence Core
-**Branch:** `codex-sprint-25-kickoff`
-
-- Added the first platform-intelligence layer across team pages, insights, compare, pre-read, and Game Explorer
-- Shipped team decision tools, guided game follow-through, pace/style profiles, and in-season trend cards
-- Added beta/foundation workflows for what-if scenarios, play-style x-ray, play-type scouting, and lineup/style compare follow-ons
-- Added new backend analytics/report services, routers, response models, and Sprint 25 QA coverage
+> Full history → `specs/sprint-history.md`
 
 ### Sprint 26 — Data Foundation Maturation
 **Branch:** `feature/sprint-26-data-foundation` — merge commit `689b2ae`
@@ -272,6 +264,14 @@ CourtVue Labs uses a hybrid sprint model: major feature sprints typically run as
 - Injuries ingestion: `player_injuries` table, CDN sync pipeline, `GET /api/injuries/current` + `/player/{id}`, injury badge on `PlayerHeader`
 - Shot chart persistence: `player_shot_charts` table, DB-first cache layer in shotchart router (6h/30d TTL)
 - Standings materialization: `team_standings` table, `materialize_standings()` service, standings router reads DB first with live fallback, `daily_sync.sh` wired up
+
+### Sprint 27 — Availability + Upcoming Schedule
+**Branch:** `feature/sprint-27-availability-schedule`
+
+- Added `GET /api/schedule/upcoming` and wired future warehouse games into coaching-facing surfaces
+- Shipped injury-aware team availability on roster pages and structured availability summaries inside pre-read
+- Added official NBA injury-report PDF fallback when the live JSON feed returns `403`
+- Hardened injury identity resolution with player aliases, unresolved-row persistence, and `GET /api/injuries/unresolved`
 
 ---
 

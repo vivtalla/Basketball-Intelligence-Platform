@@ -94,7 +94,7 @@ export default function PlayerHeader({
     `injuries-${profile.id}`,
     () => getPlayerInjuries(profile.id)
   );
-  const latestInjury = injuryData?.entries?.[0] ?? null;
+  const latestInjury = injuryData?.[0] ?? null;
   const showInjuryBadge =
     latestInjury?.injury_status === "Out" ||
     latestInjury?.injury_status === "Questionable" ||

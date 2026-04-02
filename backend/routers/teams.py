@@ -10,6 +10,7 @@ from sqlalchemy.orm import Session
 from db.database import get_db
 from db.models import GameLog, LineupStats, PlayByPlay, Player, PlayerGameLog, PlayerOnOff, SeasonStat, Team
 from models.team import (
+    TeamAvailabilityResponse,
     TeamAnalytics,
     TeamFocusLeversReport,
     TeamImpactLeader,
@@ -21,6 +22,7 @@ from models.team import (
     TeamRosterResponse,
     TeamSummary,
 )
+from services.team_availability_service import build_team_availability
 from services.team_rotation_service import build_team_rotation_report
 from services.team_focus_service import build_team_focus_levers_report
 
@@ -117,6 +119,16 @@ def team_roster(abbr: str, db: Session = Depends(get_db)):
         players=roster,
         synced_count=synced_count,
     )
+
+
+@router.get("/{abbr}/availability", response_model=TeamAvailabilityResponse)
+def team_availability(
+    abbr: str,
+    season: str = Query("2024-25"),
+    db: Session = Depends(get_db),
+):
+    """Return the team's latest roster availability plus the next scheduled game."""
+    return build_team_availability(db=db, abbr=abbr, season=season)
 
 
 @router.get("/{abbr}/analytics", response_model=TeamAnalytics)

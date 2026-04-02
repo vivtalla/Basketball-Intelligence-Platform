@@ -1,11 +1,15 @@
 from __future__ import annotations
 
 import json
+import re
 import time
+from io import BytesIO
 from datetime import datetime, timedelta
-from typing import Optional
+from html.parser import HTMLParser
+from typing import List, Optional, Tuple
 import unicodedata
 from urllib.error import HTTPError, URLError
+from urllib.parse import urljoin
 from urllib.request import Request, urlopen
 
 import pandas as pd
@@ -43,6 +47,62 @@ NBA_LIVE_HEADERS = {
     "Referer": "https://www.nba.com/",
     "Origin": "https://www.nba.com",
 }
+OFFICIAL_NBA_INJURY_REPORT_URL = "https://official.nba.com/nba-injury-report-{season}-season/"
+OFFICIAL_NBA_INJURY_REPORT_DEFAULT_URL = "https://official.nba.com/nba-injury-report/"
+OFFICIAL_INJURY_REPORT_STATUSES = (
+    "NOT YET SUBMITTED",
+    "Questionable",
+    "Doubtful",
+    "Probable",
+    "Available",
+    "Out",
+)
+OFFICIAL_TEAM_NAMES = (
+    "Atlanta Hawks",
+    "Boston Celtics",
+    "Brooklyn Nets",
+    "Charlotte Hornets",
+    "Chicago Bulls",
+    "Cleveland Cavaliers",
+    "Dallas Mavericks",
+    "Denver Nuggets",
+    "Detroit Pistons",
+    "Golden State Warriors",
+    "Houston Rockets",
+    "Indiana Pacers",
+    "LA Clippers",
+    "Los Angeles Lakers",
+    "Memphis Grizzlies",
+    "Miami Heat",
+    "Milwaukee Bucks",
+    "Minnesota Timberwolves",
+    "New Orleans Pelicans",
+    "New York Knicks",
+    "Oklahoma City Thunder",
+    "Orlando Magic",
+    "Philadelphia 76ers",
+    "Phoenix Suns",
+    "Portland Trail Blazers",
+    "Sacramento Kings",
+    "San Antonio Spurs",
+    "Toronto Raptors",
+    "Utah Jazz",
+    "Washington Wizards",
+)
+OFFICIAL_TEAM_NAMES_BY_LENGTH = tuple(sorted(OFFICIAL_TEAM_NAMES, key=len, reverse=True))
+OFFICIAL_TEAM_NAME_TOKENS = tuple(
+    (team_name, tuple(team_name.split()))
+    for team_name in sorted(OFFICIAL_TEAM_NAMES, key=lambda value: len(value.split()), reverse=True)
+)
+OFFICIAL_STATUS_TOKEN_SEQUENCES = (
+    ("NOT YET SUBMITTED", ("NOT", "YET", "SUBMITTED")),
+    ("Questionable", ("Questionable",)),
+    ("Doubtful", ("Doubtful",)),
+    ("Probable", ("Probable",)),
+    ("Available", ("Available",)),
+    ("Out", ("Out",)),
+)
+OFFICIAL_NAME_SUFFIXES = {"JR", "SR", "II", "III", "IV", "V"}
 
 
 def _canonical_name(name: str) -> str:
@@ -115,6 +175,339 @@ def _fetch_nba_json(base_url: str, path: str, timeout: int = NBA_API_TIMEOUT) ->
         raise RuntimeError(f"NBA JSON network error for {path}: {exc.reason}") from exc
 
 
+def _fetch_text(url: str, timeout: int = NBA_API_TIMEOUT) -> str:
+    request = Request(url, headers=NBA_LIVE_HEADERS)
+    try:
+        with urlopen(request, timeout=timeout) as response:
+            return response.read().decode("utf-8", "ignore")
+    except HTTPError as exc:
+        raise RuntimeError(f"NBA text HTTP {exc.code} for {url}") from exc
+    except URLError as exc:
+        raise RuntimeError(f"NBA text network error for {url}: {exc.reason}") from exc
+
+
+def _fetch_bytes(url: str, timeout: int = NBA_API_TIMEOUT) -> bytes:
+    request = Request(url, headers=NBA_LIVE_HEADERS)
+    try:
+        with urlopen(request, timeout=timeout) as response:
+            return response.read()
+    except HTTPError as exc:
+        raise RuntimeError(f"NBA bytes HTTP {exc.code} for {url}") from exc
+    except URLError as exc:
+        raise RuntimeError(f"NBA bytes network error for {url}: {exc.reason}") from exc
+
+
+class _OfficialInjuryReportLinkParser(HTMLParser):
+    def __init__(self):
+        super().__init__()
+        self.links: List[str] = []
+
+    def handle_starttag(self, tag: str, attrs):
+        if tag.lower() != "a":
+            return
+        href = dict(attrs).get("href")
+        if href:
+            self.links.append(href)
+
+
+def _official_injury_report_filename_dt(url: str) -> Optional[datetime]:
+    match = re.search(
+        r"Injury-Report_(\d{4}-\d{2}-\d{2})_(\d{2})_(\d{2})(AM|PM)\.pdf",
+        url,
+        flags=re.IGNORECASE,
+    )
+    if not match:
+        return None
+    date_part, hour, minute, meridiem = match.groups()
+    return datetime.strptime(
+        "{0} {1}:{2}{3}".format(date_part, hour, minute, meridiem.upper()),
+        "%Y-%m-%d %I:%M%p",
+    )
+
+
+def _extract_latest_official_injury_report_pdf_url(html: str, page_url: str) -> str:
+    parser = _OfficialInjuryReportLinkParser()
+    parser.feed(html)
+
+    candidates = []
+    for href in parser.links:
+        absolute_url = urljoin(page_url, href)
+        if "Injury-Report_" not in absolute_url or not absolute_url.lower().endswith(".pdf"):
+            continue
+        report_dt = _official_injury_report_filename_dt(absolute_url)
+        if report_dt:
+            candidates.append((report_dt, absolute_url))
+
+    if not candidates:
+        raise RuntimeError("Official injury report page did not expose a report PDF link.")
+
+    candidates.sort(key=lambda item: item[0], reverse=True)
+    return candidates[0][1]
+
+
+def _extract_pdf_text(pdf_bytes: bytes) -> str:
+    try:
+        from pypdf import PdfReader
+    except ImportError as exc:
+        raise RuntimeError("pypdf is required for official injury report fallback parsing.") from exc
+
+    reader = PdfReader(BytesIO(pdf_bytes))
+    return "\n".join((page.extract_text() or "") for page in reader.pages)
+
+
+def _match_official_team_prefix(text: str) -> Tuple[Optional[str], str]:
+    for team_name in OFFICIAL_TEAM_NAMES_BY_LENGTH:
+        if text == team_name:
+            return team_name, ""
+        if text.startswith(team_name + " "):
+            return team_name, text[len(team_name):].strip()
+    return None, text
+
+
+def _split_official_injury_reason(reason_text: str) -> Tuple[str, str, str]:
+    cleaned = " ".join((reason_text or "").split()).strip(" -")
+    if not cleaned:
+        return "", "", ""
+    if cleaned.startswith("Injury/Illness - "):
+        cleaned = cleaned[len("Injury/Illness - "):].strip()
+
+    if " - " in cleaned:
+        injury_type, detail = cleaned.split(" - ", 1)
+        return injury_type.strip(), detail.strip(), ""
+    if ";" in cleaned:
+        injury_type, detail = cleaned.split(";", 1)
+        return injury_type.strip(), detail.strip(), ""
+    return cleaned, cleaned, ""
+
+
+def _join_pdf_tokens(tokens: List[str]) -> str:
+    value = " ".join(token for token in tokens if token).strip()
+    value = re.sub(r"(?<=\w)-\s+(?=\w)", "-", value)
+    value = re.sub(r"\s+([,;:])", r"\1", value)
+    return " ".join(value.split())
+
+
+def _starts_with_token_sequence(tokens: List[str], start: int, expected: Tuple[str, ...]) -> bool:
+    end = start + len(expected)
+    if end > len(tokens):
+        return False
+    return tuple(tokens[start:end]) == expected
+
+
+def _match_official_team_tokens(tokens: List[str], start: int) -> Tuple[Optional[str], int]:
+    for team_name, team_tokens in OFFICIAL_TEAM_NAME_TOKENS:
+        if _starts_with_token_sequence(tokens, start, team_tokens):
+            return team_name, start + len(team_tokens)
+    return None, start
+
+
+def _match_status_tokens(tokens: List[str], start: int) -> Tuple[Optional[str], int]:
+    for status_name, status_tokens in OFFICIAL_STATUS_TOKEN_SEQUENCES:
+        if _starts_with_token_sequence(tokens, start, status_tokens):
+            return status_name, start + len(status_tokens)
+    return None, start
+
+
+def _is_game_start(tokens: List[str], start: int) -> bool:
+    if start + 2 < len(tokens):
+        if (
+            bool(re.match(r"^\d{2}:\d{2}$", tokens[start]))
+            and tokens[start + 1] == "(ET)"
+            and bool(re.match(r"^[A-Z]{2,4}@[A-Z]{2,4}$", tokens[start + 2]))
+        ):
+            return True
+    if start + 3 < len(tokens):
+        if (
+            bool(re.match(r"^\d{2}/\d{2}/\d{4}$", tokens[start]))
+            and bool(re.match(r"^\d{2}:\d{2}$", tokens[start + 1]))
+            and tokens[start + 2] == "(ET)"
+            and bool(re.match(r"^[A-Z]{2,4}@[A-Z]{2,4}$", tokens[start + 3]))
+        ):
+            return True
+    return False
+
+
+def _game_start_token_count(tokens: List[str], start: int) -> int:
+    if start + 2 < len(tokens) and (
+        bool(re.match(r"^\d{2}:\d{2}$", tokens[start]))
+        and tokens[start + 1] == "(ET)"
+        and bool(re.match(r"^[A-Z]{2,4}@[A-Z]{2,4}$", tokens[start + 2]))
+    ):
+        return 3
+    if start + 3 < len(tokens) and (
+        bool(re.match(r"^\d{2}/\d{2}/\d{4}$", tokens[start]))
+        and bool(re.match(r"^\d{2}:\d{2}$", tokens[start + 1]))
+        and tokens[start + 2] == "(ET)"
+        and bool(re.match(r"^[A-Z]{2,4}@[A-Z]{2,4}$", tokens[start + 3]))
+    ):
+        return 4
+    return 0
+
+
+def _is_matchup_token(token: str) -> bool:
+    return bool(re.match(r"^[A-Z]{2,4}@[A-Z]{2,4}$", token))
+
+
+def _looks_like_player_row(tokens: List[str], start: int) -> bool:
+    for offset in range(1, 5):
+        status_index = start + offset
+        status_name, _ = _match_status_tokens(tokens, status_index)
+        if not status_name:
+            continue
+        candidate_tokens = tokens[start:status_index]
+        if not candidate_tokens or len(candidate_tokens) > 3:
+            return False
+        first_token = candidate_tokens[0]
+        if "-" in first_token and not first_token.endswith("-") and "," not in first_token:
+            return False
+        if "," in first_token:
+            return True
+        if len(candidate_tokens) >= 2:
+            second_token = candidate_tokens[1]
+            normalized_second = re.sub(r"[^A-Za-z0-9]", "", second_token).upper()
+            if first_token.endswith("-") and "," in second_token:
+                return True
+            if normalized_second in OFFICIAL_NAME_SUFFIXES and "," in second_token:
+                return True
+        return False
+    return False
+
+
+def _parse_official_injury_report_text(text: str, report_dt: datetime) -> dict:
+    tokens = [
+        token
+        for token in text.replace("\xa0", " ").split()
+        if token not in {"Injury", "Report:", "Page", "of", "Game", "Date", "Time", "Matchup", "Team", "Player", "Name", "Current", "Status", "Reason"}
+        and not re.match(r"^\d{2}/\d{2}/\d{2}$", token)
+        and not re.match(r"^\d+$", token)
+        and token not in {"AM", "PM"}
+    ]
+    entries = []
+    current_team: Optional[str] = None
+    current_team_abbreviation: Optional[str] = None
+    current_matchup_abbreviations: Tuple[Optional[str], Optional[str]] = (None, None)
+    current_matchup_teams: dict = {}
+    index = 0
+    while index < len(tokens):
+        game_start_token_count = _game_start_token_count(tokens, index)
+        if game_start_token_count:
+            matchup_token = tokens[index + game_start_token_count - 1]
+            away_abbreviation, home_abbreviation = matchup_token.split("@", 1)
+            current_matchup_abbreviations = (away_abbreviation, home_abbreviation)
+            current_matchup_teams = {}
+            current_team = None
+            current_team_abbreviation = None
+            index += game_start_token_count
+            continue
+        if _is_matchup_token(tokens[index]):
+            away_abbreviation, home_abbreviation = tokens[index].split("@", 1)
+            current_matchup_abbreviations = (away_abbreviation, home_abbreviation)
+            current_matchup_teams = {}
+            current_team = None
+            current_team_abbreviation = None
+            index += 1
+            continue
+
+        team_name, next_index = _match_official_team_tokens(tokens, index)
+        if team_name:
+            current_team = team_name
+            if team_name not in current_matchup_teams:
+                if not current_matchup_teams and current_matchup_abbreviations[0]:
+                    current_matchup_teams[team_name] = current_matchup_abbreviations[0]
+                elif current_matchup_abbreviations[1]:
+                    current_matchup_teams[team_name] = current_matchup_abbreviations[1]
+            current_team_abbreviation = current_matchup_teams.get(team_name)
+            index = next_index
+            continue
+
+        if not current_team:
+            index += 1
+            continue
+
+        status_name = None
+        status_index = index
+        while status_index < len(tokens):
+            if _game_start_token_count(tokens, status_index) or _is_matchup_token(tokens[status_index]):
+                break
+            next_team_name, _ = _match_official_team_tokens(tokens, status_index)
+            if next_team_name and status_index != index:
+                break
+            status_name, status_end = _match_status_tokens(tokens, status_index)
+            if status_name:
+                break
+            status_index += 1
+
+        if not status_name:
+            index += 1
+            continue
+
+        player_tokens = tokens[index:status_index]
+        player_name = _join_pdf_tokens(player_tokens)
+        if not player_name:
+            index = status_end
+            continue
+
+        reason_index = status_end
+        reason_tokens: List[str] = []
+        while reason_index < len(tokens):
+            if _game_start_token_count(tokens, reason_index) or _is_matchup_token(tokens[reason_index]):
+                break
+            next_team_name, _ = _match_official_team_tokens(tokens, reason_index)
+            if next_team_name:
+                break
+            if _looks_like_player_row(tokens, reason_index):
+                break
+            reason_tokens.append(tokens[reason_index])
+            reason_index += 1
+
+        reason_text = _join_pdf_tokens(reason_tokens)
+        injury_type, detail, comment = _split_official_injury_reason(reason_text)
+        entries.append(
+            {
+                "Team": current_team,
+                "TeamAbbreviation": current_team_abbreviation,
+                "PlayerName": player_name,
+                "Status": status_name,
+                "Injury": injury_type,
+                "Detail": detail,
+                "Comment": comment,
+                "Return": "",
+            }
+        )
+        index = reason_index
+
+    return {
+        "date": report_dt.strftime("%Y-%m-%dT%H:%M:%S"),
+        "InjuryList": entries,
+    }
+
+
+def _fetch_official_injury_report_payload(
+    season: Optional[str],
+    timeout: int = NBA_API_TIMEOUT,
+    fallback_reason: Optional[str] = None,
+) -> dict:
+    season_value = season or _active_nba_season()
+    page_url = OFFICIAL_NBA_INJURY_REPORT_URL.format(season=season_value)
+    try:
+        html = _fetch_text(page_url, timeout=timeout)
+    except RuntimeError:
+        page_url = OFFICIAL_NBA_INJURY_REPORT_DEFAULT_URL
+        html = _fetch_text(page_url, timeout=timeout)
+
+    pdf_url = _extract_latest_official_injury_report_pdf_url(html, page_url)
+    report_dt = _official_injury_report_filename_dt(pdf_url) or datetime.utcnow()
+    pdf_bytes = _fetch_bytes(pdf_url, timeout=timeout)
+    pdf_text = _extract_pdf_text(pdf_bytes)
+
+    return {
+        "source": "official.nba.com/injury-report-pdf",
+        "source_url": pdf_url,
+        "fallback_reason": fallback_reason,
+        "payload": _parse_official_injury_report_text(pdf_text, report_dt),
+    }
+
+
 def _fetch_live_json(path: str, timeout: int = NBA_API_TIMEOUT) -> dict:
     """Fetch raw JSON from NBA's public live-data CDN."""
     return _fetch_nba_json(NBA_LIVE_BASE_URL, path, timeout=timeout)
@@ -153,14 +546,21 @@ def get_schedule_payload_for_season(season: str, timeout: int = NBA_API_TIMEOUT)
     return {"source": "mobile_schedule", "payload": payload}
 
 
-def get_injuries_payload(timeout: int = NBA_API_TIMEOUT) -> dict:
+def get_injuries_payload(timeout: int = NBA_API_TIMEOUT, season: Optional[str] = None) -> dict:
     """Fetch the current league-wide injury report from the NBA CDN.
 
     Returns the raw payload dict. The caller is responsible for parsing
     and persisting the results. No rate limiting applied — injuries endpoint
     is a single lightweight JSON document, not a per-entity call.
     """
-    return _fetch_live_json("injuries/injuries.json", timeout=timeout)
+    try:
+        return _fetch_live_json("injuries/injuries.json", timeout=timeout)
+    except RuntimeError as exc:
+        return _fetch_official_injury_report_payload(
+            season=season,
+            timeout=timeout,
+            fallback_reason=str(exc),
+        )
 
 
 def get_game_box_score_payload(game_id: str, timeout: int = NBA_API_TIMEOUT) -> dict:

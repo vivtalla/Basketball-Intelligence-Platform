@@ -1,6 +1,6 @@
 # Sprint History Archive
 
-Sprints 1–23. Current sprint summaries live in `CLAUDE.md` under "Recent Sprints".
+Sprints 1–27. Current sprint summaries also live in `CLAUDE.md` under "Recent Sprints".
 
 For detailed per-sprint records, see the individual closeout files in this directory:
 `specs/sprint-09-closeout.md` through `specs/sprint-25-closeout.md`
@@ -337,3 +337,13 @@ Eliminated live NBA API calls on every player profile load:
 - Injuries (new data domain): `player_injuries` table, `get_injuries_payload()` CDN function, `sync_injuries()` service, `GET /api/injuries/current` + `/player/{id}` + `POST /api/injuries/sync`, injury status badge on `PlayerHeader`
 - Shot chart persistence: `player_shot_charts` table, DB-first cache in shotchart router with TTL from `_cache_ttl_for_season()` (6h current, 30d historical)
 - Standings materialization: `team_standings` table, `materialize_standings()` service, standings router reads DB first with live fallback, `daily_sync.sh` wired to run all three pipeline steps
+
+---
+
+### Sprint 27 — Availability + Upcoming Schedule
+**Branch:** `feature/sprint-27-availability-schedule`
+
+- Added `GET /api/schedule/upcoming` backed by warehouse `games` for future schedule visibility
+- Shipped team-page roster availability and structured pre-read availability summaries using the injuries pipeline
+- Added official NBA injury-report PDF fallback when the live injuries JSON feed returns `403`
+- Hardened injury identity resolution with alias-backed matching, persisted unresolved rows, and `GET /api/injuries/unresolved`

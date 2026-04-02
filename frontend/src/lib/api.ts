@@ -676,3 +676,27 @@ export async function getPlayerInjuries(
   const qs = params.toString() ? `?${params.toString()}` : "";
   return fetchApi<InjuryEntry[]>(`/api/injuries/player/${playerId}${qs}`);
 }
+
+export async function getTeamAvailability(
+  teamAbbreviation: string,
+  season: string
+): Promise<import("./types").TeamAvailabilityResponse> {
+  return fetchApi<import("./types").TeamAvailabilityResponse>(
+    `/api/teams/${encodeURIComponent(teamAbbreviation)}/availability?season=${encodeURIComponent(season)}`
+  );
+}
+
+export async function getUpcomingSchedule(
+  season: string,
+  days = 7,
+  team?: string
+): Promise<import("./types").UpcomingScheduleGame[]> {
+  const params = new URLSearchParams({
+    season,
+    days: String(days),
+  });
+  if (team) params.set("team", team);
+  return fetchApi<import("./types").UpcomingScheduleGame[]>(
+    `/api/schedule/upcoming?${params.toString()}`
+  );
+}

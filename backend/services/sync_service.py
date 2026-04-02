@@ -17,6 +17,12 @@ from data.nba_client import (
 )
 from db.models import Player, PlayerInjury, SeasonStat, Team
 from services.advanced_metrics import enrich_season_with_advanced
+from services.player_identity_service import (
+    build_player_resolution_indexes,
+    persist_unresolved_injury_entry,
+    resolve_fallback_player,
+    sync_player_aliases,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -137,6 +143,7 @@ def sync_player(db: Session, player_id: int) -> Player:
     player.headshot_url = info.get("headshot_url", "")
     player.is_active = True
     db.flush()
+    sync_player_aliases(db, player, source="sync_player")
 
     # --- Career stats ---
     logger.info(f"Syncing player {player_id} career stats...")
@@ -222,19 +229,25 @@ def sync_player_if_needed(db: Session, player_id: int) -> Player:
 
 
 def sync_injuries(db: Session, season: str) -> Dict[str, int]:
-    """Fetch the current NBA injury report from CDN and persist to player_injuries.
+    """Fetch the current NBA injury report and persist to player_injuries.
 
     Upserts one row per (player_id, report_date). Returns a summary dict with
     'fetched', 'upserted', and 'unresolved' counts.
     """
     logger.info("Fetching injuries payload from NBA CDN...")
     try:
-        raw = get_injuries_payload()
+        raw = get_injuries_payload(season=season)
     except Exception as exc:
         logger.error(f"Failed to fetch injuries payload: {exc}")
         raise
 
     payload = raw.get("payload", raw)
+    source = (raw.get("source") or "cdn.nba.com/injuries")[:100]
+    source_url = raw.get("source_url")
+    fallback_reason = raw.get("fallback_reason")
+    if fallback_reason:
+        logger.warning("Using official injury report fallback after primary feed failure: %s", fallback_reason)
+
     report_date_str = payload.get("date", "")
     try:
         report_date = datetime.strptime(report_date_str, "%Y-%m-%dT%H:%M:%S").date()
@@ -260,17 +273,36 @@ def sync_injuries(db: Session, season: str) -> Dict[str, int]:
         rows = db.query(Player.id).filter(Player.id.in_(list(person_ids))).all()
         player_map = {r[0]: r[0] for r in rows}
 
+    team_lookup, team_alias_lookup, league_alias_lookup, team_last_lookup = build_player_resolution_indexes(db)
+
     for entry in injury_list:
         try:
             nba_person_id = int(entry.get("PersonID", 0))
         except (ValueError, TypeError):
-            unresolved += 1
-            continue
+            nba_person_id = 0
 
         player_id = player_map.get(nba_person_id)
+        resolved_team_id = entry.get("TeamID")
+        if not player_id:
+            player_id, fallback_team_id = resolve_fallback_player(
+                entry,
+                team_lookup,
+                team_alias_lookup,
+                league_alias_lookup,
+                team_last_lookup,
+            )
+            resolved_team_id = fallback_team_id or resolved_team_id
         if not player_id:
             unresolved += 1
-            logger.debug(f"Injury: player_id {nba_person_id} not in DB, skipping")
+            persist_unresolved_injury_entry(
+                db,
+                season=season,
+                report_date=report_date,
+                entry=entry,
+                source=source,
+                source_url=source_url,
+            )
+            logger.debug("Injury entry could not be resolved in DB, skipping: %s", entry)
             continue
 
         # Parse return date if provided
@@ -298,13 +330,14 @@ def sync_injuries(db: Session, season: str) -> Dict[str, int]:
             row = PlayerInjury(player_id=player_id, report_date=report_date)
             db.add(row)
 
-        row.team_id = None  # team_id resolution would require a team lookup; skip for now
+        row.team_id = resolved_team_id
         row.return_date = return_date
         row.injury_type = (entry.get("Injury") or "")[:100]
         row.injury_status = (entry.get("Status") or "")[:50]
         row.detail = (entry.get("Detail") or "")[:200]
         row.comment = entry.get("Comment") or ""
         row.season = season
+        row.source = source
         row.fetched_at = datetime.utcnow()
         upserted += 1
 

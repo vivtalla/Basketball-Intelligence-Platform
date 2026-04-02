@@ -2,7 +2,7 @@ from typing import List
 
 from pydantic import BaseModel
 
-from models.team import TeamFocusLever
+from models.team import TeamAvailabilityResponse, TeamFocusLever
 
 
 class PreReadAdjustment(BaseModel):
@@ -23,4 +23,6 @@ class PreReadDeckResponse(BaseModel):
     focus_levers: List[TeamFocusLever]
     matchup_advantages: List[str]
     adjustments: List[PreReadAdjustment]
+    team_availability: TeamAvailabilityResponse
+    opponent_availability: TeamAvailabilityResponse
     slides: List[PreReadSlide]

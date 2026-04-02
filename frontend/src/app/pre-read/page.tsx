@@ -1,8 +1,10 @@
 "use client";
 
+import { useEffect } from "react";
 import { useState } from "react";
 import Link from "next/link";
 import { usePreReadDeck, useTeamIntelligence, useTeamRotationReport, useTeams } from "@/hooks/usePlayerStats";
+import AvailabilitySummaryCard from "@/components/AvailabilitySummaryCard";
 import ScoutingReportView from "@/components/ScoutingReportView";
 
 const SEASONS = ["2025-26", "2024-25", "2023-24", "2022-23"];
@@ -17,6 +19,22 @@ export default function PreReadPage() {
   const { data, isLoading } = usePreReadDeck(team, opponent, season);
   const { data: teamIntelligence } = useTeamIntelligence(team, season);
   const { data: rotationReport } = useTeamRotationReport(team, season);
+  const nextGame = data?.team_availability.next_game ?? null;
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const nextTeam = params.get("team");
+    const nextOpponent = params.get("opponent");
+    const nextSeason = params.get("season");
+    const nextMode = params.get("mode");
+
+    if (nextTeam) setTeam(nextTeam.toUpperCase());
+    if (nextOpponent) setOpponent(nextOpponent.toUpperCase());
+    if (nextSeason) setSeason(nextSeason);
+    if (nextMode === "briefing" || nextMode === "scouting") {
+      setMode(nextMode);
+    }
+  }, []);
 
   return (
     <div className="mx-auto max-w-6xl space-y-8 print:space-y-4">
@@ -91,6 +109,13 @@ export default function PreReadPage() {
         </div>
       </section>
 
+      {data ? (
+        <section className="grid gap-4 lg:grid-cols-2">
+          <AvailabilitySummaryCard availability={data.team_availability} compact />
+          <AvailabilitySummaryCard availability={data.opponent_availability} compact />
+        </section>
+      ) : null}
+
       {isLoading ? (
         <div className="grid gap-4 md:grid-cols-2">
           {Array.from({ length: 4 }).map((_, index) => (
@@ -120,9 +145,17 @@ export default function PreReadPage() {
 
             <section className="rounded-[1.8rem] border border-[var(--border)] bg-[var(--surface)] p-6 print:hidden">
               <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--muted)]">Follow-through</p>
+              {nextGame ? (
+                <p className="mt-3 text-sm leading-6 text-[var(--muted-strong)]">
+                  Next synced game: {nextGame.is_home ? "vs" : "at"} {nextGame.opponent_abbreviation ?? nextGame.opponent_name ?? "Opponent TBD"} on {nextGame.game_date ?? "TBD"}.
+                </p>
+              ) : null}
               <div className="mt-4 flex flex-wrap gap-3">
                 <Link href={`/teams/${team}?tab=decision`} className="bip-btn-primary rounded-full px-4 py-2 text-sm font-medium">
                   Open team decision tools
+                </Link>
+                <Link href={`/teams/${team}?tab=roster`} className="rounded-full border border-[var(--border-strong)] px-4 py-2 text-sm font-medium text-[var(--accent-strong)] transition hover:bg-[rgba(33,72,59,0.08)]">
+                  Open availability board
                 </Link>
                 <Link href={`/compare?mode=teams&team_a=${team}&team_b=${opponent}&season=${season}&return_to=${encodeURIComponent(`/pre-read?team=${team}&opponent=${opponent}&season=${season}&mode=${mode}`)}`} className="rounded-full border border-[var(--border-strong)] px-4 py-2 text-sm font-medium text-[var(--accent-strong)] transition hover:bg-[rgba(33,72,59,0.08)]">
                   Open comparison sandbox
