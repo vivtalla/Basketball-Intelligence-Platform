@@ -159,8 +159,8 @@ export default function PlayerSimilarity({ playerId, season }: PlayerSimilarityP
 
       {!isLoading && !error && data && (
         <div className="space-y-2">
-          {data.comps.map((comp) => (
-            <CompCard key={`${comp.player_id}-${comp.season}`} comp={comp} />
+          {data.comps.map((comp, i) => (
+            <CompCard key={`${i}-${comp.player_id}-${comp.season}`} comp={comp} />
           ))}
         </div>
       )}
