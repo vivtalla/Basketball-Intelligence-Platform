@@ -1473,3 +1473,36 @@ export interface PreReadDeckResponse {
   team_availability: TeamAvailabilityResponse;
   opponent_availability: TeamAvailabilityResponse;
 }
+
+// Sprint 28 — Compare Availability
+
+export interface PlayerAvailabilitySlot {
+  player_id: number;
+  injury_status: string;
+  injury_type: string | null;
+  detail: string | null;
+  return_date: string | null;
+  report_date: string;
+}
+
+export interface CompareAvailabilityResponse {
+  player_a: PlayerAvailabilitySlot | null;
+  player_b: PlayerAvailabilitySlot | null;
+}
+
+// Sprint 28 — Unresolved injury identity ops
+
+export interface InjurySyncUnresolvedEntry {
+  id: number;
+  season: string;
+  report_date: string;
+  team_abbreviation: string;
+  team_name: string;
+  player_name: string;
+  injury_status: string;
+  injury_type: string;
+  detail: string;
+  source: string;
+  source_url: string | null;
+  normalized_lookup_key: string;
+}

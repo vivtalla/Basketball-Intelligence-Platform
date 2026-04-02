@@ -700,3 +700,45 @@ export async function getUpcomingSchedule(
     `/api/schedule/upcoming?${params.toString()}`
   );
 }
+
+// Sprint 28 — Compare Availability + Unresolved Injury Ops
+
+export async function fetchCompareAvailability(
+  playerAId: number,
+  playerBId: number,
+  season = "2024-25"
+): Promise<import("./types").CompareAvailabilityResponse> {
+  const params = new URLSearchParams({
+    player_a: String(playerAId),
+    player_b: String(playerBId),
+    season,
+  });
+  return fetchApi<import("./types").CompareAvailabilityResponse>(
+    `/api/compare/player-availability?${params.toString()}`
+  );
+}
+
+export async function getUnresolvedInjuries(
+  season = "2024-25"
+): Promise<import("./types").InjurySyncUnresolvedEntry[]> {
+  return fetchApi<import("./types").InjurySyncUnresolvedEntry[]>(
+    `/api/injuries/unresolved?season=${encodeURIComponent(season)}`
+  );
+}
+
+export async function resolveUnresolvedInjury(
+  rowId: number,
+  playerId: number
+): Promise<{ status: string; row_id: number; player_id: number; player_name: string; report_date: string }> {
+  return fetchApi(`/api/injuries/unresolved/${rowId}/resolve`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ player_id: playerId }),
+  });
+}
+
+export async function dismissUnresolvedInjury(
+  rowId: number
+): Promise<{ status: string; row_id: number }> {
+  return fetchApi(`/api/injuries/unresolved/${rowId}`, { method: "DELETE" });
+}

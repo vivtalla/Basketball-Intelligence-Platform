@@ -2,9 +2,10 @@
 
 import { useState, useMemo } from "react";
 import Image from "next/image";
-import type { PlayerProfile, CareerStatsResponse, SeasonStats } from "@/lib/types";
+import type { PlayerProfile, CareerStatsResponse, SeasonStats, PlayerAvailabilitySlot } from "@/lib/types";
 import { usePlayerPercentiles } from "@/hooks/usePlayerStats";
 import DualCareerArcChart from "./DualCareerArcChart";
+import InjuryStatusBadge from "./InjuryStatusBadge";
 
 interface PlayerData {
   profile: PlayerProfile;
@@ -14,6 +15,8 @@ interface PlayerData {
 interface ComparisonViewProps {
   playerA: PlayerData;
   playerB: PlayerData;
+  availabilityA?: PlayerAvailabilitySlot | null;
+  availabilityB?: PlayerAvailabilitySlot | null;
 }
 
 type ViewMode = "career" | "current" | "percentile" | "arc";
@@ -88,7 +91,15 @@ function pctileColor(pct: number): string {
 
 // ─── Sub-components ───────────────────────────────────────────────────────────
 
-function PlayerAvatar({ profile, align }: { profile: PlayerProfile; align: "left" | "right" }) {
+function PlayerAvatar({
+  profile,
+  align,
+  availability,
+}: {
+  profile: PlayerProfile;
+  align: "left" | "right";
+  availability?: PlayerAvailabilitySlot | null;
+}) {
   return (
     <div className={`flex items-center gap-3 ${align === "right" ? "flex-row-reverse text-right" : ""}`}>
       <div className="relative h-16 w-16 shrink-0 overflow-hidden rounded-full border-2 border-[var(--border)] bg-[var(--surface-alt)]">
@@ -107,6 +118,11 @@ function PlayerAvatar({ profile, align }: { profile: PlayerProfile; align: "left
         <div className="mt-0.5 text-xs text-[var(--muted)]">
           {profile.team_name || "Free Agent"} · {profile.position || "—"}
         </div>
+        {availability ? (
+          <div className={`mt-1 ${align === "right" ? "flex justify-end" : ""}`}>
+            <InjuryStatusBadge availability={availability} />
+          </div>
+        ) : null}
       </div>
     </div>
   );
@@ -219,7 +235,7 @@ function PercentileRowItem({
 
 // ─── Main component ───────────────────────────────────────────────────────────
 
-export default function ComparisonView({ playerA, playerB }: ComparisonViewProps) {
+export default function ComparisonView({ playerA, playerB, availabilityA, availabilityB }: ComparisonViewProps) {
   const [mode, setMode] = useState<ViewMode>("career");
   const [selectedSeason, setSelectedSeason] = useState<string>("");
 
@@ -283,9 +299,21 @@ export default function ComparisonView({ playerA, playerB }: ComparisonViewProps
     <div className="space-y-6">
       {/* Player headers */}
       <div className="grid grid-cols-2 gap-4">
-        <PlayerAvatar profile={playerA.profile} align="left" />
-        <PlayerAvatar profile={playerB.profile} align="right" />
+        <PlayerAvatar profile={playerA.profile} align="left" availability={availabilityA} />
+        <PlayerAvatar profile={playerB.profile} align="right" availability={availabilityB} />
       </div>
+
+      {/* Availability warning banner */}
+      {(availabilityA || availabilityB) ? (
+        <div className="rounded-xl border border-[rgba(234,179,8,0.25)] bg-[rgba(234,179,8,0.06)] px-4 py-3 text-sm text-[var(--foreground)]">
+          <span className="font-medium text-[#ca8a04]">Availability note · </span>
+          {availabilityA && availabilityB
+            ? `${playerA.profile.full_name} and ${playerB.profile.full_name} are both currently listed as injured. Stats shown may not reflect current form.`
+            : availabilityA
+            ? `${playerA.profile.full_name} is currently listed as ${availabilityA.injury_status}${availabilityA.injury_type ? ` (${availabilityA.injury_type})` : ""}. Stats shown may not reflect current form.`
+            : `${playerB.profile.full_name} is currently listed as ${availabilityB!.injury_status}${availabilityB?.injury_type ? ` (${availabilityB.injury_type})` : ""}. Stats shown may not reflect current form.`}
+        </div>
+      ) : null}
 
       {/* Mode toggle + season labels */}
       <div className="flex items-center justify-between gap-2 flex-wrap">

@@ -1,12 +1,14 @@
 from __future__ import annotations
 
+from datetime import date
 from typing import Dict, List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query
+from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from db.database import get_db
-from db.models import LineupStats, Player, Team
+from db.models import LineupStats, Player, PlayerInjury, Team
 from models.compare import TeamComparisonResponse
 from models.styles import (
     ComparisonMetricRow,
@@ -20,6 +22,73 @@ from routers.styles import build_style_xray_report, build_team_style_profile
 from services.compare_service import build_team_comparison_report
 
 router = APIRouter()
+
+
+# ─── Compare availability ─────────────────────────────────────────────────────
+
+
+class PlayerAvailabilitySlot(BaseModel):
+    player_id: int
+    injury_status: str
+    injury_type: Optional[str]
+    detail: Optional[str]
+    return_date: Optional[date]
+    report_date: date
+
+
+class CompareAvailabilityResponse(BaseModel):
+    player_a: Optional[PlayerAvailabilitySlot]
+    player_b: Optional[PlayerAvailabilitySlot]
+
+
+def _current_player_availability(
+    db: Session, player_id: int, season: str
+) -> Optional[PlayerAvailabilitySlot]:
+    """Return the player's injury status as of the latest sync, or None if healthy/no data."""
+    latest = (
+        db.query(PlayerInjury.report_date)
+        .filter(PlayerInjury.season == season)
+        .order_by(PlayerInjury.report_date.desc())
+        .first()
+    )
+    if not latest:
+        return None
+    row = (
+        db.query(PlayerInjury)
+        .filter(
+            PlayerInjury.player_id == player_id,
+            PlayerInjury.report_date == latest[0],
+            PlayerInjury.season == season,
+        )
+        .first()
+    )
+    if not row or (row.injury_status or "").strip().lower() == "available":
+        return None
+    return PlayerAvailabilitySlot(
+        player_id=row.player_id,
+        injury_status=row.injury_status or "",
+        injury_type=row.injury_type,
+        detail=row.detail,
+        return_date=row.return_date,
+        report_date=row.report_date,
+    )
+
+
+@router.get("/player-availability", response_model=CompareAvailabilityResponse)
+def compare_player_availability(
+    player_a: int = Query(..., description="Player A person_id"),
+    player_b: int = Query(..., description="Player B person_id"),
+    season: str = Query("2024-25", description="Season string e.g. 2024-25"),
+    db: Session = Depends(get_db),
+):
+    """Return current injury status for both compare players. Null slot = healthy / no data."""
+    return CompareAvailabilityResponse(
+        player_a=_current_player_availability(db, player_a, season),
+        player_b=_current_player_availability(db, player_b, season),
+    )
+
+
+# ─── Style compare metrics ────────────────────────────────────────────────────
 
 
 _STYLE_COMPARE_METRICS = [

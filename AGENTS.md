@@ -15,12 +15,12 @@ Last updated: 2026-04-01 by Codex (Sprint 27 closed out)
 | Field | Value |
 |-------|-------|
 | Sprint | 28 |
-| Goal | Next sprint planning state — choose from backlog on top of the stronger schedule + availability foundation |
-| Started | To be defined at Sprint 28 kickoff |
-| Target merge | To be defined at Sprint 28 kickoff |
-| Sprint shape | To be decided at kickoff |
-| Reason | Sprint 27 is complete and the repo is back in kickoff-ready planning state |
-| Worker policy | Hybrid default: choose single-pipeline or multi-agent at kickoff based on sprint shape |
+| Goal | Surface injury/availability context inside the compare workflow; add unresolved injury identity ops UI |
+| Started | 2026-04-01 |
+| Target merge | TBD |
+| Sprint shape | single-stream |
+| Reason | Sprint 27 injury foundation is live; compare page has zero injury awareness; 5 unresolved rows need ops surface |
+| Worker policy | Single-stream — tracks are tightly coupled (compare + injury layer share same data contracts) |
 
 ---
 
@@ -38,9 +38,9 @@ If repo state, sprint numbering, or shipped features appear to disagree across l
 ## Current Assignments
 
 ### Claude
-- Branch: `master` or next assigned sprint branch
-- Scope: available for Sprint 28 planning, review, or implementation
-- Status: Available
+- Branch: `feature/sprint-28-compare-availability`
+- Scope: Track A (compare availability) + Track B (injury identity cleanup ops UI)
+- Status: In progress
 
 ### Codex
 - Branch: `master` or next assigned sprint branch/worktree
@@ -79,7 +79,7 @@ Specs or review notes written by one stream for another. Check this before start
 
 ## Merge Order
 
-1. Sprint 28 should rewrite this section at kickoff
+1. `feature/sprint-28-compare-availability` → `master` (single-stream, one merge at sprint close)
 
 ---
 
@@ -87,7 +87,16 @@ Specs or review notes written by one stream for another. Check this before start
 
 | Files / Directories | Assigned this sprint |
 |---------------------|----------------------|
-| To be defined at Sprint 28 kickoff | — |
+| `backend/routers/injuries.py` | Claude — add `/api/players/{id}/availability`, resolve/dismiss endpoints |
+| `backend/routers/compare.py` | Claude — add `/api/compare/player-availability` |
+| `backend/models/` (Pydantic schemas) | Claude — `PlayerAvailabilitySlot`, `CompareAvailabilityResponse` |
+| `frontend/src/lib/types.ts` | Claude — append `PlayerAvailabilitySlot`, `CompareAvailabilityResponse` |
+| `frontend/src/lib/api.ts` | Claude — append `fetchCompareAvailability()` |
+| `frontend/src/hooks/useCompareAvailability.ts` | Claude — new SWR hook |
+| `frontend/src/components/InjuryStatusBadge.tsx` | Claude — new component |
+| `frontend/src/components/ComparisonView.tsx` | Claude — wire badge + warning card |
+| `frontend/src/app/compare/page.tsx` | Claude — trigger availability fetch on slot fill |
+| `frontend/src/app/admin/injuries/unresolved/page.tsx` | Claude — new admin page |
 
 ---
 
