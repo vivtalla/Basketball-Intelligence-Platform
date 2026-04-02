@@ -13,6 +13,7 @@ import {
   useLineups,
   useTeams,
 } from "@/hooks/usePlayerStats";
+import { useCompareAvailability } from "@/hooks/useCompareAvailability";
 import ComparisonView from "@/components/ComparisonView";
 import TeamComparisonView from "@/components/TeamComparisonView";
 import LineupComparisonView from "@/components/LineupComparisonView";
@@ -184,6 +185,10 @@ function ComparePageInner() {
     mode !== "players" && teamA ? teamA : null,
     mode !== "players" && teamB ? teamB : null,
     mode !== "players" ? season : null
+  );
+  const { data: compareAvailability } = useCompareAvailability(
+    mode === "players" ? p1Id : null,
+    mode === "players" ? p2Id : null
   );
 
   function updateParams(mutator: (params: URLSearchParams) => void) {
@@ -378,6 +383,8 @@ function ComparePageInner() {
             <ComparisonView
               playerA={{ profile: profile1!, career: career1! }}
               playerB={{ profile: profile2!, career: career2! }}
+              availabilityA={compareAvailability?.player_a}
+              availabilityB={compareAvailability?.player_b}
             />
           ) : null}
         </>

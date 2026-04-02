@@ -700,3 +700,20 @@ export async function getUpcomingSchedule(
     `/api/schedule/upcoming?${params.toString()}`
   );
 }
+
+// Sprint 28 — Compare Availability
+
+export async function fetchCompareAvailability(
+  playerAId: number,
+  playerBId: number,
+  season = "2024-25"
+): Promise<import("./types").CompareAvailabilityResponse> {
+  const params = new URLSearchParams({
+    player_a: String(playerAId),
+    player_b: String(playerBId),
+    season,
+  });
+  return fetchApi<import("./types").CompareAvailabilityResponse>(
+    `/api/compare/player-availability?${params.toString()}`
+  );
+}

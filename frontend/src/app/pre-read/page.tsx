@@ -1,8 +1,8 @@
 "use client";
 
-import { useEffect } from "react";
-import { useState } from "react";
+import { Suspense, useState } from "react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { usePreReadDeck, useTeamIntelligence, useTeamRotationReport, useTeams } from "@/hooks/usePlayerStats";
 import AvailabilitySummaryCard from "@/components/AvailabilitySummaryCard";
 import ScoutingReportView from "@/components/ScoutingReportView";
@@ -10,31 +10,19 @@ import ScoutingReportView from "@/components/ScoutingReportView";
 const SEASONS = ["2025-26", "2024-25", "2023-24", "2022-23"];
 type ViewMode = "briefing" | "scouting";
 
-export default function PreReadPage() {
-  const [team, setTeam] = useState("OKC");
-  const [opponent, setOpponent] = useState("BOS");
-  const [season, setSeason] = useState("2024-25");
-  const [mode, setMode] = useState<ViewMode>("briefing");
+function PreReadPageInner() {
+  const searchParams = useSearchParams();
+  const rawMode = searchParams.get("mode");
+
+  const [team, setTeam] = useState(searchParams.get("team")?.toUpperCase() ?? "OKC");
+  const [opponent, setOpponent] = useState(searchParams.get("opponent")?.toUpperCase() ?? "BOS");
+  const [season, setSeason] = useState(searchParams.get("season") ?? "2024-25");
+  const [mode, setMode] = useState<ViewMode>(rawMode === "scouting" ? "scouting" : "briefing");
   const { data: teams } = useTeams();
   const { data, isLoading } = usePreReadDeck(team, opponent, season);
   const { data: teamIntelligence } = useTeamIntelligence(team, season);
   const { data: rotationReport } = useTeamRotationReport(team, season);
   const nextGame = data?.team_availability.next_game ?? null;
-
-  useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    const nextTeam = params.get("team");
-    const nextOpponent = params.get("opponent");
-    const nextSeason = params.get("season");
-    const nextMode = params.get("mode");
-
-    if (nextTeam) setTeam(nextTeam.toUpperCase());
-    if (nextOpponent) setOpponent(nextOpponent.toUpperCase());
-    if (nextSeason) setSeason(nextSeason);
-    if (nextMode === "briefing" || nextMode === "scouting") {
-      setMode(nextMode);
-    }
-  }, []);
 
   return (
     <div className="mx-auto max-w-6xl space-y-8 print:space-y-4">
@@ -175,5 +163,13 @@ export default function PreReadPage() {
         )
       ) : null}
     </div>
+  );
+}
+
+export default function PreReadPage() {
+  return (
+    <Suspense>
+      <PreReadPageInner />
+    </Suspense>
   );
 }
