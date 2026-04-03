@@ -257,15 +257,6 @@ CourtVue Labs uses a hybrid sprint model: major feature sprints typically run as
 
 > Full history → `specs/sprint-history.md`
 
-### Sprint 28 — Compare Availability + Injury Identity Cleanup
-**Branch:** `feature/sprint-28-compare-availability` — merged
-
-- `GET /api/compare/player-availability`: current injury status for both compare players in one call
-- `InjuryStatusBadge` component + `useCompareAvailability` SWR hook wired into `ComparisonView`
-- Injury badge under each player name and yellow warning banner when either player is injured
-- `POST /api/injuries/unresolved/{id}/resolve` + `DELETE /api/injuries/unresolved/{id}` endpoints
-- `/admin/injuries/unresolved` page with Resolve (player-search modal) and Dismiss actions
-
 ### Sprint 29 — Standings History + Shot Zone Analytics
 **Branch:** `feature/sprint-29-standings-zones` — merged
 
@@ -281,6 +272,16 @@ CourtVue Labs uses a hybrid sprint model: major feature sprints typically run as
 - Added readiness metadata and warehouse coverage/refresh support for the new DB-first domains
 - Shipped the first CourtVue chart-system layer plus premium visualization upgrades across player, compare, and insights
 - Added backend coverage for DB-first read behavior and kept the frontend lint/build pipeline green
+
+### Sprint 31 — Visual Renaissance
+**Branch:** `feature/sprint-31-visual-renaissance` — merged
+
+- Hexbin shot chart mode (3rd view alongside scatter/heatmap): flat-top hex binning, size ∝ frequency, color = efficiency delta
+- `ZoneAnnotationCourt`: half-court SVG with FG%, delta, and volume annotated per zone; live in `ShotChart` and `ZoneProfilePanel`
+- `PerformanceCalendar`: game-by-game heatmap (5-tier quantile scale, metric toggle) in `PlayerDashboard`
+- Chart harmonization: `CareerArcChart` → `AreaChart` + gradient fills + warm palette; `DualCareerArcChart` and `RadarChart` updated to match design system
+- Homepage hero: full-viewport, CSS court art, staggered fade-up animations, animated `StatCounter`, card glow on hover
+- `StandingsBumpChart`: conference rank over last 30 days on standings page, hover-to-dim, team color legend
 
 ---
 

@@ -14,13 +14,13 @@ Last updated: 2026-04-02 by Codex (Sprint 30 closeout)
 
 | Field | Value |
 |-------|-------|
-| Sprint | 31 |
-| Goal | Visual Renaissance — frontend design + breathtaking visualizations |
-| Started | 2026-04-03 |
+| Sprint | 32 |
+| Goal | TBD — awaiting Vivek's sprint kickoff |
+| Started | TBD |
 | Target merge | TBD |
-| Sprint shape | Single-stream (frontend only) |
-| Branch | feature/sprint-31-visual-renaissance |
-| Worker policy | Claude owns all frontend work this sprint |
+| Sprint shape | TBD |
+| Branch | not created yet |
+| Worker policy | Unassigned until kickoff |
 
 ---
 
@@ -38,14 +38,14 @@ If repo state, sprint numbering, or shipped features appear to disagree across l
 ## Current Assignments
 
 ### Claude
-- Branch: feature/sprint-31-visual-renaissance
-- Scope: All frontend — shot chart hexbin, zone annotation court, performance calendar, chart harmonization, homepage redesign, standings bump chart
-- Status: In progress
+- Branch: not assigned
+- Scope: available for Sprint 32 kickoff
+- Status: Not started
 
 ### Codex
 - Branch: not assigned
-- Scope: available for Sprint 31 kickoff
-- Status: Available
+- Scope: available for Sprint 32 kickoff
+- Status: Not started
 
 ---
 
@@ -61,17 +61,6 @@ Claim a shared file here before editing. If a file is already claimed, read that
 | `frontend/src/lib/types.ts` | — |  |
 | `frontend/src/lib/api.ts` | — |  |
 | `backend/main.py` | — |  |
-| `frontend/src/lib/shotchart-constants.ts` | Claude | Extract heatColor + ZONE_PATHS |
-| `frontend/src/components/ShotChart.tsx` | Claude | Hexbin mode + ZoneAnnotationCourt wire-in |
-| `frontend/src/components/ZoneProfilePanel.tsx` | Claude | ZoneAnnotationCourt wire-in |
-| `frontend/src/components/CareerArcChart.tsx` | Claude | Palette + AreaChart + gradient fills |
-| `frontend/src/components/DualCareerArcChart.tsx` | Claude | Palette + bip-panel |
-| `frontend/src/components/RadarChart.tsx` | Claude | Gradient fill + palette |
-| `frontend/src/components/PlayerDashboard.tsx` | Claude | PerformanceCalendar wire-in |
-| `frontend/src/components/HomeLeagueLeaders.tsx` | Claude | Trend arrows |
-| `frontend/src/app/page.tsx` | Claude | Hero redesign |
-| `frontend/src/app/globals.css` | Claude | Keyframe animations |
-| `frontend/src/app/standings/page.tsx` | Claude | StandingsBumpChart wire-in |
 
 ---
 
@@ -82,15 +71,13 @@ Specs or review notes written by one stream for another. Check this before start
 | Spec file | From | To | Status |
 |-----------|------|----|--------|
 | `specs/data-architecture.md` | Sprint 26 | Next sprint | Reference — read before touching data layer |
-| `specs/sprint-28-closeout.md` | Sprint 28 | Next sprint | Reference — next sprint seeds inside |
-| `specs/sprint-29-closeout.md` | Sprint 29 | Next sprint | Reference — DB-first shot-chart and standings-history follow-ons |
-| `specs/sprint-30-closeout.md` | Sprint 30 | Next sprint | Reference — DB-first read follow-ons and visualization rollout seeds |
+| `specs/sprint-31-closeout.md` | Sprint 31 | Next sprint | Reference — visual renaissance follow-ons and viz seeds |
 
 ---
 
 ## Merge Order
 
-1. Sprint 31 should rewrite this section at kickoff
+1. TBD at Sprint 32 kickoff
 
 ---
 
@@ -98,7 +85,7 @@ Specs or review notes written by one stream for another. Check this before start
 
 | Files / Directories | Assigned this sprint |
 |---------------------|----------------------|
-| `frontend/src/` (all frontend) | Claude |
+| To be defined at Sprint 32 kickoff | — |
 
 ---
 
@@ -171,6 +158,7 @@ Specs or review notes written by one stream for another. Check this before start
 
 *Free-form, dated, newest first. Use this for coordination and repo-state exceptions.*
 
+2026-04-03 (Claude): Sprint 31 closed on `feature/sprint-31-visual-renaissance`. Shipped hexbin shot chart, ZoneAnnotationCourt, PerformanceCalendar, full chart harmonization (CareerArcChart/DualCareerArcChart/RadarChart), homepage visual redesign, and StandingsBumpChart. Frontend-only sprint, no Codex branch. See `specs/sprint-31-closeout.md` before Sprint 32 kickoff.
 2026-04-02 (Codex): Sprint 30 closed on `feature/sprint-30-dbfirst-viz`. Shipped DB-first player/career/gamelog/standings reads with readiness metadata, queue-backed enrichment coverage, and the first CourtVue signature visualization layer across player, compare, and insights. See `specs/sprint-30-closeout.md` before Sprint 31 kickoff.
 2026-04-02 (Codex): Sprint 29 closeout prepared on `feature/sprint-29-standings-zones`. Shipped standings history/trend lines plus shot zone analytics, then hardened shot-chart reads to be DB-first with queued warehouse-backed sync. Local closeout verification covered backend standings/shot-chart APIs and frontend route smoke checks; `pytest` was still unavailable in `backend/venv`, so backend test execution remains a noted gap.
 2026-04-01 (Claude): Sprint 28 closed. Shipped compare availability layer (injury badge + warning banner in ComparisonView, GET /api/compare/player-availability) and unresolved injury identity ops UI (/admin/injuries/unresolved with resolve/dismiss endpoints). Standings trend and shot zone analytics deferred to Sprint 29.

@@ -35,14 +35,16 @@ Likely shape:
 - standardize readiness metadata on any remaining legacy reads
 - keep `nba_api` only in queued/admin enrichment and explicit recovery workflows
 
-### Visualization Language Rollout
+### Visualization Follow-Ons (Sprint 31 seeds)
 Why it matters:
-Sprint 30 established the first CourtVue chart system and premium visuals on player, compare, and insights. The next gain is making the rest of the product feel equally intentional and legible.
+Sprint 31 shipped the visual renaissance layer. The highest-value follow-ons extend it to remaining surfaces and deepen interactivity.
 
 Likely shape:
-- extend shared chart tokens, annotation patterns, and state treatments to standings, teams, pre-read, and other high-value workflows
-- continue replacing overly abstract visuals with simpler decision-readable formats where needed
-- tighten copy, metric framing, and hover/help patterns so first-time comprehension improves
+- `PerformanceCalendar` side-by-side in `ComparisonView` so game rhythm can be compared directly
+- `ZoneAnnotationCourt` in `ShotProfileDuel` (compare page) replacing or augmenting fingerprints
+- Shot chart date-range filter using per-shot `game_date` to isolate hot/cold streaks
+- Trend arrows on `HomeLeagueLeaders` require a `delta` field on `LeaderboardEntry` from backend
+- Entrance animation polish: stagger fade-up on platform area cards, skeleton loaders shaped to match final layout
 
 ---
 
