@@ -68,6 +68,55 @@ def apply_schema_updates():
     #   injury_sync_unresolved  — unresolved official report rows for review
     # No new columns on existing tables this sprint.
 
+    # Sprint 29 — Standings history: snapshot_date column + constraint migration
+    ensure_column_exists(engine, "team_standings", "snapshot_date", "DATE")
+
+    with engine.connect() as conn:
+        # Backfill existing rows (idempotent — only updates NULLs)
+        conn.execute(text(
+            "UPDATE team_standings SET snapshot_date = updated_at::date WHERE snapshot_date IS NULL"
+        ))
+        # Enforce NOT NULL (idempotent)
+        conn.execute(text("""
+            DO $$ BEGIN
+                IF EXISTS (
+                    SELECT 1 FROM information_schema.columns
+                    WHERE table_name='team_standings'
+                      AND column_name='snapshot_date'
+                      AND is_nullable='YES'
+                ) THEN
+                    ALTER TABLE team_standings ALTER COLUMN snapshot_date SET NOT NULL;
+                END IF;
+            END $$;
+        """))
+        # Drop old unique constraint if it still exists
+        conn.execute(text("""
+            DO $$ BEGIN
+                IF EXISTS (
+                    SELECT 1 FROM pg_constraint
+                    WHERE conname = 'uq_team_standing_season'
+                      AND conrelid = 'team_standings'::regclass
+                ) THEN
+                    ALTER TABLE team_standings DROP CONSTRAINT uq_team_standing_season;
+                END IF;
+            END $$;
+        """))
+        # Add new unique constraint if it doesn't exist yet
+        conn.execute(text("""
+            DO $$ BEGIN
+                IF NOT EXISTS (
+                    SELECT 1 FROM pg_constraint
+                    WHERE conname = 'uq_team_standing_season_date'
+                      AND conrelid = 'team_standings'::regclass
+                ) THEN
+                    ALTER TABLE team_standings
+                        ADD CONSTRAINT uq_team_standing_season_date
+                        UNIQUE (team_id, season, snapshot_date);
+                END IF;
+            END $$;
+        """))
+        conn.commit()
+
 
 if __name__ == "__main__":
     apply_schema_updates()

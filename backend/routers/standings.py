@@ -3,21 +3,42 @@ from __future__ import annotations
 from typing import List, Optional
 
 from fastapi import APIRouter, Depends, Query
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from db.database import get_db
 from db.models import Team, TeamStanding
-from models.standings import StandingsEntry
-from services.standings_service import compute_standings_data
+from models.standings import StandingsEntry, StandingsHistoryResponse
+from services.standings_service import compute_standings_data, get_standings_history
 
 router = APIRouter()
 
 
 def _standings_from_db(season: str, db: Session) -> Optional[List[StandingsEntry]]:
-    """Return materialized standings from team_standings table, or None if empty."""
+    """Return materialized standings from team_standings table, or None if empty.
+
+    Uses the most recent snapshot per team so the table's daily history rows
+    don't produce duplicate entries.
+    """
+    # Subquery: latest snapshot_date per team for this season
+    latest_sq = (
+        db.query(
+            TeamStanding.team_id,
+            func.max(TeamStanding.snapshot_date).label("latest_date"),
+        )
+        .filter(TeamStanding.season == season)
+        .group_by(TeamStanding.team_id)
+        .subquery()
+    )
+
     rows = (
         db.query(TeamStanding, Team)
         .join(Team, Team.id == TeamStanding.team_id)
+        .join(
+            latest_sq,
+            (TeamStanding.team_id == latest_sq.c.team_id)
+            & (TeamStanding.snapshot_date == latest_sq.c.latest_date),
+        )
         .filter(TeamStanding.season == season)
         .all()
     )
@@ -71,6 +92,16 @@ def _standings_from_db(season: str, db: Session) -> Optional[List[StandingsEntry
             e["games_back"] = 0.0 if rank == 1 else ((leader_w - e["wins"]) + (e["losses"] - leader_l)) / 2.0
 
     return [StandingsEntry(**e) for e in entries]
+
+
+@router.get("/history", response_model=List[StandingsHistoryResponse])
+def get_standings_history_endpoint(
+    season: str = Query("2024-25"),
+    days: int = Query(30, ge=1, le=90),
+    db: Session = Depends(get_db),
+):
+    """Return per-team win-pct time series for the last N days."""
+    return get_standings_history(season, days, db)
 
 
 @router.get("", response_model=List[StandingsEntry])

@@ -1,8 +1,22 @@
 from __future__ import annotations
 
-from typing import Optional
+from typing import List, Optional
 
 from pydantic import BaseModel
+
+
+class StandingsSnapshot(BaseModel):
+    date: str           # ISO "YYYY-MM-DD"
+    wins: int
+    losses: int
+    win_pct: float
+
+
+class StandingsHistoryResponse(BaseModel):
+    team_id: int
+    team_abbr: str
+    conference: str
+    snapshots: List[StandingsSnapshot]
 
 
 class StandingsEntry(BaseModel):

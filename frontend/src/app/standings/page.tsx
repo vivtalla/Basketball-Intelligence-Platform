@@ -1,9 +1,10 @@
 "use client";
 
 import Link from "next/link";
-import { Fragment, useState } from "react";
-import { useStandings } from "@/hooks/usePlayerStats";
-import type { StandingsEntry } from "@/lib/types";
+import { Fragment, useMemo, useState } from "react";
+import { useStandings, useStandingsHistory } from "@/hooks/usePlayerStats";
+import type { StandingsEntry, StandingsHistoryEntry } from "@/lib/types";
+import WinPctSparkline from "@/components/WinPctSparkline";
 
 const DEFAULT_SEASON = "2024-25";
 
@@ -51,9 +52,11 @@ function DiffCell({ diff }: { diff: number | null }) {
 function StandingsTable({
   entries,
   conference,
+  historyMap,
 }: {
   entries: StandingsEntry[];
   conference: string;
+  historyMap: Record<number, StandingsHistoryEntry>;
 }) {
   const sorted = entries
     .filter((e) => e.conference === conference)
@@ -82,6 +85,7 @@ function StandingsTable({
               <th className="text-right px-4 py-3 hidden md:table-cell">PPG</th>
               <th className="text-right px-4 py-3 hidden md:table-cell">Diff</th>
               <th className="text-right px-4 py-3">Strk</th>
+              <th className="text-right px-4 py-3 hidden md:table-cell">Trend</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-[var(--border)]">
@@ -97,7 +101,7 @@ function StandingsTable({
                   {isPlayoffLine && (
                     <tr>
                       <td
-                        colSpan={12}
+                        colSpan={13}
                         className="h-0 border-t-2 border-[rgba(33,72,59,0.42)]"
                       />
                     </tr>
@@ -105,7 +109,7 @@ function StandingsTable({
                   {isPlayInLine && (
                     <tr>
                       <td
-                        colSpan={12}
+                        colSpan={13}
                         className="h-0 border-t-2 border-dashed border-[rgba(111,101,90,0.45)]"
                       />
                     </tr>
@@ -174,6 +178,11 @@ function StandingsTable({
                     <td className="px-4 py-3 text-right">
                       <StreakBadge streak={entry.current_streak} />
                     </td>
+                    <td className="hidden px-4 py-3 text-right md:table-cell">
+                      <WinPctSparkline
+                        snapshots={historyMap[entry.team_id]?.snapshots ?? []}
+                      />
+                    </td>
                   </tr>
                 </Fragment>
               );
@@ -194,6 +203,12 @@ function StandingsTable({
 export default function StandingsPage() {
   const [season, setSeason] = useState(DEFAULT_SEASON);
   const { data, isLoading, error } = useStandings(season);
+  const { data: historyData } = useStandingsHistory(season, 30);
+
+  const historyMap = useMemo<Record<number, StandingsHistoryEntry>>(() => {
+    if (!historyData) return {};
+    return Object.fromEntries(historyData.map((e) => [e.team_id, e]));
+  }, [historyData]);
 
   return (
     <div className="space-y-8 max-w-5xl mx-auto">
@@ -259,8 +274,8 @@ export default function StandingsPage() {
 
       {!isLoading && data && (
         <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
-          <StandingsTable entries={data} conference="East" />
-          <StandingsTable entries={data} conference="West" />
+          <StandingsTable entries={data} conference="East" historyMap={historyMap} />
+          <StandingsTable entries={data} conference="West" historyMap={historyMap} />
         </div>
       )}
     </div>

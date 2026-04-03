@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import logging
 from collections import defaultdict
-from datetime import datetime
+from datetime import date, datetime
 from typing import Dict, List, Optional
 
 from sqlalchemy.orm import Session
@@ -194,38 +194,90 @@ def compute_standings_data(season: str, db: Session) -> List[dict]:
 
 
 def materialize_standings(season: str, db: Session) -> Dict[str, int]:
-    """Compute standings and persist to team_standings table. Returns summary."""
-    logger.info(f"Materializing standings for {season}...")
+    """Compute standings and append today's snapshot to team_standings.
+
+    Inserts one row per team for today if it doesn't exist yet.
+    Safe to call multiple times in the same day — second call returns inserted=0.
+    """
+    logger.info(f"Materializing standings snapshot for {season}...")
+    today = date.today()
     entries = compute_standings_data(season, db)
-    upserted = 0
+    inserted = 0
     for data in entries:
-        existing = (
+        exists = (
             db.query(TeamStanding)
-            .filter(TeamStanding.team_id == data["team_id"], TeamStanding.season == season)
+            .filter(
+                TeamStanding.team_id == data["team_id"],
+                TeamStanding.season == season,
+                TeamStanding.snapshot_date == today,
+            )
             .first()
         )
-        if existing:
-            row = existing
-        else:
-            row = TeamStanding(team_id=data["team_id"], season=season)
-            db.add(row)
-
-        row.wins = data["wins"]
-        row.losses = data["losses"]
-        row.home_wins = data["home_wins"]
-        row.home_losses = data["home_losses"]
-        row.road_wins = data["road_wins"]
-        row.road_losses = data["road_losses"]
-        row.last_10_wins = data["last_10_wins"]
-        row.last_10_losses = data["last_10_losses"]
-        row.current_streak = data["current_streak"]
-        row.streak_type = data["streak_type"]
-        row.conference = data["conference"]
-        row.division = data["division"]
-        row.updated_at = datetime.utcnow()
-        upserted += 1
+        if exists:
+            continue
+        row = TeamStanding(
+            team_id=data["team_id"],
+            season=season,
+            snapshot_date=today,
+            wins=data["wins"],
+            losses=data["losses"],
+            home_wins=data["home_wins"],
+            home_losses=data["home_losses"],
+            road_wins=data["road_wins"],
+            road_losses=data["road_losses"],
+            last_10_wins=data["last_10_wins"],
+            last_10_losses=data["last_10_losses"],
+            current_streak=data["current_streak"],
+            streak_type=data["streak_type"],
+            conference=data["conference"],
+            division=data["division"],
+        )
+        db.add(row)
+        inserted += 1
 
     db.commit()
-    summary = {"season": season, "teams_upserted": upserted}
+    summary = {"season": season, "teams_inserted": inserted}
     logger.info(f"materialize_standings complete: {summary}")
     return summary
+
+
+def get_standings_history(season: str, days: int, db: Session) -> List[Dict]:
+    """Return per-team win-pct time series for the last N days.
+
+    Each entry: {team_id, team_abbr, conference, snapshots: [{date, wins, losses, win_pct}]}
+    snapshots sorted ascending by date.
+    """
+    from datetime import timedelta
+    cutoff = date.today() - timedelta(days=days)
+
+    rows = (
+        db.query(TeamStanding, Team)
+        .join(Team, Team.id == TeamStanding.team_id)
+        .filter(
+            TeamStanding.season == season,
+            TeamStanding.snapshot_date >= cutoff,
+        )
+        .order_by(TeamStanding.team_id, TeamStanding.snapshot_date)
+        .all()
+    )
+
+    teams_map: Dict[int, dict] = {}
+    for standing, team in rows:
+        tid = team.id
+        if tid not in teams_map:
+            teams_map[tid] = {
+                "team_id": tid,
+                "team_abbr": team.abbreviation,
+                "conference": standing.conference or "",
+                "snapshots": [],
+            }
+        w = standing.wins or 0
+        l = standing.losses or 0
+        teams_map[tid]["snapshots"].append({
+            "date": standing.snapshot_date.isoformat(),
+            "wins": w,
+            "losses": l,
+            "win_pct": round(w / (w + l), 4) if (w + l) > 0 else 0.0,
+        })
+
+    return list(teams_map.values())

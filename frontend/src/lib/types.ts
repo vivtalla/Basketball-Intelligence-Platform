@@ -1506,3 +1506,39 @@ export interface InjurySyncUnresolvedEntry {
   source_url: string | null;
   normalized_lookup_key: string;
 }
+
+// Sprint 29 — Standings history
+
+export interface StandingsSnapshot {
+  date: string;       // ISO "YYYY-MM-DD"
+  wins: number;
+  losses: number;
+  win_pct: number;
+}
+
+export interface StandingsHistoryEntry {
+  team_id: number;
+  team_abbr: string;
+  conference: string;
+  snapshots: StandingsSnapshot[];
+}
+
+// Sprint 29 — Shot zone analytics
+
+export interface ZoneStat {
+  zone_basic: string;
+  zone_area: string;
+  attempts: number;
+  made: number;
+  fg_pct: number | null;
+  pps: number | null;
+  freq: number;
+}
+
+export interface ZoneProfileResponse {
+  player_id: number;
+  season: string;
+  season_type: string;
+  total_attempts: number;
+  zones: ZoneStat[];
+}

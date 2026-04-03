@@ -608,13 +608,15 @@ class TeamStanding(Base):
     """Materialized standings per team per season. Replaces per-request computation from player_game_logs."""
     __tablename__ = "team_standings"
     __table_args__ = (
-        UniqueConstraint("team_id", "season", name="uq_team_standing_season"),
+        UniqueConstraint("team_id", "season", "snapshot_date", name="uq_team_standing_season_date"),
         Index("ix_team_standings_season", "season"),
+        Index("ix_team_standings_team_season", "team_id", "season"),
     )
 
     id = Column(Integer, primary_key=True, autoincrement=True)
     team_id = Column(Integer, ForeignKey("teams.id"), nullable=False)
     season = Column(String(10), nullable=False)
+    snapshot_date = Column(Date, nullable=False)
     wins = Column(Integer, default=0)
     losses = Column(Integer, default=0)
     home_wins = Column(Integer, default=0)

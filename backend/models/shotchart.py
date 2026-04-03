@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import List
+from typing import List, Optional
 
 from pydantic import BaseModel
 
@@ -23,3 +23,21 @@ class ShotChartResponse(BaseModel):
     shots: List[ShotChartShot]
     made: int
     attempted: int
+
+
+class ZoneStat(BaseModel):
+    zone_basic: str
+    zone_area: str
+    attempts: int
+    made: int
+    fg_pct: Optional[float] = None    # None when attempts < 5
+    pps: Optional[float] = None
+    freq: float
+
+
+class ZoneProfileResponse(BaseModel):
+    player_id: int
+    season: str
+    season_type: str
+    total_attempts: int
+    zones: List[ZoneStat]

@@ -12,9 +12,11 @@ import {
   useTeamAnalytics,
   useLineups,
   useTeams,
+  usePlayerZoneProfile,
 } from "@/hooks/usePlayerStats";
 import { useCompareAvailability } from "@/hooks/useCompareAvailability";
 import ComparisonView from "@/components/ComparisonView";
+import ZoneProfilePanel from "@/components/ZoneProfilePanel";
 import TeamComparisonView from "@/components/TeamComparisonView";
 import LineupComparisonView from "@/components/LineupComparisonView";
 import StyleComparisonView from "@/components/StyleComparisonView";
@@ -189,6 +191,24 @@ function ComparePageInner() {
   const { data: compareAvailability } = useCompareAvailability(
     mode === "players" ? p1Id : null,
     mode === "players" ? p2Id : null
+  );
+
+  // Sprint 29 — zone profiles for each player slot (unconditional hooks, null-guarded via SWR key)
+  const p1LatestSeason =
+    career1 && career1.seasons.length > 0
+      ? career1.seasons[career1.seasons.length - 1].season
+      : null;
+  const p2LatestSeason =
+    career2 && career2.seasons.length > 0
+      ? career2.seasons[career2.seasons.length - 1].season
+      : null;
+  const { data: zoneA, isLoading: zoneALoading } = usePlayerZoneProfile(
+    mode === "players" ? p1Id : null,
+    mode === "players" ? p1LatestSeason : null
+  );
+  const { data: zoneB, isLoading: zoneBLoading } = usePlayerZoneProfile(
+    mode === "players" ? p2Id : null,
+    mode === "players" ? p2LatestSeason : null
   );
 
   function updateParams(mutator: (params: URLSearchParams) => void) {
@@ -380,12 +400,26 @@ function ComparePageInner() {
           ) : null}
 
           {bothReady ? (
-            <ComparisonView
-              playerA={{ profile: profile1!, career: career1! }}
-              playerB={{ profile: profile2!, career: career2! }}
-              availabilityA={compareAvailability?.player_a}
-              availabilityB={compareAvailability?.player_b}
-            />
+            <>
+              <ComparisonView
+                playerA={{ profile: profile1!, career: career1! }}
+                playerB={{ profile: profile2!, career: career2! }}
+                availabilityA={compareAvailability?.player_a}
+                availabilityB={compareAvailability?.player_b}
+              />
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <ZoneProfilePanel
+                  data={zoneA}
+                  isLoading={zoneALoading}
+                  playerLabel={profile1!.full_name}
+                />
+                <ZoneProfilePanel
+                  data={zoneB}
+                  isLoading={zoneBLoading}
+                  playerLabel={profile2!.full_name}
+                />
+              </div>
+            </>
           ) : null}
         </>
       ) : mode === "teams" ? (

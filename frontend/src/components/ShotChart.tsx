@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { usePlayerShotChart } from "@/hooks/usePlayerStats";
 import type { ShotChartShot } from "@/lib/types";
+import { LEAGUE_AVG_FG, ZONE_POINTS, ZONE_ORDER } from "@/lib/shotchart-constants";
 
 interface ShotChartProps {
   playerId: number;
@@ -20,37 +21,8 @@ function toSvg(locX: number, locY: number): [number, number] {
   return [locX + 250, 430 - locY];
 }
 
-// League-average FG% by zone (approximate, current era)
-const LEAGUE_AVG: Record<string, number> = {
-  "Restricted Area": 0.64,
-  "In The Paint (Non-RA)": 0.40,
-  "Mid-Range": 0.41,
-  "Left Corner 3": 0.38,
-  "Right Corner 3": 0.38,
-  "Above the Break 3": 0.36,
-  "Backcourt": 0.02,
-};
-
-// Point value per zone (2 or 3)
-const ZONE_POINTS: Record<string, number> = {
-  "Restricted Area": 2,
-  "In The Paint (Non-RA)": 2,
-  "Mid-Range": 2,
-  "Left Corner 3": 3,
-  "Right Corner 3": 3,
-  "Above the Break 3": 3,
-  "Backcourt": 3,
-};
-
-const ZONE_ORDER = [
-  "Restricted Area",
-  "In The Paint (Non-RA)",
-  "Mid-Range",
-  "Left Corner 3",
-  "Right Corner 3",
-  "Above the Break 3",
-  "Backcourt",
-];
+// Zone constants imported from shared module
+const LEAGUE_AVG = LEAGUE_AVG_FG;
 
 // SVG paths for each zone (half-court, basket at cx=250 cy=430)
 // Paint: x 170-330, y 240-430 | RA: cx=250 cy=430 r=40

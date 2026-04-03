@@ -26,6 +26,8 @@ import type {
   CareerLeaderboardResponse,
   InjuryEntry,
   InjuryReportResponse,
+  StandingsHistoryEntry,
+  ZoneProfileResponse,
 } from "./types";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
@@ -741,4 +743,25 @@ export async function dismissUnresolvedInjury(
   rowId: number
 ): Promise<{ status: string; row_id: number }> {
   return fetchApi(`/api/injuries/unresolved/${rowId}`, { method: "DELETE" });
+}
+
+// Sprint 29 — Standings history
+export async function getStandingsHistory(
+  season: string,
+  days = 30
+): Promise<StandingsHistoryEntry[]> {
+  return fetchApi<StandingsHistoryEntry[]>(
+    `/api/standings/history?season=${encodeURIComponent(season)}&days=${days}`
+  );
+}
+
+// Sprint 29 — Shot zone analytics
+export async function getPlayerZoneProfile(
+  playerId: number,
+  season: string,
+  seasonType = "Regular Season"
+): Promise<ZoneProfileResponse> {
+  return fetchApi<ZoneProfileResponse>(
+    `/api/shotchart/${playerId}/zones?season=${encodeURIComponent(season)}&season_type=${encodeURIComponent(seasonType)}`
+  );
 }

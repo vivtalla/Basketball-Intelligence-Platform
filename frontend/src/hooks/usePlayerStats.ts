@@ -393,3 +393,28 @@ export function useGameSummary(gameId: string | null) {
     () => getGameSummary(gameId!)
   );
 }
+
+// ── Sprint 29 hooks ───────────────────────────────────────────────────────────
+
+import type { StandingsHistoryEntry, ZoneProfileResponse } from "@/lib/types";
+import { getStandingsHistory, getPlayerZoneProfile } from "@/lib/api";
+
+export function useStandingsHistory(season: string | null, days = 30) {
+  return useSWR<StandingsHistoryEntry[]>(
+    season ? `standings-history-${season}-${days}` : null,
+    () => getStandingsHistory(season!, days)
+  );
+}
+
+export function usePlayerZoneProfile(
+  playerId: number | null,
+  season: string | null,
+  seasonType = "Regular Season"
+) {
+  return useSWR<ZoneProfileResponse>(
+    playerId && season
+      ? `zone-profile-${playerId}-${season}-${seasonType}`
+      : null,
+    () => getPlayerZoneProfile(playerId!, season!, seasonType)
+  );
+}

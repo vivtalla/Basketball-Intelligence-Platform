@@ -1,6 +1,6 @@
 # Agent Coordination
 
-Last updated: 2026-04-01 by Claude (Sprint 28 closed out)
+Last updated: 2026-04-02 by Claude (Sprint 29 kickoff)
 
 > Both agents read this file before touching code at the start of every session.
 > The canonical source of truth is the clean `master` checkout at `/Users/viv/Documents/Basketball Intelligence Platform`.
@@ -15,12 +15,12 @@ Last updated: 2026-04-01 by Claude (Sprint 28 closed out)
 | Field | Value |
 |-------|-------|
 | Sprint | 29 |
-| Goal | TBD — awaiting Vivek's sprint kickoff |
-| Started | To be defined at Sprint 29 kickoff |
-| Target merge | To be defined at Sprint 29 kickoff |
-| Sprint shape | To be decided at kickoff |
-| Reason | Sprint 28 is complete and the repo is back in kickoff-ready planning state |
-| Worker policy | Hybrid default: choose single-pipeline or multi-agent at kickoff based on sprint shape |
+| Goal | Standings history/trend line + shot zone analytics |
+| Started | 2026-04-02 |
+| Target merge | 2026-04-02 |
+| Sprint shape | Single stream (two tracks, one branch) |
+| Branch | `feature/sprint-29-standings-zones` |
+| Worker policy | Single agent — Claude carries both tracks |
 
 ---
 
@@ -38,13 +38,13 @@ If repo state, sprint numbering, or shipped features appear to disagree across l
 ## Current Assignments
 
 ### Claude
-- Branch: `master` or next assigned sprint branch
-- Scope: available for Sprint 29 planning, review, or implementation
-- Status: Not started
+- Branch: `feature/sprint-29-standings-zones`
+- Scope: Track A (standings history) + Track B (shot zone analytics) — full sprint
+- Status: In progress
 
 ### Codex
-- Branch: `master` or next assigned sprint branch/worktree
-- Scope: available for Sprint 29 planning, review, or implementation
+- Branch: not assigned this sprint
+- Scope: not assigned this sprint
 - Status: Not started
 
 ---
@@ -58,11 +58,11 @@ Claim a shared file here before editing. If a file is already claimed, read that
 
 | File | Claimed by | Purpose |
 |------|------------|---------|
-| `frontend/src/lib/types.ts` | — |  |
-| `frontend/src/lib/api.ts` | — |  |
+| `frontend/src/lib/types.ts` | Claude | Sprint 29 standings + zone types |
+| `frontend/src/lib/api.ts` | Claude | Sprint 29 standings history + zone profile API calls |
 | `backend/main.py` | — |  |
-| `backend/db/models.py` | — |  |
-| `backend/db/ensure_schema.py` | — |  |
+| `backend/db/models.py` | Claude | Sprint 29 snapshot_date migration |
+| `backend/db/ensure_schema.py` | Claude | Sprint 29 snapshot_date migration |
 
 ---
 

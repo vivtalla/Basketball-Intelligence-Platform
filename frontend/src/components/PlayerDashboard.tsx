@@ -1,12 +1,13 @@
 "use client";
 
 import { useState } from "react";
-import { usePlayerProfile, usePlayerCareerStats } from "@/hooks/usePlayerStats";
+import { usePlayerProfile, usePlayerCareerStats, usePlayerZoneProfile } from "@/hooks/usePlayerStats";
 import PlayerHeader from "./PlayerHeader";
 import StatTable from "./StatTable";
 import RadarChart from "./RadarChart";
 import CareerArcChart from "./CareerArcChart";
 import ShotChart from "./ShotChart";
+import ZoneProfilePanel from "./ZoneProfilePanel";
 import PlayerPbpInsights from "./PlayerPbpInsights";
 import PlayerTrendIntelligencePanel from "./PlayerTrendIntelligencePanel";
 import GameLogTable from "./GameLogTable";
@@ -26,6 +27,17 @@ export default function PlayerDashboard({ playerId }: PlayerDashboardProps) {
 
   const { data: profile, error: profileError } = usePlayerProfile(playerId);
   const { data: careerStats, error: statsError } = usePlayerCareerStats(playerId);
+
+  // Sprint 29 — zone profile (Regular Season, latest season resolved after careerStats loads)
+  // Must be declared unconditionally here; SWR key is null-guarded inside the hook.
+  const latestRegularSeason =
+    careerStats && careerStats.seasons.length > 0
+      ? careerStats.seasons[careerStats.seasons.length - 1].season
+      : null;
+  const { data: zoneData, isLoading: zoneLoading } = usePlayerZoneProfile(
+    playerId,
+    latestRegularSeason
+  );
 
   if (profileError || statsError) {
     return (
@@ -152,6 +164,11 @@ export default function PlayerDashboard({ playerId }: PlayerDashboardProps) {
             careerStats.seasons[careerStats.seasons.length - 1].season
           }
         />
+      )}
+
+      {/* Zone efficiency panel — Regular Season, latest season */}
+      {careerStats.seasons.length > 0 && (
+        <ZoneProfilePanel data={zoneData} isLoading={zoneLoading} />
       )}
 
       {/* PBP insights are regular-season only */}
