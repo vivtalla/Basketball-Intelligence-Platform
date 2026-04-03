@@ -149,6 +149,23 @@ def materialize_season_now(season: str = Query(...), db: Session = Depends(get_d
     return materialize_season_aggregates(db, season)
 
 
+@router.post("/sync/shot-charts")
+def sync_shot_charts(
+    season: str = Query(...),
+    season_type: str = Query("Regular Season"),
+    force: bool = Query(False),
+):
+    """Bulk-populate player_shot_charts from stats.nba.com for all active players.
+
+    Skips players with a valid cached row unless force=True.
+    Runs synchronously — may be slow (0.6s per player).
+    """
+    if season_type not in ("Regular Season", "Playoffs"):
+        raise HTTPException(status_code=422, detail='season_type must be "Regular Season" or "Playoffs"')
+    from services.bulk_sync_service import sync_shot_charts_for_season
+    return sync_shot_charts_for_season(season, season_type=season_type, force=force)
+
+
 @router.get("/health/{season}", response_model=WarehouseSeasonHealth)
 def season_health(season: str, db: Session = Depends(get_db)):
     payload = get_season_health(db, season)

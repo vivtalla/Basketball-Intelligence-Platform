@@ -10,6 +10,7 @@ Usage:
     python data/bulk_import.py --season 2024-25 --players-only  # Players & season stats from CDN box scores
     python data/bulk_import.py --season 2024-25 --pbp-only      # PBP + on/off + clutch + lineups (~1s/game)
     python data/bulk_import.py --season 2024-25 --game-logs-only # Per-game player stats from CDN box scores
+    python data/bulk_import.py --season 2024-25 --shot-charts    # Shot chart coordinates from stats.nba.com
     python data/bulk_import.py --season 2024-25 --status         # Show sync progress
     python data/bulk_import.py --season 2024-25 --force          # Re-sync even if data exists
 """
@@ -48,6 +49,8 @@ Examples:
     parser.add_argument("--players-only", action="store_true", help="Sync only players & season stats")
     parser.add_argument("--game-logs-only", action="store_true", help="Sync only per-game player stats")
     parser.add_argument("--pbp-only", action="store_true", help="Sync only play-by-play + derived metrics")
+    parser.add_argument("--shot-charts", action="store_true", help="Bulk-populate shot chart coords from stats.nba.com")
+    parser.add_argument("--season-type", default="Regular Season", choices=["Regular Season", "Playoffs"], help="Season type for shot charts (default: Regular Season)")
     parser.add_argument("--status", action="store_true", help="Show sync status and exit")
     parser.add_argument("--force", action="store_true", help="Re-fetch data even if already synced")
     args = parser.parse_args()
@@ -65,12 +68,39 @@ Examples:
         sync_all_game_logs,
         sync_all_pbp,
         sync_all_players,
+        sync_shot_charts_for_season,
     )
 
     season = args.season
 
     if args.status:
         _show_status(season, get_sync_status)
+        return
+
+    # Shot charts is a standalone flag — doesn't interact with the other three
+    if args.shot_charts:
+        season_type = args.season_type
+        print(f"\n{'='*60}")
+        print(f"  CourtVue Labs — Shot Chart Sync")
+        print(f"  Season: {season}  Type: {season_type}")
+        print(f"  Force: {args.force}")
+        print(f"{'='*60}\n")
+        print("Bulk-syncing shot charts from stats.nba.com...")
+        print("(This hits stats.nba.com — will fail if the endpoint is blocked)\n")
+        start = time.time()
+        result = sync_shot_charts_for_season(
+            season,
+            season_type=season_type,
+            force=args.force,
+            progress_callback=_print_progress,
+        )
+        elapsed = time.time() - start
+        mins = int(elapsed // 60)
+        secs = int(elapsed % 60)
+        print(f"\n{'='*60}")
+        print(f"  Shot chart sync complete in {mins}m {secs}s")
+        print(f"  synced={result['synced']}  skipped={result['skipped']}  failed={result['failed']}  total={result['total']}")
+        print(f"{'='*60}\n")
         return
 
     # Determine what to sync

@@ -13,16 +13,18 @@ import time
 from collections import defaultdict
 from datetime import date as date_type
 from datetime import datetime
-from typing import Callable
+from typing import Callable, Optional
 
 from sqlalchemy.orm import Session
 
 from data.nba_client import (
     get_game_box_score_detailed,
     get_season_game_ids,
+    get_shot_chart_data,
+    _cache_ttl_for_season,
 )
 from db.database import SessionLocal
-from db.models import Player, PlayerGameLog, SeasonStat, SyncStatus, Team
+from db.models import Player, PlayerGameLog, PlayerShotChart, SeasonStat, SyncStatus, Team
 from services.advanced_metrics import enrich_season_with_advanced
 from services.pbp_sync_service import sync_pbp_for_season
 from services.player_identity_service import sync_player_aliases
@@ -501,6 +503,124 @@ def sync_all_pbp(
         finally:
             db.close()
         raise
+
+
+def sync_shot_charts_for_season(
+    season: str,
+    season_type: str = "Regular Season",
+    force: bool = False,
+    progress_callback: Optional[Callable[[str], None]] = None,
+) -> dict:
+    """Bulk-populate player_shot_charts for all active players in a season.
+
+    Fetches from stats.nba.com via get_shot_chart_data() and persists to DB.
+    Skips players who already have a valid (non-expired, shot_count > 0) row
+    unless force=True. Rate-limited to 0.6s between calls.
+
+    Returns: {"synced": N, "skipped": N, "failed": N}
+    """
+    db = SessionLocal()
+    try:
+        # Get active players who have game log data for this season
+        player_ids = [
+            row[0] for row in
+            db.query(PlayerGameLog.player_id)
+            .filter(
+                PlayerGameLog.season == season,
+                PlayerGameLog.season_type == season_type,
+            )
+            .distinct()
+            .all()
+        ]
+
+        total = len(player_ids)
+        if progress_callback:
+            progress_callback(f"Found {total} players with {season_type} game logs for {season}")
+
+        status_row = _mark_running(db, "shot_charts", season, total=total)
+
+        synced = 0
+        skipped = 0
+        failed = 0
+        now = datetime.utcnow()
+
+        for i, player_id in enumerate(player_ids, start=1):
+            if progress_callback and i % 20 == 0:
+                progress_callback(f"  {i}/{total} — synced={synced} skipped={skipped} failed={failed}")
+
+            # Check existing cache row
+            if not force:
+                existing = (
+                    db.query(PlayerShotChart)
+                    .filter(
+                        PlayerShotChart.player_id == player_id,
+                        PlayerShotChart.season == season,
+                        PlayerShotChart.season_type == season_type,
+                    )
+                    .first()
+                )
+                if existing and existing.shot_count and existing.shot_count > 0:
+                    if existing.expires_at and existing.expires_at > now:
+                        skipped += 1
+                        continue
+
+            # Fetch from stats.nba.com
+            try:
+                raw_shots = get_shot_chart_data(player_id, season, season_type)
+            except Exception as exc:
+                logger.warning(f"Shot chart fetch failed for player {player_id}: {exc}")
+                failed += 1
+                continue
+
+            # Persist to DB
+            ttl_seconds = _cache_ttl_for_season(season)
+            from datetime import timedelta
+            expires_at = now + timedelta(seconds=ttl_seconds)
+
+            try:
+                existing = (
+                    db.query(PlayerShotChart)
+                    .filter(
+                        PlayerShotChart.player_id == player_id,
+                        PlayerShotChart.season == season,
+                        PlayerShotChart.season_type == season_type,
+                    )
+                    .first()
+                )
+                if existing:
+                    existing.shots = raw_shots
+                    existing.shot_count = len(raw_shots)
+                    existing.fetched_at = now
+                    existing.expires_at = expires_at
+                else:
+                    db.add(PlayerShotChart(
+                        player_id=player_id,
+                        season=season,
+                        season_type=season_type,
+                        shots=raw_shots,
+                        shot_count=len(raw_shots),
+                        fetched_at=now,
+                        expires_at=expires_at,
+                    ))
+                db.commit()
+                synced += 1
+            except Exception as exc:
+                db.rollback()
+                logger.warning(f"Failed to persist shot chart for player {player_id}: {exc}")
+                failed += 1
+
+        _mark_complete(db, status_row, synced)
+        summary = {"synced": synced, "skipped": skipped, "failed": failed, "total": total}
+        logger.info(f"sync_shot_charts_for_season complete: {summary}")
+        if progress_callback:
+            progress_callback(f"Done — synced={synced} skipped={skipped} failed={failed}")
+        return summary
+
+    except Exception as exc:
+        _mark_failed(db, status_row, str(exc))
+        raise
+    finally:
+        db.close()
 
 
 def get_sync_status(season: str) -> list[dict]:
