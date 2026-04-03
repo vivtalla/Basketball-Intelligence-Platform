@@ -30,6 +30,13 @@ function coverageTone(status: TeamIntelligence["pbp_coverage"]["status"]) {
   return "bg-[var(--surface-alt)] text-[var(--muted)]";
 }
 
+function readinessTone(status: TeamIntelligence["data_status"]) {
+  if (status === "ready") return "bip-success";
+  if (status === "partial") return "bip-pill";
+  if (status === "limited") return "bg-[rgba(201,168,84,0.18)] text-[var(--accent-strong)]";
+  return "bg-[var(--surface-alt)] text-[var(--muted)]";
+}
+
 function coveragePct(numerator: number, denominator: number) {
   if (!denominator) return 0;
   return Math.round((numerator / denominator) * 100);
@@ -195,6 +202,25 @@ export default function TeamIntelligencePanel({
           </div>
           <div className="mt-2 text-sm text-[var(--muted)]">
             Allowed {fmt(intelligence.opp_pts_pg)} · Diff {signed(intelligence.diff_pts_pg)}
+          </div>
+        </div>
+
+        <div className="bip-panel rounded-3xl p-5">
+          <div className="flex items-center justify-between gap-3">
+            <div className="text-xs uppercase tracking-[0.18em] text-[var(--muted)]">
+              Read Path
+            </div>
+            <span className={`rounded-full px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] ${readinessTone(intelligence.data_status)}`}>
+              {intelligence.data_status}
+            </span>
+          </div>
+          <div className="mt-3 text-2xl font-bold text-[var(--foreground)]">
+            {intelligence.canonical_source}
+          </div>
+          <div className="mt-2 text-sm text-[var(--muted)]">
+            {intelligence.last_synced_at
+              ? `Last synced ${new Date(intelligence.last_synced_at).toLocaleString()}`
+              : "No sync timestamp is available yet."}
           </div>
         </div>
 

@@ -570,6 +570,9 @@ export interface TeamIntelligence {
   abbreviation: string;
   name: string;
   season: string;
+  data_status: "ready" | "partial" | "limited" | "missing";
+  canonical_source: string;
+  last_synced_at: string | null;
   conference: string | null;
   playoff_rank: number | null;
   wins: number | null;
@@ -587,6 +590,46 @@ export interface TeamIntelligence {
   best_lineups: LineupStatsResponse[];
   worst_lineups: LineupStatsResponse[];
   recent_games: TeamRecentGame[];
+}
+
+export interface TeamPrepQueueItem {
+  game_id: string;
+  game_date: string | null;
+  status: string;
+  prep_urgency: "high" | "medium" | "standard" | string;
+  prep_headline: string;
+  opponent_abbreviation: string | null;
+  opponent_name: string | null;
+  is_home: boolean;
+  opponent_record: string | null;
+  opponent_conference: string | null;
+  opponent_playoff_rank: number | null;
+  availability_summary: string;
+  unavailable_count: number;
+  questionable_count: number;
+  probable_count: number;
+  team_rest_days: number | null;
+  opponent_rest_days: number | null;
+  rest_advantage: number | null;
+  schedule_pressure: string;
+  best_edge_label: string | null;
+  best_edge_summary: string | null;
+  first_adjustment_label: string | null;
+  first_adjustment_summary: string | null;
+  pre_read_url: string;
+  scouting_url: string;
+  compare_url: string;
+}
+
+export interface TeamPrepQueueResponse {
+  team_id: number;
+  abbreviation: string;
+  name: string;
+  season: string;
+  data_status: "ready" | "partial" | "limited" | "missing";
+  canonical_source: string;
+  generated_at: string | null;
+  items: TeamPrepQueueItem[];
 }
 
 export interface PbpSyncResult {

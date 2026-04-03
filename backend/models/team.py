@@ -149,6 +149,9 @@ class TeamIntelligenceResponse(BaseModel):
     abbreviation: str
     name: str
     season: str
+    data_status: str
+    canonical_source: str
+    last_synced_at: Optional[str] = None
     conference: Optional[str] = None
     playoff_rank: Optional[int] = None
     wins: Optional[int] = None
@@ -166,6 +169,46 @@ class TeamIntelligenceResponse(BaseModel):
     best_lineups: List[LineupStatsResponse]
     worst_lineups: List[LineupStatsResponse]
     recent_games: List[TeamRecentGame]
+
+
+class TeamPrepQueueItem(BaseModel):
+    game_id: str
+    game_date: Optional[date] = None
+    status: str
+    prep_urgency: str
+    prep_headline: str
+    opponent_abbreviation: Optional[str] = None
+    opponent_name: Optional[str] = None
+    is_home: bool
+    opponent_record: Optional[str] = None
+    opponent_conference: Optional[str] = None
+    opponent_playoff_rank: Optional[int] = None
+    availability_summary: str
+    unavailable_count: int = 0
+    questionable_count: int = 0
+    probable_count: int = 0
+    team_rest_days: Optional[int] = None
+    opponent_rest_days: Optional[int] = None
+    rest_advantage: Optional[int] = None
+    schedule_pressure: str
+    best_edge_label: Optional[str] = None
+    best_edge_summary: Optional[str] = None
+    first_adjustment_label: Optional[str] = None
+    first_adjustment_summary: Optional[str] = None
+    pre_read_url: str
+    scouting_url: str
+    compare_url: str
+
+
+class TeamPrepQueueResponse(BaseModel):
+    team_id: int
+    abbreviation: str
+    name: str
+    season: str
+    data_status: str
+    canonical_source: str
+    generated_at: Optional[str] = None
+    items: List[TeamPrepQueueItem]
 
 
 class TeamFactorRow(BaseModel):

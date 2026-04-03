@@ -28,7 +28,7 @@ Likely shape:
 
 ### Final DB-First Cleanup for Non-Core Reads
 Why it matters:
-Sprint 30 made the main player/profile/career/gamelog/standings surfaces DB-first, but a few secondary routes still lean on `sync_player_if_needed`. That leaves a smaller but still real upstream dependency gap.
+Sprint 30 made the main player/profile/career/gamelog/standings surfaces DB-first, and Sprint 32 moved the modern team-intelligence workflow onto warehouse-backed reads, but a few secondary routes still lean on `sync_player_if_needed`. That leaves a smaller but still real upstream dependency gap.
 
 Likely shape:
 - remove remaining request-time live fetches from advanced/trend-report style routes
@@ -45,6 +45,15 @@ Likely shape:
 - Shot chart date-range filter using per-shot `game_date` to isolate hot/cold streaks
 - Trend arrows on `HomeLeagueLeaders` require a `delta` field on `LeaderboardEntry` from backend
 - Entrance animation polish: stagger fade-up on platform area cards, skeleton loaders shaped to match final layout
+
+### Team Prep Queue Follow-Ons
+Why it matters:
+Sprint 32 gave teams a strong upcoming-opponent queue, but staff workflows will want sharper urgency calibration and a way to preserve the exact prep state for later review.
+
+Likely shape:
+- save prep snapshots by team/opponent/date instead of relying only on live query-state share links
+- calibrate prep urgency and first-action summaries with stronger opponent-aware logic
+- connect prep cards more directly into follow-through film, compare, and game-review workflows
 
 ---
 
@@ -138,10 +147,9 @@ Likely shape:
 
 ### Pre-Read Deck Follow-Ons
 Why it matters:
-The browser deck is stronger after Sprint 27, but staff workflows will still want easier sharing, archiving, and broader decision context.
+The browser deck is stronger after Sprint 27 and Sprint 32, but staff workflows will still want deeper archiving and broader decision context than live links alone can provide.
 
 Likely shape:
-- add export-friendly PDF or share links
 - support saved pre-read snapshots by matchup and date
 - add lineup-specific notes, compare launches, and game-film follow-through links
 

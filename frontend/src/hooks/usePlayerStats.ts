@@ -11,6 +11,7 @@ import type {
   TeamRosterResponse,
   TeamAnalytics,
   TeamIntelligence,
+  TeamPrepQueueResponse,
   TeamRotationReport,
   TeamComparisonResponse,
   TeamFocusLeversReport,
@@ -46,6 +47,7 @@ import {
   getTeamRoster,
   getTeamAnalytics,
   getTeamIntelligence,
+  getTeamPrepQueue,
   getTeamRotationReport,
   getTeamComparison,
   getTeamFocusLevers,
@@ -264,6 +266,19 @@ export function useTeamIntelligence(
       ? `team-intelligence-${teamAbbreviation}-${season}`
       : null,
     () => getTeamIntelligence(teamAbbreviation!, season!)
+  );
+}
+
+export function useTeamPrepQueue(
+  teamAbbreviation: string | null,
+  season: string | null,
+  days = 10
+) {
+  return useSWR<TeamPrepQueueResponse>(
+    teamAbbreviation && season
+      ? `team-prep-queue-${teamAbbreviation}-${season}-${days}`
+      : null,
+    () => getTeamPrepQueue(teamAbbreviation!, season!, days)
   );
 }
 

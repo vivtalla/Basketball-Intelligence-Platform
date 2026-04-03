@@ -257,22 +257,6 @@ CourtVue Labs uses a hybrid sprint model: major feature sprints typically run as
 
 > Full history → `specs/sprint-history.md`
 
-### Sprint 29 — Standings History + Shot Zone Analytics
-**Branch:** `feature/sprint-29-standings-zones` — merged
-
-- Added daily standings snapshots in `team_standings`, `GET /api/standings/history`, and standings-page trend sparklines
-- Shipped player-page and compare-page zone profile analytics from persisted shot-chart data
-- Made `GET /api/shotchart/{player_id}` DB-first with `data_status` and `last_synced_at` metadata for synced/stale/missing states
-- Added queue-backed shot-chart ingestion jobs plus scheduled refresh wiring in `daily_sync.sh`
-
-### Sprint 30 — DB-First Player Reads + Signature Visualization System
-**Branch:** `feature/sprint-30-dbfirst-viz` — merged
-
-- Removed request-time `nba_api` rescue from core player profile, career stats, game-log, and standings reads
-- Added readiness metadata and warehouse coverage/refresh support for the new DB-first domains
-- Shipped the first CourtVue chart-system layer plus premium visualization upgrades across player, compare, and insights
-- Added backend coverage for DB-first read behavior and kept the frontend lint/build pipeline green
-
 ### Sprint 31 — Visual Renaissance
 **Branch:** `feature/sprint-31-visual-renaissance` — merged
 
@@ -282,6 +266,15 @@ CourtVue Labs uses a hybrid sprint model: major feature sprints typically run as
 - Chart harmonization: `CareerArcChart` → `AreaChart` + gradient fills + warm palette; `DualCareerArcChart` and `RadarChart` updated to match design system
 - Homepage hero: full-viewport, CSS court art, staggered fade-up animations, animated `StatCounter`, card glow on hover
 - `StandingsBumpChart`: conference rank over last 30 days on standings page, hover-to-dim, team color legend
+
+### Sprint 32 — Warehouse Team Prep Core
+**Branch:** `master` (direct)
+
+- Canonicalized modern-season team intelligence onto warehouse `games`, `play_by_play_events`, and latest `team_standings`
+- Added team-intelligence readiness metadata (`data_status`, `canonical_source`, `last_synced_at`) so the UI can distinguish fully canonical, partial, and limited states
+- Shipped DB-first `GET /api/teams/{abbr}/prep-queue` plus the new team-page `prep` tab for upcoming-opponent prep cards
+- Added urgency framing, scouting-mode launch, and copyable share links to the new prep workflow
+- Closed the sprint with full backend `pytest`, frontend `npm run lint`, and frontend `npm run build`
 
 ---
 

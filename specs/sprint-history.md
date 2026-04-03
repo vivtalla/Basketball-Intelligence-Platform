@@ -1,11 +1,20 @@
 # Sprint History Archive
 
-Sprints 1–30. Current sprint summaries also live in `CLAUDE.md` under "Recent Sprints".
+Sprints 1–32. Current sprint summaries also live in `CLAUDE.md` under "Recent Sprints".
 
 For detailed per-sprint records, see the individual closeout files in this directory:
-`specs/sprint-09-closeout.md` through `specs/sprint-30-closeout.md`
+`specs/sprint-09-closeout.md` through `specs/sprint-32-closeout.md`
 
 ---
+
+### Sprint 32 — Warehouse Team Prep Core
+**Branch:** `master` (direct)
+
+- Canonicalized modern-season team intelligence onto warehouse `games`, canonical `play_by_play_events`, and latest `team_standings`
+- Added readiness metadata on team intelligence so the UI can distinguish `ready`, `partial`, `limited`, and `missing` states safely
+- Added DB-first `GET /api/teams/{abbr}/prep-queue` to assemble upcoming-opponent prep cards from schedule, standings, availability, compare stories, and focus levers
+- Added the team-page `prep` tab with urgency framing, scouting-mode launch, and copyable pre-read share links
+- Verified the sprint with full backend `pytest` plus frontend `npm run lint` and `npm run build`
 
 ### Sprint 30 — DB-First Player Reads + Signature Visualization System
 **Branch:** `feature/sprint-30-dbfirst-viz`

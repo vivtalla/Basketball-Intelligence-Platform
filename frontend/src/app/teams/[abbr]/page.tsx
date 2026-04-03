@@ -4,10 +4,11 @@ import Image from "next/image";
 import Link from "next/link";
 import { useMemo, useState } from "react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
-import { useTeamAvailability, useTeamRoster, useTeamAnalytics, useTeamFocusLevers, useTeamIntelligence, useTeamRotationReport } from "@/hooks/usePlayerStats";
+import { useTeamAvailability, useTeamPrepQueue, useTeamRoster, useTeamAnalytics, useTeamFocusLevers, useTeamIntelligence, useTeamRotationReport } from "@/hooks/usePlayerStats";
 import AvailabilitySummaryCard from "@/components/AvailabilitySummaryCard";
 import TeamAnalyticsPanel from "@/components/TeamAnalyticsPanel";
 import TeamIntelligencePanel from "@/components/TeamIntelligencePanel";
+import TeamPrepQueuePanel from "@/components/TeamPrepQueuePanel";
 import TeamRotationIntelligencePanel from "@/components/TeamRotationIntelligencePanel";
 import TeamLineupsPanel from "@/components/TeamLineupsPanel";
 import TeamDecisionToolsPanel from "@/components/TeamDecisionToolsPanel";
@@ -25,7 +26,7 @@ function coverageTone(status: "none" | "partial" | "ready") {
   return "bg-[var(--surface-alt)] text-[var(--muted)]";
 }
 
-type Tab = "decision" | "intelligence" | "roster" | "analytics" | "lineups";
+type Tab = "decision" | "prep" | "intelligence" | "roster" | "analytics" | "lineups";
 
 export default function TeamDetailPage() {
   const params = useParams<{ abbr: string }>();
@@ -36,7 +37,7 @@ export default function TeamDetailPage() {
   const [selectedTab, setSelectedTab] = useState<Tab>("intelligence");
   const [selectedSeason, setSelectedSeason] = useState<string>("");
   const activeTab =
-    (activeTabParam && (["decision", "intelligence", "roster", "analytics", "lineups"] as Tab[]).includes(activeTabParam as Tab)
+    (activeTabParam && (["decision", "prep", "intelligence", "roster", "analytics", "lineups"] as Tab[]).includes(activeTabParam as Tab)
       ? (activeTabParam as Tab)
       : selectedTab);
 
@@ -63,6 +64,15 @@ export default function TeamDetailPage() {
   } = useTeamIntelligence(
     activeTab === "intelligence" || activeTab === "decision" ? teamAbbreviation : null,
     effectiveSeason
+  );
+  const {
+    data: prepQueue,
+    isLoading: prepLoading,
+    error: prepError,
+  } = useTeamPrepQueue(
+    activeTab === "prep" ? teamAbbreviation : null,
+    activeTab === "prep" ? effectiveSeason : null,
+    10
   );
   const { data: focusLevers } = useTeamFocusLevers(
     activeTab === "intelligence" || activeTab === "decision" ? teamAbbreviation : null,
@@ -365,7 +375,7 @@ export default function TeamDetailPage() {
 
       {/* Tab bar */}
       <div className="flex rounded-xl overflow-hidden border border-gray-200 dark:border-gray-700 w-fit text-sm">
-        {(["decision", "intelligence", "roster", "analytics", "lineups"] as Tab[]).map((tab) => (
+        {(["decision", "prep", "intelligence", "roster", "analytics", "lineups"] as Tab[]).map((tab) => (
           <button
             key={tab}
             onClick={() => {
@@ -396,6 +406,27 @@ export default function TeamDetailPage() {
             focusLevers={focusLevers ?? null}
             rotationReport={rotationReport ?? null}
           />
+        </section>
+      )}
+
+      {activeTab === "prep" && (
+        <section>
+          {prepLoading && (
+            <div className="space-y-4 animate-pulse">
+              <div className="h-40 rounded-[2rem] bg-gray-200 dark:bg-gray-700" />
+              <div className="grid gap-4 xl:grid-cols-2">
+                {[1, 2].map((item) => (
+                  <div key={item} className="h-72 rounded-[2rem] bg-gray-200 dark:bg-gray-700" />
+                ))}
+              </div>
+            </div>
+          )}
+          {prepError && (
+            <div className="rounded-2xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-6 text-center text-gray-500 dark:text-gray-400">
+              Could not load the prep queue for {effectiveSeason}. The rest of the team room is still available.
+            </div>
+          )}
+          {prepQueue && !prepLoading && <TeamPrepQueuePanel queue={prepQueue} />}
         </section>
       )}
 

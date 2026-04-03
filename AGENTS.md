@@ -1,6 +1,6 @@
 # Agent Coordination
 
-Last updated: 2026-04-02 by Codex (Sprint 30 closeout)
+Last updated: 2026-04-03 by Codex (Sprint 32 closeout)
 
 > Both agents read this file before touching code at the start of every session.
 > The canonical source of truth is the clean `master` checkout at `/Users/viv/Documents/Basketball Intelligence Platform`.
@@ -14,7 +14,7 @@ Last updated: 2026-04-02 by Codex (Sprint 30 closeout)
 
 | Field | Value |
 |-------|-------|
-| Sprint | 32 |
+| Sprint | 33 |
 | Goal | TBD — awaiting Vivek's sprint kickoff |
 | Started | TBD |
 | Target merge | TBD |
@@ -39,12 +39,12 @@ If repo state, sprint numbering, or shipped features appear to disagree across l
 
 ### Claude
 - Branch: not assigned
-- Scope: available for Sprint 32 kickoff
+- Scope: available for Sprint 33 kickoff
 - Status: Not started
 
 ### Codex
 - Branch: not assigned
-- Scope: available for Sprint 32 kickoff
+- Scope: available for Sprint 33 kickoff
 - Status: Not started
 
 ---
@@ -72,12 +72,13 @@ Specs or review notes written by one stream for another. Check this before start
 |-----------|------|----|--------|
 | `specs/data-architecture.md` | Sprint 26 | Next sprint | Reference — read before touching data layer |
 | `specs/sprint-31-closeout.md` | Sprint 31 | Next sprint | Reference — visual renaissance follow-ons and viz seeds |
+| `specs/sprint-32-closeout.md` | Sprint 32 | Next sprint | Reference — warehouse team-prep follow-ons and DB-first team intelligence notes |
 
 ---
 
 ## Merge Order
 
-1. TBD at Sprint 32 kickoff
+1. TBD at Sprint 33 kickoff
 
 ---
 
@@ -85,7 +86,7 @@ Specs or review notes written by one stream for another. Check this before start
 
 | Files / Directories | Assigned this sprint |
 |---------------------|----------------------|
-| To be defined at Sprint 32 kickoff | — |
+| To be defined at Sprint 33 kickoff | — |
 
 ---
 
@@ -158,6 +159,7 @@ Specs or review notes written by one stream for another. Check this before start
 
 *Free-form, dated, newest first. Use this for coordination and repo-state exceptions.*
 
+2026-04-03 (Codex): Sprint 32 closed on `master` as a single-stream sprint. Shipped warehouse-backed modern team intelligence, readiness metadata on team intelligence, the DB-first prep queue endpoint, and the new team-page prep workflow with urgency framing, scouting-mode launch, and share links. Closeout verification covered full backend `pytest` plus frontend `npm run lint` and `npm run build`. See `specs/sprint-32-closeout.md` before Sprint 33 kickoff.
 2026-04-03 (Claude): Sprint 31 closed on `feature/sprint-31-visual-renaissance`. Shipped hexbin shot chart, ZoneAnnotationCourt, PerformanceCalendar, full chart harmonization (CareerArcChart/DualCareerArcChart/RadarChart), homepage visual redesign, and StandingsBumpChart. Frontend-only sprint, no Codex branch. See `specs/sprint-31-closeout.md` before Sprint 32 kickoff.
 2026-04-02 (Codex): Sprint 30 closed on `feature/sprint-30-dbfirst-viz`. Shipped DB-first player/career/gamelog/standings reads with readiness metadata, queue-backed enrichment coverage, and the first CourtVue signature visualization layer across player, compare, and insights. See `specs/sprint-30-closeout.md` before Sprint 31 kickoff.
 2026-04-02 (Codex): Sprint 29 closeout prepared on `feature/sprint-29-standings-zones`. Shipped standings history/trend lines plus shot zone analytics, then hardened shot-chart reads to be DB-first with queued warehouse-backed sync. Local closeout verification covered backend standings/shot-chart APIs and frontend route smoke checks; `pytest` was still unavailable in `backend/venv`, so backend test execution remains a noted gap.

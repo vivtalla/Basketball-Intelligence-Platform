@@ -6,6 +6,7 @@ import type {
   TeamRosterResponse,
   TeamAnalytics,
   TeamIntelligence,
+  TeamPrepQueueResponse,
   StandingsEntry,
   BreakoutsResponse,
   PercentileResult,
@@ -245,6 +246,16 @@ export async function getTeamIntelligence(
 ): Promise<TeamIntelligence> {
   return fetchApi<TeamIntelligence>(
     `/api/teams/${encodeURIComponent(teamAbbreviation)}/intelligence?season=${encodeURIComponent(season)}`
+  );
+}
+
+export async function getTeamPrepQueue(
+  teamAbbreviation: string,
+  season: string,
+  days = 10
+): Promise<TeamPrepQueueResponse> {
+  return fetchApi<TeamPrepQueueResponse>(
+    `/api/teams/${encodeURIComponent(teamAbbreviation)}/prep-queue?season=${encodeURIComponent(season)}&days=${days}`
   );
 }
 
