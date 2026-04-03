@@ -22,6 +22,7 @@ import LineupComparisonView from "@/components/LineupComparisonView";
 import StyleComparisonView from "@/components/StyleComparisonView";
 import ShotProfileDuel from "@/components/ShotProfileDuel";
 import ChartStatusBadge from "@/components/ChartStatusBadge";
+import PerformanceCalendar from "@/components/PerformanceCalendar";
 
 interface PlayerSlotProps {
   slotLabel: string;
@@ -470,6 +471,10 @@ function ComparePageInner() {
                   isLoading={zoneBLoading}
                   playerLabel={profile2!.full_name}
                 />
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <PerformanceCalendar playerId={profile1!.id} season={season} />
+                <PerformanceCalendar playerId={profile2!.id} season={season} />
               </div>
             </>
           ) : null}

@@ -632,3 +632,23 @@ class TeamStanding(Base):
     updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
 
     team = relationship("Team")
+
+
+class PreReadSnapshot(Base):
+    __tablename__ = "pre_read_snapshots"
+    __table_args__ = (
+        UniqueConstraint("snapshot_id", name="uq_pre_read_snapshot_id"),
+        Index("ix_pre_read_snapshots_matchup", "team_abbreviation", "opponent_abbreviation", "season"),
+        Index("ix_pre_read_snapshots_created", "created_at"),
+    )
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    snapshot_id = Column(String(36), nullable=False)
+    team_abbreviation = Column(String(10), nullable=False)
+    opponent_abbreviation = Column(String(10), nullable=False)
+    season = Column(String(10), nullable=False)
+    game_id = Column(String(20))
+    saved_from = Column(String(50))
+    payload = Column(JSON, nullable=False)
+    created_at = Column(DateTime, server_default=func.now())
+    updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())

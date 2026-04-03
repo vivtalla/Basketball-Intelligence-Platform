@@ -17,6 +17,8 @@ import type {
   TeamFocusLeversReport,
   UsageEfficiencyResponse,
   PreReadDeckResponse,
+  PreReadSnapshotListResponse,
+  PreReadSnapshotResponse,
   StandingsEntry,
   BreakoutsResponse,
   PercentileResult,
@@ -36,6 +38,9 @@ import type {
   UpcomingScheduleGame,
   PersistedZoneProfileResponse,
   WarehouseReadinessSummary,
+  WhatIfScenarioResponse,
+  StyleXRayResponse,
+  PlayTypeScoutingReportResponse,
 } from "@/lib/types";
 import {
   getPlayerProfile,
@@ -53,6 +58,8 @@ import {
   getTeamFocusLevers,
   getUsageEfficiencyReport,
   getPreReadDeck,
+  getPreReadSnapshots,
+  getPreReadSnapshot,
   getStandings,
   getBreakouts,
   getPlayerPercentiles,
@@ -72,6 +79,9 @@ import {
   getUpcomingSchedule,
   getPersistedPlayerZoneProfile,
   getWarehouseReadinessSummary,
+  postWhatIfScenario,
+  getStyleXRay,
+  getPlayTypeScoutingReport,
 } from "@/lib/api";
 
 export function usePlayerProfile(playerId: number | null) {
@@ -329,11 +339,77 @@ export function useUsageEfficiencyReport(
 export function usePreReadDeck(
   team: string | null,
   opponent: string | null,
-  season: string | null
+  season: string | null,
+  snapshotId?: string | null
 ) {
   return useSWR<PreReadDeckResponse>(
-    team && opponent && season ? `pre-read-${team}-${opponent}-${season}` : null,
-    () => getPreReadDeck(team!, opponent!, season!)
+    snapshotId || (team && opponent && season)
+      ? `pre-read-${snapshotId ?? `${team}-${opponent}-${season}`}`
+      : null,
+    () => getPreReadDeck(team ?? "", opponent ?? "", season ?? "", snapshotId ?? undefined)
+  );
+}
+
+export function usePreReadSnapshots(
+  team: string | null,
+  opponent: string | null,
+  season: string | null,
+  limit = 8
+) {
+  return useSWR<PreReadSnapshotListResponse>(
+    team && opponent && season ? `pre-read-snapshots-${team}-${opponent}-${season}-${limit}` : null,
+    () => getPreReadSnapshots(team!, opponent!, season!, limit)
+  );
+}
+
+export function usePreReadSnapshot(snapshotId: string | null) {
+  return useSWR<PreReadSnapshotResponse>(
+    snapshotId ? `pre-read-snapshot-${snapshotId}` : null,
+    () => getPreReadSnapshot(snapshotId!)
+  );
+}
+
+export function useWhatIfScenario(
+  payload:
+    | {
+        team: string;
+        season: string;
+        scenario_type: string;
+        delta: number;
+        window?: number;
+        opponent?: string;
+        context?: Record<string, string>;
+      }
+    | null
+) {
+  return useSWR<WhatIfScenarioResponse>(
+    payload
+      ? `what-if-${payload.team}-${payload.season}-${payload.scenario_type}-${payload.delta}-${payload.window ?? 10}-${payload.opponent ?? "none"}-${payload.context?.source_view ?? "none"}-${payload.context?.snapshot_id ?? "none"}`
+      : null,
+    () => postWhatIfScenario(payload!)
+  );
+}
+
+export function useStyleXRay(
+  team: string | null,
+  season: string | null,
+  window = 10,
+  opponent?: string | null
+) {
+  return useSWR<StyleXRayResponse>(
+    team && season ? `style-xray-${team}-${season}-${window}-${opponent ?? "none"}` : null,
+    () => getStyleXRay(team!, season!, window, opponent ?? undefined)
+  );
+}
+
+export function usePlayTypeScoutingReport(
+  team: string | null,
+  opponent: string | null,
+  season: string | null
+) {
+  return useSWR<PlayTypeScoutingReportResponse>(
+    team && opponent && season ? `scouting-play-types-${team}-${opponent}-${season}` : null,
+    () => getPlayTypeScoutingReport(team!, opponent!, season!)
   );
 }
 

@@ -22,6 +22,7 @@ function InsightsPageInner() {
       ? (modeParam as Mode)
       : "trajectory";
   const team = searchParams.get("team") ?? "OKC";
+  const opponent = searchParams.get("opponent") ?? "";
   const season = searchParams.get("season") ?? "2024-25";
   const priorSeasonIndex = SEASONS.indexOf(season);
   const priorSeason =
@@ -52,7 +53,7 @@ function InsightsPageInner() {
             </p>
           </div>
 
-          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
             <label className="space-y-2">
               <span className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--muted)]">Team</span>
               <select
@@ -81,8 +82,28 @@ function InsightsPageInner() {
                 ))}
               </select>
             </label>
+            <label className="space-y-2">
+              <span className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--muted)]">Opponent</span>
+              <select
+                value={opponent}
+                onChange={(event) => updateParams((params) => {
+                  if (event.target.value) params.set("opponent", event.target.value);
+                  else params.delete("opponent");
+                })}
+                className="bip-input w-full rounded-2xl px-4 py-3 text-sm"
+              >
+                <option value="">Optional matchup context</option>
+                {(teams ?? [])
+                  .filter((entry) => entry.abbreviation !== team)
+                  .map((entry) => (
+                    <option key={entry.abbreviation} value={entry.abbreviation}>
+                      {entry.abbreviation} · {entry.name}
+                    </option>
+                  ))}
+              </select>
+            </label>
             <div className="rounded-2xl border border-[var(--border)] bg-[rgba(255,255,255,0.72)] px-4 py-3 text-sm text-[var(--muted-strong)]">
-              Current context: {team} · {season}
+              Current context: {team} · {season}{opponent ? ` · vs ${opponent}` : ""}
             </div>
           </div>
         </div>
@@ -147,6 +168,7 @@ function InsightsPageInner() {
         <WhatIfPanel
           teamAbbreviation={team}
           season={season}
+          opponentAbbreviation={opponent || null}
           currentAnalytics={currentAnalytics ?? null}
           priorAnalytics={priorAnalytics ?? null}
         />

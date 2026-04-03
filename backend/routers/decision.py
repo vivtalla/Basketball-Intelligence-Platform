@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import math
+import statistics
 from collections import defaultdict
 from typing import Dict, List, Optional, Tuple
 
@@ -521,8 +522,8 @@ def build_matchup_flags_report(
     comparison = build_team_comparison_report(db=db, team_a=team.abbreviation, team_b=opponent.abbreviation, season=season)
     team_style = build_team_style_profile(db=db, abbr=team.abbreviation, season=season, window=10, opponent_abbr=opponent.abbreviation)
     opponent_style = build_team_style_profile(db=db, abbr=opponent.abbreviation, season=season, window=10, opponent_abbr=team.abbreviation)
-    team_rotation = build_team_rotation_report(db=db, abbr=team.abbreviation, season=season)
-    opponent_rotation = build_team_rotation_report(db=db, abbr=opponent.abbreviation, season=season)
+    team_rotation = build_team_rotation_report(db=db, team=team, season=season)
+    opponent_rotation = build_team_rotation_report(db=db, team=opponent, season=season)
 
     team_rows = {row.stat_id: row for row in team_style.opponent_comparison}
     style_rows = {row.stat_id: row for row in comparison.rows}

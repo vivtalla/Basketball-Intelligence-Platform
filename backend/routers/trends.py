@@ -16,8 +16,12 @@ from models.trends import (
     TrendCardsResponse,
     TrendSeriesPoint,
     WhatIfComparablePattern,
+    WhatIfContext,
+    WhatIfDriverFeature,
+    WhatIfLaunchLinks,
     WhatIfRequest,
     WhatIfResponse,
+    WhatIfStyleImplication,
 )
 from routers.styles import build_style_xray_report, build_team_style_profile
 from services.team_rotation_service import build_team_rotation_report
@@ -262,7 +266,11 @@ def build_trend_cards_report(db: Session, team_abbr: str, season: str, window_ga
     return response
 
 
-def _scenario_driver_features(profile: Dict[str, Optional[float]], scenario_type: str) -> List[str]:
+def _scenario_driver_features(
+    profile: Dict[str, Optional[float]],
+    league_reference: Dict[str, Optional[float]],
+    scenario_type: str,
+) -> List[WhatIfDriverFeature]:
     mapping = {
         "reduce_iso_proxy": ["turnover_rate", "paint_pressure_proxy", "ts_pct"],
         "increase_pnr_proxy": ["assist_rate", "ts_pct", "three_point_rate"],
@@ -271,18 +279,63 @@ def _scenario_driver_features(profile: Dict[str, Optional[float]], scenario_type
         "increase_oreb": ["oreb_rate", "paint_pressure_proxy", "off_rating"],
     }
     features = mapping.get(scenario_type, ["net_rating", "ts_pct", "pace"])
-    return ["{0}: {1}".format(metric, _safe_round(profile.get(metric), 2)) for metric in features]
+    labels = {
+        "turnover_rate": "Turnover Rate",
+        "paint_pressure_proxy": "Paint Pressure Proxy",
+        "ts_pct": "True Shooting%",
+        "assist_rate": "Assist Rate",
+        "three_point_rate": "3PA Rate",
+        "pace": "Pace",
+        "def_rating": "Defensive Rating",
+        "oreb_rate": "Offensive Rebound Rate",
+        "off_rating": "Offensive Rating",
+        "net_rating": "Net Rating",
+    }
+    rows = []
+    for metric in features:
+        value = profile.get(metric)
+        reference = league_reference.get(metric)
+        note = "Directional only until more samples are synced."
+        if value is not None and reference is not None:
+            note = (
+                "Above the league baseline."
+                if value >= reference
+                else "Below the league baseline and worth testing."
+            )
+        rows.append(
+            WhatIfDriverFeature(
+                metric_id=metric,
+                label=labels.get(metric, metric.replace("_", " ").title()),
+                value=_safe_round(value, 3),
+                league_reference=_safe_round(reference, 3),
+                note=note,
+            )
+        )
+    return rows
+
+
+def _scenario_label(scenario_type: str) -> str:
+    labels = {
+        "reduce_iso_proxy": "Reduce turnovers",
+        "increase_pnr_proxy": "Protect shot quality",
+        "raise_3pa_rate": "Raise 3PA rate",
+        "slow_pace": "Change pace",
+        "increase_oreb": "Increase offensive rebounding",
+    }
+    return labels.get(scenario_type, scenario_type.replace("_", " ").title())
 
 
 def build_what_if_report(db: Session, payload: WhatIfRequest) -> WhatIfResponse:
     team = _fetch_team(db, payload.team)
     watermark = _season_watermark(db, payload.season)
-    cache_key = "what_if:{0}:{1}:{2}:{3}:{4}:{5}".format(
+    cache_key = "what_if:{0}:{1}:{2}:{3}:{4}:{5}:{6}:{7}".format(
         team.abbreviation,
         payload.season,
         payload.scenario_type,
         payload.delta,
         payload.window,
+        payload.opponent or "none",
+        payload.context.get("source_view", ""),
         watermark,
     )
     cached = CacheManager.get(cache_key)
@@ -290,22 +343,52 @@ def build_what_if_report(db: Session, payload: WhatIfRequest) -> WhatIfResponse:
         return WhatIfResponse(**cached)
 
     profile = build_team_style_profile(db=db, abbr=team.abbreviation, season=payload.season, window=payload.window, opponent_abbr=payload.opponent)
-    xray = build_style_xray_report(db=db, abbr=team.abbreviation, season=payload.season, window=payload.window)
+    xray = build_style_xray_report(
+        db=db,
+        abbr=team.abbreviation,
+        season=payload.season,
+        window=payload.window,
+        opponent_abbr=payload.opponent,
+    )
     current = {row.metric_id: row.team_value for row in profile.current_profile}
     league_reference = {row.metric_id: row.league_reference for row in profile.current_profile}
     if payload.scenario_type not in {"reduce_iso_proxy", "increase_pnr_proxy", "raise_3pa_rate", "slow_pace", "increase_oreb"}:
         warnings = ["Unsupported scenario type '{0}'.".format(payload.scenario_type)]
         return WhatIfResponse(
+            data_status="missing",
+            canonical_source="warehouse-style-engine",
+            context=WhatIfContext(
+                team=team.abbreviation,
+                season=payload.season,
+                window=payload.window,
+                opponent=payload.opponent,
+                source_view=payload.context.get("source_view"),
+                source_snapshot_id=payload.context.get("snapshot_id"),
+            ),
             team_abbreviation=team.abbreviation,
             season=payload.season,
             scenario_type=payload.scenario_type,
+            scenario_label=_scenario_label(payload.scenario_type),
             delta=payload.delta,
             expected_direction="neutral",
+            summary="This scenario type is not supported by the current decision engine.",
+            directional_note="Choose one of the bounded scenario levers surfaced in the UI.",
             confidence="low",
             lower_bound=None,
             upper_bound=None,
             driver_features=[],
             comparable_patterns=[],
+            style_implication=WhatIfStyleImplication(
+                archetype=xray.archetype,
+                label_reason=xray.label_reason,
+                stability=xray.stability,
+                relevant_contributors=[item.label for item in xray.feature_contributors[:3]],
+            ),
+            launch_links=WhatIfLaunchLinks(
+                prep_url="/teams/{0}?tab=prep&season={1}".format(team.abbreviation, payload.season),
+                compare_url="/compare?mode=styles&team_a={0}&team_b={0}&season={1}".format(team.abbreviation, payload.season),
+                style_xray_url="/insights?tab=whatif&team={0}&season={1}".format(team.abbreviation, payload.season),
+            ),
             warnings=warnings,
         )
 
@@ -345,30 +428,96 @@ def build_what_if_report(db: Session, payload: WhatIfRequest) -> WhatIfResponse:
         comparable_patterns.append(
             WhatIfComparablePattern(
                 team_abbreviation=neighbor.team_abbreviation,
+                team_name=neighbor.team_name,
                 season=payload.season,
+                archetype=neighbor.archetype,
                 summary=neighbor.summary,
                 distance=neighbor.distance,
             )
         )
 
-    driver_features = _scenario_driver_features(current, payload.scenario_type)
+    driver_features = _scenario_driver_features(current, league_reference, payload.scenario_type)
     warnings: List[str] = []
     if payload.window < 5:
         warnings.append("The scenario window is small, so the confidence band stays wide.")
     if not comparable_patterns:
         warnings.append("Comparable-pattern support is thin for this scenario.")
+    directional_note = None
+    if payload.opponent and not profile.opponent_comparison:
+        directional_note = "Opponent-aware framing is limited because matchup comparison rows are still sparse."
+        warnings.append(directional_note)
+    elif not payload.opponent:
+        directional_note = "No opponent was selected, so this stays as a team-only directional scenario."
+
+    if not comparable_patterns:
+        data_status = "limited"
+    elif warnings:
+        data_status = "partial"
+    else:
+        data_status = "ready"
+    scenario_label = _scenario_label(payload.scenario_type)
+    style_implication = WhatIfStyleImplication(
+        archetype=xray.archetype,
+        label_reason=xray.label_reason,
+        stability=xray.stability,
+        opposing_tension=(
+            "The opponent comparison is strong enough to make this matchup-specific."
+            if payload.opponent and profile.opponent_comparison
+            else None
+        ),
+        relevant_contributors=[item.label for item in xray.feature_contributors[:3]],
+    )
+    prep_url = (
+        "/pre-read?team={0}&opponent={1}&season={2}".format(team.abbreviation, payload.opponent, payload.season)
+        if payload.opponent
+        else "/teams/{0}?tab=prep&season={1}".format(team.abbreviation, payload.season)
+    )
+    compare_target = payload.opponent or (xray.nearest_neighbors[0].team_abbreviation if xray.nearest_neighbors else team.abbreviation)
+    summary = "{0} suggests a {1} outcome band of {2} to {3}.".format(
+        scenario_label,
+        expected_direction,
+        _safe_round(lower_bound, 2),
+        _safe_round(upper_bound, 2),
+    )
 
     response = WhatIfResponse(
+        data_status=data_status,  # type: ignore[arg-type]
+        canonical_source="warehouse-style-engine",
+        context=WhatIfContext(
+            team=team.abbreviation,
+            season=payload.season,
+            window=payload.window,
+            opponent=payload.opponent,
+            source_view=payload.context.get("source_view"),
+            source_snapshot_id=payload.context.get("snapshot_id"),
+        ),
         team_abbreviation=team.abbreviation,
         season=payload.season,
         scenario_type=payload.scenario_type,
+        scenario_label=scenario_label,
         delta=payload.delta,
         expected_direction=expected_direction,
+        summary=summary,
+        directional_note=directional_note,
         confidence=confidence,  # type: ignore[arg-type]
         lower_bound=_safe_round(lower_bound, 2),
         upper_bound=_safe_round(upper_bound, 2),
         driver_features=driver_features,
         comparable_patterns=comparable_patterns,
+        style_implication=style_implication,
+        launch_links=WhatIfLaunchLinks(
+            prep_url=prep_url,
+            compare_url="/compare?mode=styles&team_a={0}&team_b={1}&season={2}".format(
+                team.abbreviation,
+                compare_target,
+                payload.season,
+            ),
+            style_xray_url="/insights?tab=whatif&team={0}&season={1}{2}".format(
+                team.abbreviation,
+                payload.season,
+                "&opponent={0}".format(payload.opponent) if payload.opponent else "",
+            ),
+        ),
         warnings=warnings,
     )
     CacheManager.set(cache_key, response.dict(), 900)

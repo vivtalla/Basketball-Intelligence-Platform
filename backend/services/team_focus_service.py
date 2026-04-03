@@ -94,7 +94,30 @@ def _build_factor_rows(team_rows: List[GameTeamStat], opponent_rows: List[GameTe
     return rows
 
 
-def _build_levers(factor_rows: List[TeamFactorRow]) -> List[TeamFocusLever]:
+def _opponent_phrase(
+    row: TeamFactorRow,
+    opponent_abbr: Optional[str],
+) -> Optional[str]:
+    if not opponent_abbr or row.team_value is None or row.opponent_value is None:
+        return None
+    if row.factor_id == "shooting":
+        if row.opponent_value >= row.team_value:
+            return "{0} has matched or exceeded this scoring lever recently, so forcing harder attempts matters.".format(opponent_abbr)
+        return "{0} has not matched this shot-quality level, so keeping the better looks should travel.".format(opponent_abbr)
+    if row.factor_id == "turnovers":
+        if row.opponent_value <= row.team_value:
+            return "{0} has protected the ball better, so simplifying the first pass and second action matters.".format(opponent_abbr)
+        return "{0} has been looser with possessions, so pressure can create extra transition chances.".format(opponent_abbr)
+    if row.factor_id == "rebounding":
+        if row.opponent_value >= row.team_value:
+            return "{0} can compete on the glass, so finishing possessions early needs extra emphasis.".format(opponent_abbr)
+        return "{0} has been softer on the glass, so second-ball pressure is a real edge.".format(opponent_abbr)
+    if row.opponent_value >= row.team_value:
+        return "{0} can meet this pressure point, so the lever stays important but less one-sided.".format(opponent_abbr)
+    return "{0} is less forceful here, which makes this a cleaner matchup lever.".format(opponent_abbr)
+
+
+def _build_levers(factor_rows: List[TeamFactorRow], opponent_abbr: Optional[str] = None) -> List[TeamFocusLever]:
     priorities: List[Tuple[float, TeamFactorRow]] = []
     for row in factor_rows:
         if row.margin_signal is None:
@@ -123,6 +146,10 @@ def _build_levers(factor_rows: List[TeamFactorRow]) -> List[TeamFocusLever]:
             summary = "The free-throw profile needs more force, so push for more paint touches before settling."
             higher_better = True
 
+        opponent_phrase = _opponent_phrase(row, opponent_abbr)
+        if opponent_phrase:
+            summary = "{0} {1}".format(summary, opponent_phrase)
+
         levers.append(
             TeamFocusLever(
                 title=title,
@@ -135,7 +162,12 @@ def _build_levers(factor_rows: List[TeamFactorRow]) -> List[TeamFocusLever]:
     return levers
 
 
-def build_team_focus_levers_report(db: Session, abbr: str, season: str) -> TeamFocusLeversReport:
+def build_team_focus_levers_report(
+    db: Session,
+    abbr: str,
+    season: str,
+    opponent_abbr: Optional[str] = None,
+) -> TeamFocusLeversReport:
     team = db.query(Team).filter(Team.abbreviation == abbr.upper()).first()
     if not team:
         raise HTTPException(status_code=404, detail="Team '{0}' not found.".format(abbr))
@@ -144,12 +176,20 @@ def build_team_focus_levers_report(db: Session, abbr: str, season: str) -> TeamF
     if not team_rows:
         raise HTTPException(status_code=404, detail="No team game stats found for {0} in {1}.".format(abbr.upper(), season))
 
-    game_ids = [row.game_id for row in team_rows]
-    opponent_rows = (
-        db.query(GameTeamStat)
-        .filter(GameTeamStat.season == season, GameTeamStat.game_id.in_(game_ids), GameTeamStat.team_id != team.id)
-        .all()
-    )
+    if opponent_abbr:
+        opponent = db.query(Team).filter(Team.abbreviation == opponent_abbr.upper()).first()
+        opponent_rows = (
+            db.query(GameTeamStat)
+            .filter(GameTeamStat.season == season, GameTeamStat.team_id == opponent.id if opponent else -1)
+            .all()
+        )
+    else:
+        game_ids = [row.game_id for row in team_rows]
+        opponent_rows = (
+            db.query(GameTeamStat)
+            .filter(GameTeamStat.season == season, GameTeamStat.game_id.in_(game_ids), GameTeamStat.team_id != team.id)
+            .all()
+        )
     league_rows = db.query(GameTeamStat).filter(GameTeamStat.season == season).all()
 
     factor_rows = _build_factor_rows(team_rows, opponent_rows, league_rows)
@@ -158,5 +198,5 @@ def build_team_focus_levers_report(db: Session, abbr: str, season: str) -> TeamF
         team_name=team.name,
         season=season,
         factor_rows=factor_rows,
-        focus_levers=_build_levers(factor_rows),
+        focus_levers=_build_levers(factor_rows, opponent_abbr.upper() if opponent_abbr else None),
     )

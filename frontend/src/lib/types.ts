@@ -619,6 +619,10 @@ export interface TeamPrepQueueItem {
   pre_read_url: string;
   scouting_url: string;
   compare_url: string;
+  follow_through_url: string;
+  game_review_url: string;
+  latest_snapshot_id: string | null;
+  latest_snapshot_share_url: string | null;
 }
 
 export interface TeamPrepQueueResponse {
@@ -1122,14 +1126,42 @@ export interface PreReadSlide {
   bullets: string[];
 }
 
+export interface WorkflowLaunchLinks {
+  pre_read_url: string;
+  scouting_url: string;
+  compare_url: string;
+  prep_url: string;
+  follow_through_url: string;
+  game_review_url: string;
+}
+
+export interface PreReadSnapshotRef {
+  snapshot_id: string;
+  share_url: string;
+  created_at: string;
+}
+
+export interface PreReadPrepContext {
+  prep_item: TeamPrepQueueItem | null;
+  urgency: string | null;
+  headline: string | null;
+}
+
 export interface PreReadDeckResponse {
   season: string;
   team_abbreviation: string;
   opponent_abbreviation: string;
+  data_status: "ready" | "partial" | "limited" | "missing";
+  canonical_source: string;
+  generated_at: string | null;
   focus_levers: TeamFocusLever[];
   matchup_advantages: string[];
   adjustments: PreReadAdjustment[];
   slides: PreReadSlide[];
+  launch_links: WorkflowLaunchLinks;
+  prep_context: PreReadPrepContext | null;
+  snapshot: PreReadSnapshotRef | null;
+  warnings: string[];
 }
 
 export interface ConfidenceSummary {
@@ -1238,6 +1270,7 @@ export interface PlayTypeEVResponse {
 export interface MatchupFlagEvidence {
   label: string;
   value: number | string | null;
+  context?: string | null;
 }
 
 export interface MatchupFlag {
@@ -1289,49 +1322,103 @@ export interface TeamStyleProfileResponse {
 
 export interface StyleNeighbor {
   team_abbreviation: string;
+  team_name: string;
+  archetype: string;
+  net_rating: number | null;
   season: string;
   distance: number;
-  reason: string;
+  summary: string;
+}
+
+export interface StyleScenarioLink {
+  scenario_type: string;
+  title: string;
+  delta: number;
+  rationale: string;
+  what_if_payload: Record<string, string>;
 }
 
 export interface StyleXRayResponse {
+  data_status: "ready" | "partial" | "limited" | "missing";
+  canonical_source: string;
   team_abbreviation: string;
+  team_name: string;
   season: string;
-  window: number;
+  window_games: number;
   archetype: string;
+  label_reason: string;
   stability: string;
-  feature_contributors: StyleMetric[];
+  feature_contributors: Array<{
+    metric_id: string;
+    label: string;
+    value: number | null;
+    share: number | null;
+    note: string;
+  }>;
   nearest_neighbors: StyleNeighbor[];
-  adjacent_archetypes: string[];
+  adjacent_archetypes: StyleNeighbor[];
+  scenario_links: StyleScenarioLink[];
+  launch_links: {
+    prep_url: string | null;
+    compare_url: string;
+  };
+  source_context: Record<string, string> | null;
   warnings: string[];
 }
 
 export interface ScenarioDriverFeature {
+  metric_id: string;
   label: string;
-  weight: number | null;
-  explanation: string;
+  value: number | null;
+  league_reference: number | null;
+  note: string;
 }
 
 export interface ScenarioComparablePattern {
-  label: string;
+  team_abbreviation: string;
+  team_name: string | null;
   season: string;
+  archetype: string | null;
   summary: string;
+  distance: number | null;
 }
 
 export interface WhatIfScenarioResponse {
+  data_status: "ready" | "partial" | "limited" | "missing";
+  canonical_source: string;
+  context: {
+    team: string;
+    season: string;
+    window: number;
+    opponent: string | null;
+    source_view: string | null;
+    source_snapshot_id: string | null;
+  };
   team_abbreviation: string;
   season: string;
   scenario_type: string;
+  scenario_label: string;
   delta: number;
   expected_direction: string;
-  confidence: ConfidenceSummary;
-  range: {
-    low: number | null;
-    median: number | null;
-    high: number | null;
-  };
+  summary: string;
+  directional_note: string | null;
+  confidence: "high" | "medium" | "low";
+  lower_bound: number | null;
+  upper_bound: number | null;
   driver_features: ScenarioDriverFeature[];
   comparable_patterns: ScenarioComparablePattern[];
+  style_implication: {
+    archetype: string;
+    label_reason: string;
+    stability: string;
+    opposing_tension: string | null;
+    relevant_contributors: string[];
+  };
+  launch_links: {
+    prep_url: string | null;
+    compare_url: string;
+    style_xray_url: string;
+  };
   warnings: string[];
 }
 
@@ -1371,23 +1458,61 @@ export interface ScoutingClaim {
   summary: string;
   evidence: MatchupFlagEvidence[];
   drilldowns: InsightDrilldown[];
+  clip_anchor_ids: string[];
 }
 
 export interface ScoutingSection {
+  eyebrow: string;
   title: string;
   claims: ScoutingClaim[];
+}
+
+export interface ScoutingClipAnchor {
+  clip_anchor_id: string;
+  claim_id: string;
+  game_id: string;
+  game_date: string | null;
+  opponent_abbreviation: string | null;
+  event_id: number | null;
+  action_number: number | null;
+  period: number | null;
+  clock: string | null;
+  title: string;
+  reason: string;
+  evidence_summary: string;
+  deep_link_url: string;
 }
 
 export interface PlayTypeScoutingReportResponse {
   team_abbreviation: string;
   opponent_abbreviation: string;
   season: string;
-  report: string;
+  data_status: "ready" | "partial" | "limited" | "missing";
   sections: ScoutingSection[];
-  print_meta: {
-    title: string;
-    subtitle: string;
+  clip_anchors: ScoutingClipAnchor[];
+  launch_context: {
+    pre_read_url: string;
+    scouting_url: string;
+    compare_url: string;
+    export_url: string;
   };
+  print_meta: {
+    report_title: string;
+    season: string;
+    format: string;
+    generated_from: string;
+  };
+  warnings: string[];
+}
+
+export interface ScoutingClipExportResponse {
+  team_abbreviation: string;
+  opponent_abbreviation: string;
+  season: string;
+  data_status: "ready" | "partial" | "limited" | "missing";
+  export_title: string;
+  clip_count: number;
+  clip_anchors: ScoutingClipAnchor[];
   warnings: string[];
 }
 
@@ -1515,6 +1640,38 @@ export interface TeamAvailabilityResponse {
 export interface PreReadDeckResponse {
   team_availability: TeamAvailabilityResponse;
   opponent_availability: TeamAvailabilityResponse;
+}
+
+export interface PreReadSnapshotSummary {
+  snapshot_id: string;
+  share_url: string;
+  created_at: string;
+  team_abbreviation: string;
+  opponent_abbreviation: string;
+  season: string;
+  game_id: string | null;
+  prep_headline: string | null;
+  saved_from: string | null;
+}
+
+export interface PreReadSnapshotResponse {
+  snapshot_id: string;
+  share_url: string;
+  created_at: string;
+  context: {
+    team_abbreviation: string;
+    opponent_abbreviation: string;
+    season: string;
+    game_id: string | null;
+    source_view: string | null;
+    source_snapshot_id: string | null;
+    extras: Record<string, string>;
+  };
+  deck: PreReadDeckResponse;
+}
+
+export interface PreReadSnapshotListResponse {
+  items: PreReadSnapshotSummary[];
 }
 
 // Sprint 28 — Compare Availability

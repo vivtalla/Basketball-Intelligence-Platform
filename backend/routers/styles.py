@@ -20,8 +20,10 @@ from models.styles import (
     StyleComparisonEntity,
     StyleComparisonResponse,
     StyleFeatureContributor,
+    StyleLaunchLinks,
     StyleMetricRow,
     StyleNeighbor,
+    StyleScenarioLink,
     StyleScenarioBin,
     StyleXRayResponse,
     TeamStyleProfileResponse,
@@ -544,10 +546,14 @@ def build_style_xray_report(
     abbr: str,
     season: str,
     window: int = 10,
+    opponent_abbr: Optional[str] = None,
 ) -> StyleXRayResponse:
     team = _fetch_team(db, abbr)
     watermark = _season_watermark(db, season)
-    cache_key = _style_cache_key("style_xray", [team.abbreviation, season, str(window), watermark])
+    cache_key = _style_cache_key(
+        "style_xray",
+        [team.abbreviation, season, str(window), opponent_abbr or "none", watermark],
+    )
     cached = CacheManager.get(cache_key)
     if cached:
         return StyleXRayResponse(**cached)
@@ -557,7 +563,7 @@ def build_style_xray_report(
         raise HTTPException(status_code=404, detail="No style profile could be built for {0} in {1}.".format(team.abbreviation, season))
 
     current_metrics = all_profiles[team.id]
-    recent_report = build_team_style_profile(db=db, abbr=abbr, season=season, window=window)
+    recent_report = build_team_style_profile(db=db, abbr=abbr, season=season, window=window, opponent_abbr=opponent_abbr)
     recent_metrics = {row.metric_id: row.recent_value for row in recent_report.recent_drift}
     means: Dict[str, float] = {}
     stds: Dict[str, float] = {}
@@ -630,16 +636,88 @@ def build_style_xray_report(
     if recent_report.warnings:
         warnings.extend(recent_report.warnings[:2])
 
+    if not nearest_neighbors:
+        data_status = "limited"
+    elif warnings:
+        data_status = "partial"
+    else:
+        data_status = "ready"
+
+    scenario_links = [
+        StyleScenarioLink(
+            scenario_type="reduce_iso_proxy",
+            title="Trim live-ball creation risk",
+            delta=2.0,
+            rationale="Use this when turnover pressure or shaky creation is shaping the archetype.",
+            what_if_payload={
+                "team": team.abbreviation,
+                "season": season,
+                "window": str(window),
+                "scenario_type": "reduce_iso_proxy",
+                "delta": "2.0",
+                "opponent": opponent_abbr or "",
+            },
+        ),
+        StyleScenarioLink(
+            scenario_type="raise_3pa_rate",
+            title="Raise spacing volume",
+            delta=0.03,
+            rationale="Useful when the archetype is missing enough perimeter pressure to bend help.",
+            what_if_payload={
+                "team": team.abbreviation,
+                "season": season,
+                "window": str(window),
+                "scenario_type": "raise_3pa_rate",
+                "delta": "0.03",
+                "opponent": opponent_abbr or "",
+            },
+        ),
+        StyleScenarioLink(
+            scenario_type="increase_oreb",
+            title="Chase second possessions",
+            delta=0.02,
+            rationale="Use this when the current style is short on margin-creating second balls.",
+            what_if_payload={
+                "team": team.abbreviation,
+                "season": season,
+                "window": str(window),
+                "scenario_type": "increase_oreb",
+                "delta": "0.02",
+                "opponent": opponent_abbr or "",
+            },
+        ),
+    ]
+    compare_url = "/compare?mode=styles&team_a={0}&team_b={1}&season={2}".format(
+        team.abbreviation,
+        opponent_abbr or (nearest_neighbors[0].team_abbreviation if nearest_neighbors else team.abbreviation),
+        season,
+    )
+    prep_url = (
+        "/pre-read?team={0}&opponent={1}&season={2}".format(team.abbreviation, opponent_abbr, season)
+        if opponent_abbr
+        else "/teams/{0}?tab=prep&season={1}".format(team.abbreviation, season)
+    )
+
     response = StyleXRayResponse(
+        data_status=data_status,  # type: ignore[arg-type]
+        canonical_source="warehouse-style-engine",
         team_abbreviation=team.abbreviation,
         team_name=team.name,
         season=season,
+        window_games=window,
         archetype=archetype,
         label_reason=label_reason,
         feature_contributors=contributors,
         nearest_neighbors=nearest_neighbors,
         adjacent_archetypes=adjacent_archetypes,
         stability=stability,  # type: ignore[arg-type]
+        scenario_links=scenario_links,
+        launch_links=StyleLaunchLinks(prep_url=prep_url, compare_url=compare_url),
+        source_context={
+            "team": team.abbreviation,
+            "season": season,
+            "opponent": opponent_abbr or "",
+        },
         warnings=warnings,
     )
     CacheManager.set(cache_key, response.dict(), 900)
@@ -662,6 +740,7 @@ def get_style_xray(
     team: str = Query(...),
     season: str = Query("2025-26"),
     window: int = Query(10, ge=3, le=30),
+    opponent: Optional[str] = Query(None),
     db: Session = Depends(get_db),
 ):
-    return build_style_xray_report(db=db, abbr=team, season=season, window=window)
+    return build_style_xray_report(db=db, abbr=team, season=season, window=window, opponent_abbr=opponent)

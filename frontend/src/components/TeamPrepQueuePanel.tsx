@@ -1,5 +1,6 @@
 import Link from "next/link";
-import { useState } from "react";
+import { useState, useTransition } from "react";
+import { createPreReadSnapshot } from "@/lib/api";
 import type { TeamPrepQueueResponse } from "@/lib/types";
 
 interface TeamPrepQueuePanelProps {
@@ -33,6 +34,8 @@ function urgencyTone(value: string) {
 
 export default function TeamPrepQueuePanel({ queue }: TeamPrepQueuePanelProps) {
   const [copiedGameId, setCopiedGameId] = useState<string | null>(null);
+  const [savedGameId, setSavedGameId] = useState<string | null>(null);
+  const [isSaving, startSaving] = useTransition();
 
   async function copyShareLink(url: string, gameId: string) {
     if (typeof window === "undefined" || !navigator.clipboard) return;
@@ -42,6 +45,29 @@ export default function TeamPrepQueuePanel({ queue }: TeamPrepQueuePanelProps) {
     window.setTimeout(() => {
       setCopiedGameId((current) => (current === gameId ? null : current));
     }, 1600);
+  }
+
+  function saveSnapshot(item: TeamPrepQueueResponse["items"][number]) {
+    startSaving(async () => {
+      try {
+        await createPreReadSnapshot({
+          team: queue.abbreviation,
+          opponent: item.opponent_abbreviation ?? "",
+          season: queue.season,
+          game_id: item.game_id,
+          source_view: "prep-queue-card",
+          context: {
+            prep_urgency: item.prep_urgency,
+          },
+        });
+        setSavedGameId(item.game_id);
+        window.setTimeout(() => {
+          setSavedGameId((current) => (current === item.game_id ? null : current));
+        }, 1800);
+      } catch {
+        setSavedGameId("error");
+      }
+    });
   }
 
   return (
@@ -181,14 +207,38 @@ export default function TeamPrepQueuePanel({ queue }: TeamPrepQueuePanelProps) {
                 >
                   Open team compare
                 </Link>
+                <Link
+                  href={item.follow_through_url}
+                  className="rounded-full border border-[var(--border-strong)] px-4 py-2 text-sm font-medium text-[var(--accent-strong)] transition hover:bg-[rgba(33,72,59,0.08)]"
+                >
+                  Open follow-through
+                </Link>
+                <Link
+                  href={item.game_review_url}
+                  className="rounded-full border border-[var(--border-strong)] px-4 py-2 text-sm font-medium text-[var(--accent-strong)] transition hover:bg-[rgba(33,72,59,0.08)]"
+                >
+                  Open game review
+                </Link>
                 <button
                   type="button"
-                  onClick={() => copyShareLink(item.pre_read_url, item.game_id)}
+                  onClick={() => saveSnapshot(item)}
+                  className="rounded-full border border-[var(--border)] px-4 py-2 text-sm font-medium text-[var(--foreground)] transition hover:bg-[rgba(255,255,255,0.5)]"
+                >
+                  {savedGameId === item.game_id ? "Saved snapshot" : isSaving ? "Saving..." : "Save snapshot"}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => copyShareLink(item.latest_snapshot_share_url ?? item.pre_read_url, item.game_id)}
                   className="rounded-full border border-[var(--border)] px-4 py-2 text-sm font-medium text-[var(--foreground)] transition hover:bg-[rgba(255,255,255,0.5)]"
                 >
                   {copiedGameId === item.game_id ? "Copied link" : "Copy share link"}
                 </button>
               </div>
+              {item.latest_snapshot_share_url ? (
+                <div className="mt-4 text-xs font-semibold uppercase tracking-[0.14em] text-[var(--muted)]">
+                  Latest snapshot: <Link href={item.latest_snapshot_share_url} className="text-[var(--accent-strong)] underline underline-offset-4">{item.latest_snapshot_id?.slice(0, 8)}</Link>
+                </div>
+              ) : null}
             </article>
           ))}
         </section>

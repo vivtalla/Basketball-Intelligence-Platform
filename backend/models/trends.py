@@ -41,20 +41,61 @@ class WhatIfRequest(BaseModel):
 
 class WhatIfComparablePattern(BaseModel):
     team_abbreviation: str
+    team_name: Optional[str] = None
     season: str
+    archetype: Optional[str] = None
     summary: str
     distance: Optional[float] = None
 
 
+class WhatIfDriverFeature(BaseModel):
+    metric_id: str
+    label: str
+    value: Optional[float] = None
+    league_reference: Optional[float] = None
+    note: str
+
+
+class WhatIfStyleImplication(BaseModel):
+    archetype: str
+    label_reason: str
+    stability: str
+    opposing_tension: Optional[str] = None
+    relevant_contributors: List[str] = Field(default_factory=list)
+
+
+class WhatIfLaunchLinks(BaseModel):
+    prep_url: Optional[str] = None
+    compare_url: str
+    style_xray_url: str
+
+
+class WhatIfContext(BaseModel):
+    team: str
+    season: str
+    window: int
+    opponent: Optional[str] = None
+    source_view: Optional[str] = None
+    source_snapshot_id: Optional[str] = None
+
+
 class WhatIfResponse(BaseModel):
+    data_status: Literal["ready", "partial", "limited", "missing"]
+    canonical_source: str
+    context: WhatIfContext
     team_abbreviation: str
     season: str
     scenario_type: str
+    scenario_label: str
     delta: float
     expected_direction: str
+    summary: str
+    directional_note: Optional[str] = None
     confidence: Literal["high", "medium", "low"]
     lower_bound: Optional[float] = None
     upper_bound: Optional[float] = None
-    driver_features: List[str]
+    driver_features: List[WhatIfDriverFeature]
     comparable_patterns: List[WhatIfComparablePattern]
+    style_implication: WhatIfStyleImplication
+    launch_links: WhatIfLaunchLinks
     warnings: List[str]

@@ -198,6 +198,10 @@ class TeamPrepQueueItem(BaseModel):
     pre_read_url: str
     scouting_url: str
     compare_url: str
+    follow_through_url: str
+    game_review_url: str
+    latest_snapshot_id: Optional[str] = None
+    latest_snapshot_share_url: Optional[str] = None
 
 
 class TeamPrepQueueResponse(BaseModel):
