@@ -283,3 +283,14 @@ select {
 .bip-shell :is([class*="hover:bg-gray-50"], [class*="hover:bg-gray-700"], [class*="hover:bg-gray-800"]) {
   --tw-bg-opacity: 1;
 }
+
+/* ─── Sprint 31 animations ─────────────────────────────────────── */
+@keyframes fade-up {
+  from { opacity: 0; transform: translateY(18px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.animate-fade-up {
+  opacity: 0;
+  animation: fade-up 0.55s ease-out forwards;
+}

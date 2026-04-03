@@ -2,8 +2,8 @@
 
 import { useState } from "react";
 import {
-  LineChart,
-  Line,
+  AreaChart,
+  Area,
   XAxis,
   YAxis,
   CartesianGrid,
@@ -14,6 +14,7 @@ import {
   ReferenceLine,
 } from "recharts";
 import type { SeasonStats } from "@/lib/types";
+import { chartPalette } from "@/lib/chart-system";
 
 interface CareerArcChartProps {
   seasons: SeasonStats[];
@@ -28,13 +29,13 @@ interface StatOption {
 }
 
 const STAT_OPTIONS: StatOption[] = [
-  { key: "pts_pg", label: "PPG",  color: "#3b82f6" },
-  { key: "reb_pg", label: "RPG",  color: "#10b981" },
-  { key: "ast_pg", label: "APG",  color: "#f59e0b" },
-  { key: "per",    label: "PER",  color: "#8b5cf6" },
-  { key: "bpm",    label: "BPM",  color: "#ef4444" },
-  { key: "ts_pct", label: "TS%",  color: "#06b6d4", pct: true },
-  { key: "ws",     label: "WS",   color: "#ec4899" },
+  { key: "pts_pg", label: "PPG",  color: chartPalette.accent },
+  { key: "reb_pg", label: "RPG",  color: "#3d6b5a" },
+  { key: "ast_pg", label: "APG",  color: chartPalette.signal },
+  { key: "per",    label: "PER",  color: "#6b5c8f" },
+  { key: "bpm",    label: "BPM",  color: chartPalette.danger },
+  { key: "ts_pct", label: "TS%",  color: "#3d7a7a", pct: true },
+  { key: "ws",     label: "WS",   color: "#7a5c2e" },
 ];
 
 const DEFAULT_ACTIVE = new Set(["pts_pg", "per", "bpm"]);
@@ -106,18 +107,23 @@ export default function CareerArcChart({ seasons, birthDate }: CareerArcChartPro
     });
   }
 
+  const activeStats = STAT_OPTIONS.filter((opt) => active.has(opt.key as string));
+
   return (
-    <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 p-6">
+    <div className="rounded-[2rem] border border-[var(--border)] bg-[linear-gradient(145deg,rgba(247,243,232,0.96),rgba(228,236,232,0.92))] p-6 shadow-[0_18px_48px_rgba(47,43,36,0.07)]">
       <div className="flex flex-wrap items-center justify-between gap-3 mb-5">
         <div className="flex items-center gap-3">
-          <h3 className="font-semibold text-gray-900 dark:text-gray-100">Career Arc</h3>
+          <div>
+            <p className="bip-kicker">Career Trajectory</p>
+            <h3 className="mt-0.5 font-semibold text-[var(--foreground)]">Career Arc</h3>
+          </div>
           {canShowAging && (
             <button
               onClick={() => setShowAging(v => !v)}
-              className={`flex items-center gap-1.5 px-3 py-1 text-xs rounded-full border transition-colors ${
+              className={`px-3 py-1 text-xs rounded-full border transition-colors ${
                 showAging
-                  ? "bg-amber-400 border-amber-400 text-white"
-                  : "bg-white dark:bg-gray-800 text-gray-400 border-gray-200 dark:border-gray-600 hover:border-amber-400 hover:text-amber-500"
+                  ? "bg-[var(--signal)] border-[var(--signal)] text-white"
+                  : "bip-toggle rounded-full"
               }`}
             >
               Aging curve
@@ -133,12 +139,12 @@ export default function CareerArcChart({ seasons, birthDate }: CareerArcChartPro
               <button
                 key={opt.key as string}
                 onClick={() => toggleStat(opt.key as string)}
-                className={`flex items-center gap-1.5 px-3 py-1 text-xs rounded-full border transition-colors ${
+                className="flex items-center gap-1.5 px-3 py-1 text-xs rounded-full border transition-all duration-150"
+                style={
                   on
-                    ? "text-white border-transparent"
-                    : "bg-white dark:bg-gray-800 text-gray-400 border-gray-200 dark:border-gray-600 hover:border-gray-400"
-                }`}
-                style={on ? { backgroundColor: opt.color, borderColor: opt.color } : undefined}
+                    ? { backgroundColor: opt.color, borderColor: opt.color, color: "#fff" }
+                    : { backgroundColor: "rgba(255,251,246,0.9)", borderColor: "var(--border)", color: "var(--muted)" }
+                }
               >
                 {opt.label}
               </button>
@@ -148,23 +154,31 @@ export default function CareerArcChart({ seasons, birthDate }: CareerArcChartPro
       </div>
 
       <ResponsiveContainer width="100%" height={260}>
-        <LineChart data={data} margin={{ top: 4, right: 8, left: -16, bottom: 4 }}>
-          <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" className="dark:stroke-gray-700" />
+        <AreaChart data={data} margin={{ top: 4, right: 8, left: -16, bottom: 4 }}>
+          <defs>
+            {activeStats.map((opt) => (
+              <linearGradient key={opt.key as string} id={`arc-grad-${opt.key as string}`} x1="0" y1="0" x2="0" y2="1">
+                <stop offset="5%"  stopColor={opt.color} stopOpacity={0.18} />
+                <stop offset="95%" stopColor={opt.color} stopOpacity={0} />
+              </linearGradient>
+            ))}
+          </defs>
+          <CartesianGrid strokeDasharray="3 3" stroke={chartPalette.grid} />
           <XAxis
             dataKey="season"
-            tick={{ fontSize: 10, fill: "#9ca3af" }}
+            tick={{ fontSize: 10, fill: "var(--muted)" }}
             angle={-40}
             textAnchor="end"
             height={52}
             interval="preserveStartEnd"
           />
-          <YAxis tick={{ fontSize: 11, fill: "#9ca3af" }} />
+          <YAxis tick={{ fontSize: 11, fill: "var(--muted)" }} />
           <Tooltip
             contentStyle={{
               fontSize: 12,
-              backgroundColor: "var(--tooltip-bg, #fff)",
-              border: "1px solid #e5e7eb",
-              borderRadius: 8,
+              backgroundColor: "rgba(255,251,246,0.96)",
+              border: "1px solid var(--border)",
+              borderRadius: 10,
             }}
             formatter={(value, name) => {
               const opt = STAT_OPTIONS.find((o) => o.key === name);
@@ -185,38 +199,39 @@ export default function CareerArcChart({ seasons, birthDate }: CareerArcChartPro
             <ReferenceArea
               x1={primeStartSeason}
               x2={primeEndSeason}
-              fill="#fbbf24"
-              fillOpacity={0.08}
+              fill={chartPalette.signal}
+              fillOpacity={0.07}
               strokeOpacity={0}
             />
           )}
           {showAging && peakSeason && seasonSet.has(peakSeason) && (
             <ReferenceLine
               x={peakSeason}
-              stroke="#f59e0b"
+              stroke={chartPalette.signal}
               strokeDasharray="4 3"
               strokeWidth={1.5}
-              label={{ value: "Peak (26)", position: "insideTopRight", fontSize: 9, fill: "#f59e0b" }}
+              label={{ value: "Peak (26)", position: "insideTopRight", fontSize: 9, fill: chartPalette.signal }}
             />
           )}
 
-          {STAT_OPTIONS.filter((opt) => active.has(opt.key as string)).map((opt) => (
-            <Line
+          {activeStats.map((opt) => (
+            <Area
               key={opt.key as string}
               type="monotone"
               dataKey={opt.key as string}
               stroke={opt.color}
               strokeWidth={2}
+              fill={`url(#arc-grad-${opt.key as string})`}
               dot={{ r: 3, fill: opt.color }}
               activeDot={{ r: 5 }}
               connectNulls
             />
           ))}
-        </LineChart>
+        </AreaChart>
       </ResponsiveContainer>
 
       {showAging && canShowAging && (
-        <p className="mt-2 text-[10px] text-gray-400 dark:text-gray-500 text-center">
+        <p className="mt-2 text-[10px] text-[var(--muted)] text-center">
           Shaded region = typical NBA prime (ages 24–29) · dashed line = expected peak (age 26) · age shown in tooltip
         </p>
       )}
