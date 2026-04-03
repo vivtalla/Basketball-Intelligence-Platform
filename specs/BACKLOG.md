@@ -26,23 +26,23 @@ Likely shape:
 - add a targeted roster-refresh path to `sync_player_aliases` for two-way and recently moved players
 - keep stub-player creation gated until roster truth is more authoritative
 
-### Standings History / Trend Line
+### DB-First Player Reads
 Why it matters:
-Standings materialization is live, but the product still cannot show whether teams are rising or fading over the last few weeks. That trend framing would make the standings page feel more alive and more useful for game prep.
+Shot charts are now DB-first, but other high-traffic player surfaces still retain request-time `nba_api` fallbacks. That keeps the product vulnerable to upstream outages in the places analysts use most.
 
 Likely shape:
-- add `snapshot_date` column + change unique constraint on `team_standings` from `(team_id, season)` to `(team_id, season, snapshot_date)`
-- update `materialize_standings()` to append daily rows instead of upserting one row per season
-- show a simple last-30-days win-percentage trend line on the standings page
+- remove request-time live fetches from player profile, career stats, and game-log endpoints
+- return explicit readiness states when data is missing instead of silently attempting live rescue
+- keep `nba_api` only in explicit backfill/admin and queued enrichment paths
 
-### Shot Zone Analytics
+### Shot Chart Coverage and Readiness UX
 Why it matters:
-Shot data is now persisted in Postgres with `zone_basic` and `zone_area` fields already in the JSON blob — no new ingestion work needed. Zone-level efficiency comparisons are the next logical product step.
+The product can now render persisted shot charts and zone summaries reliably, but analysts still need better visibility into whether a player is fully synced, stale, or awaiting ingestion.
 
 Likely shape:
-- aggregate `zone_basic` / `zone_area` from `PlayerShotChart.shots` JSON at query time or via a materialized summary
-- add player zone summary panel (paint, mid-range, corner 3, above-the-break 3)
-- add side-by-side zone profile compare view
+- add warehouse coverage/readiness views for shot-chart sync status by season and player
+- improve product messaging for unsynced vs. stale vs. true no-data states
+- add a repeatable current-season refresh/backfill runbook so baseline coverage stays healthy
 
 ---
 
@@ -209,20 +209,11 @@ Likely shape:
 - tighten runbooks around recovery and backfill operations
 - help analysts understand when a workflow is fully trustworthy versus partially covered
 
-### Standings History / Trend Line
+### Shot Data Enrichment
 Why it matters:
-Standings materialization is live, but the product still cannot show whether teams are rising or fading over the last few weeks. That trend framing would make the standings page feel more alive and more useful for game prep.
+The current shot-chart storage supports today’s visuals, but deeper shot-quality analysis will need richer context than x/y, make/miss, and basic zone tags.
 
 Likely shape:
-- add or confirm snapshot semantics for daily standings history instead of one row per `(team_id, season)`
-- show a simple last-30-days win percentage trend line on the standings page
-- keep the visual lightweight and explicit about sample size
-
-### Shot Zone Analytics
-Why it matters:
-Shot data is now persisted in Postgres, which unlocks zone-level scoring efficiency and profile comparisons without new ingestion work.
-
-Likely shape:
-- compute paint, mid-range, corner three, and above-the-break efficiency from stored shot charts
-- add player-facing zone summaries plus side-by-side profile compare views
-- keep the first pass coaching-readable rather than over-optimized for research depth
+- evaluate storing shot-level `game_id`, game date, period/clock, and richer context fields when upstream data supports it
+- decide whether those enrichments should live in the existing JSON payload or a more structured summary table
+- keep the first follow-on targeted to real product use cases instead of collecting fields speculatively

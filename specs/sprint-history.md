@@ -1,9 +1,9 @@
 # Sprint History Archive
 
-Sprints 1–27. Current sprint summaries also live in `CLAUDE.md` under "Recent Sprints".
+Sprints 1–29. Current sprint summaries also live in `CLAUDE.md` under "Recent Sprints".
 
 For detailed per-sprint records, see the individual closeout files in this directory:
-`specs/sprint-09-closeout.md` through `specs/sprint-25-closeout.md`
+`specs/sprint-09-closeout.md` through `specs/sprint-29-closeout.md`
 
 ---
 
@@ -256,6 +256,26 @@ Eliminated live NBA API calls on every player profile load:
 - Added shared theme tokens and reusable utility classes in `frontend/src/app/globals.css`
 - Refreshed app shell + primary workflow pages across home, teams, players, compare, standings, insights, and learn
 - Strengthened text contrast and signal hierarchy
+
+---
+
+### Sprint 28 — Compare Availability + Injury Identity Cleanup
+**Branch:** `feature/sprint-28-compare-availability` — merged
+
+- Added `GET /api/compare/player-availability` and wired compare-page injury status into the player-vs-player workflow
+- Shipped `InjuryStatusBadge`, compare warning banner, and supporting `useCompareAvailability` hook
+- Added unresolved-injury ops endpoints plus `/admin/injuries/unresolved` resolve/dismiss workflow
+- Fixed a pre-existing Next.js state-initialization lint issue on the pre-read page during verification
+
+---
+
+### Sprint 29 — Standings History + Shot Zone Analytics
+**Branch:** `feature/sprint-29-standings-zones` — closeout pending merge
+
+- Added daily standings snapshots, standings history API, and standings-page trend sparklines
+- Added player and compare shot-zone profile surfaces from persisted shot-chart data
+- Made shot-chart reads DB-first with explicit `ready` / `stale` / `missing` states and `last_synced_at`
+- Added queue-backed shot-chart ingestion jobs and daily-sync scheduling so shot-chart freshness no longer depends on request-time fallback
 
 ---
 

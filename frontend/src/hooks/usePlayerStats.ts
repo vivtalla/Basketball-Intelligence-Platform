@@ -5,7 +5,7 @@ import type {
   PlayerProfile,
   CareerStatsResponse,
   PlayerTrendReport,
-  ShotChartResponse,
+  PersistedShotChartResponse,
   LeaderboardResponse,
   TeamSummary,
   TeamRosterResponse,
@@ -33,12 +33,13 @@ import type {
   CareerLeaderboardResponse,
   TeamAvailabilityResponse,
   UpcomingScheduleGame,
+  PersistedZoneProfileResponse,
 } from "@/lib/types";
 import {
   getPlayerProfile,
   getPlayerCareerStats,
   getPlayerTrendReport,
-  getPlayerShotChart,
+  getPersistedPlayerShotChart,
   getLeaderboard,
   getTeams,
   getTeamRoster,
@@ -66,6 +67,7 @@ import {
   getCareerLeaderboard,
   getTeamAvailability,
   getUpcomingSchedule,
+  getPersistedPlayerZoneProfile,
 } from "@/lib/api";
 
 export function usePlayerProfile(playerId: number | null) {
@@ -94,9 +96,9 @@ export function usePlayerShotChart(
   season: string,
   seasonType = "Regular Season"
 ) {
-  return useSWR<ShotChartResponse>(
+  return useSWR<PersistedShotChartResponse>(
     season ? `shot-chart-${playerId}-${season}-${seasonType}` : null,
-    () => getPlayerShotChart(playerId, season, seasonType)
+    () => getPersistedPlayerShotChart(playerId, season, seasonType)
   );
 }
 
@@ -396,8 +398,8 @@ export function useGameSummary(gameId: string | null) {
 
 // ── Sprint 29 hooks ───────────────────────────────────────────────────────────
 
-import type { StandingsHistoryEntry, ZoneProfileResponse } from "@/lib/types";
-import { getStandingsHistory, getPlayerZoneProfile } from "@/lib/api";
+import type { StandingsHistoryEntry } from "@/lib/types";
+import { getStandingsHistory } from "@/lib/api";
 
 export function useStandingsHistory(season: string | null, days = 30) {
   return useSWR<StandingsHistoryEntry[]>(
@@ -411,10 +413,10 @@ export function usePlayerZoneProfile(
   season: string | null,
   seasonType = "Regular Season"
 ) {
-  return useSWR<ZoneProfileResponse>(
+  return useSWR<PersistedZoneProfileResponse>(
     playerId && season
       ? `zone-profile-${playerId}-${season}-${seasonType}`
       : null,
-    () => getPlayerZoneProfile(playerId!, season!, seasonType)
+    () => getPersistedPlayerZoneProfile(playerId!, season!, seasonType)
   );
 }

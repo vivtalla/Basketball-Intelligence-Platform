@@ -26,6 +26,8 @@ from services.warehouse_service import (
     queue_current_season_daily_sync,
     queue_date_sync,
     queue_game_resync,
+    queue_player_shot_chart_sync,
+    queue_season_shot_charts,
     reset_stale_jobs,
     retry_failed_jobs,
     run_next_job,
@@ -149,21 +151,33 @@ def materialize_season_now(season: str = Query(...), db: Session = Depends(get_d
     return materialize_season_aggregates(db, season)
 
 
-@router.post("/sync/shot-charts")
-def sync_shot_charts(
+@router.post("/queue/shot-charts", response_model=QueueResponse)
+def queue_shot_charts(
     season: str = Query(...),
     season_type: str = Query("Regular Season"),
+    player_id: Optional[int] = Query(None),
     force: bool = Query(False),
+    db: Session = Depends(get_db),
 ):
-    """Bulk-populate player_shot_charts from stats.nba.com for all active players.
-
-    Skips players with a valid cached row unless force=True.
-    Runs synchronously — may be slow (0.6s per player).
-    """
     if season_type not in ("Regular Season", "Playoffs"):
         raise HTTPException(status_code=422, detail='season_type must be "Regular Season" or "Playoffs"')
-    from services.bulk_sync_service import sync_shot_charts_for_season
-    return sync_shot_charts_for_season(season, season_type=season_type, force=force)
+    if player_id is not None:
+        jobs = queue_player_shot_chart_sync(
+            db,
+            player_id=player_id,
+            season=season,
+            season_type=season_type,
+            force=force,
+        )
+    else:
+        jobs = queue_season_shot_charts(
+            db,
+            season=season,
+            season_type=season_type,
+            force=force,
+        )
+    db.commit()
+    return QueueResponse(queued=len(jobs), jobs=[_job_response(job) for job in jobs])
 
 
 @router.get("/health/{season}", response_model=WarehouseSeasonHealth)

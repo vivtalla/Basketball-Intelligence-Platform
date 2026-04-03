@@ -257,14 +257,6 @@ CourtVue Labs uses a hybrid sprint model: major feature sprints typically run as
 
 > Full history → `specs/sprint-history.md`
 
-### Sprint 27 — Availability + Upcoming Schedule
-**Branch:** `feature/sprint-27-availability-schedule` — merged
-
-- Added `GET /api/schedule/upcoming` and wired future warehouse games into coaching-facing surfaces
-- Shipped injury-aware team availability on roster pages and structured availability summaries inside pre-read
-- Added official NBA injury-report PDF fallback when the live JSON feed returns `403`
-- Hardened injury identity resolution with player aliases, unresolved-row persistence, and `GET /api/injuries/unresolved`
-
 ### Sprint 28 — Compare Availability + Injury Identity Cleanup
 **Branch:** `feature/sprint-28-compare-availability` — merged
 
@@ -273,6 +265,14 @@ CourtVue Labs uses a hybrid sprint model: major feature sprints typically run as
 - Injury badge under each player name and yellow warning banner when either player is injured
 - `POST /api/injuries/unresolved/{id}/resolve` + `DELETE /api/injuries/unresolved/{id}` endpoints
 - `/admin/injuries/unresolved` page with Resolve (player-search modal) and Dismiss actions
+
+### Sprint 29 — Standings History + Shot Zone Analytics
+**Branch:** `feature/sprint-29-standings-zones` — closeout pending merge
+
+- Added daily standings snapshots in `team_standings`, `GET /api/standings/history`, and standings-page trend sparklines
+- Shipped player-page and compare-page zone profile analytics from persisted shot-chart data
+- Made `GET /api/shotchart/{player_id}` DB-first with `data_status` and `last_synced_at` metadata for synced/stale/missing states
+- Added queue-backed shot-chart ingestion jobs plus scheduled refresh wiring in `daily_sync.sh`
 
 ---
 

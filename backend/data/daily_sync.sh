@@ -3,36 +3,55 @@ set -e
 cd "$(dirname "$0")/.."
 
 SEASON="${1:-2024-25}"
+export SEASON
 LOG=/var/log/bip_sync.log
 
 echo "[$(date -u +%Y-%m-%dT%H:%M:%SZ)] daily_sync start season=$SEASON" >> "$LOG"
 
-# 1. Warehouse ingestion jobs (schedule, box scores, PBP, materialization)
-python data/warehouse_jobs.py --season "$SEASON" --max-jobs 100 >> "$LOG" 2>&1
-
-# 2. Injuries sync — queue a sync_injuries job for today
+# 1. Queue current-season shot chart refresh work
 python - <<'PYEOF' >> "$LOG" 2>&1
 import sys, os
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)) + "/..")
+sys.path.insert(0, os.getcwd())
 from db.database import SessionLocal
-from services.sync_service import sync_injuries
+from services.warehouse_service import queue_season_shot_charts
+season = os.environ.get("SEASON", "2024-25")
 db = SessionLocal()
 try:
-    result = sync_injuries(db, season="$SEASON")
+    jobs = queue_season_shot_charts(db, season=season, season_type="Regular Season", force=False)
+    db.commit()
+    print("queue_season_shot_charts:", {"queued": len(jobs), "job_types": [job.job_type for job in jobs]})
+finally:
+    db.close()
+PYEOF
+
+# 2. Warehouse ingestion jobs (schedule, box scores, PBP, materialization, shot charts)
+python data/warehouse_jobs.py --season "$SEASON" --max-jobs 100 >> "$LOG" 2>&1
+
+# 3. Injuries sync — queue a sync_injuries job for today
+python - <<'PYEOF' >> "$LOG" 2>&1
+import sys, os
+sys.path.insert(0, os.getcwd())
+from db.database import SessionLocal
+from services.sync_service import sync_injuries
+season = os.environ.get("SEASON", "2024-25")
+db = SessionLocal()
+try:
+    result = sync_injuries(db, season=season)
     print("sync_injuries:", result)
 finally:
     db.close()
 PYEOF
 
-# 3. Materialize standings
+# 4. Materialize standings
 python - <<'PYEOF' >> "$LOG" 2>&1
 import sys, os
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)) + "/..")
+sys.path.insert(0, os.getcwd())
 from db.database import SessionLocal
 from services.standings_service import materialize_standings
+season = os.environ.get("SEASON", "2024-25")
 db = SessionLocal()
 try:
-    result = materialize_standings(season="$SEASON", db=db)
+    result = materialize_standings(season=season, db=db)
     print("materialize_standings:", result)
 finally:
     db.close()

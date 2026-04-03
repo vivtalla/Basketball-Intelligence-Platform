@@ -1,11 +1,11 @@
 from __future__ import annotations
 
-from datetime import datetime, timedelta
+from datetime import datetime
+from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 
-from data.nba_client import _cache_ttl_for_season, get_shot_chart_data
 from db.database import get_db
 from db.models import PlayerShotChart
 from models.shotchart import ShotChartResponse, ShotChartShot, ZoneProfileResponse, ZoneStat
@@ -24,7 +24,26 @@ _ZONE_POINTS = {
 }
 
 
-def _build_response(player_id: int, season: str, season_type: str, raw_shots: list) -> ShotChartResponse:
+def _data_status(cached: Optional[PlayerShotChart], now: datetime) -> str:
+    if not cached:
+        return "missing"
+    if cached.expires_at and cached.expires_at > now:
+        return "ready"
+    return "stale"
+
+
+def _last_synced_at(cached: Optional[PlayerShotChart]) -> Optional[str]:
+    return cached.fetched_at.isoformat() if cached and cached.fetched_at else None
+
+
+def _build_response(
+    player_id: int,
+    season: str,
+    season_type: str,
+    raw_shots: list,
+    data_status: str,
+    last_synced_at: Optional[str],
+) -> ShotChartResponse:
     shots = [ShotChartShot(**s) for s in raw_shots]
     made = sum(1 for s in shots if s.shot_made)
     return ShotChartResponse(
@@ -34,6 +53,8 @@ def _build_response(player_id: int, season: str, season_type: str, raw_shots: li
         shots=shots,
         made=made,
         attempted=len(shots),
+        data_status=data_status,
+        last_synced_at=last_synced_at,
     )
 
 
@@ -52,6 +73,7 @@ def player_shot_zones(
     if season_type not in ("Regular Season", "Playoffs"):
         raise HTTPException(status_code=422, detail='season_type must be "Regular Season" or "Playoffs"')
 
+    now = datetime.utcnow()
     cached = (
         db.query(PlayerShotChart)
         .filter(
@@ -100,6 +122,8 @@ def player_shot_zones(
         season_type=season_type,
         total_attempts=total,
         zones=zones,
+        data_status=_data_status(cached, now),
+        last_synced_at=_last_synced_at(cached),
     )
 
 
@@ -126,40 +150,30 @@ def player_shot_chart(
         .first()
     )
     if cached and cached.expires_at and cached.expires_at > now:
-        return _build_response(player_id, season, season_type, cached.shots or [])
+        return _build_response(
+            player_id,
+            season,
+            season_type,
+            cached.shots or [],
+            data_status="ready",
+            last_synced_at=_last_synced_at(cached),
+        )
 
-    # --- Fetch from nba_api ---
-    try:
-        raw_shots = get_shot_chart_data(player_id, season, season_type)
-    except Exception:
-        # stats.nba.com may be unreachable; return empty rather than 500.
-        # If we have a stale cache entry, return it rather than nothing.
-        if cached:
-            return _build_response(player_id, season, season_type, cached.shots or [])
-        raw_shots = []
+    if cached:
+        return _build_response(
+            player_id,
+            season,
+            season_type,
+            cached.shots or [],
+            data_status="stale",
+            last_synced_at=_last_synced_at(cached),
+        )
 
-    # --- Persist to DB ---
-    try:
-        ttl_seconds = _cache_ttl_for_season(season)
-        expires_at = now + timedelta(seconds=ttl_seconds)
-        if cached:
-            cached.shots = raw_shots
-            cached.shot_count = len(raw_shots)
-            cached.fetched_at = now
-            cached.expires_at = expires_at
-        else:
-            db.add(PlayerShotChart(
-                player_id=player_id,
-                season=season,
-                season_type=season_type,
-                shots=raw_shots,
-                shot_count=len(raw_shots),
-                fetched_at=now,
-                expires_at=expires_at,
-            ))
-        db.commit()
-    except Exception:
-        db.rollback()
-        # Persistence failure is non-fatal — still return the data.
-
-    return _build_response(player_id, season, season_type, raw_shots)
+    return _build_response(
+        player_id,
+        season,
+        season_type,
+        [],
+        data_status="missing",
+        last_synced_at=None,
+    )

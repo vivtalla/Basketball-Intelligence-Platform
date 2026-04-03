@@ -265,6 +265,9 @@ export default function ShotChart({
     shotChart && shotChart.attempted > 0
       ? ((shotChart.made / shotChart.attempted) * 100).toFixed(1)
       : null;
+  const dataStatus = shotChart?.data_status ?? "missing";
+  const isMissing = dataStatus === "missing";
+  const isStale = dataStatus === "stale";
 
   return (
     <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 p-6">
@@ -322,13 +325,39 @@ export default function ShotChart({
 
       {/* FG% summary */}
       {shotChart && !isLoading && (
-        <p className="text-sm text-gray-500 dark:text-gray-400 mb-3">
-          {shotChart.made} / {shotChart.attempted} FG
-          {fgPct !== null && <> ({fgPct}%)</>}
-          {shotChart.attempted === 0 && (
-            <span className="ml-1 italic">— no shot data for this period</span>
-          )}
-        </p>
+        <div className="mb-3 flex flex-wrap items-center justify-between gap-2 text-sm text-gray-500 dark:text-gray-400">
+          <p>
+            {shotChart.made} / {shotChart.attempted} FG
+            {fgPct !== null && <> ({fgPct}%)</>}
+            {shotChart.attempted === 0 && !isMissing && (
+              <span className="ml-1 italic">— no shot data for this period</span>
+            )}
+          </p>
+          <div className="flex items-center gap-2">
+            {dataStatus !== "ready" && (
+              <span
+                className={`rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.08em] ${
+                  isStale
+                    ? "bg-amber-100 text-amber-700 dark:bg-amber-500/15 dark:text-amber-300"
+                    : "bg-slate-100 text-slate-600 dark:bg-slate-500/15 dark:text-slate-300"
+                }`}
+              >
+                {isStale ? "Cached" : "Not Synced"}
+              </span>
+            )}
+            {shotChart.last_synced_at && (
+              <span className="text-[11px]">
+                Synced {new Date(shotChart.last_synced_at).toLocaleDateString()}
+              </span>
+            )}
+          </div>
+        </div>
+      )}
+
+      {shotChart && !isLoading && isMissing && (
+        <div className="mb-4 rounded-xl border border-dashed border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-600 dark:border-gray-700 dark:bg-gray-900/30 dark:text-gray-300">
+          Shot chart data has not been synced for this player and season yet.
+        </div>
       )}
 
       {/* Court SVG */}

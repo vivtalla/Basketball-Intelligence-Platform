@@ -765,3 +765,23 @@ export async function getPlayerZoneProfile(
     `/api/shotchart/${playerId}/zones?season=${encodeURIComponent(season)}&season_type=${encodeURIComponent(seasonType)}`
   );
 }
+
+export async function getPersistedPlayerShotChart(
+  playerId: number,
+  season: string,
+  seasonType = "Regular Season"
+): Promise<import("./types").PersistedShotChartResponse> {
+  return fetchApi<import("./types").PersistedShotChartResponse>(
+    `/api/shotchart/${playerId}?season=${encodeURIComponent(season)}&season_type=${encodeURIComponent(seasonType)}`
+  );
+}
+
+export async function getPersistedPlayerZoneProfile(
+  playerId: number,
+  season: string,
+  seasonType = "Regular Season"
+): Promise<import("./types").PersistedZoneProfileResponse> {
+  return fetchApi<import("./types").PersistedZoneProfileResponse>(
+    `/api/shotchart/${playerId}/zones?season=${encodeURIComponent(season)}&season_type=${encodeURIComponent(seasonType)}`
+  );
+}

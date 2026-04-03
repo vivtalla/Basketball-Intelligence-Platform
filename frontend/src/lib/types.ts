@@ -1542,3 +1542,15 @@ export interface ZoneProfileResponse {
   total_attempts: number;
   zones: ZoneStat[];
 }
+
+export type ShotChartDataStatus = "ready" | "stale" | "missing";
+
+export interface PersistedShotChartResponse extends ShotChartResponse {
+  data_status: ShotChartDataStatus;
+  last_synced_at: string | null;
+}
+
+export interface PersistedZoneProfileResponse extends ZoneProfileResponse {
+  data_status: ShotChartDataStatus;
+  last_synced_at: string | null;
+}

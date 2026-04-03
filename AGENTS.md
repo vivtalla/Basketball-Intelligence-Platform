@@ -1,6 +1,6 @@
 # Agent Coordination
 
-Last updated: 2026-04-02 by Claude (Sprint 29 kickoff)
+Last updated: 2026-04-02 by Codex (Sprint 29 closeout)
 
 > Both agents read this file before touching code at the start of every session.
 > The canonical source of truth is the clean `master` checkout at `/Users/viv/Documents/Basketball Intelligence Platform`.
@@ -14,13 +14,13 @@ Last updated: 2026-04-02 by Claude (Sprint 29 kickoff)
 
 | Field | Value |
 |-------|-------|
-| Sprint | 29 |
-| Goal | Standings history/trend line + shot zone analytics |
-| Started | 2026-04-02 |
-| Target merge | 2026-04-02 |
-| Sprint shape | Single stream (two tracks, one branch) |
-| Branch | `feature/sprint-29-standings-zones` |
-| Worker policy | Single agent — Claude carries both tracks |
+| Sprint | 30 |
+| Goal | TBD at kickoff |
+| Started | — |
+| Target merge | — |
+| Sprint shape | TBD |
+| Branch | `master` |
+| Worker policy | Unassigned until kickoff |
 
 ---
 
@@ -38,14 +38,14 @@ If repo state, sprint numbering, or shipped features appear to disagree across l
 ## Current Assignments
 
 ### Claude
-- Branch: `feature/sprint-29-standings-zones`
-- Scope: Track A (standings history) + Track B (shot zone analytics) — full sprint
-- Status: In progress
+- Branch: not assigned
+- Scope: not assigned
+- Status: Available
 
 ### Codex
-- Branch: not assigned this sprint
-- Scope: not assigned this sprint
-- Status: Not started
+- Branch: not assigned
+- Scope: not assigned
+- Status: Available
 
 ---
 
@@ -58,11 +58,7 @@ Claim a shared file here before editing. If a file is already claimed, read that
 
 | File | Claimed by | Purpose |
 |------|------------|---------|
-| `frontend/src/lib/types.ts` | Claude | Sprint 29 standings + zone types |
-| `frontend/src/lib/api.ts` | Claude | Sprint 29 standings history + zone profile API calls |
 | `backend/main.py` | — |  |
-| `backend/db/models.py` | Claude | Sprint 29 snapshot_date migration |
-| `backend/db/ensure_schema.py` | Claude | Sprint 29 snapshot_date migration |
 
 ---
 
@@ -74,12 +70,13 @@ Specs or review notes written by one stream for another. Check this before start
 |-----------|------|----|--------|
 | `specs/data-architecture.md` | Sprint 26 | Next sprint | Reference — read before touching data layer |
 | `specs/sprint-28-closeout.md` | Sprint 28 | Next sprint | Reference — next sprint seeds inside |
+| `specs/sprint-29-closeout.md` | Sprint 29 | Next sprint | Reference — DB-first shot-chart and standings-history follow-ons |
 
 ---
 
 ## Merge Order
 
-1. Sprint 29 should rewrite this section at kickoff
+1. Sprint 30 should rewrite this section at kickoff
 
 ---
 
@@ -87,7 +84,7 @@ Specs or review notes written by one stream for another. Check this before start
 
 | Files / Directories | Assigned this sprint |
 |---------------------|----------------------|
-| To be defined at Sprint 29 kickoff | — |
+| To be defined at Sprint 30 kickoff | — |
 
 ---
 
@@ -160,6 +157,7 @@ Specs or review notes written by one stream for another. Check this before start
 
 *Free-form, dated, newest first. Use this for coordination and repo-state exceptions.*
 
+2026-04-02 (Codex): Sprint 29 closeout prepared on `feature/sprint-29-standings-zones`. Shipped standings history/trend lines plus shot zone analytics, then hardened shot-chart reads to be DB-first with queued warehouse-backed sync. Local closeout verification covered backend standings/shot-chart APIs and frontend route smoke checks; `pytest` was still unavailable in `backend/venv`, so backend test execution remains a noted gap.
 2026-04-01 (Claude): Sprint 28 closed. Shipped compare availability layer (injury badge + warning banner in ComparisonView, GET /api/compare/player-availability) and unresolved injury identity ops UI (/admin/injuries/unresolved with resolve/dismiss endpoints). Standings trend and shot zone analytics deferred to Sprint 29.
 2026-04-01 (Codex): Sprint 27 closed on branch `feature/sprint-27-availability-schedule` pending merge. Shipped scope: upcoming schedule API, team/pre-read availability surfaces, official injury-report fallback, and injury identity hardening (`player_name_aliases`, `injury_sync_unresolved`). See `specs/sprint-27-closeout.md` before Sprint 28 kickoff.
 2026-04-01 (Codex): Post-closeout patch pass is complete and pushed on `master` in commit `18d9a13` (`fix: patch local testing regressions`). This bundled four small fixes discovered during manual QA: home-page league leaders now use canonical full names, `TrajectoryTracker` no longer renders raw `Error` objects, `CustomMetricBuilder` got the same error rendering fix, and `frontend/next.config.ts` now allows `127.0.0.1` / `localhost` in local dev. Use `specs/sprint-25-post-closeout-patches.md` as the handoff note before doing more patch work or Sprint 26 planning.

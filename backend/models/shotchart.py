@@ -23,6 +23,8 @@ class ShotChartResponse(BaseModel):
     shots: List[ShotChartShot]
     made: int
     attempted: int
+    data_status: str
+    last_synced_at: Optional[str] = None
 
 
 class ZoneStat(BaseModel):
@@ -41,3 +43,5 @@ class ZoneProfileResponse(BaseModel):
     season_type: str
     total_attempts: int
     zones: List[ZoneStat]
+    data_status: str
+    last_synced_at: Optional[str] = None

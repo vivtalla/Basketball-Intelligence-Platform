@@ -12,11 +12,13 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from data.nba_client import (
+    _cache_ttl_for_season,
     _normalize_pbp_rows,
     _parse_cdn_minutes,
     get_game_box_score_payload,
     get_play_by_play_payload,
     get_schedule_payload_for_season,
+    get_shot_chart_data,
 )
 from db.database import SessionLocal
 from db.models import (
@@ -28,6 +30,7 @@ from db.models import (
     LineupStats,
     Player,
     PlayerGameLog,
+    PlayerShotChart,
     PlayerOnOff,
     PlayByPlay,
     PlayByPlayEvent,
@@ -70,6 +73,10 @@ def _serialize_dt(value: Any) -> Optional[str]:
     if isinstance(value, (datetime, date)):
         return value.isoformat()
     return str(value)
+
+
+def _shot_chart_job_key(player_id: int, season: str, season_type: str) -> str:
+    return "{0}:{1}:{2}".format(player_id, season, season_type)
 
 
 def _payload_hash(payload: dict) -> str:
@@ -1121,7 +1128,185 @@ def queue_current_season_daily_sync(db: Session, season: str) -> List[IngestionJ
     for delta in range(CURRENT_SEASON_LOOKBACK_DAYS):
         day = today - timedelta(days=delta)
         jobs.extend(queue_date_sync(db, season, day.isoformat()))
+    jobs.extend(queue_season_shot_charts(db, season, season_type="Regular Season"))
     return jobs
+
+
+def _eligible_shot_chart_player_ids(
+    db: Session,
+    season: str,
+    season_type: str,
+) -> List[int]:
+    if season_type == "Regular Season":
+        game_player_ids = [
+            row[0]
+            for row in (
+                db.query(GamePlayerStat.player_id)
+                .filter(GamePlayerStat.season == season)
+                .distinct()
+                .all()
+            )
+            if row[0] is not None
+        ]
+        if game_player_ids:
+            return sorted(set(game_player_ids))
+
+    player_game_log_ids = [
+        row[0]
+        for row in (
+            db.query(PlayerGameLog.player_id)
+            .filter(
+                PlayerGameLog.season == season,
+                PlayerGameLog.season_type == season_type,
+            )
+            .distinct()
+            .all()
+        )
+        if row[0] is not None
+    ]
+    return sorted(set(player_game_log_ids))
+
+
+def _sync_player_shot_chart(
+    db: Session,
+    player_id: int,
+    season: str,
+    season_type: str,
+    force: bool = False,
+) -> dict:
+    run = _start_source_run(
+        db,
+        source="stats_shotchart",
+        job_type="sync_player_shot_chart",
+        entity_type="player_season",
+        entity_id=_shot_chart_job_key(player_id, season, season_type),
+        run_metadata={
+            "season": season,
+            "season_type": season_type,
+            "player_id": player_id,
+            "force": force,
+        },
+    )
+    try:
+        now = _utcnow()
+        existing = (
+            db.query(PlayerShotChart)
+            .filter(
+                PlayerShotChart.player_id == player_id,
+                PlayerShotChart.season == season,
+                PlayerShotChart.season_type == season_type,
+            )
+            .first()
+        )
+
+        if (
+            existing
+            and not force
+            and existing.expires_at
+            and existing.expires_at > now
+        ):
+            _finish_source_run(
+                db,
+                run,
+                status=JOB_STATUS_SKIPPED,
+                records_written=existing.shot_count or 0,
+                run_metadata={"reason": "fresh_cache"},
+            )
+            db.commit()
+            return {
+                "status": "skipped",
+                "player_id": player_id,
+                "season": season,
+                "season_type": season_type,
+                "reason": "fresh cache",
+            }
+
+        raw_shots = get_shot_chart_data(player_id, season, season_type)
+        expires_at = now + timedelta(seconds=_cache_ttl_for_season(season))
+
+        if existing:
+            existing.shots = raw_shots
+            existing.shot_count = len(raw_shots)
+            existing.fetched_at = now
+            existing.expires_at = expires_at
+        else:
+            db.add(
+                PlayerShotChart(
+                    player_id=player_id,
+                    season=season,
+                    season_type=season_type,
+                    shots=raw_shots,
+                    shot_count=len(raw_shots),
+                    fetched_at=now,
+                    expires_at=expires_at,
+                )
+            )
+
+        _finish_source_run(
+            db,
+            run,
+            status=JOB_STATUS_COMPLETE,
+            records_written=len(raw_shots),
+            run_metadata={"shot_count": len(raw_shots)},
+        )
+        db.commit()
+        return {
+            "status": "ok",
+            "player_id": player_id,
+            "season": season,
+            "season_type": season_type,
+            "shot_count": len(raw_shots),
+        }
+    except Exception as exc:
+        db.rollback()
+        _finish_source_run(db, run, status=JOB_STATUS_FAILED, error_message=str(exc))
+        db.commit()
+        raise
+
+
+def queue_player_shot_chart_sync(
+    db: Session,
+    player_id: int,
+    season: str,
+    season_type: str = "Regular Season",
+    force: bool = False,
+) -> List[IngestionJob]:
+    if season_type not in ("Regular Season", "Playoffs"):
+        raise ValueError('season_type must be "Regular Season" or "Playoffs"')
+    return [
+        enqueue_job(
+            db,
+            job_type="sync_player_shot_chart",
+            job_key=_shot_chart_job_key(player_id, season, season_type),
+            season=season,
+            priority=46,
+            payload={
+                "player_id": player_id,
+                "season_type": season_type,
+                "force": force,
+            },
+        )
+    ]
+
+
+def queue_season_shot_charts(
+    db: Session,
+    season: str,
+    season_type: str = "Regular Season",
+    force: bool = False,
+) -> List[IngestionJob]:
+    if season_type not in ("Regular Season", "Playoffs"):
+        raise ValueError('season_type must be "Regular Season" or "Playoffs"')
+    return [
+        enqueue_job(
+            db,
+            job_type="sync_season_shot_charts",
+            job_key="{0}:{1}".format(season, season_type),
+            season=season,
+            priority=45,
+            payload={"season_type": season_type, "force": force},
+        )
+    ]
 
 
 def _claim_next_job(db: Session, season: Optional[str] = None) -> Optional[IngestionJob]:
@@ -1317,6 +1502,62 @@ def _dispatch_job(db: Session, job: IngestionJob) -> dict:
         return materialize_game_stats(db, job.game_id or job.job_key)
     if job.job_type == "materialize_season_aggregates":
         return materialize_season_aggregates(db, job.season or job.job_key)
+    if job.job_type == "sync_season_shot_charts":
+        season = job.season or job.job_key.split(":", 1)[0]
+        payload = job.payload or {}
+        season_type = payload.get("season_type") or "Regular Season"
+        force = bool(payload.get("force"))
+        player_ids = _eligible_shot_chart_player_ids(db, season, season_type)
+        existing_rows = {
+            row.player_id: row
+            for row in db.query(PlayerShotChart).filter(
+                PlayerShotChart.season == season,
+                PlayerShotChart.season_type == season_type,
+                PlayerShotChart.player_id.in_(player_ids),
+            ).all()
+        } if player_ids else {}
+        now = _utcnow()
+        queued = 0
+        skipped = 0
+        for player_id in player_ids:
+            existing = existing_rows.get(player_id)
+            is_fresh = (
+                existing is not None
+                and existing.expires_at is not None
+                and existing.expires_at > now
+            )
+            if not force and is_fresh:
+                skipped += 1
+                continue
+            queue_player_shot_chart_sync(
+                db,
+                player_id=player_id,
+                season=season,
+                season_type=season_type,
+                force=force,
+            )
+            queued += 1
+        db.commit()
+        return {
+            "status": "ok",
+            "season": season,
+            "season_type": season_type,
+            "eligible_players": len(player_ids),
+            "queued_players": queued,
+            "skipped_players": skipped,
+        }
+    if job.job_type == "sync_player_shot_chart":
+        payload = job.payload or {}
+        player_id = payload.get("player_id")
+        if player_id is None:
+            raise ValueError("sync_player_shot_chart payload missing player_id")
+        return _sync_player_shot_chart(
+            db,
+            int(player_id),
+            job.season or "",
+            payload.get("season_type") or "Regular Season",
+            force=bool(payload.get("force")),
+        )
     if job.job_type == "sync_injuries":
         from services.sync_service import sync_injuries as _sync_injuries
         summary = _sync_injuries(db, job.season or "2024-25")

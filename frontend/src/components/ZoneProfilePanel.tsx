@@ -1,10 +1,10 @@
 "use client";
 
-import type { ZoneProfileResponse, ZoneStat } from "@/lib/types";
+import type { PersistedZoneProfileResponse, ZoneStat } from "@/lib/types";
 import { LEAGUE_AVG_FG, ZONE_POINTS } from "@/lib/shotchart-constants";
 
 interface ZoneProfilePanelProps {
-  data: ZoneProfileResponse | undefined;
+  data: PersistedZoneProfileResponse | undefined;
   isLoading: boolean;
   playerLabel?: string;
 }
@@ -17,6 +17,56 @@ const TILE_CONFIG = [
   { key: "Right Corner 3",          label: "Right Corner 3" },
   { key: "Above the Break 3",       label: "Above Break 3" },
 ] as const;
+
+function aggregateZonesByBasic(zones: ZoneStat[], totalAttempts: number) {
+  const grouped: Record<string, { attempts: number; made: number }> = {};
+
+  for (const zone of zones) {
+    if (!grouped[zone.zone_basic]) {
+      grouped[zone.zone_basic] = { attempts: 0, made: 0 };
+    }
+    grouped[zone.zone_basic].attempts += zone.attempts;
+    grouped[zone.zone_basic].made += zone.made;
+  }
+
+  const aggregated: Record<string, ZoneStat> = {};
+  for (const [zoneBasic, counts] of Object.entries(grouped)) {
+    const fgPct =
+      counts.attempts >= 5 ? counts.made / counts.attempts : null;
+    const pts = ZONE_POINTS[zoneBasic] ?? 2;
+
+    aggregated[zoneBasic] = {
+      zone_basic: zoneBasic,
+      zone_area: "All",
+      attempts: counts.attempts,
+      made: counts.made,
+      fg_pct: fgPct != null ? Number(fgPct.toFixed(4)) : null,
+      pps: fgPct != null ? Number((fgPct * pts).toFixed(4)) : null,
+      freq: totalAttempts > 0 ? Number((counts.attempts / totalAttempts).toFixed(4)) : 0,
+    };
+  }
+
+  return aggregated;
+}
+
+function SyncStateBadge({
+  dataStatus,
+}: {
+  dataStatus: "ready" | "stale" | "missing";
+}) {
+  if (dataStatus === "ready") return null;
+  return (
+    <span
+      className={`rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.08em] ${
+        dataStatus === "stale"
+          ? "bg-[rgba(245,158,11,0.14)] text-[rgb(180,83,9)]"
+          : "bg-[rgba(148,163,184,0.16)] text-[var(--muted)]"
+      }`}
+    >
+      {dataStatus === "stale" ? "Cached" : "Not Synced"}
+    </span>
+  );
+}
 
 function ZoneTile({ config, stat }: { config: { key: string; label: string }; stat: ZoneStat | undefined }) {
   const avg = LEAGUE_AVG_FG[config.key];
@@ -97,23 +147,25 @@ export default function ZoneProfilePanel({
   if (!data || data.total_attempts === 0) {
     return (
       <div className="bip-panel rounded-2xl p-4">
-        {playerLabel && (
-          <p className="bip-kicker mb-2">{playerLabel}</p>
-        )}
+        <div className="mb-2 flex items-center justify-between gap-3">
+          <div>
+            {playerLabel && (
+              <p className="bip-kicker mb-0.5">{playerLabel}</p>
+            )}
+            <h3 className="text-sm font-semibold text-[var(--foreground)]">Zone Efficiency</h3>
+          </div>
+          <SyncStateBadge dataStatus={data?.data_status ?? "missing"} />
+        </div>
         <p className="text-sm text-[var(--muted)]">
-          No shot data cached for this player/season.
+          {data?.data_status === "missing"
+            ? "Shot chart data has not been synced for this player and season yet."
+            : "No shot attempts are available in the cached shot-chart data for this period."}
         </p>
       </div>
     );
   }
 
-  // Build lookup by zone_basic (use the first/largest-freq entry per zone_basic)
-  const zoneMap: Record<string, ZoneStat> = {};
-  for (const z of data.zones) {
-    if (!zoneMap[z.zone_basic] || z.attempts > zoneMap[z.zone_basic].attempts) {
-      zoneMap[z.zone_basic] = z;
-    }
-  }
+  const zoneMap = aggregateZonesByBasic(data.zones, data.total_attempts);
 
   return (
     <div className="bip-panel rounded-2xl p-4 space-y-3">
@@ -122,9 +174,19 @@ export default function ZoneProfilePanel({
           {playerLabel && <p className="bip-kicker text-[10px] mb-0.5">{playerLabel}</p>}
           <h3 className="text-sm font-semibold text-[var(--foreground)]">Zone Efficiency</h3>
         </div>
-        <p className="text-[11px] text-[var(--muted)] tabular-nums">
-          {data.total_attempts} FGA · {data.season}
-        </p>
+        <div className="text-right">
+          <div className="flex items-center justify-end gap-2">
+            <SyncStateBadge dataStatus={data.data_status} />
+            <p className="text-[11px] text-[var(--muted)] tabular-nums">
+              {data.total_attempts} FGA · {data.season}
+            </p>
+          </div>
+          {data.last_synced_at && (
+            <p className="mt-1 text-[10px] text-[var(--muted)]">
+              Synced {new Date(data.last_synced_at).toLocaleDateString()}
+            </p>
+          )}
+        </div>
       </div>
       <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
         {TILE_CONFIG.map((config) => (
@@ -133,6 +195,7 @@ export default function ZoneProfilePanel({
       </div>
       <p className="text-[10px] text-[var(--muted)]">
         +/− vs league avg · {data.season_type}
+        {data.data_status === "stale" ? " · showing cached data while a refresh is pending" : ""}
       </p>
     </div>
   );
