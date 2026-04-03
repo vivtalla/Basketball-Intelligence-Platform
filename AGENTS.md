@@ -15,12 +15,12 @@ Last updated: 2026-04-02 by Codex (Sprint 30 closeout)
 | Field | Value |
 |-------|-------|
 | Sprint | 31 |
-| Goal | Kickoff pending |
-| Started | TBD |
+| Goal | Visual Renaissance — frontend design + breathtaking visualizations |
+| Started | 2026-04-03 |
 | Target merge | TBD |
-| Sprint shape | TBD |
-| Branch | not created yet |
-| Worker policy | Unassigned until kickoff |
+| Sprint shape | Single-stream (frontend only) |
+| Branch | feature/sprint-31-visual-renaissance |
+| Worker policy | Claude owns all frontend work this sprint |
 
 ---
 
@@ -38,9 +38,9 @@ If repo state, sprint numbering, or shipped features appear to disagree across l
 ## Current Assignments
 
 ### Claude
-- Branch: not assigned
-- Scope: available for Sprint 31 kickoff
-- Status: Available
+- Branch: feature/sprint-31-visual-renaissance
+- Scope: All frontend — shot chart hexbin, zone annotation court, performance calendar, chart harmonization, homepage redesign, standings bump chart
+- Status: In progress
 
 ### Codex
 - Branch: not assigned
@@ -61,6 +61,17 @@ Claim a shared file here before editing. If a file is already claimed, read that
 | `frontend/src/lib/types.ts` | — |  |
 | `frontend/src/lib/api.ts` | — |  |
 | `backend/main.py` | — |  |
+| `frontend/src/lib/shotchart-constants.ts` | Claude | Extract heatColor + ZONE_PATHS |
+| `frontend/src/components/ShotChart.tsx` | Claude | Hexbin mode + ZoneAnnotationCourt wire-in |
+| `frontend/src/components/ZoneProfilePanel.tsx` | Claude | ZoneAnnotationCourt wire-in |
+| `frontend/src/components/CareerArcChart.tsx` | Claude | Palette + AreaChart + gradient fills |
+| `frontend/src/components/DualCareerArcChart.tsx` | Claude | Palette + bip-panel |
+| `frontend/src/components/RadarChart.tsx` | Claude | Gradient fill + palette |
+| `frontend/src/components/PlayerDashboard.tsx` | Claude | PerformanceCalendar wire-in |
+| `frontend/src/components/HomeLeagueLeaders.tsx` | Claude | Trend arrows |
+| `frontend/src/app/page.tsx` | Claude | Hero redesign |
+| `frontend/src/app/globals.css` | Claude | Keyframe animations |
+| `frontend/src/app/standings/page.tsx` | Claude | StandingsBumpChart wire-in |
 
 ---
 
@@ -87,7 +98,7 @@ Specs or review notes written by one stream for another. Check this before start
 
 | Files / Directories | Assigned this sprint |
 |---------------------|----------------------|
-| To be defined at Sprint 31 kickoff | — |
+| `frontend/src/` (all frontend) | Claude |
 
 ---
 

@@ -13,6 +13,7 @@ import {
   ReferenceLine,
 } from "recharts";
 import type { SeasonStats } from "@/lib/types";
+import { chartPalette } from "@/lib/chart-system";
 
 interface PlayerArc {
   name: string;
@@ -34,8 +35,8 @@ const STAT_OPTIONS = [
   { key: "vorp",   label: "VORP", pct: false },
 ];
 
-const COLOR_A = "#3b82f6"; // blue
-const COLOR_B = "#f59e0b"; // amber
+const COLOR_A = chartPalette.accent;  // forest green
+const COLOR_B = chartPalette.signal;  // warm gold
 
 function parseBirthYear(d: string): number | null {
   const y = parseInt(d.slice(0, 4), 10);
@@ -86,18 +87,19 @@ export default function DualCareerArcChart({ playerA, playerB }: DualCareerArcCh
   if (allSeasons.length === 0) return null;
 
   return (
-    <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 p-6">
+    <div className="rounded-[2rem] border border-[var(--border)] bg-[linear-gradient(145deg,rgba(247,243,232,0.96),rgba(228,236,232,0.92))] p-6 shadow-[0_18px_48px_rgba(47,43,36,0.07)]">
       <div className="flex flex-wrap items-center justify-between gap-3 mb-5">
-        <h3 className="font-semibold text-gray-900 dark:text-gray-100">Career Arc Comparison</h3>
-        <div className="flex rounded-xl overflow-hidden border border-gray-200 dark:border-gray-700 text-xs">
+        <div>
+          <p className="bip-kicker">Head-to-Head</p>
+          <h3 className="mt-0.5 font-semibold text-[var(--foreground)]">Career Arc Comparison</h3>
+        </div>
+        <div className="flex rounded-lg overflow-hidden border border-[var(--border)] text-xs">
           {STAT_OPTIONS.map((opt) => (
             <button
               key={opt.key}
               onClick={() => setStat(opt.key)}
               className={`px-3 py-1.5 transition-colors ${
-                stat === opt.key
-                  ? "bg-gray-900 dark:bg-gray-100 text-white dark:text-gray-900 font-medium"
-                  : "bg-white dark:bg-gray-800 text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700"
+                stat === opt.key ? "bip-toggle-active" : "bip-toggle"
               }`}
             >
               {opt.label}
@@ -108,25 +110,25 @@ export default function DualCareerArcChart({ playerA, playerB }: DualCareerArcCh
 
       <ResponsiveContainer width="100%" height={280}>
         <LineChart data={data} margin={{ top: 4, right: 8, left: -16, bottom: 4 }}>
-          <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" className="dark:stroke-gray-700" />
+          <CartesianGrid strokeDasharray="3 3" stroke={chartPalette.grid} />
           <XAxis
             dataKey="season"
-            tick={{ fontSize: 10, fill: "#9ca3af" }}
+            tick={{ fontSize: 10, fill: "var(--muted)" }}
             angle={-40}
             textAnchor="end"
             height={52}
             interval="preserveStartEnd"
           />
-          <YAxis tick={{ fontSize: 11, fill: "#9ca3af" }} />
+          <YAxis tick={{ fontSize: 11, fill: "var(--muted)" }} />
           {stat === "bpm" && (
-            <ReferenceLine y={0} stroke="#9ca3af" strokeDasharray="3 3" strokeWidth={1} />
+            <ReferenceLine y={0} stroke={chartPalette.grid} strokeDasharray="3 3" strokeWidth={1} />
           )}
           <Tooltip
             contentStyle={{
               fontSize: 12,
-              backgroundColor: "var(--tooltip-bg, #fff)",
-              border: "1px solid #e5e7eb",
-              borderRadius: 8,
+              backgroundColor: "rgba(255,251,246,0.96)",
+              border: "1px solid var(--border)",
+              borderRadius: 10,
             }}
             formatter={(value, name) => [
               `${value}${statMeta.pct ? "%" : ""}`,
@@ -145,7 +147,7 @@ export default function DualCareerArcChart({ playerA, playerB }: DualCareerArcCh
             type="monotone"
             dataKey={playerA.name}
             stroke={COLOR_A}
-            strokeWidth={2}
+            strokeWidth={2.5}
             dot={{ r: 3, fill: COLOR_A }}
             activeDot={{ r: 5 }}
             connectNulls
@@ -154,7 +156,7 @@ export default function DualCareerArcChart({ playerA, playerB }: DualCareerArcCh
             type="monotone"
             dataKey={playerB.name}
             stroke={COLOR_B}
-            strokeWidth={2}
+            strokeWidth={2.5}
             dot={{ r: 3, fill: COLOR_B }}
             activeDot={{ r: 5 }}
             connectNulls
@@ -162,7 +164,7 @@ export default function DualCareerArcChart({ playerA, playerB }: DualCareerArcCh
         </LineChart>
       </ResponsiveContainer>
 
-      <p className="mt-2 text-[10px] text-gray-400 dark:text-gray-500 text-center">
+      <p className="mt-2 text-[10px] text-[var(--muted)] text-center">
         Age shown in tooltip when birth date is available · gaps indicate seasons without data
       </p>
     </div>

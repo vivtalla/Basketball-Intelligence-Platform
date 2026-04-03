@@ -4,6 +4,7 @@ import type { PersistedZoneProfileResponse, ZoneStat } from "@/lib/types";
 import { LEAGUE_AVG_FG, ZONE_POINTS } from "@/lib/shotchart-constants";
 import ChartStatusBadge from "./ChartStatusBadge";
 import ShotProfileFingerprint from "./ShotProfileFingerprint";
+import ZoneAnnotationCourt from "./ZoneAnnotationCourt";
 
 interface ZoneProfilePanelProps {
   data: PersistedZoneProfileResponse | undefined;
@@ -176,6 +177,9 @@ export default function ZoneProfilePanel({
         totalAttempts={data.total_attempts}
         playerLabel={playerLabel}
       />
+      {/* Zone annotation court — half-court with efficiency stats per zone */}
+      <ZoneAnnotationCourt zones={data.zones} />
+      {/* Tile grid — compact secondary detail */}
       <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
         {TILE_CONFIG.map((config) => (
           <ZoneTile key={config.key} config={config} stat={zoneMap[config.key]} />

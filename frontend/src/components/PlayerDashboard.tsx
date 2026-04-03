@@ -15,6 +15,7 @@ import PlayerSimilarity from "./PlayerSimilarity";
 import SeasonSplits from "./SeasonSplits";
 import ExternalMetricsPanel from "./ExternalMetricsPanel";
 import ChartStatusBadge from "./ChartStatusBadge";
+import PerformanceCalendar from "./PerformanceCalendar";
 
 interface PlayerDashboardProps {
   playerId: number;
@@ -210,6 +211,11 @@ export default function PlayerDashboard({ playerId }: PlayerDashboardProps) {
       {/* Season splits — regular season only, needs game log data */}
       {!isPlayoffs && effectiveSeasonStr && (
         <SeasonSplits playerId={playerId} season={effectiveSeasonStr} />
+      )}
+
+      {/* Performance Calendar — game-by-game heatmap for current season */}
+      {effectiveSeasonStr && (
+        <PerformanceCalendar playerId={playerId} season={effectiveSeasonStr} />
       )}
 
       {/* Game Log has its own internal RS/Playoffs toggle */}

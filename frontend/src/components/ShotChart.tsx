@@ -3,8 +3,9 @@
 import { useState } from "react";
 import { usePlayerShotChart } from "@/hooks/usePlayerStats";
 import type { ShotChartShot } from "@/lib/types";
-import { LEAGUE_AVG_FG, ZONE_POINTS, ZONE_ORDER } from "@/lib/shotchart-constants";
+import { LEAGUE_AVG_FG, ZONE_POINTS, ZONE_ORDER, ZONE_PATHS, heatColor } from "@/lib/shotchart-constants";
 import ChartStatusBadge from "./ChartStatusBadge";
+import ZoneAnnotationCourt from "./ZoneAnnotationCourt";
 
 interface ShotChartProps {
   playerId: number;
@@ -25,28 +26,6 @@ function toSvg(locX: number, locY: number): [number, number] {
 // Zone constants imported from shared module
 const LEAGUE_AVG = LEAGUE_AVG_FG;
 
-// SVG paths for each zone (half-court, basket at cx=250 cy=430)
-// Paint: x 170-330, y 240-430 | RA: cx=250 cy=430 r=40
-// Corner 3 lines: x=30 and x=470 from y=480 to y=341
-// 3pt arc: (30,341) A 237.5,237.5 0 0 0 (470,341)
-const ZONE_PATHS: Record<string, string> = {
-  "Restricted Area":
-    "M 210,430 A 40,40 0 0 0 290,430 L 250,430 Z",
-  "In The Paint (Non-RA)":
-    "M 170,240 L 330,240 L 330,430 L 290,430 A 40,40 0 0 1 210,430 L 170,430 Z",
-  "Left Corner 3":
-    "M 0,341 L 30,341 L 30,480 L 0,480 Z",
-  "Right Corner 3":
-    "M 470,341 L 500,341 L 500,480 L 470,480 Z",
-  // Mid-range: inside 3pt arc & corner lines, outside paint
-  "Mid-Range":
-    "M 30,341 A 237.5,237.5 0 0 0 470,341 L 470,480 L 330,480 L 330,240 L 170,240 L 170,480 L 30,480 Z",
-  // Above the break 3: outside 3pt arc (upper court)
-  "Above the Break 3":
-    "M 0,0 L 500,0 L 500,341 L 470,341 A 237.5,237.5 0 0 1 30,341 L 0,341 Z",
-  "Backcourt": "",
-};
-
 interface ZoneStat {
   made: number;
   attempted: number;
@@ -63,16 +42,97 @@ function buildZoneStats(shots: ShotChartShot[]): Record<string, ZoneStat> {
   return stats;
 }
 
-// Green → gray → red gradient based on efficiency delta vs league avg
-function heatColor(diff: number | null, alpha = 0.55): string {
-  if (diff === null) return `rgba(156,163,175,${alpha})`;
-  if (diff >= 0.08) return `rgba(22,163,74,${alpha})`;
-  if (diff >= 0.04) return `rgba(74,222,128,${alpha})`;
-  if (diff >= 0) return `rgba(134,239,172,${alpha})`;
-  if (diff >= -0.04) return `rgba(252,165,165,${alpha})`;
-  if (diff >= -0.08) return `rgba(248,113,113,${alpha})`;
-  return `rgba(220,38,38,${alpha})`;
+// ─── Hexbin logic (flat-top hexagons, pure math — no library) ────────────────
+
+interface HexBin {
+  cx: number;
+  cy: number;
+  made: number;
+  attempted: number;
+  diff: number | null;
+  zone: string;
 }
+
+function computeHexBins(shots: ShotChartShot[], R: number): HexBin[] {
+  const colStep = (3 / 2) * R;
+  const rowStep = Math.sqrt(3) * R;
+
+  const binMap = new Map<string, HexBin>();
+
+  for (const shot of shots) {
+    const [svgX, svgY] = toSvg(shot.loc_x, shot.loc_y);
+    const col = Math.round(svgX / colStep);
+    const rowOffset = col % 2 === 0 ? 0 : rowStep / 2;
+    const row = Math.round((svgY - rowOffset) / rowStep);
+    const key = `${col},${row}`;
+    const cx = col * colStep;
+    const cy = row * rowStep + rowOffset;
+
+    if (!binMap.has(key)) {
+      binMap.set(key, { cx, cy, made: 0, attempted: 0, diff: null, zone: shot.zone_basic || "Unknown" });
+    }
+    const bin = binMap.get(key)!;
+    bin.attempted++;
+    if (shot.shot_made) bin.made++;
+  }
+
+  // Compute efficiency diff per bin
+  for (const bin of binMap.values()) {
+    const avg = LEAGUE_AVG[bin.zone] ?? null;
+    const pct = bin.attempted >= 3 ? bin.made / bin.attempted : null;
+    bin.diff = pct !== null && avg !== null ? pct - avg : null;
+  }
+
+  return Array.from(binMap.values());
+}
+
+// Generate SVG polygon points string for a flat-top hexagon centered at (cx, cy) with radius r
+function hexPoints(cx: number, cy: number, r: number): string {
+  const pts: string[] = [];
+  for (let i = 0; i < 6; i++) {
+    const angleDeg = 60 * i; // flat-top: start at 0°
+    const angleRad = (Math.PI / 180) * angleDeg;
+    pts.push(`${(cx + r * Math.cos(angleRad)).toFixed(2)},${(cy + r * Math.sin(angleRad)).toFixed(2)}`);
+  }
+  return pts.join(" ");
+}
+
+function HexLayer({ shots }: { shots: ShotChartShot[] }) {
+  const R = 20;
+  const bins = computeHexBins(shots, R);
+  const maxAttempted = Math.max(...bins.map((b) => b.attempted), 1);
+
+  return (
+    <>
+      {bins.map((bin, i) => {
+        const scale = 0.4 + 0.6 * (bin.attempted / maxAttempted);
+        const r = R * scale;
+        const pts = hexPoints(bin.cx, bin.cy, r);
+        const pct = bin.attempted > 0 ? bin.made / bin.attempted : null;
+        return (
+          <polygon
+            key={i}
+            points={pts}
+            fill={heatColor(bin.diff, 0.82)}
+            stroke="rgba(255,255,255,0.35)"
+            strokeWidth="0.8"
+          >
+            <title>
+              {bin.zone}
+              {`\n${bin.made}/${bin.attempted} FGM/FGA`}
+              {pct !== null ? `\n${(pct * 100).toFixed(1)}% FG` : ""}
+              {bin.diff !== null
+                ? ` (${bin.diff >= 0 ? "+" : ""}${(bin.diff * 100).toFixed(1)}% vs avg)`
+                : ""}
+            </title>
+          </polygon>
+        );
+      })}
+    </>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 
 function HeatmapZones({ shots }: { shots: ShotChartShot[] }) {
   const zoneStats = buildZoneStats(shots);
@@ -245,7 +305,19 @@ function CourtMarkings() {
   );
 }
 
-type ChartView = "scatter" | "heatmap";
+type ChartView = "scatter" | "heatmap" | "hex";
+
+const VIEW_LABELS: Record<ChartView, string> = {
+  scatter: "Scatter",
+  heatmap: "Heat",
+  hex: "Hex",
+};
+
+const COURT_LABEL: Record<ChartView, string> = {
+  scatter: "Shot scatter",
+  heatmap: "Zone wash",
+  hex: "Hex density",
+};
 
 export default function ShotChart({
   playerId,
@@ -283,19 +355,18 @@ export default function ShotChart({
 
         <div className="flex flex-wrap items-center gap-3">
           <ChartStatusBadge status={dataStatus} compact />
-          {/* Scatter / Heatmap */}
-          <div className="flex rounded-lg overflow-hidden border border-gray-200 dark:border-gray-600 text-xs">
-            {(["scatter", "heatmap"] as ChartView[]).map((view) => (
+
+          {/* Scatter / Heat / Hex toggle */}
+          <div className="flex rounded-lg overflow-hidden border border-[var(--border)] text-xs">
+            {(["scatter", "heatmap", "hex"] as ChartView[]).map((view) => (
               <button
                 key={view}
                 onClick={() => setChartView(view)}
-                className={`px-3 py-1.5 capitalize transition-colors ${
-                  chartView === view
-                    ? "bip-toggle-active"
-                    : "bip-toggle"
+                className={`px-3 py-1.5 transition-colors ${
+                  chartView === view ? "bip-toggle-active" : "bip-toggle"
                 }`}
               >
-                {view}
+                {VIEW_LABELS[view]}
               </button>
             ))}
           </div>
@@ -304,7 +375,7 @@ export default function ShotChart({
           <select
             value={selectedSeason}
             onChange={(e) => setSelectedSeason(e.target.value)}
-            className="text-sm border border-gray-200 dark:border-gray-600 rounded-lg px-2 py-1 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="text-sm border border-[var(--border)] rounded-lg px-2 py-1 bg-[rgba(255,251,246,0.96)] text-[var(--foreground)] focus:outline-none focus:ring-2 focus:ring-[var(--accent)]"
           >
             {seasons.map((s) => (
               <option key={s} value={s}>{s}</option>
@@ -312,15 +383,13 @@ export default function ShotChart({
           </select>
 
           {/* RS / Playoffs */}
-          <div className="flex rounded-lg overflow-hidden border border-gray-200 dark:border-gray-600 text-xs">
+          <div className="flex rounded-lg overflow-hidden border border-[var(--border)] text-xs">
             {(["Regular Season", "Playoffs"] as const).map((type) => (
               <button
                 key={type}
                 onClick={() => setSeasonType(type)}
                 className={`px-3 py-1.5 transition-colors ${
-                  seasonType === type
-                    ? "bip-toggle-active"
-                    : "bip-toggle"
+                  seasonType === type ? "bip-toggle-active" : "bip-toggle"
                 }`}
               >
                 {type}
@@ -359,12 +428,12 @@ export default function ShotChart({
       {/* Court SVG */}
       <div className="relative">
         {isLoading && (
-          <div className="absolute inset-0 flex items-center justify-center bg-white/80 dark:bg-gray-800/80 rounded-lg z-10">
-            <div className="w-8 h-8 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
+          <div className="absolute inset-0 flex items-center justify-center bg-white/80 rounded-lg z-10">
+            <div className="w-8 h-8 border-2 border-[var(--accent)] border-t-transparent rounded-full animate-spin" />
           </div>
         )}
         {error && !isLoading && (
-          <p className="text-center py-10 text-sm text-red-500 dark:text-red-400">
+          <p className="text-center py-10 text-sm text-red-500">
             Could not load shot data.
           </p>
         )}
@@ -378,19 +447,26 @@ export default function ShotChart({
               </linearGradient>
             </defs>
             <rect x="0" y="0" width={W} height={H} rx="18" fill="url(#courtWash)" />
-          {/* Zone heatmap overlays */}
+
+            {/* Zone heatmap overlays (behind court markings) */}
             {chartView === "heatmap" && shotChart && shotChart.shots.length > 0 && (
               <HeatmapZones shots={shotChart.shots} />
             )}
 
+            {/* Hexbin layer (behind court markings) */}
+            {chartView === "hex" && shotChart && shotChart.shots.length > 0 && (
+              <HexLayer shots={shotChart.shots} />
+            )}
+
             <CourtMarkings />
 
-            <rect x="24" y="18" width="118" height="48" rx="14" fill="rgba(255,255,255,0.86)" />
-            <text x="38" y="38" className="fill-[var(--muted)] text-[11px] font-semibold uppercase tracking-[0.14em]">
+            {/* Season / mode label badge */}
+            <rect x="24" y="18" width="130" height="48" rx="14" fill="rgba(255,255,255,0.86)" />
+            <text x="38" y="38" fontSize="10" fontWeight="600" fill="var(--muted)" letterSpacing="0.12em">
               {selectedSeason}
             </text>
-            <text x="38" y="55" className="fill-[var(--foreground)] text-[14px] font-semibold">
-              {chartView === "heatmap" ? "Zone wash" : "Shot scatter"}
+            <text x="38" y="55" fontSize="13" fontWeight="600" fill="var(--foreground)">
+              {COURT_LABEL[chartView]}
             </text>
 
             {/* Scatter: individual shots colored by made/missed */}
@@ -416,7 +492,7 @@ export default function ShotChart({
                 );
               })}
 
-            {/* Heatmap: shots colored by zone efficiency vs league avg */}
+            {/* Heatmap: per-shot dots colored by zone efficiency */}
             {chartView === "heatmap" &&
               shotChart &&
               (() => {
@@ -449,17 +525,33 @@ export default function ShotChart({
         </div>
 
         {/* Legend */}
-        <div className="flex items-center justify-center gap-5 mt-3 text-xs text-gray-500 dark:text-gray-400">
+        <div className="flex flex-wrap items-center justify-center gap-5 mt-3 text-xs text-[var(--muted)]">
           {chartView === "scatter" ? (
             <>
               <span className="flex items-center gap-1.5">
-                <span className="inline-block w-3 h-3 rounded-full bg-green-500 opacity-75" />
+                <span className="inline-block w-3 h-3 rounded-full bg-[#21483b] opacity-80" />
                 Made
               </span>
               <span className="flex items-center gap-1.5">
-                <span className="inline-block w-3 h-3 rounded-full bg-red-500 opacity-50" />
+                <span className="inline-block w-3 h-3 rounded-full bg-[#b25b4f] opacity-50" />
                 Missed
               </span>
+            </>
+          ) : chartView === "hex" ? (
+            <>
+              <span className="flex items-center gap-1.5">
+                <span className="inline-block w-3 h-3 rounded-sm bg-emerald-500" />
+                Above avg
+              </span>
+              <span className="flex items-center gap-1.5">
+                <span className="inline-block w-3 h-3 rounded-sm bg-gray-400" />
+                Near avg
+              </span>
+              <span className="flex items-center gap-1.5">
+                <span className="inline-block w-3 h-3 rounded-sm bg-red-500" />
+                Below avg
+              </span>
+              <span>· Larger hex = more attempts</span>
             </>
           ) : (
             <>
@@ -475,7 +567,7 @@ export default function ShotChart({
                 <span className="inline-block w-3 h-3 rounded-full bg-red-500" />
                 Below avg
               </span>
-              <span className="text-gray-400 dark:text-gray-500">· hover zones for details</span>
+              <span>· hover zones for details</span>
             </>
           )}
         </div>
@@ -489,7 +581,15 @@ export default function ShotChart({
         )}
       </div>
 
-      {/* Zone breakdown table */}
+      {/* Zone annotation court — primary zone view */}
+      {shotChart && shotChart.shots.length > 0 && (
+        <div className="mt-6 border-t border-[rgba(25,52,42,0.08)] pt-5">
+          <p className="bip-kicker mb-3">Zone Efficiency</p>
+          <ZoneAnnotationCourt shots={shotChart.shots} compact />
+        </div>
+      )}
+
+      {/* Zone breakdown table — secondary detail */}
       {shotChart && shotChart.shots.length > 0 && (
         <ZoneBreakdown shots={shotChart.shots} />
       )}

@@ -5,6 +5,7 @@ import { Fragment, useMemo, useState } from "react";
 import { useStandings, useStandingsHistory } from "@/hooks/usePlayerStats";
 import type { StandingsEntry, StandingsHistoryEntry } from "@/lib/types";
 import WinPctSparkline from "@/components/WinPctSparkline";
+import StandingsBumpChart from "@/components/StandingsBumpChart";
 
 const DEFAULT_SEASON = "2024-25";
 
@@ -276,6 +277,14 @@ export default function StandingsPage() {
         <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
           <StandingsTable entries={data} conference="East" historyMap={historyMap} />
           <StandingsTable entries={data} conference="West" historyMap={historyMap} />
+        </div>
+      )}
+
+      {/* Standings bump charts — conference rank over last 30 days */}
+      {!isLoading && historyData && historyData.length > 0 && (
+        <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
+          <StandingsBumpChart historyData={historyData} conference="East" expanded />
+          <StandingsBumpChart historyData={historyData} conference="West" expanded />
         </div>
       )}
     </div>
