@@ -1,9 +1,11 @@
 import statistics
+from datetime import datetime, timedelta
 from typing import List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 
+from data.nba_client import _active_nba_season
 from db.database import get_db
 from db.models import Player, SeasonStat
 from models.stats import CareerStatsResponse, LeagueContext, SeasonStats
@@ -14,9 +16,10 @@ from services.advanced_metrics import (
     calculate_darko,
     compute_age_at_season,
 )
-from services.sync_service import sync_player_if_needed
 
 router = APIRouter()
+
+_CAREER_STALE_AFTER = timedelta(hours=24)
 
 
 _RATE_STATS = ["pts", "reb", "ast", "stl", "blk", "tov", "fgm", "fga", "fg3m", "fg3a", "ftm", "fta", "oreb", "dreb", "pf"]
@@ -346,10 +349,7 @@ def league_context(
 
 @router.get("/{player_id}/career", response_model=CareerStatsResponse)
 def career_stats(player_id: int, db: Session = Depends(get_db)):
-    try:
-        player = sync_player_if_needed(db, player_id)
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error fetching stats: {e}")
+    player = db.query(Player).filter(Player.id == player_id).first()
 
     # Get regular season stats from DB, ordered by season
     regular_stats = (
@@ -366,8 +366,9 @@ def career_stats(player_id: int, db: Session = Depends(get_db)):
         .all()
     )
 
-    # Backfill computed metrics for players synced before BPM/WS/DARKO were implemented
-    _backfill_computed_metrics(db, regular_stats, player)
+    if player:
+        # Backfill computed metrics for players synced before BPM/WS/DARKO were implemented
+        _backfill_computed_metrics(db, regular_stats, player)
 
     # Deduplicate: for mid-season trades, keep only the highest-GP row per season.
     # Also filter out future seasons (season start year > current year + 1).
@@ -391,10 +392,34 @@ def career_stats(player_id: int, db: Session = Depends(get_db)):
     playoff_seasons = [_stat_to_dict(s) for s in _dedup_seasons(playoff_stats)]
     career_totals = _compute_career_totals(seasons)
 
+    latest_updated_at = None
+    latest_season = None
+    all_stats = regular_stats + playoff_stats
+    if all_stats:
+        latest_row = max(
+            all_stats,
+            key=lambda row: row.updated_at or datetime.min,
+        )
+        latest_updated_at = latest_row.updated_at
+        latest_season = latest_row.season
+
+    data_status = "missing"
+    if seasons or playoff_seasons:
+        if (
+            latest_updated_at
+            and latest_season == _active_nba_season()
+            and (datetime.utcnow() - latest_updated_at) > _CAREER_STALE_AFTER
+        ):
+            data_status = "stale"
+        else:
+            data_status = "ready"
+
     return CareerStatsResponse(
         player_id=player_id,
-        player_name=player.full_name,
+        player_name=player.full_name if player else "",
         seasons=[SeasonStats(**s) for s in seasons],
         career_totals=SeasonStats(**career_totals) if career_totals else None,
         playoff_seasons=[SeasonStats(**s) for s in playoff_seasons],
+        data_status=data_status,
+        last_synced_at=latest_updated_at.isoformat() if latest_updated_at else None,
     )

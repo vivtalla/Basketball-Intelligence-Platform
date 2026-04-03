@@ -26,23 +26,23 @@ Likely shape:
 - add a targeted roster-refresh path to `sync_player_aliases` for two-way and recently moved players
 - keep stub-player creation gated until roster truth is more authoritative
 
-### DB-First Player Reads
+### Final DB-First Cleanup for Non-Core Reads
 Why it matters:
-Shot charts are now DB-first, but other high-traffic player surfaces still retain request-time `nba_api` fallbacks. That keeps the product vulnerable to upstream outages in the places analysts use most.
+Sprint 30 made the main player/profile/career/gamelog/standings surfaces DB-first, but a few secondary routes still lean on `sync_player_if_needed`. That leaves a smaller but still real upstream dependency gap.
 
 Likely shape:
-- remove request-time live fetches from player profile, career stats, and game-log endpoints
-- return explicit readiness states when data is missing instead of silently attempting live rescue
-- keep `nba_api` only in explicit backfill/admin and queued enrichment paths
+- remove remaining request-time live fetches from advanced/trend-report style routes
+- standardize readiness metadata on any remaining legacy reads
+- keep `nba_api` only in queued/admin enrichment and explicit recovery workflows
 
-### Shot Chart Coverage and Readiness UX
+### Visualization Language Rollout
 Why it matters:
-The product can now render persisted shot charts and zone summaries reliably, but analysts still need better visibility into whether a player is fully synced, stale, or awaiting ingestion.
+Sprint 30 established the first CourtVue chart system and premium visuals on player, compare, and insights. The next gain is making the rest of the product feel equally intentional and legible.
 
 Likely shape:
-- add warehouse coverage/readiness views for shot-chart sync status by season and player
-- improve product messaging for unsynced vs. stale vs. true no-data states
-- add a repeatable current-season refresh/backfill runbook so baseline coverage stays healthy
+- extend shared chart tokens, annotation patterns, and state treatments to standings, teams, pre-read, and other high-value workflows
+- continue replacing overly abstract visuals with simpler decision-readable formats where needed
+- tighten copy, metric framing, and hover/help patterns so first-time comprehension improves
 
 ---
 
@@ -126,11 +126,12 @@ Likely shape:
 
 ### Usage vs Efficiency Follow-Ons
 Why it matters:
-The dashboard now surfaces burden allocation, but it still needs richer recommendation quality and confidence framing.
+The dashboard now surfaces burden allocation, but it still needs richer recommendation quality, clearer formula communication, and a final readability pass.
 
 Likely shape:
 - improve redistribution suggestions with clearer role and shot-profile context
 - add team-specific calibration and confidence indicators
+- continue simplifying score explanation and presentation so the page is immediately readable
 - connect usage flags into player trend and compare workflows
 
 ### Pre-Read Deck Follow-Ons

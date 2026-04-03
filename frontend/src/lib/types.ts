@@ -1554,3 +1554,31 @@ export interface PersistedZoneProfileResponse extends ZoneProfileResponse {
   data_status: ShotChartDataStatus;
   last_synced_at: string | null;
 }
+
+export interface DbFirstPlayerProfile extends PlayerProfile {
+  data_status: ShotChartDataStatus;
+  last_synced_at: string | null;
+}
+
+export interface DbFirstCareerStatsResponse extends CareerStatsResponse {
+  data_status: ShotChartDataStatus;
+  last_synced_at: string | null;
+}
+
+export interface DbFirstGameLogResponse extends GameLogResponse {
+  data_status: ShotChartDataStatus;
+  last_synced_at: string | null;
+}
+
+export interface WarehouseReadinessDomain {
+  domain: string;
+  eligible_count: number;
+  ready_count: number;
+  stale_count: number;
+  missing_count: number;
+}
+
+export interface WarehouseReadinessSummary {
+  season: string;
+  domains: WarehouseReadinessDomain[];
+}

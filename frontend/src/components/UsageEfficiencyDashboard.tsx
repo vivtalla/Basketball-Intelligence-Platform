@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useState } from "react";
 import { useTeams, useUsageEfficiencyReport } from "@/hooks/usePlayerStats";
+import UsageLoadBoard from "./UsageLoadBoard";
 
 function pillTone(category: "overused" | "underused") {
   return category === "overused"
@@ -74,6 +75,11 @@ export default function UsageEfficiencyDashboard() {
           </ul>
         </section>
       ) : null}
+
+      <UsageLoadBoard
+        featureMore={data?.underused_efficients ?? []}
+        reduceLoad={data?.overused_inefficients ?? []}
+      />
 
       <div className="grid gap-6 xl:grid-cols-2">
         <section className="rounded-[1.75rem] border border-[var(--border)] bg-[var(--surface)]">

@@ -9,7 +9,7 @@ from sqlalchemy.orm import Session
 from db.database import get_db
 from db.models import Team, TeamStanding
 from models.standings import StandingsEntry, StandingsHistoryResponse
-from services.standings_service import compute_standings_data, get_standings_history
+from services.standings_service import get_standings_history
 
 router = APIRouter()
 
@@ -111,36 +111,11 @@ def get_standings(
 ):
     """Return league standings.
 
-    Reads from the materialized team_standings table when available.
-    Falls back to live computation from player_game_logs if the table is empty
-    (e.g. first run before materialize_standings has been called).
+    Reads only from the materialized team_standings table.
     """
     entries = _standings_from_db(season, db)
     if entries is None:
-        # Fallback: compute on-the-fly from player_game_logs
-        raw = compute_standings_data(season, db)
-        from models.standings import StandingsEntry as SE
-        entries = [SE(**{
-            "team_id": d["team_id"],
-            "team_city": d["team_city"],
-            "team_name": d["team_name"],
-            "conference": d["conference"],
-            "division": d["division"],
-            "playoff_rank": d["playoff_rank"],
-            "wins": d["wins"],
-            "losses": d["losses"],
-            "win_pct": d["win_pct"],
-            "games_back": d["games_back"],
-            "l10": d["l10"],
-            "home_record": d["home_record"],
-            "road_record": d["road_record"],
-            "pts_pg": None,
-            "opp_pts_pg": None,
-            "diff_pts_pg": None,
-            "current_streak": d["current_streak_str"],
-            "clinch_indicator": None,
-            "abbreviation": d["abbreviation"],
-        }) for d in raw]
+        return []
 
     entries.sort(key=lambda e: (e.conference, e.playoff_rank))
     return entries

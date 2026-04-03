@@ -99,6 +99,7 @@ export default function WarehousePipelinePanel({ season }: Props) {
       globalMutate("warehouse-jobs-all"),
       globalMutate(`warehouse-jobs-failed-${season}`),
       globalMutate(`warehouse-job-summary-${season}`),
+      globalMutate(`warehouse-readiness-${season}`),
       globalMutate(`pbp-dashboard-${season}`),
       globalMutate("pbp-dashboard-seasons"),
     ]);
@@ -137,6 +138,7 @@ export default function WarehousePipelinePanel({ season }: Props) {
         mutateSummary(),
         globalMutate(`pbp-dashboard-${season}`),
         globalMutate("pbp-dashboard-seasons"),
+        globalMutate(`warehouse-readiness-${season}`),
       ]);
     }, POLL_INTERVAL_MS);
     return () => window.clearInterval(intervalId);

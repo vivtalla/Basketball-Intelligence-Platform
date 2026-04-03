@@ -30,6 +30,8 @@ class PlayerProfile(BaseModel):
     from_year: Optional[int] = None
     to_year: Optional[int] = None
     headshot_url: str
+    data_status: str = "missing"
+    last_synced_at: Optional[str] = None
 
 
 class PlayerTrendForm(BaseModel):

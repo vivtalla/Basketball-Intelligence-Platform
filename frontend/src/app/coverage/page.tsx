@@ -8,6 +8,7 @@ import {
   usePbpCoverageDashboard,
   usePbpCoverageSeasons,
   useWarehouseJobSummary,
+  useWarehouseReadiness,
 } from "@/hooks/usePlayerStats";
 import WarehousePipelinePanel from "@/components/WarehousePipelinePanel";
 
@@ -65,6 +66,7 @@ export default function CoveragePage() {
     selectedSeason && seasons.includes(selectedSeason) ? selectedSeason : recommendedSeason;
   const { data, error, isLoading } = usePbpCoverageDashboard(season);
   const { data: warehouseSummary } = useWarehouseJobSummary(season);
+  const { data: readiness } = useWarehouseReadiness(season);
 
   const teamRows = useMemo(() => data?.teams ?? [], [data]);
   const playerRows = useMemo(() => data?.players ?? [], [data]);
@@ -313,6 +315,63 @@ export default function CoveragePage() {
             </div>
           </div>
         )}
+
+        {readiness?.domains?.length ? (
+          <div className="mt-6 rounded-3xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-gray-950/20">
+            <div className="text-xs font-medium uppercase tracking-[0.18em] text-gray-500 dark:text-gray-400">
+              DB-first readiness
+            </div>
+            <div className="mt-2 text-sm text-gray-500 dark:text-gray-400">
+              Persisted-read coverage for profile, career, game-log, and shot-chart domains.
+            </div>
+            <div className="mt-5 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+              {readiness.domains.map((domain) => {
+                const total = Math.max(1, domain.eligible_count);
+                return (
+                  <div
+                    key={domain.domain}
+                    className="rounded-[1.5rem] border border-gray-200 bg-[linear-gradient(145deg,rgba(247,243,232,0.92),rgba(228,236,232,0.94))] p-4 dark:border-gray-800"
+                  >
+                    <div className="text-xs font-semibold uppercase tracking-[0.18em] text-gray-500 dark:text-gray-400">
+                      {domain.domain.replace(/_/g, " ")}
+                    </div>
+                    <div className="mt-2 text-2xl font-semibold text-gray-900 dark:text-gray-100">
+                      {domain.ready_count}/{domain.eligible_count}
+                    </div>
+                    <div className="mt-3 flex h-2 overflow-hidden rounded-full bg-gray-100 dark:bg-gray-800">
+                      <div
+                        style={{ width: `${(domain.ready_count / total) * 100}%` }}
+                        className="bg-emerald-500"
+                      />
+                      <div
+                        style={{ width: `${(domain.stale_count / total) * 100}%` }}
+                        className="bg-amber-400"
+                      />
+                      <div
+                        style={{ width: `${(domain.missing_count / total) * 100}%` }}
+                        className="bg-slate-400"
+                      />
+                    </div>
+                    <div className="mt-3 grid grid-cols-3 gap-2 text-[11px] text-gray-500 dark:text-gray-400">
+                      <div>
+                        <div className="font-semibold text-emerald-700 dark:text-emerald-300">{domain.ready_count}</div>
+                        <div>ready</div>
+                      </div>
+                      <div>
+                        <div className="font-semibold text-amber-700 dark:text-amber-300">{domain.stale_count}</div>
+                        <div>stale</div>
+                      </div>
+                      <div>
+                        <div className="font-semibold text-slate-600 dark:text-slate-300">{domain.missing_count}</div>
+                        <div>missing</div>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        ) : null}
 
         {(syncMessage || syncError) && (
           <div

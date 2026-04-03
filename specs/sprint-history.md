@@ -1,9 +1,19 @@
 # Sprint History Archive
 
-Sprints 1–29. Current sprint summaries also live in `CLAUDE.md` under "Recent Sprints".
+Sprints 1–30. Current sprint summaries also live in `CLAUDE.md` under "Recent Sprints".
 
 For detailed per-sprint records, see the individual closeout files in this directory:
-`specs/sprint-09-closeout.md` through `specs/sprint-29-closeout.md`
+`specs/sprint-09-closeout.md` through `specs/sprint-30-closeout.md`
+
+---
+
+### Sprint 30 — DB-First Player Reads + Signature Visualization System
+**Branch:** `feature/sprint-30-dbfirst-viz`
+
+- Removed request-time `nba_api` rescue from the core player profile, career stats, game-log, and standings read paths
+- Standardized readiness metadata for key user reads and added coverage/refresh support in warehouse ops
+- Shipped the first CourtVue chart-system layer plus premium visuals across player, compare, and insights surfaces
+- Added backend coverage for DB-first read behavior and verified the frontend build/lint pipeline
 
 ---
 

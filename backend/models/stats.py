@@ -188,6 +188,63 @@ class CareerStatsResponse(BaseModel):
     seasons: List[SeasonStats]
     career_totals: Optional[SeasonStats] = None
     playoff_seasons: List[SeasonStats] = []
+    data_status: str = "missing"
+    last_synced_at: Optional[str] = None
+
+
+class GameLogEntry(BaseModel):
+    game_id: str
+    game_date: Optional[str] = None
+    matchup: Optional[str] = None
+    wl: Optional[str] = None
+    min: Optional[float] = None
+    pts: Optional[int] = None
+    reb: Optional[int] = None
+    ast: Optional[int] = None
+    stl: Optional[int] = None
+    blk: Optional[int] = None
+    tov: Optional[int] = None
+    fgm: Optional[int] = None
+    fga: Optional[int] = None
+    fg_pct: Optional[float] = None
+    fg3m: Optional[int] = None
+    fg3a: Optional[int] = None
+    fg3_pct: Optional[float] = None
+    ftm: Optional[int] = None
+    fta: Optional[int] = None
+    ft_pct: Optional[float] = None
+    oreb: Optional[int] = None
+    dreb: Optional[int] = None
+    pf: Optional[int] = None
+    plus_minus: Optional[int] = None
+    pts_roll5: Optional[float] = None
+    reb_roll5: Optional[float] = None
+    ast_roll5: Optional[float] = None
+
+
+class GameLogSeasonAverages(BaseModel):
+    pts: Optional[float] = None
+    reb: Optional[float] = None
+    ast: Optional[float] = None
+    stl: Optional[float] = None
+    blk: Optional[float] = None
+    tov: Optional[float] = None
+    fg_pct: Optional[float] = None
+    fg3_pct: Optional[float] = None
+    ft_pct: Optional[float] = None
+    min: Optional[float] = None
+    plus_minus: Optional[float] = None
+
+
+class GameLogResponse(BaseModel):
+    player_id: int
+    season: str
+    season_type: str
+    games: List[GameLogEntry]
+    season_averages: GameLogSeasonAverages
+    gp: int = 0
+    data_status: str = "missing"
+    last_synced_at: Optional[str] = None
 
 
 class LeagueContext(BaseModel):

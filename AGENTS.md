@@ -1,6 +1,6 @@
 # Agent Coordination
 
-Last updated: 2026-04-02 by Codex (Sprint 29 closeout)
+Last updated: 2026-04-02 by Codex (Sprint 30 closeout)
 
 > Both agents read this file before touching code at the start of every session.
 > The canonical source of truth is the clean `master` checkout at `/Users/viv/Documents/Basketball Intelligence Platform`.
@@ -14,12 +14,12 @@ Last updated: 2026-04-02 by Codex (Sprint 29 closeout)
 
 | Field | Value |
 |-------|-------|
-| Sprint | 30 |
-| Goal | TBD at kickoff |
-| Started | — |
-| Target merge | — |
+| Sprint | 31 |
+| Goal | Kickoff pending |
+| Started | TBD |
+| Target merge | TBD |
 | Sprint shape | TBD |
-| Branch | `master` |
+| Branch | not created yet |
 | Worker policy | Unassigned until kickoff |
 
 ---
@@ -39,12 +39,12 @@ If repo state, sprint numbering, or shipped features appear to disagree across l
 
 ### Claude
 - Branch: not assigned
-- Scope: not assigned
+- Scope: available for Sprint 31 kickoff
 - Status: Available
 
 ### Codex
 - Branch: not assigned
-- Scope: not assigned
+- Scope: available for Sprint 31 kickoff
 - Status: Available
 
 ---
@@ -58,6 +58,8 @@ Claim a shared file here before editing. If a file is already claimed, read that
 
 | File | Claimed by | Purpose |
 |------|------------|---------|
+| `frontend/src/lib/types.ts` | — |  |
+| `frontend/src/lib/api.ts` | — |  |
 | `backend/main.py` | — |  |
 
 ---
@@ -71,12 +73,13 @@ Specs or review notes written by one stream for another. Check this before start
 | `specs/data-architecture.md` | Sprint 26 | Next sprint | Reference — read before touching data layer |
 | `specs/sprint-28-closeout.md` | Sprint 28 | Next sprint | Reference — next sprint seeds inside |
 | `specs/sprint-29-closeout.md` | Sprint 29 | Next sprint | Reference — DB-first shot-chart and standings-history follow-ons |
+| `specs/sprint-30-closeout.md` | Sprint 30 | Next sprint | Reference — DB-first read follow-ons and visualization rollout seeds |
 
 ---
 
 ## Merge Order
 
-1. Sprint 30 should rewrite this section at kickoff
+1. Sprint 31 should rewrite this section at kickoff
 
 ---
 
@@ -84,7 +87,7 @@ Specs or review notes written by one stream for another. Check this before start
 
 | Files / Directories | Assigned this sprint |
 |---------------------|----------------------|
-| To be defined at Sprint 30 kickoff | — |
+| To be defined at Sprint 31 kickoff | — |
 
 ---
 
@@ -157,6 +160,7 @@ Specs or review notes written by one stream for another. Check this before start
 
 *Free-form, dated, newest first. Use this for coordination and repo-state exceptions.*
 
+2026-04-02 (Codex): Sprint 30 closed on `feature/sprint-30-dbfirst-viz`. Shipped DB-first player/career/gamelog/standings reads with readiness metadata, queue-backed enrichment coverage, and the first CourtVue signature visualization layer across player, compare, and insights. See `specs/sprint-30-closeout.md` before Sprint 31 kickoff.
 2026-04-02 (Codex): Sprint 29 closeout prepared on `feature/sprint-29-standings-zones`. Shipped standings history/trend lines plus shot zone analytics, then hardened shot-chart reads to be DB-first with queued warehouse-backed sync. Local closeout verification covered backend standings/shot-chart APIs and frontend route smoke checks; `pytest` was still unavailable in `backend/venv`, so backend test execution remains a noted gap.
 2026-04-01 (Claude): Sprint 28 closed. Shipped compare availability layer (injury badge + warning banner in ComparisonView, GET /api/compare/player-availability) and unresolved injury identity ops UI (/admin/injuries/unresolved with resolve/dismiss endpoints). Standings trend and shot zone analytics deferred to Sprint 29.
 2026-04-01 (Codex): Sprint 27 closed on branch `feature/sprint-27-availability-schedule` pending merge. Shipped scope: upcoming schedule API, team/pre-read availability surfaces, official injury-report fallback, and injury identity hardening (`player_name_aliases`, `injury_sync_unresolved`). See `specs/sprint-27-closeout.md` before Sprint 28 kickoff.

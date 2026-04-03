@@ -1,7 +1,5 @@
 import type {
   PlayerSearchResult,
-  PlayerProfile,
-  CareerStatsResponse,
   ShotChartResponse,
   LeaderboardResponse,
   TeamSummary,
@@ -19,7 +17,6 @@ import type {
   LineupsResult,
   OnOffLeaderboardResult,
   PbpSyncResult,
-  GameLogResponse,
   GameDetailResponse,
   SimilarityResponse,
   LeagueContext,
@@ -50,14 +47,14 @@ export async function searchPlayers(
 
 export async function getPlayerProfile(
   playerId: number
-): Promise<PlayerProfile> {
-  return fetchApi<PlayerProfile>(`/api/players/${playerId}`);
+): Promise<import("./types").DbFirstPlayerProfile> {
+  return fetchApi<import("./types").DbFirstPlayerProfile>(`/api/players/${playerId}`);
 }
 
 export async function getPlayerCareerStats(
   playerId: number
-): Promise<CareerStatsResponse> {
-  return fetchApi<CareerStatsResponse>(`/api/stats/${playerId}/career`);
+): Promise<import("./types").DbFirstCareerStatsResponse> {
+  return fetchApi<import("./types").DbFirstCareerStatsResponse>(`/api/stats/${playerId}/career`);
 }
 
 export async function getAvailableSeasons(): Promise<string[]> {
@@ -207,8 +204,8 @@ export async function getPlayerGameLogs(
   playerId: number,
   season: string,
   seasonType = "Regular Season"
-): Promise<GameLogResponse> {
-  return fetchApi<GameLogResponse>(
+): Promise<import("./types").DbFirstGameLogResponse> {
+  return fetchApi<import("./types").DbFirstGameLogResponse>(
     `/api/gamelogs/${playerId}?season=${encodeURIComponent(season)}&season_type=${encodeURIComponent(seasonType)}`
   );
 }
@@ -783,5 +780,13 @@ export async function getPersistedPlayerZoneProfile(
 ): Promise<import("./types").PersistedZoneProfileResponse> {
   return fetchApi<import("./types").PersistedZoneProfileResponse>(
     `/api/shotchart/${playerId}/zones?season=${encodeURIComponent(season)}&season_type=${encodeURIComponent(seasonType)}`
+  );
+}
+
+export async function getWarehouseReadinessSummary(
+  season: string
+): Promise<import("./types").WarehouseReadinessSummary> {
+  return fetchApi<import("./types").WarehouseReadinessSummary>(
+    `/api/warehouse/readiness/${encodeURIComponent(season)}`
   );
 }

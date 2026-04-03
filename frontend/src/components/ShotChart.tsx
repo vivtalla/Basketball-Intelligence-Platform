@@ -4,6 +4,7 @@ import { useState } from "react";
 import { usePlayerShotChart } from "@/hooks/usePlayerStats";
 import type { ShotChartShot } from "@/lib/types";
 import { LEAGUE_AVG_FG, ZONE_POINTS, ZONE_ORDER } from "@/lib/shotchart-constants";
+import ChartStatusBadge from "./ChartStatusBadge";
 
 interface ShotChartProps {
   playerId: number;
@@ -270,12 +271,18 @@ export default function ShotChart({
   const isStale = dataStatus === "stale";
 
   return (
-    <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 p-6">
+    <div className="rounded-[2rem] border border-[var(--border)] bg-[linear-gradient(145deg,rgba(247,243,232,0.96),rgba(228,236,232,0.92))] p-6 shadow-[0_24px_80px_rgba(47,43,36,0.08)]">
       {/* Header */}
       <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
-        <h3 className="font-semibold text-gray-900 dark:text-gray-100">Shot Chart</h3>
+        <div>
+          <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[var(--muted)]">
+            Player Surface
+          </p>
+          <h3 className="mt-1 text-xl font-semibold text-[var(--foreground)]">Shot Chart</h3>
+        </div>
 
         <div className="flex flex-wrap items-center gap-3">
+          <ChartStatusBadge status={dataStatus} compact />
           {/* Scatter / Heatmap */}
           <div className="flex rounded-lg overflow-hidden border border-gray-200 dark:border-gray-600 text-xs">
             {(["scatter", "heatmap"] as ChartView[]).map((view) => (
@@ -325,7 +332,7 @@ export default function ShotChart({
 
       {/* FG% summary */}
       {shotChart && !isLoading && (
-        <div className="mb-3 flex flex-wrap items-center justify-between gap-2 text-sm text-gray-500 dark:text-gray-400">
+        <div className="mb-3 flex flex-wrap items-center justify-between gap-2 rounded-[1.25rem] border border-[rgba(25,52,42,0.12)] bg-[rgba(255,255,255,0.7)] px-4 py-3 text-sm text-[var(--muted-strong)]">
           <p>
             {shotChart.made} / {shotChart.attempted} FG
             {fgPct !== null && <> ({fgPct}%)</>}
@@ -334,17 +341,6 @@ export default function ShotChart({
             )}
           </p>
           <div className="flex items-center gap-2">
-            {dataStatus !== "ready" && (
-              <span
-                className={`rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.08em] ${
-                  isStale
-                    ? "bg-amber-100 text-amber-700 dark:bg-amber-500/15 dark:text-amber-300"
-                    : "bg-slate-100 text-slate-600 dark:bg-slate-500/15 dark:text-slate-300"
-                }`}
-              >
-                {isStale ? "Cached" : "Not Synced"}
-              </span>
-            )}
             {shotChart.last_synced_at && (
               <span className="text-[11px]">
                 Synced {new Date(shotChart.last_synced_at).toLocaleDateString()}
@@ -355,7 +351,7 @@ export default function ShotChart({
       )}
 
       {shotChart && !isLoading && isMissing && (
-        <div className="mb-4 rounded-xl border border-dashed border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-600 dark:border-gray-700 dark:bg-gray-900/30 dark:text-gray-300">
+        <div className="mb-4 rounded-xl border border-dashed border-[rgba(25,52,42,0.16)] bg-[rgba(255,255,255,0.66)] px-4 py-3 text-sm text-[var(--muted-strong)]">
           Shot chart data has not been synced for this player and season yet.
         </div>
       )}
@@ -373,67 +369,84 @@ export default function ShotChart({
           </p>
         )}
 
-        <svg viewBox={`0 0 ${W} ${H}`} className="w-full max-w-lg mx-auto block">
+        <div className="rounded-[1.75rem] border border-[rgba(25,52,42,0.12)] bg-[rgba(255,255,255,0.72)] p-3">
+          <svg viewBox={`0 0 ${W} ${H}`} className="w-full max-w-lg mx-auto block">
+            <defs>
+              <linearGradient id="courtWash" x1="0%" y1="0%" x2="100%" y2="100%">
+                <stop offset="0%" stopColor="rgba(255,255,255,0.98)" />
+                <stop offset="100%" stopColor="rgba(228,236,232,0.94)" />
+              </linearGradient>
+            </defs>
+            <rect x="0" y="0" width={W} height={H} rx="18" fill="url(#courtWash)" />
           {/* Zone heatmap overlays */}
-          {chartView === "heatmap" && shotChart && shotChart.shots.length > 0 && (
-            <HeatmapZones shots={shotChart.shots} />
-          )}
+            {chartView === "heatmap" && shotChart && shotChart.shots.length > 0 && (
+              <HeatmapZones shots={shotChart.shots} />
+            )}
 
-          <CourtMarkings />
+            <CourtMarkings />
 
-          {/* Scatter: individual shots colored by made/missed */}
-          {chartView === "scatter" &&
-            shotChart?.shots.map((shot, i) => {
-              const [x, y] = toSvg(shot.loc_x, shot.loc_y);
-              return (
-                <circle
-                  key={i}
-                  cx={x}
-                  cy={y}
-                  r="4"
-                  fill={shot.shot_made ? "#22c55e" : "#ef4444"}
-                  fillOpacity={shot.shot_made ? 0.75 : 0.45}
-                  stroke={shot.shot_made ? "#16a34a" : "#dc2626"}
-                  strokeWidth="0.5"
-                >
-                  <title>
-                    {shot.action_type} · {shot.distance} ft ·{" "}
-                    {shot.shot_made ? "Made ✓" : "Missed ✗"}
-                  </title>
-                </circle>
-              );
-            })}
+            <rect x="24" y="18" width="118" height="48" rx="14" fill="rgba(255,255,255,0.86)" />
+            <text x="38" y="38" className="fill-[var(--muted)] text-[11px] font-semibold uppercase tracking-[0.14em]">
+              {selectedSeason}
+            </text>
+            <text x="38" y="55" className="fill-[var(--foreground)] text-[14px] font-semibold">
+              {chartView === "heatmap" ? "Zone wash" : "Shot scatter"}
+            </text>
 
-          {/* Heatmap: shots colored by zone efficiency vs league avg */}
-          {chartView === "heatmap" &&
-            shotChart &&
-            (() => {
-              const zoneStats = buildZoneStats(shotChart.shots);
-              return shotChart.shots.map((shot, i) => {
+            {/* Scatter: individual shots colored by made/missed */}
+            {chartView === "scatter" &&
+              shotChart?.shots.map((shot, i) => {
                 const [x, y] = toSvg(shot.loc_x, shot.loc_y);
-                const stat = zoneStats[shot.zone_basic];
-                const avg = LEAGUE_AVG[shot.zone_basic] ?? null;
-                const pct = stat && stat.attempted >= 5 ? stat.made / stat.attempted : null;
-                const diff = pct !== null && avg !== null ? pct - avg : null;
                 return (
                   <circle
                     key={i}
                     cx={x}
                     cy={y}
-                    r="3.5"
-                    fill={heatColor(diff, 0.7)}
-                    stroke="rgba(255,255,255,0.15)"
+                    r="4"
+                    fill={shot.shot_made ? "#21483b" : "#b25b4f"}
+                    fillOpacity={shot.shot_made ? 0.82 : 0.42}
+                    stroke={shot.shot_made ? "#21483b" : "#9f3f31"}
                     strokeWidth="0.5"
                   >
                     <title>
-                      {shot.zone_basic} · {shot.action_type} · {shot.distance} ft ·{" "}
+                      {shot.action_type} · {shot.distance} ft ·{" "}
                       {shot.shot_made ? "Made ✓" : "Missed ✗"}
                     </title>
                   </circle>
                 );
-              });
-            })()}
-        </svg>
+              })}
+
+            {/* Heatmap: shots colored by zone efficiency vs league avg */}
+            {chartView === "heatmap" &&
+              shotChart &&
+              (() => {
+                const zoneStats = buildZoneStats(shotChart.shots);
+                return shotChart.shots.map((shot, i) => {
+                  const [x, y] = toSvg(shot.loc_x, shot.loc_y);
+                  const stat = zoneStats[shot.zone_basic];
+                  const avg = LEAGUE_AVG[shot.zone_basic] ?? null;
+                  const pct = stat && stat.attempted >= 5 ? stat.made / stat.attempted : null;
+                  const diff = pct !== null && avg !== null ? pct - avg : null;
+                  return (
+                    <circle
+                      key={i}
+                      cx={x}
+                      cy={y}
+                      r="3.5"
+                      fill={heatColor(diff, 0.7)}
+                      stroke="rgba(255,255,255,0.15)"
+                      strokeWidth="0.5"
+                    >
+                      <title>
+                        {shot.zone_basic} · {shot.action_type} · {shot.distance} ft ·{" "}
+                        {shot.shot_made ? "Made ✓" : "Missed ✗"}
+                      </title>
+                    </circle>
+                  );
+                });
+              })()}
+          </svg>
+        </div>
 
         {/* Legend */}
         <div className="flex items-center justify-center gap-5 mt-3 text-xs text-gray-500 dark:text-gray-400">
@@ -466,6 +479,14 @@ export default function ShotChart({
             </>
           )}
         </div>
+
+        {(isStale || isMissing) && (
+          <div className="mt-3 rounded-xl border border-[rgba(25,52,42,0.12)] bg-[rgba(255,255,255,0.68)] px-3 py-2 text-xs text-[var(--muted-strong)]">
+            {isStale
+              ? "Showing cached shot data while the persisted feed catches up."
+              : "This chart is DB-first, and shot data has not been synced for this player-season yet."}
+          </div>
+        )}
       </div>
 
       {/* Zone breakdown table */}

@@ -1,3 +1,4 @@
+from datetime import datetime, timedelta
 from typing import List
 
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -5,11 +6,50 @@ from sqlalchemy.orm import Session
 
 from data.nba_client import search_players
 from db.database import get_db
+from db.models import Player
 from models.player import PlayerProfile, PlayerSearchResult, PlayerTrendReport
 from services.player_trend_service import build_player_trend_report
-from services.sync_service import canonical_player_name, get_or_sync_player_profile, sync_player_if_needed
+from services.sync_service import canonical_player_name, sync_player_if_needed
 
 router = APIRouter()
+
+_PROFILE_STALE_AFTER = timedelta(days=14)
+
+
+def _profile_data_status(player: Player) -> str:
+    if not player:
+        return "missing"
+    updated_at = getattr(player, "updated_at", None)
+    if player.is_active and updated_at and (datetime.utcnow() - updated_at) > _PROFILE_STALE_AFTER:
+        return "stale"
+    return "ready"
+
+
+def _empty_profile(player_id: int) -> PlayerProfile:
+    return PlayerProfile(
+        id=player_id,
+        full_name="",
+        first_name="",
+        last_name="",
+        team_name="",
+        team_abbreviation="",
+        team_id=None,
+        jersey="",
+        position="",
+        height="",
+        weight="",
+        birth_date="",
+        country="",
+        school=None,
+        draft_year=None,
+        draft_round=None,
+        draft_number=None,
+        from_year=None,
+        to_year=None,
+        headshot_url="",
+        data_status="missing",
+        last_synced_at=None,
+    )
 
 
 @router.get("/search", response_model=List[PlayerSearchResult])
@@ -20,10 +60,9 @@ def search(q: str = Query(..., min_length=2, description="Player name to search"
 
 @router.get("/{player_id}", response_model=PlayerProfile)
 def get_player(player_id: int, db: Session = Depends(get_db)):
-    try:
-        player = get_or_sync_player_profile(db, player_id)
-    except Exception as e:
-        raise HTTPException(status_code=404, detail=f"Player not found: {e}")
+    player = db.query(Player).filter(Player.id == player_id).first()
+    if not player:
+        return _empty_profile(player_id)
 
     team_abbr = ""
     team_name = ""
@@ -52,6 +91,8 @@ def get_player(player_id: int, db: Session = Depends(get_db)):
         from_year=player.from_year,
         to_year=player.to_year,
         headshot_url=player.headshot_url or "",
+        data_status=_profile_data_status(player),
+        last_synced_at=player.updated_at.isoformat() if player.updated_at else None,
     )
 
 

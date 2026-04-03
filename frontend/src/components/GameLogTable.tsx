@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useState, useMemo } from "react";
 import { usePlayerGameLogs } from "@/hooks/usePlayerStats";
 import type { GameLogEntry } from "@/lib/types";
+import ChartStatusBadge from "./ChartStatusBadge";
 
 interface GameLogTableProps {
   playerId: number;
@@ -120,6 +121,7 @@ export default function GameLogTable({ playerId, season }: GameLogTableProps) {
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
+          {data && <ChartStatusBadge status={data.data_status} compact />}
           {/* Season type toggle */}
           <div className="flex overflow-hidden rounded-lg border border-[var(--border)] text-sm">
             {(["Regular Season", "Playoffs"] as const).map((type) => (
@@ -197,7 +199,9 @@ export default function GameLogTable({ playerId, season }: GameLogTableProps) {
 
         {!isLoading && !error && displayed.length === 0 && (
           <div className="p-6 text-center text-sm text-[var(--muted)]">
-            No games found.
+            {data?.data_status === "missing"
+              ? "Game logs have not been synced for this player-season yet."
+              : "No games found."}
           </div>
         )}
 
@@ -303,6 +307,12 @@ export default function GameLogTable({ playerId, season }: GameLogTableProps) {
           </div>
         )}
       </div>
+
+      {data?.data_status === "stale" && (
+        <div className="rounded-xl border border-[rgba(194,122,44,0.2)] bg-[rgba(194,122,44,0.06)] px-4 py-3 text-sm text-[var(--muted-strong)]">
+          Showing cached game logs while the queued refresh catches up.
+        </div>
+      )}
     </section>
   );
 }

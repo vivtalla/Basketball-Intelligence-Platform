@@ -14,6 +14,7 @@ import GameLogTable from "./GameLogTable";
 import PlayerSimilarity from "./PlayerSimilarity";
 import SeasonSplits from "./SeasonSplits";
 import ExternalMetricsPanel from "./ExternalMetricsPanel";
+import ChartStatusBadge from "./ChartStatusBadge";
 
 interface PlayerDashboardProps {
   playerId: number;
@@ -68,6 +69,10 @@ export default function PlayerDashboard({ playerId }: PlayerDashboardProps) {
     : null;
   const effectiveSeasonStr = selectedSeasonStr || latestSeason?.season || null;
   const selectedSeasonData = activeSeasonsArr.find((s) => s.season === effectiveSeasonStr) ?? latestSeason;
+  const missingCoreData =
+    profile.data_status === "missing" || careerStats.data_status === "missing";
+  const staleCoreData =
+    profile.data_status === "stale" || careerStats.data_status === "stale";
 
   // currentSeason used only for PlayerHeader (always latest)
   const currentSeason = latestSeason;
@@ -84,6 +89,24 @@ export default function PlayerDashboard({ playerId }: PlayerDashboardProps) {
   return (
     <div className="space-y-6">
       <PlayerHeader profile={profile} currentSeason={currentSeason} priorSeason={priorSeason} />
+
+      {(missingCoreData || staleCoreData) && (
+        <div className="rounded-[1.5rem] border border-[rgba(25,52,42,0.12)] bg-[rgba(255,255,255,0.74)] px-5 py-4">
+          <div className="flex flex-wrap items-center gap-2">
+            <ChartStatusBadge status={missingCoreData ? "missing" : "stale"} compact />
+            <span className="text-sm font-medium text-[var(--foreground)]">
+              {missingCoreData
+                ? "This player page is reading only from persisted data, and part of the player record has not been synced yet."
+                : "Some player data is currently cached from the last successful sync."}
+            </span>
+          </div>
+          <p className="mt-2 text-sm text-[var(--muted)]">
+            {missingCoreData
+              ? "Profile, career, game-log, and shot-chart sections will stay stable, but some panels may remain empty until queued enrichment finishes."
+              : "The page remains usable while background refresh jobs catch up."}
+          </p>
+        </div>
+      )}
 
       {/* RS / Playoffs toggle — only shown when player has playoff data */}
       {hasPlayoffs && (
@@ -138,11 +161,13 @@ export default function PlayerDashboard({ playerId }: PlayerDashboardProps) {
         </div>
       )}
 
-      <PlayerTrendIntelligencePanel
-        playerId={playerId}
-        season={effectiveSeasonStr}
-        isPlayoffs={isPlayoffs}
-      />
+      {effectiveSeasonStr && (
+        <PlayerTrendIntelligencePanel
+          playerId={playerId}
+          season={effectiveSeasonStr}
+          isPlayoffs={isPlayoffs}
+        />
+      )}
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {selectedSeasonData && (
@@ -183,7 +208,7 @@ export default function PlayerDashboard({ playerId }: PlayerDashboardProps) {
       <PlayerSimilarity playerId={playerId} season={effectiveSeasonStr} />
 
       {/* Season splits — regular season only, needs game log data */}
-      {!isPlayoffs && (
+      {!isPlayoffs && effectiveSeasonStr && (
         <SeasonSplits playerId={playerId} season={effectiveSeasonStr} />
       )}
 

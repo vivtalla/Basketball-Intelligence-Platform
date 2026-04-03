@@ -98,6 +98,19 @@ class WarehouseJobSummary(BaseModel):
     global_request_throttle: Optional[WarehouseRequestThrottleStatus] = None
 
 
+class WarehouseReadinessDomain(BaseModel):
+    domain: str
+    eligible_count: int
+    ready_count: int
+    stale_count: int
+    missing_count: int
+
+
+class WarehouseReadinessSummary(BaseModel):
+    season: str
+    domains: List[WarehouseReadinessDomain]
+
+
 class QueueResponse(BaseModel):
     queued: int
     jobs: List[IngestionJobResponse]

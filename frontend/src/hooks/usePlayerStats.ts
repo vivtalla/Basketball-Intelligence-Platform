@@ -2,8 +2,8 @@
 
 import useSWR from "swr";
 import type {
-  PlayerProfile,
-  CareerStatsResponse,
+  DbFirstPlayerProfile,
+  DbFirstCareerStatsResponse,
   PlayerTrendReport,
   PersistedShotChartResponse,
   LeaderboardResponse,
@@ -26,7 +26,7 @@ import type {
   ClutchStats,
   LineupsResult,
   OnOffLeaderboardResult,
-  GameLogResponse,
+  DbFirstGameLogResponse,
   GameDetailResponse,
   SimilarityResponse,
   LeagueContext,
@@ -34,6 +34,7 @@ import type {
   TeamAvailabilityResponse,
   UpcomingScheduleGame,
   PersistedZoneProfileResponse,
+  WarehouseReadinessSummary,
 } from "@/lib/types";
 import {
   getPlayerProfile,
@@ -68,17 +69,18 @@ import {
   getTeamAvailability,
   getUpcomingSchedule,
   getPersistedPlayerZoneProfile,
+  getWarehouseReadinessSummary,
 } from "@/lib/api";
 
 export function usePlayerProfile(playerId: number | null) {
-  return useSWR<PlayerProfile>(
+  return useSWR<DbFirstPlayerProfile>(
     playerId ? `player-profile-${playerId}` : null,
     () => getPlayerProfile(playerId!)
   );
 }
 
 export function usePlayerCareerStats(playerId: number | null) {
-  return useSWR<CareerStatsResponse>(
+  return useSWR<DbFirstCareerStatsResponse>(
     playerId ? `player-career-${playerId}` : null,
     () => getPlayerCareerStats(playerId!)
   );
@@ -214,7 +216,7 @@ export function usePlayerGameLogs(
   season: string | null,
   seasonType = "Regular Season"
 ) {
-  return useSWR<GameLogResponse>(
+  return useSWR<DbFirstGameLogResponse>(
     playerId && season ? `game-logs-${playerId}-${season}-${seasonType}` : null,
     () => getPlayerGameLogs(playerId!, season!, seasonType)
   );
@@ -381,6 +383,13 @@ export function useWarehouseJobSummary(season?: string | null) {
   return useSWR<WarehouseJobSummary>(
     `warehouse-job-summary-${season ?? "all"}`,
     () => getWarehouseJobSummary(season ?? undefined)
+  );
+}
+
+export function useWarehouseReadiness(season?: string | null) {
+  return useSWR<WarehouseReadinessSummary>(
+    season ? `warehouse-readiness-${season}` : null,
+    () => getWarehouseReadinessSummary(season!)
   );
 }
 

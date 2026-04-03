@@ -1,6 +1,6 @@
 # CourtVue Labs — Data Architecture
 
-**Sprint 26 artifact. Last updated: 2026-04-01.**
+**Last updated: 2026-04-02 (Sprint 30 DB-first pass).**
 
 This document is the canonical reference for the platform's data architecture: where data comes from, what gets stored, what is derived, what each product surface reads, and where the system is going.
 
@@ -14,7 +14,7 @@ This document is the canonical reference for the platform's data architecture: w
 | NBA CDN Box Score | `cdn.nba.com/static/json/liveData/boxscore/boxscore_{game_id}.json` | None | Per-game team + player box scores |
 | NBA CDN Play-by-Play | `cdn.nba.com/static/json/liveData/playbyplay/playbyplay_{game_id}.json` | None | Per-game PBP event stream |
 | NBA CDN Injuries | `cdn.nba.com/static/json/liveData/injuries/injuries.json` | None | Current league-wide injury report |
-| nba_api (stats.nba.com) | Python library | None | Player bio, career stats, shot charts |
+| nba_api (stats.nba.com) | Python library | None | Queued/admin enrichment only: player bio, career stats, game logs, shot charts |
 | External CSV | Manual import | Manual | EPM, RAPTOR, PIPM, LEBRON, RAPM |
 
 All CDN endpoints are rate-limited via `nba_client.py` (0.6s delay, PostgreSQL-backed distributed lock).
@@ -56,11 +56,27 @@ Predates the warehouse. Still used to bootstrap player profiles and season stats
 ```
 nba_api.stats → Player, Team (player bio + roster)
 CDN box scores → SeasonStat (aggregated season totals + advanced metrics)
-CDN schedule  → PlayerGameLog (per-game player lines, lazy-populated per request)
+stats.nba.com → PlayerGameLog (per-game player lines, queued/admin refresh)
+stats.nba.com → PlayerShotChart (queued/admin refresh)
 ```
 
 **Orchestration:** `bulk_sync_service.py`, `pbp_sync_service.py`, `sync_service.py`
 **CLI:** `python data/bulk_import.py --season 2024-25`
+
+### Pipeline D — DB-first Enrichment Queue
+
+Sprint 30 formalized app-critical player reads as DB-first. User-facing GET routes no longer rescue missing data live from `stats.nba.com`; they return stable `ready` / `stale` / `missing` responses and rely on queued enrichment instead.
+
+**Queue-backed enrichment domains:**
+| Job Type | Priority | Produces |
+|----------|----------|----------|
+| `sync_player_profile` | 40 | `players` |
+| `sync_player_career` | 41 | `season_stats` |
+| `sync_player_gamelogs` | 42 | `player_game_logs` |
+| `sync_season_shot_charts` | 45 | fan-out only |
+| `sync_player_shot_chart` | 46 | `player_shot_charts` |
+
+**Rule:** request-time user reads must never call these sources directly.
 
 ### Pipeline C — External Metrics (Manual)
 
@@ -88,7 +104,7 @@ Requires a manually downloaded CSV. Not automated. RAPTOR is available free; EPM
 | Table | Model | Canonical? | Notes |
 |-------|-------|-----------|-------|
 | `season_stats` | `SeasonStat` | **Shared** | Fed by both pipelines. Warehouse materializes into it. 50+ columns including PBP-derived, external metrics, and computed advanced stats. Treat as the read target for season-level player stats until warehouse materialization is complete. |
-| `player_game_logs` | `PlayerGameLog` | **Deprecated-in-place** | Per-game player stats. Lazy-populated per request from CDN. Overlaps with `game_player_stats`. Keep for compatibility (standings computation, gamelog router fallback). Migrate reads to `game_player_stats` when warehouse coverage is confirmed complete. |
+| `player_game_logs` | `PlayerGameLog` | **Persisted legacy-backed** | Per-game player stats. No longer lazy-populated per request. Filled by queued/admin enrichment and still overlaps with `game_player_stats`. Keep for compatibility while compare/player surfaces mature toward warehouse-first per-game reads. |
 | `game_logs` | `GameLog` | **Deprecated-in-place** | Game metadata. Overlaps with `warehouse_games`. Keep for PBP foreign key compatibility. |
 | `play_by_play` | `PlayByPlay` | **Deprecated-in-place** | Legacy PBP event table. Overlaps with `play_by_play_events`. New writes go to `play_by_play_events`; legacy table is read-only for historical compatibility. |
 | `player_on_off` | `PlayerOnOff` | Shared | Written by both pbp_sync and warehouse materialization. Warehouse version is authoritative for modern seasons. |
@@ -130,28 +146,37 @@ Key-value TTL cache for raw nba_api responses. Not a primary datastore. Lives in
 
 ## 4. Product Surface → Data Dependency Map
 
-| Product Surface | Primary Tables | Notes |
-|----------------|---------------|-------|
-| Player profile | `players`, `season_stats` | Falls back to NBA API sync if player missing |
-| Season stats / leaderboards | `season_stats`, `players` | Reads legacy table; warehouse feeds into it |
-| Career stats | `season_stats` (all seasons) | Deduplicates mid-season trades |
-| Game logs | `player_game_logs` → `game_player_stats` | Legacy router; warehouse preferred when available |
-| Shot chart | `player_shot_charts` → nba_api fallback | Persisted as of Sprint 26 |
-| Standings | `team_standings` → `player_game_logs` fallback | Materialized as of Sprint 26 |
-| On/off splits | `player_on_off` | Derived from PBP stints |
-| Lineup stats | `lineup_stats` | Derived from PBP stints |
-| Clutch stats | `season_stats` (clutch_pts, clutch_fg_pct columns) | PBP-derived, written by warehouse materialization |
-| PBP coverage | `warehouse_games`, `play_by_play_events`, `game_player_stats` | Coverage checks via `has_parsed_pbp` flag |
-| Team analytics | `season_stats`, `player_game_logs` | W/L from game logs |
-| Team intelligence | `game_logs`, `play_by_play`, `season_stats`, `player_on_off`, `lineup_stats` | Mixed legacy + derived |
-| Team style profile | `game_team_stats`, `play_by_play_events`, `warehouse_games` | Warehouse-backed |
-| Scouting / decision | `game_player_stats`, `game_team_stats`, `play_by_play_events`, `lineup_stats` | Warehouse-backed |
-| Injuries | `player_injuries` | New Sprint 26 |
-| Trajectory / insights | `season_stats`, `players` | Window-based YoY analysis |
-| Similarity | `season_stats` | Z-score Euclidean distance |
-| Breakouts | `season_stats` | YoY z-score improvement |
-| Game Explorer | `warehouse_games`, `game_team_stats`, `play_by_play_events` | Warehouse-backed |
-| Pre-read deck | Composite of team style, scouting, rotation, focus levers | All warehouse-backed |
+| Product Surface | Classification | Canonical Read Path | Notes |
+|----------------|----------------|---------------------|-------|
+| Player profile | queued enrichment required | `players` | DB-first as of Sprint 30. Missing profile returns stable empty payload with readiness metadata. |
+| Season stats / leaderboards | persisted legacy-backed | `season_stats`, `players` | Warehouse feeds into `season_stats`; leaderboards remain DB-first. |
+| Career stats | queued enrichment required | `season_stats` (all seasons) | DB-first as of Sprint 30 with `data_status` + `last_synced_at`. |
+| Game logs | persisted legacy-backed | `player_game_logs` | DB-first as of Sprint 30. Refreshes happen via queued/admin enrichment. |
+| Shot chart | queued enrichment required | `player_shot_charts` | DB-first as of Sprint 29. |
+| Standings | warehouse-backed | `team_standings` | Live legacy fallback removed; empty materialized table now surfaces as empty state. |
+| Compare dependencies | mixed: persisted legacy-backed + queued enrichment required | `players`, `season_stats`, `player_shot_charts`, `player_injuries` | Compare now renders explicit missing/stale states instead of live rescue assumptions. |
+| Insights dependencies | mixed: warehouse-backed + persisted legacy-backed | `season_stats`, `game_team_stats`, `play_by_play_events`, `warehouse_games`, `players` | Trend and burden visuals remain DB-first even when some legacy-backed domains are sparse. |
+| On/off splits | warehouse-backed | `player_on_off` | Derived from PBP stints. |
+| Lineup stats | warehouse-backed | `lineup_stats` | Derived from PBP stints. |
+| Clutch stats | warehouse-backed | `season_stats` clutch columns | PBP-derived, written by warehouse materialization. |
+| PBP coverage | warehouse-backed | `warehouse_games`, `play_by_play_events`, `game_player_stats` | Coverage checks via `has_parsed_pbp` flag. |
+| Team analytics | mixed: warehouse-backed + persisted legacy-backed | `season_stats`, `player_game_logs`, `team_standings` | DB-first. Current record context still leans on persisted game-log compatibility. |
+| Team intelligence | still non-canonical | `game_logs`, `play_by_play`, `season_stats`, `player_on_off`, `lineup_stats` | Needs a future pass to finish moving legacy `game_logs` / `play_by_play` reads onto warehouse equivalents. |
+| Team style profile | warehouse-backed | `game_team_stats`, `play_by_play_events`, `warehouse_games` | Fully warehouse-safe. |
+| Scouting / decision | warehouse-backed | `game_player_stats`, `game_team_stats`, `play_by_play_events`, `lineup_stats` | Fully warehouse-safe. |
+| Injuries | warehouse-backed | `player_injuries` | CDN-backed and persisted daily. |
+| Trajectory / insights | persisted legacy-backed | `season_stats`, `players` | DB-first with no request-time sync. |
+| Similarity | persisted legacy-backed | `season_stats` | DB-first. |
+| Breakouts | persisted legacy-backed | `season_stats` | DB-first. |
+| Game Explorer | warehouse-backed | `warehouse_games`, `game_team_stats`, `play_by_play_events` | Fully warehouse-backed. |
+| Pre-read deck | warehouse-backed | composed from team style / scouting / rotation / focus levers | Warehouse-backed. |
+
+### Surface status legend
+
+- `warehouse-backed`: canonical reads already come from warehouse/materialized warehouse tables.
+- `persisted legacy-backed`: canonical reads use persisted DB tables that predate the warehouse but no longer depend on live request-time fetch.
+- `queued enrichment required`: canonical reads are DB-first, but freshness depends on background/admin queue jobs.
+- `still non-canonical`: product surface still mixes in legacy read paths that should migrate in a future sprint.
 
 ---
 
@@ -165,10 +190,12 @@ Key-value TTL cache for raw nba_api responses. Not a primary datastore. Lives in
 | Warehouse box scores | Done | `game_team_stats`, `game_player_stats` |
 | Warehouse PBP events | Done | `play_by_play_events` |
 | Warehouse-fed season aggregates | Partial | `season_stats` (warehouse materializes into it) |
-| Gamelogs router uses `game_player_stats` | Pending | Replace `player_game_logs` primary reads |
+| Gamelogs router uses `game_player_stats` | Pending | Replace `player_game_logs` primary reads after compare/player UX is comfortable with warehouse per-game coverage |
 | Standings from materialized table | Sprint 26 | `team_standings` |
 | Shot charts persisted to DB | Sprint 26 | `player_shot_charts` |
 | Injuries as a first-class data domain | Sprint 26 | `player_injuries` |
+| Player profile / career / gamelog reads DB-first | Sprint 30 | request-time rescue removed |
+| Readiness metadata on app-critical reads | Sprint 30 | `data_status`, `last_synced_at` |
 | Deprecate `play_by_play` (legacy) | Future | Route all reads to `play_by_play_events` |
 | Deprecate `game_logs` (legacy) | Future | Route all reads to `warehouse_games` |
 | Migrate gamelog reads from `player_game_logs` | Future | Route to `game_player_stats` |
@@ -184,6 +211,9 @@ Key-value TTL cache for raw nba_api responses. Not a primary datastore. Lives in
 | Shot chart persistence | **Integrated (Sprint 26)** | nba_api | Done |
 | Standings materialization | **Integrated (Sprint 26)** | Derived from game stats | Done |
 | Upcoming schedule | High | `warehouse_games` (status field) | Low effort — expose as endpoint |
+| Player profile readiness dashboard | Integrated (Sprint 30) | `players` + `source_runs` | Coverage view now exposes ready / stale / missing counts |
+| Career readiness dashboard | Integrated (Sprint 30) | `season_stats` | Coverage view now exposes ready / stale / missing counts |
+| Game-log readiness dashboard | Integrated (Sprint 30) | `player_game_logs` | Coverage view now exposes ready / stale / missing counts |
 | Roster transactions | Medium | nba_api.LeagueGameFinder or ESPN | Trade deadline context, roster moves |
 | Draft data | Low | nba_api or separate CSV | Out of scope for current product |
 | Referee data | Low | PBP event attributes | Very limited product value |

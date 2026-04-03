@@ -2,6 +2,8 @@
 
 import type { PersistedZoneProfileResponse, ZoneStat } from "@/lib/types";
 import { LEAGUE_AVG_FG, ZONE_POINTS } from "@/lib/shotchart-constants";
+import ChartStatusBadge from "./ChartStatusBadge";
+import ShotProfileFingerprint from "./ShotProfileFingerprint";
 
 interface ZoneProfilePanelProps {
   data: PersistedZoneProfileResponse | undefined;
@@ -47,25 +49,6 @@ function aggregateZonesByBasic(zones: ZoneStat[], totalAttempts: number) {
   }
 
   return aggregated;
-}
-
-function SyncStateBadge({
-  dataStatus,
-}: {
-  dataStatus: "ready" | "stale" | "missing";
-}) {
-  if (dataStatus === "ready") return null;
-  return (
-    <span
-      className={`rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.08em] ${
-        dataStatus === "stale"
-          ? "bg-[rgba(245,158,11,0.14)] text-[rgb(180,83,9)]"
-          : "bg-[rgba(148,163,184,0.16)] text-[var(--muted)]"
-      }`}
-    >
-      {dataStatus === "stale" ? "Cached" : "Not Synced"}
-    </span>
-  );
 }
 
 function ZoneTile({ config, stat }: { config: { key: string; label: string }; stat: ZoneStat | undefined }) {
@@ -154,7 +137,7 @@ export default function ZoneProfilePanel({
             )}
             <h3 className="text-sm font-semibold text-[var(--foreground)]">Zone Efficiency</h3>
           </div>
-          <SyncStateBadge dataStatus={data?.data_status ?? "missing"} />
+          <ChartStatusBadge status={data?.data_status ?? "missing"} compact />
         </div>
         <p className="text-sm text-[var(--muted)]">
           {data?.data_status === "missing"
@@ -176,7 +159,7 @@ export default function ZoneProfilePanel({
         </div>
         <div className="text-right">
           <div className="flex items-center justify-end gap-2">
-            <SyncStateBadge dataStatus={data.data_status} />
+            <ChartStatusBadge status={data.data_status} compact />
             <p className="text-[11px] text-[var(--muted)] tabular-nums">
               {data.total_attempts} FGA · {data.season}
             </p>
@@ -188,6 +171,11 @@ export default function ZoneProfilePanel({
           )}
         </div>
       </div>
+      <ShotProfileFingerprint
+        zones={data.zones}
+        totalAttempts={data.total_attempts}
+        playerLabel={playerLabel}
+      />
       <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
         {TILE_CONFIG.map((config) => (
           <ZoneTile key={config.key} config={config} stat={zoneMap[config.key]} />

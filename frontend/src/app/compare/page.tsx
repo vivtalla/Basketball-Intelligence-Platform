@@ -20,6 +20,8 @@ import ZoneProfilePanel from "@/components/ZoneProfilePanel";
 import TeamComparisonView from "@/components/TeamComparisonView";
 import LineupComparisonView from "@/components/LineupComparisonView";
 import StyleComparisonView from "@/components/StyleComparisonView";
+import ShotProfileDuel from "@/components/ShotProfileDuel";
+import ChartStatusBadge from "@/components/ChartStatusBadge";
 
 interface PlayerSlotProps {
   slotLabel: string;
@@ -271,11 +273,29 @@ function ComparePageInner() {
   const bothSelected = Boolean(p1Id && p2Id);
   const comparisonError =
     profile1Error || career1Error || profile2Error || career2Error;
-  const bothReady = Boolean(profile1 && career1 && profile2 && career2);
+  const playerAReady = Boolean(
+    profile1 &&
+      career1 &&
+      profile1.data_status !== "missing" &&
+      career1.data_status !== "missing"
+  );
+  const playerBReady = Boolean(
+    profile2 &&
+      career2 &&
+      profile2.data_status !== "missing" &&
+      career2.data_status !== "missing"
+  );
+  const bothReady = playerAReady && playerBReady;
   const loadingComparison =
     bothSelected &&
     !comparisonError &&
     (!profile1 || !profile2 || !career1 || !career2);
+  const staleComparison =
+    bothSelected &&
+    (profile1?.data_status === "stale" ||
+      profile2?.data_status === "stale" ||
+      career1?.data_status === "stale" ||
+      career2?.data_status === "stale");
 
   return (
     <div className="mx-auto max-w-5xl">
@@ -399,13 +419,45 @@ function ComparePageInner() {
             </div>
           ) : null}
 
+          {bothSelected && !comparisonError && !loadingComparison && !bothReady ? (
+            <div className="rounded-[2rem] border border-[rgba(25,52,42,0.12)] bg-[rgba(255,255,255,0.74)] p-6 text-center">
+              <div className="flex justify-center gap-2">
+                <ChartStatusBadge
+                  status={
+                    profile1?.data_status === "missing" || career1?.data_status === "missing" ||
+                    profile2?.data_status === "missing" || career2?.data_status === "missing"
+                      ? "missing"
+                      : "stale"
+                  }
+                />
+              </div>
+              <p className="mt-3 text-lg font-medium text-[var(--foreground)]">
+                Comparison is waiting on persisted player data
+              </p>
+              <p className="mt-2 text-sm text-[var(--muted)]">
+                This page no longer rescues missing data live from the NBA API. If one player has not been synced yet, the compare board stays stable and waits for the queued refresh.
+              </p>
+            </div>
+          ) : null}
+
           {bothReady ? (
             <>
+              {staleComparison && (
+                <div className="rounded-[1.5rem] border border-[rgba(194,122,44,0.2)] bg-[rgba(194,122,44,0.06)] px-5 py-4 text-sm text-[var(--muted-strong)]">
+                  One or both player records are currently cached. The duel view is still usable while background refresh jobs catch up.
+                </div>
+              )}
               <ComparisonView
                 playerA={{ profile: profile1!, career: career1! }}
                 playerB={{ profile: profile2!, career: career2! }}
                 availabilityA={compareAvailability?.player_a}
                 availabilityB={compareAvailability?.player_b}
+              />
+              <ShotProfileDuel
+                left={zoneA}
+                right={zoneB}
+                leftLabel={profile1!.full_name}
+                rightLabel={profile2!.full_name}
               />
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <ZoneProfilePanel

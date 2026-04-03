@@ -13,11 +13,13 @@ from models.warehouse import (
     SourceRunResponse,
     WarehouseGameHealth,
     WarehouseJobSummary,
+    WarehouseReadinessSummary,
     WarehouseSeasonHealth,
 )
 from services.warehouse_service import (
     get_game_health,
     get_job_summary,
+    get_readiness_summary,
     get_season_health,
     list_jobs,
     materialize_game_stats,
@@ -26,6 +28,9 @@ from services.warehouse_service import (
     queue_current_season_daily_sync,
     queue_date_sync,
     queue_game_resync,
+    queue_player_career_sync,
+    queue_player_gamelogs_sync,
+    queue_player_profile_sync,
     queue_player_shot_chart_sync,
     queue_season_shot_charts,
     reset_stale_jobs,
@@ -84,6 +89,47 @@ def queue_single_game(game_id: str = Query(...), season: Optional[str] = Query(N
 @router.post("/queue/current-season", response_model=QueueResponse)
 def queue_daily_current_season(season: str = Query(...), db: Session = Depends(get_db)):
     jobs = queue_current_season_daily_sync(db, season)
+    db.commit()
+    return QueueResponse(queued=len(jobs), jobs=[_job_response(job) for job in jobs])
+
+
+@router.post("/queue/player-profile", response_model=QueueResponse)
+def queue_player_profile(
+    player_id: int = Query(...),
+    force: bool = Query(False),
+    db: Session = Depends(get_db),
+):
+    jobs = queue_player_profile_sync(db, player_id=player_id, force=force)
+    db.commit()
+    return QueueResponse(queued=len(jobs), jobs=[_job_response(job) for job in jobs])
+
+
+@router.post("/queue/player-career", response_model=QueueResponse)
+def queue_player_career(
+    player_id: int = Query(...),
+    force: bool = Query(False),
+    db: Session = Depends(get_db),
+):
+    jobs = queue_player_career_sync(db, player_id=player_id, force=force)
+    db.commit()
+    return QueueResponse(queued=len(jobs), jobs=[_job_response(job) for job in jobs])
+
+
+@router.post("/queue/player-gamelogs", response_model=QueueResponse)
+def queue_player_gamelogs(
+    player_id: int = Query(...),
+    season: str = Query(...),
+    season_type: str = Query("Regular Season"),
+    force: bool = Query(False),
+    db: Session = Depends(get_db),
+):
+    jobs = queue_player_gamelogs_sync(
+        db,
+        player_id=player_id,
+        season=season,
+        season_type=season_type,
+        force=force,
+    )
     db.commit()
     return QueueResponse(queued=len(jobs), jobs=[_job_response(job) for job in jobs])
 
@@ -208,3 +254,8 @@ def jobs(
 @router.get("/jobs/summary", response_model=WarehouseJobSummary)
 def jobs_summary(season: Optional[str] = Query(None), db: Session = Depends(get_db)):
     return WarehouseJobSummary(**get_job_summary(db, season=season))
+
+
+@router.get("/readiness/{season}", response_model=WarehouseReadinessSummary)
+def readiness_summary(season: str, db: Session = Depends(get_db)):
+    return WarehouseReadinessSummary(**get_readiness_summary(db, season))

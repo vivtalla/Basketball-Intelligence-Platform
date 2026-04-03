@@ -1,15 +1,16 @@
 """Game log endpoints — per-game stats for a player in a season."""
 
 import datetime
-from typing import List, Optional
+from typing import List, Optional, Tuple
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from data.nba_client import get_player_game_logs, _active_nba_season, _cache_ttl_for_season
+from data.nba_client import _active_nba_season
 from db.database import get_db
 from db.models import PlayerGameLog
+from models.stats import GameLogEntry, GameLogResponse, GameLogSeasonAverages
 
 router = APIRouter()
 
@@ -28,8 +29,8 @@ def _is_stale(row: PlayerGameLog, season: str) -> bool:
 
 def _load_from_db(
     db: Session, player_id: int, season: str, season_type: str
-) -> Optional[List[dict]]:
-    """Return cached game logs from PostgreSQL, or None if missing/stale."""
+) -> Tuple[List[dict], str, Optional[str]]:
+    """Return cached game logs from PostgreSQL with readiness metadata."""
     rows = db.execute(
         select(PlayerGameLog)
         .where(
@@ -41,13 +42,18 @@ def _load_from_db(
     ).scalars().all()
 
     if not rows:
-        return None
+        return [], "missing", None
 
-    # If any row is stale, refresh the whole batch
-    if any(_is_stale(r, season) for r in rows):
-        return None
-
-    return [_row_to_dict(r) for r in rows]
+    data_status = "stale" if any(_is_stale(r, season) for r in rows) else "ready"
+    latest_synced = max(
+        (row.synced_at for row in rows if row.synced_at is not None),
+        default=None,
+    )
+    return (
+        [_row_to_dict(r) for r in rows],
+        data_status,
+        latest_synced.isoformat() if latest_synced else None,
+    )
 
 
 def _row_to_dict(r: PlayerGameLog) -> dict:
@@ -79,69 +85,7 @@ def _row_to_dict(r: PlayerGameLog) -> dict:
     }
 
 
-def _upsert_logs(
-    db: Session,
-    player_id: int,
-    season: str,
-    season_type: str,
-    logs: List[dict],
-) -> None:
-    """Write fresh logs to player_game_logs, replacing any existing rows."""
-    db.execute(
-        PlayerGameLog.__table__.delete().where(
-            PlayerGameLog.player_id == player_id,
-            PlayerGameLog.season == season,
-            PlayerGameLog.season_type == season_type,
-        )
-    )
-    now = datetime.datetime.utcnow()
-    for g in logs:
-        raw_date = g.get("game_date")
-        if raw_date:
-            try:
-                game_date = datetime.datetime.strptime(raw_date, "%b %d, %Y").date()
-            except ValueError:
-                try:
-                    game_date = datetime.date.fromisoformat(raw_date)
-                except ValueError:
-                    game_date = None
-        else:
-            game_date = None
-
-        db.add(PlayerGameLog(
-            player_id=player_id,
-            game_id=g.get("game_id", ""),
-            season=season,
-            season_type=season_type,
-            game_date=game_date,
-            matchup=g.get("matchup"),
-            wl=g.get("wl"),
-            min=g.get("min"),
-            pts=g.get("pts"),
-            reb=g.get("reb"),
-            ast=g.get("ast"),
-            stl=g.get("stl"),
-            blk=g.get("blk"),
-            tov=g.get("tov"),
-            fgm=g.get("fgm"),
-            fga=g.get("fga"),
-            fg_pct=g.get("fg_pct"),
-            fg3m=g.get("fg3m"),
-            fg3a=g.get("fg3a"),
-            fg3_pct=g.get("fg3_pct"),
-            ftm=g.get("ftm"),
-            fta=g.get("fta"),
-            ft_pct=g.get("ft_pct"),
-            oreb=g.get("oreb"),
-            dreb=g.get("dreb"),
-            pf=g.get("pf"),
-            plus_minus=g.get("plus_minus"),
-            synced_at=now,
-        ))
-    db.commit()
-
-
-@router.get("/{player_id}")
+@router.get("/{player_id}", response_model=GameLogResponse)
 def player_game_logs(
     player_id: int,
     season: str = "2024-25",
@@ -150,31 +94,24 @@ def player_game_logs(
 ):
     """Return per-game stats for a player, ordered newest-first.
 
-    Serves from PostgreSQL when available; falls back to NBA API and persists
-    results. Current season refreshes after 24 h; historical seasons never re-fetch.
+    Reads only from PostgreSQL. Current-season rows can be marked stale based on
+    `synced_at`, but the route never falls back to a remote fetch.
 
     season_type: 'Regular Season' | 'Playoffs' | 'Pre Season'
     """
-    logs = _load_from_db(db, player_id, season, season_type)
-
-    if logs is None:
-        try:
-            logs = get_player_game_logs(player_id, season, season_type)
-        except Exception:
-            logs = []
-
-        if logs:
-            _upsert_logs(db, player_id, season, season_type, logs)
+    logs, data_status, last_synced_at = _load_from_db(db, player_id, season, season_type)
 
     if not logs:
-        return {
-            "player_id": player_id,
-            "season": season,
-            "season_type": season_type,
-            "games": [],
-            "season_averages": {},
-            "gp": 0,
-        }
+        return GameLogResponse(
+            player_id=player_id,
+            season=season,
+            season_type=season_type,
+            games=[],
+            season_averages=GameLogSeasonAverages(),
+            gp=0,
+            data_status=data_status,
+            last_synced_at=last_synced_at,
+        )
 
     # Compute rolling 5-game averages for pts/reb/ast (newest-first order)
     def _rolling_avg(values: List[Optional[int]], window: int = 5) -> List[Optional[float]]:
@@ -216,11 +153,13 @@ def player_game_logs(
         "plus_minus": _avg([g["plus_minus"] for g in logs]),
     }
 
-    return {
-        "player_id": player_id,
-        "season": season,
-        "season_type": season_type,
-        "games": logs,
-        "season_averages": season_avgs,
-        "gp": len(logs),
-    }
+    return GameLogResponse(
+        player_id=player_id,
+        season=season,
+        season_type=season_type,
+        games=[GameLogEntry(**game) for game in logs],
+        season_averages=GameLogSeasonAverages(**season_avgs),
+        gp=len(logs),
+        data_status=data_status,
+        last_synced_at=last_synced_at,
+    )

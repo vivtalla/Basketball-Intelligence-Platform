@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import type { TeamAnalytics, TeamIntelligence } from "@/lib/types";
+import MomentumRibbon from "./MomentumRibbon";
 
 interface TrendCardsPanelProps {
   teamAbbreviation: string;
@@ -175,6 +176,9 @@ export default function TrendCardsPanel({
             <h3 className="mt-2 text-xl font-semibold text-[var(--foreground)]">
               {card.title}
             </h3>
+            <div className="mt-3 rounded-2xl border border-[rgba(25,52,42,0.08)] bg-[rgba(216,228,221,0.16)] px-3 py-2">
+              <MomentumRibbon delta={card.delta} inverse={card.inverse} />
+            </div>
             <div className={`mt-4 text-3xl font-bold tabular-nums ${trendTone(card.delta, card.inverse)}`}>
               {card.value == null
                 ? "—"
