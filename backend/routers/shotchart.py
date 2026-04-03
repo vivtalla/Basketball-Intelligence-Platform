@@ -27,6 +27,8 @@ _ZONE_POINTS = {
 def _data_status(cached: Optional[PlayerShotChart], now: datetime) -> str:
     if not cached:
         return "missing"
+    if not cached.shot_count:
+        return "missing"
     if cached.expires_at and cached.expires_at > now:
         return "ready"
     return "stale"
@@ -149,23 +151,13 @@ def player_shot_chart(
         )
         .first()
     )
-    if cached and cached.expires_at and cached.expires_at > now:
-        return _build_response(
-            player_id,
-            season,
-            season_type,
-            cached.shots or [],
-            data_status="ready",
-            last_synced_at=_last_synced_at(cached),
-        )
-
     if cached:
         return _build_response(
             player_id,
             season,
             season_type,
             cached.shots or [],
-            data_status="stale",
+            data_status=_data_status(cached, now),
             last_synced_at=_last_synced_at(cached),
         )
 
