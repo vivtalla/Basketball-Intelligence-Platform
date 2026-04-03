@@ -7,7 +7,7 @@ from fastapi import HTTPException
 from sqlalchemy import or_
 from sqlalchemy.orm import Session
 
-from db.models import Team, TeamStanding, WarehouseGame
+from db.models import PreReadSnapshot, Team, TeamStanding, WarehouseGame
 from models.team import TeamPrepQueueItem, TeamPrepQueueResponse
 from services.compare_service import build_team_comparison_report
 from services.team_availability_service import build_team_availability
@@ -107,7 +107,7 @@ def _conference_rank(db: Session, standing: Optional[TeamStanding], season: str)
     return None
 
 
-def _build_links(team_abbreviation: str, opponent_abbreviation: str, season: str) -> Tuple[str, str, str]:
+def _build_links(team_abbreviation: str, opponent_abbreviation: str, season: str) -> Tuple[str, str, str, str, str]:
     pre_read_url = "/pre-read?team={0}&opponent={1}&season={2}".format(
         team_abbreviation,
         opponent_abbreviation,
@@ -123,7 +123,35 @@ def _build_links(team_abbreviation: str, opponent_abbreviation: str, season: str
         opponent_abbreviation,
         season,
     )
-    return pre_read_url, scouting_url, compare_url
+    follow_through_url = "/teams/{0}?tab=decision&season={1}&opponent={2}".format(
+        team_abbreviation,
+        season,
+        opponent_abbreviation,
+    )
+    game_review_url = "/games?team={0}&season={1}&opponent={2}".format(
+        team_abbreviation,
+        season,
+        opponent_abbreviation,
+    )
+    return pre_read_url, scouting_url, compare_url, follow_through_url, game_review_url
+
+
+def _latest_snapshot_for_matchup(
+    db: Session,
+    team_abbreviation: str,
+    opponent_abbreviation: str,
+    season: str,
+) -> Optional[PreReadSnapshot]:
+    return (
+        db.query(PreReadSnapshot)
+        .filter(
+            PreReadSnapshot.team_abbreviation == team_abbreviation.upper(),
+            PreReadSnapshot.opponent_abbreviation == opponent_abbreviation.upper(),
+            PreReadSnapshot.season == season,
+        )
+        .order_by(PreReadSnapshot.created_at.desc(), PreReadSnapshot.id.desc())
+        .first()
+    )
 
 
 def _prep_urgency(
@@ -131,24 +159,33 @@ def _prep_urgency(
     unavailable_count: int,
     questionable_count: int,
     rest_advantage: Optional[int],
+    edge_signal: bool,
 ) -> Tuple[str, str]:
-    signals = 0
+    signals = 0.0
     reasons: List[str] = []
     if opponent_rank is not None and opponent_rank <= 4:
-        signals += 2
+        signals += 2.0
         reasons.append("top-tier opponent")
+    elif opponent_rank is not None and opponent_rank <= 8:
+        signals += 1.0
+        reasons.append("playoff-level opponent")
     if unavailable_count > 0:
-        signals += 1
+        signals += min(1.5, unavailable_count * 0.75)
         reasons.append("real availability watch")
     if questionable_count > 1:
-        signals += 1
+        signals += 0.75
         reasons.append("multiple monitor tags")
     if rest_advantage is not None and rest_advantage < 0:
-        signals += 1
+        signals += abs(rest_advantage) * 0.9
         reasons.append("rest disadvantage")
-    if signals >= 3:
+    elif rest_advantage is not None and rest_advantage > 1:
+        signals -= 0.5
+    if edge_signal:
+        signals += 0.75
+        reasons.append("clear edge to press")
+    if signals >= 3.0:
         return "high", ", ".join(reasons[:2]) or "high-leverage prep spot"
-    if signals >= 1:
+    if signals >= 1.0:
         return "medium", ", ".join(reasons[:2]) or "some matchup friction"
     return "standard", "stable prep spot"
 
@@ -219,7 +256,12 @@ def build_team_prep_queue(
         first_adjustment_label = None
         first_adjustment_summary = None
         try:
-            focus_report = build_team_focus_levers_report(db=db, abbr=team.abbreviation, season=season)
+            focus_report = build_team_focus_levers_report(
+                db=db,
+                abbr=team.abbreviation,
+                season=season,
+                opponent_abbr=opponent_abbreviation,
+            )
             if focus_report.focus_levers:
                 first_adjustment_label = focus_report.focus_levers[0].title
                 first_adjustment_summary = focus_report.focus_levers[0].summary
@@ -232,6 +274,7 @@ def build_team_prep_queue(
             unavailable_count=availability.unavailable_count,
             questionable_count=availability.questionable_count,
             rest_advantage=rest_advantage,
+            edge_signal=best_edge_label is not None,
         )
         headline_parts = [
             "{0} {1}".format("vs" if is_home else "at", opponent_abbreviation),
@@ -239,7 +282,17 @@ def build_team_prep_queue(
             first_adjustment_label.lower() if first_adjustment_label else None,
         ]
         prep_headline = " | ".join(part for part in headline_parts if part)
-        pre_read_url, scouting_url, compare_url = _build_links(team.abbreviation, opponent_abbreviation, season)
+        pre_read_url, scouting_url, compare_url, follow_through_url, game_review_url = _build_links(
+            team.abbreviation,
+            opponent_abbreviation,
+            season,
+        )
+        latest_snapshot = _latest_snapshot_for_matchup(db, team.abbreviation, opponent_abbreviation, season)
+        latest_snapshot_share_url = None
+        latest_snapshot_id = None
+        if latest_snapshot is not None:
+            latest_snapshot_id = latest_snapshot.snapshot_id
+            latest_snapshot_share_url = "/pre-read?snapshot_id={0}".format(latest_snapshot.snapshot_id)
         items.append(
             TeamPrepQueueItem(
                 game_id=row.game_id,
@@ -268,6 +321,10 @@ def build_team_prep_queue(
                 pre_read_url=pre_read_url,
                 scouting_url=scouting_url,
                 compare_url=compare_url,
+                follow_through_url=follow_through_url,
+                game_review_url=game_review_url,
+                latest_snapshot_id=latest_snapshot_id,
+                latest_snapshot_share_url=latest_snapshot_share_url,
             )
         )
 

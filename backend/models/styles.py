@@ -69,16 +69,35 @@ class StyleNeighbor(BaseModel):
     summary: str
 
 
+class StyleScenarioLink(BaseModel):
+    scenario_type: str
+    title: str
+    delta: float
+    rationale: str
+    what_if_payload: Dict[str, str]
+
+
+class StyleLaunchLinks(BaseModel):
+    prep_url: Optional[str] = None
+    compare_url: str
+
+
 class StyleXRayResponse(BaseModel):
+    data_status: Literal["ready", "partial", "limited", "missing"]
+    canonical_source: str
     team_abbreviation: str
     team_name: str
     season: str
+    window_games: int
     archetype: str
     label_reason: str
     feature_contributors: List[StyleFeatureContributor]
     nearest_neighbors: List[StyleNeighbor]
     adjacent_archetypes: List[StyleNeighbor]
     stability: Literal["stable", "watch", "shifted"]
+    scenario_links: List[StyleScenarioLink]
+    launch_links: StyleLaunchLinks
+    source_context: Optional[Dict[str, str]] = None
     warnings: List[str]
 
 

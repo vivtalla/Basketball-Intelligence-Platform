@@ -476,15 +476,58 @@ export async function getUsageEfficiencyReport(
 export async function getPreReadDeck(
   team: string,
   opponent: string,
-  season: string
+  season: string,
+  snapshotId?: string
 ): Promise<import("./types").PreReadDeckResponse> {
-  const params = new URLSearchParams({
-    team,
-    opponent,
-    season,
-  });
+  const params = new URLSearchParams();
+  if (snapshotId) {
+    params.set("snapshot_id", snapshotId);
+  } else {
+    params.set("team", team);
+    params.set("opponent", opponent);
+    params.set("season", season);
+  }
   return fetchApi<import("./types").PreReadDeckResponse>(
     `/api/pre-read?${params.toString()}`
+  );
+}
+
+export async function createPreReadSnapshot(payload: {
+  team: string;
+  opponent: string;
+  season: string;
+  game_id?: string;
+  source_view?: string;
+  source_snapshot_id?: string;
+  context?: Record<string, string>;
+}): Promise<import("./types").PreReadSnapshotResponse> {
+  return fetchApi<import("./types").PreReadSnapshotResponse>(`/api/pre-read/snapshots`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function getPreReadSnapshots(
+  team?: string,
+  opponent?: string,
+  season?: string,
+  limit = 10
+): Promise<import("./types").PreReadSnapshotListResponse> {
+  const params = new URLSearchParams({ limit: String(limit) });
+  if (team) params.set("team", team);
+  if (opponent) params.set("opponent", opponent);
+  if (season) params.set("season", season);
+  return fetchApi<import("./types").PreReadSnapshotListResponse>(
+    `/api/pre-read/snapshots?${params.toString()}`
+  );
+}
+
+export async function getPreReadSnapshot(
+  snapshotId: string
+): Promise<import("./types").PreReadSnapshotResponse> {
+  return fetchApi<import("./types").PreReadSnapshotResponse>(
+    `/api/pre-read/snapshots/${encodeURIComponent(snapshotId)}`
   );
 }
 
@@ -571,13 +614,15 @@ export async function getTeamStyleProfile(
 export async function getStyleXRay(
   team: string,
   season: string,
-  window = 10
+  window = 10,
+  opponent?: string
 ): Promise<import("./types").StyleXRayResponse> {
   const params = new URLSearchParams({
     team,
     season,
     window: String(window),
   });
+  if (opponent) params.set("opponent", opponent);
   return fetchApi<import("./types").StyleXRayResponse>(
     `/api/styles/xray?${params.toString()}`
   );
@@ -591,6 +636,7 @@ export async function postWhatIfScenario(
     delta: number;
     window?: number;
     opponent?: string;
+    context?: Record<string, string>;
   }
 ): Promise<import("./types").WhatIfScenarioResponse> {
   return fetchApi<import("./types").WhatIfScenarioResponse>(
@@ -630,6 +676,24 @@ export async function getPlayTypeScoutingReport(
   });
   return fetchApi<import("./types").PlayTypeScoutingReportResponse>(
     `/api/scouting/play-types?${params.toString()}`
+  );
+}
+
+export async function postScoutingClipExport(payload: {
+  team: string;
+  opponent: string;
+  season: string;
+  claim_ids?: string[];
+  clip_anchor_ids?: string[];
+  return_to?: string;
+}): Promise<import("./types").ScoutingClipExportResponse> {
+  return fetchApi<import("./types").ScoutingClipExportResponse>(
+    `/api/scouting/clip-export`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    }
   );
 }
 

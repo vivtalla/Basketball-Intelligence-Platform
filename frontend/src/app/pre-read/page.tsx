@@ -1,9 +1,17 @@
 "use client";
 
-import { Suspense, useState } from "react";
+import { Suspense, useState, useTransition } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { usePreReadDeck, useTeamIntelligence, useTeamRotationReport, useTeams } from "@/hooks/usePlayerStats";
+import { createPreReadSnapshot } from "@/lib/api";
+import {
+  usePreReadDeck,
+  usePreReadSnapshot,
+  usePreReadSnapshots,
+  useTeamIntelligence,
+  useTeamRotationReport,
+  useTeams,
+} from "@/hooks/usePlayerStats";
 import AvailabilitySummaryCard from "@/components/AvailabilitySummaryCard";
 import ScoutingReportView from "@/components/ScoutingReportView";
 
@@ -13,16 +21,45 @@ type ViewMode = "briefing" | "scouting";
 function PreReadPageInner() {
   const searchParams = useSearchParams();
   const rawMode = searchParams.get("mode");
+  const snapshotId = searchParams.get("snapshot_id");
 
   const [team, setTeam] = useState(searchParams.get("team")?.toUpperCase() ?? "OKC");
   const [opponent, setOpponent] = useState(searchParams.get("opponent")?.toUpperCase() ?? "BOS");
   const [season, setSeason] = useState(searchParams.get("season") ?? "2024-25");
   const [mode, setMode] = useState<ViewMode>(rawMode === "scouting" ? "scouting" : "briefing");
+  const [snapshotMessage, setSnapshotMessage] = useState<string | null>(null);
+  const [isSaving, startSaving] = useTransition();
   const { data: teams } = useTeams();
-  const { data, isLoading } = usePreReadDeck(team, opponent, season);
-  const { data: teamIntelligence } = useTeamIntelligence(team, season);
-  const { data: rotationReport } = useTeamRotationReport(team, season);
+  const { data: snapshot } = usePreReadSnapshot(snapshotId);
+  const activeTeam = snapshot?.context.team_abbreviation ?? team;
+  const activeOpponent = snapshot?.context.opponent_abbreviation ?? opponent;
+  const activeSeason = snapshot?.context.season ?? season;
+  const { data, isLoading } = usePreReadDeck(activeTeam, activeOpponent, activeSeason, snapshotId);
+  const { data: recentSnapshots } = usePreReadSnapshots(activeTeam, activeOpponent, activeSeason, 6);
+  const { data: teamIntelligence } = useTeamIntelligence(activeTeam, activeSeason);
+  const { data: rotationReport } = useTeamRotationReport(activeTeam, activeSeason);
   const nextGame = data?.team_availability.next_game ?? null;
+
+  function handleSaveSnapshot(sourceView: "pre-read-briefing" | "pre-read-scouting") {
+    startSaving(async () => {
+      try {
+        const response = await createPreReadSnapshot({
+          team: activeTeam,
+          opponent: activeOpponent,
+          season: activeSeason,
+          game_id: data?.prep_context?.prep_item?.game_id ?? undefined,
+          source_view: sourceView,
+          source_snapshot_id: snapshotId ?? undefined,
+          context: {
+            mode,
+          },
+        });
+        setSnapshotMessage(`Saved snapshot ${response.snapshot_id.slice(0, 8)}. Share: ${response.share_url}`);
+      } catch {
+        setSnapshotMessage("Snapshot save failed.");
+      }
+    });
+  }
 
   return (
     <div className="mx-auto max-w-6xl space-y-8 print:space-y-4">
@@ -44,6 +81,12 @@ function PreReadPageInner() {
           Print deck
         </button>
       </div>
+
+      {data?.snapshot ? (
+        <div className="rounded-[1.5rem] border border-[rgba(33,72,59,0.18)] bg-[rgba(216,228,221,0.28)] px-5 py-4 text-sm text-[var(--muted-strong)]">
+          Frozen snapshot: {data.snapshot.snapshot_id.slice(0, 8)} · created {new Date(data.snapshot.created_at).toLocaleString()}
+        </div>
+      ) : null}
 
       <section className="flex rounded-xl overflow-hidden border border-[var(--border)] w-fit text-sm">
         <button
@@ -95,12 +138,52 @@ function PreReadPageInner() {
             </select>
           </label>
         </div>
+        <div className="mt-4 flex flex-wrap gap-3">
+          <button
+            type="button"
+            onClick={() => handleSaveSnapshot(mode === "scouting" ? "pre-read-scouting" : "pre-read-briefing")}
+            className="rounded-full border border-[var(--border-strong)] px-4 py-2 text-sm font-medium text-[var(--accent-strong)] transition hover:bg-[rgba(33,72,59,0.08)]"
+          >
+            {isSaving ? "Saving snapshot..." : "Save frozen snapshot"}
+          </button>
+          {snapshotMessage ? <div className="text-sm text-[var(--muted-strong)]">{snapshotMessage}</div> : null}
+        </div>
+        {recentSnapshots?.items?.length ? (
+          <div className="mt-5 space-y-2">
+            <div className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--muted)]">Recent snapshots</div>
+            <div className="flex flex-wrap gap-2">
+              {recentSnapshots.items.map((item) => (
+                <Link
+                  key={item.snapshot_id}
+                  href={item.share_url}
+                  className="rounded-full border border-[var(--border)] bg-white/80 px-3 py-2 text-xs font-semibold uppercase tracking-[0.14em] text-[var(--muted-strong)] transition hover:border-[rgba(33,72,59,0.24)]"
+                >
+                  {item.snapshot_id.slice(0, 8)} · {item.created_at.slice(0, 10)}
+                </Link>
+              ))}
+            </div>
+          </div>
+        ) : null}
       </section>
 
       {data ? (
         <section className="grid gap-4 lg:grid-cols-2">
           <AvailabilitySummaryCard availability={data.team_availability} compact />
           <AvailabilitySummaryCard availability={data.opponent_availability} compact />
+        </section>
+      ) : null}
+
+      {data?.warnings?.length ? (
+        <section className="rounded-[1.5rem] border border-[var(--border)] bg-[var(--surface)] p-5 text-sm leading-6 text-[var(--muted-strong)]">
+          <div className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--muted)]">Readiness</div>
+          <div className="mt-2">
+            {data.data_status} via {data.canonical_source}
+          </div>
+          <ul className="mt-3 space-y-2">
+            {data.warnings.map((warning) => (
+              <li key={warning}>{warning}</li>
+            ))}
+          </ul>
         </section>
       ) : null}
 
@@ -139,23 +222,26 @@ function PreReadPageInner() {
                 </p>
               ) : null}
               <div className="mt-4 flex flex-wrap gap-3">
-                <Link href={`/teams/${team}?tab=decision`} className="bip-btn-primary rounded-full px-4 py-2 text-sm font-medium">
+                <Link href={`/teams/${activeTeam}?tab=decision`} className="bip-btn-primary rounded-full px-4 py-2 text-sm font-medium">
                   Open team decision tools
                 </Link>
-                <Link href={`/teams/${team}?tab=roster`} className="rounded-full border border-[var(--border-strong)] px-4 py-2 text-sm font-medium text-[var(--accent-strong)] transition hover:bg-[rgba(33,72,59,0.08)]">
+                <Link href={`/teams/${activeTeam}?tab=roster`} className="rounded-full border border-[var(--border-strong)] px-4 py-2 text-sm font-medium text-[var(--accent-strong)] transition hover:bg-[rgba(33,72,59,0.08)]">
                   Open availability board
                 </Link>
-                <Link href={`/compare?mode=teams&team_a=${team}&team_b=${opponent}&season=${season}&return_to=${encodeURIComponent(`/pre-read?team=${team}&opponent=${opponent}&season=${season}&mode=${mode}`)}`} className="rounded-full border border-[var(--border-strong)] px-4 py-2 text-sm font-medium text-[var(--accent-strong)] transition hover:bg-[rgba(33,72,59,0.08)]">
+                <Link href={`/compare?mode=teams&team_a=${activeTeam}&team_b=${activeOpponent}&season=${activeSeason}&return_to=${encodeURIComponent(`/pre-read?team=${activeTeam}&opponent=${activeOpponent}&season=${activeSeason}&mode=${mode}`)}`} className="rounded-full border border-[var(--border-strong)] px-4 py-2 text-sm font-medium text-[var(--accent-strong)] transition hover:bg-[rgba(33,72,59,0.08)]">
                   Open comparison sandbox
+                </Link>
+                <Link href={data.launch_links.follow_through_url} className="rounded-full border border-[var(--border-strong)] px-4 py-2 text-sm font-medium text-[var(--accent-strong)] transition hover:bg-[rgba(33,72,59,0.08)]">
+                  Open follow-through
                 </Link>
               </div>
             </section>
           </>
         ) : (
           <ScoutingReportView
-            teamAbbreviation={team}
-            opponentAbbreviation={opponent}
-            season={season}
+            teamAbbreviation={activeTeam}
+            opponentAbbreviation={activeOpponent}
+            season={activeSeason}
             deck={data}
             intelligence={teamIntelligence ?? null}
             rotationReport={rotationReport ?? null}
