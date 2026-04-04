@@ -20,6 +20,7 @@
 - Team-level shot-defense / conceded-shot maps stayed out of core sprint scope and remain a follow-on.
 - Full historical live backfill did not complete during closeout; the new `backend/data/backfill_shot_lab.sh` helper was added, but the live `stats.nba.com` run hit repeated timeouts and remains an ops follow-up.
 - Live manual QA across local player and compare pages still depends on the local app processes and enriched backfill data being available.
+- Use `specs/sprint-35-shot-lab-runbook.md` as the monitored backfill and merge checklist for PR #11.
 
 ## Coordination Lessons
 
