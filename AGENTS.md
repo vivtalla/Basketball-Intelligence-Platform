@@ -1,6 +1,6 @@
 # Agent Coordination
 
-Last updated: 2026-04-03 by Claude (Sprint 34 kickoff)
+Last updated: 2026-04-03 by Claude (Sprint 34 closeout)
 
 > Both agents read this file before touching code at the start of every session.
 > The canonical source of truth is the clean `master` checkout at `/Users/viv/Documents/Basketball Intelligence Platform`.
@@ -14,13 +14,13 @@ Last updated: 2026-04-03 by Claude (Sprint 34 kickoff)
 
 | Field | Value |
 |-------|-------|
-| Sprint | 34 |
-| Goal | SprawlBall Edition — Kirk Goldsberry shot chart renaissance (ShotValueMap, ShotSprawlMap, ShotSeasonEvolution, ShotDistanceProfile) |
-| Started | 2026-04-03 |
+| Sprint | 35 |
+| Goal | TBD — awaiting Vivek's sprint kickoff |
+| Started | TBD |
 | Target merge | TBD |
-| Sprint shape | Single-stream (Claude) — frontend-only |
-| Branch | `feature/sprint-34-goldsberry-shot-charts` |
-| Worker policy | Claude solo; no Codex involvement this sprint |
+| Sprint shape | TBD |
+| Branch | not created yet |
+| Worker policy | Unassigned until kickoff |
 
 ---
 
@@ -38,13 +38,13 @@ If repo state, sprint numbering, or shipped features appear to disagree across l
 ## Current Assignments
 
 ### Claude
-- Branch: `feature/sprint-34-goldsberry-shot-charts`
-- Scope: All 4 new shot chart visualization components + ShotChart.tsx / PlayerDashboard.tsx wiring
-- Status: In progress
+- Branch: not assigned
+- Scope: available for Sprint 35 kickoff
+- Status: Not started
 
 ### Codex
 - Branch: not assigned
-- Scope: not involved this sprint
+- Scope: available for Sprint 35 kickoff
 - Status: Not started
 
 ---
@@ -58,7 +58,7 @@ Claim a shared file here before editing. If a file is already claimed, read that
 
 | File | Claimed by | Purpose |
 |------|------------|---------|
-| `frontend/src/lib/types.ts` | Claude | append-only — no new types needed this sprint, but claimed to prevent conflicts |
+| `frontend/src/lib/types.ts` | — |  |
 | `frontend/src/lib/api.ts` | — |  |
 | `backend/main.py` | — |  |
 
@@ -78,7 +78,7 @@ Specs or review notes written by one stream for another. Check this before start
 
 ## Merge Order
 
-1. `feature/sprint-34-goldsberry-shot-charts` → `master` (single merge at sprint close)
+1. TBD at Sprint 35 kickoff
 
 ---
 
@@ -86,13 +86,7 @@ Specs or review notes written by one stream for another. Check this before start
 
 | Files / Directories | Assigned this sprint |
 |---------------------|----------------------|
-| `frontend/src/components/ShotValueMap.tsx` | Claude (new) |
-| `frontend/src/components/ShotSprawlMap.tsx` | Claude (new) |
-| `frontend/src/components/ShotSeasonEvolution.tsx` | Claude (new) |
-| `frontend/src/components/ShotDistanceProfile.tsx` | Claude (new) |
-| `frontend/src/components/ShotChart.tsx` | Claude — extend chartView enum, add modes |
-| `frontend/src/components/PlayerDashboard.tsx` | Claude — insert ShotSeasonEvolution |
-| `frontend/src/lib/shotchart-constants.ts` | Claude — extract ZONE_CENTROIDS |
+| To be defined at Sprint 35 kickoff | — |
 
 ---
 
@@ -165,6 +159,7 @@ Specs or review notes written by one stream for another. Check this before start
 
 *Free-form, dated, newest first. Use this for coordination and repo-state exceptions.*
 
+2026-04-03 (Claude): Sprint 34 closed on `master`. Shipped all four Goldsberry shot chart features (ShotValueMap, ShotSprawlMap, ShotDistanceProfile, ShotSeasonEvolution). Single-stream frontend-only sprint, no Codex branch. See `specs/sprint-34-closeout.md` before Sprint 35 kickoff.
 2026-04-03 (Codex): Sprint 32 closed on `master` as a single-stream sprint. Shipped warehouse-backed modern team intelligence, readiness metadata on team intelligence, the DB-first prep queue endpoint, and the new team-page prep workflow with urgency framing, scouting-mode launch, and share links. Closeout verification covered full backend `pytest` plus frontend `npm run lint` and `npm run build`. See `specs/sprint-32-closeout.md` before Sprint 33 kickoff.
 2026-04-03 (Claude): Sprint 31 closed on `feature/sprint-31-visual-renaissance`. Shipped hexbin shot chart, ZoneAnnotationCourt, PerformanceCalendar, full chart harmonization (CareerArcChart/DualCareerArcChart/RadarChart), homepage visual redesign, and StandingsBumpChart. Frontend-only sprint, no Codex branch. See `specs/sprint-31-closeout.md` before Sprint 32 kickoff.
 2026-04-02 (Codex): Sprint 30 closed on `feature/sprint-30-dbfirst-viz`. Shipped DB-first player/career/gamelog/standings reads with readiness metadata, queue-backed enrichment coverage, and the first CourtVue signature visualization layer across player, compare, and insights. See `specs/sprint-30-closeout.md` before Sprint 31 kickoff.

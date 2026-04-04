@@ -257,24 +257,20 @@ CourtVue Labs uses a hybrid sprint model: major feature sprints typically run as
 
 > Full history → `specs/sprint-history.md`
 
-### Sprint 31 — Visual Renaissance
-**Branch:** `feature/sprint-31-visual-renaissance` — merged
+### Sprint 33 — Coaching System Expansion
+**Branch:** `feature/sprint-33-coaching-system` — merged
 
-- Hexbin shot chart mode (3rd view alongside scatter/heatmap): flat-top hex binning, size ∝ frequency, color = efficiency delta
-- `ZoneAnnotationCourt`: half-court SVG with FG%, delta, and volume annotated per zone; live in `ShotChart` and `ZoneProfilePanel`
-- `PerformanceCalendar`: game-by-game heatmap (5-tier quantile scale, metric toggle) in `PlayerDashboard`
-- Chart harmonization: `CareerArcChart` → `AreaChart` + gradient fills + warm palette; `DualCareerArcChart` and `RadarChart` updated to match design system
-- Homepage hero: full-viewport, CSS court art, staggered fade-up animations, animated `StatCounter`, card glow on hover
-- `StandingsBumpChart`: conference rank over last 30 days on standings page, hover-to-dim, team color legend
+- Expanded the coaching intelligence layer with deeper play-style and decision-support surfaces
+- See `specs/sprint-history.md` for full detail
 
-### Sprint 32 — Warehouse Team Prep Core
-**Branch:** `master` (direct)
+### Sprint 34 — SprawlBall Edition
+**Branch:** `feature/sprint-34-goldsberry-shot-charts` — merged
 
-- Canonicalized modern-season team intelligence onto warehouse `games`, `play_by_play_events`, and latest `team_standings`
-- Added team-intelligence readiness metadata (`data_status`, `canonical_source`, `last_synced_at`) so the UI can distinguish fully canonical, partial, and limited states
-- Shipped DB-first `GET /api/teams/{abbr}/prep-queue` plus the new team-page `prep` tab for upcoming-opponent prep cards
-- Added urgency framing, scouting-mode launch, and copyable share links to the new prep workflow
-- Closed the sprint with full backend `pytest`, frontend `npm run lint`, and frontend `npm run build`
+- `ShotValueMap`: zone bubbles where area ∝ shot frequency and fill color ∝ value added (FG% delta × zone points) — new "Value" mode in ShotChart
+- `ShotSprawlMap`: 25×24 grid Gaussian-smoothed density contours (4 tiers) + convex hull with sq-ft court coverage stat — new "Sprawl" mode in ShotChart
+- `ShotDistanceProfile`: continuous 0–30 ft frequency ribbon with per-2ft efficiency-colored gradient fill and Recharts FG% sparkline — below zone breakdown table
+- `ShotSeasonEvolution`: mini zone-heatmap career filmstrip (10 pre-allocated SWR slots) + FG%/3P% AreaChart timeline — in PlayerDashboard between ShotChart and ZoneProfilePanel
+- `ZONE_CENTROIDS` extracted to `shotchart-constants.ts`; ShotChart toggle expanded from 3 → 5 modes
 
 ---
 
@@ -305,3 +301,7 @@ Sprint branches are created at kickoff and listed in `AGENTS.md`.
 | `WarehousePipelinePanel` | `components/` | Warehouse ingestion funnel, job stats, action buttons, auto-poll (Sprint 11–13) |
 | `PlayerHeader` | `components/` | Player profile header with YoY stat delta callouts (Sprint 13) |
 | `TeamIntelligencePanel` | `components/` | Team season analytics with YoY trend signals (Sprint 13) |
+| `ShotValueMap` | `components/` | Zone bubbles: area ∝ frequency, color ∝ value added (Sprint 34) |
+| `ShotSprawlMap` | `components/` | Gaussian density contours + convex hull court coverage map (Sprint 34) |
+| `ShotDistanceProfile` | `components/` | 0–30 ft frequency ribbon with efficiency-colored gradient fill (Sprint 34) |
+| `ShotSeasonEvolution` | `components/` | Career filmstrip of mini zone-heatmap courts + FG% timeline (Sprint 34) |

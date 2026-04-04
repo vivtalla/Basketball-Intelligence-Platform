@@ -35,14 +35,22 @@ Likely shape:
 - standardize readiness metadata on any remaining legacy reads
 - keep `nba_api` only in queued/admin enrichment and explicit recovery workflows
 
+### Shot Chart Follow-Ons (Sprint 34 seeds)
+Why it matters:
+Sprint 34 shipped four new Goldsberry-style shot chart views. The highest-value follow-ons extend them to the compare surface and add temporal filtering.
+
+Likely shape:
+- Shot chart date-range filter using per-shot `game_date` to isolate hot/cold streaks or pre/post-trade splits
+- `ShotValueMap` in `ComparisonView` — two players' zone value maps side by side for direct scouting contrast
+- `ShotSeasonEvolution` playoff toggle — the filmstrip currently shows Regular Season only
+- Sprawl map for team-level shot defense — aggregate opponent shot locations to show which court areas a defense concedes
+
 ### Visualization Follow-Ons (Sprint 31 seeds)
 Why it matters:
-Sprint 31 shipped the visual renaissance layer. The highest-value follow-ons extend it to remaining surfaces and deepen interactivity.
+Sprint 31 shipped the visual renaissance layer. Remaining follow-ons extend it to comparison surfaces and add interactivity.
 
 Likely shape:
 - `PerformanceCalendar` side-by-side in `ComparisonView` so game rhythm can be compared directly
-- `ZoneAnnotationCourt` in `ShotProfileDuel` (compare page) replacing or augmenting fingerprints
-- Shot chart date-range filter using per-shot `game_date` to isolate hot/cold streaks
 - Trend arrows on `HomeLeagueLeaders` require a `delta` field on `LeaderboardEntry` from backend
 - Entrance animation polish: stagger fade-up on platform area cards, skeleton loaders shaped to match final layout
 
