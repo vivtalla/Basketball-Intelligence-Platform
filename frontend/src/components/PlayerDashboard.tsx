@@ -16,6 +16,7 @@ import SeasonSplits from "./SeasonSplits";
 import ExternalMetricsPanel from "./ExternalMetricsPanel";
 import ChartStatusBadge from "./ChartStatusBadge";
 import PerformanceCalendar from "./PerformanceCalendar";
+import ShotSeasonEvolution from "./ShotSeasonEvolution";
 
 interface PlayerDashboardProps {
   playerId: number;
@@ -189,6 +190,14 @@ export default function PlayerDashboard({ playerId }: PlayerDashboardProps) {
           defaultSeason={
             careerStats.seasons[careerStats.seasons.length - 1].season
           }
+        />
+      )}
+
+      {/* Shot profile evolution — small multiples across all seasons */}
+      {careerStats.seasons.length > 1 && (
+        <ShotSeasonEvolution
+          playerId={playerId}
+          seasons={careerStats.seasons.map((s) => s.season).filter(Boolean)}
         />
       )}
 

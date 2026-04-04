@@ -1,7 +1,7 @@
 "use client";
 
 import type { ZoneStat, ShotChartShot } from "@/lib/types";
-import { LEAGUE_AVG_FG, ZONE_ORDER, ZONE_PATHS, heatColor } from "@/lib/shotchart-constants";
+import { LEAGUE_AVG_FG, ZONE_CENTROIDS, ZONE_ORDER, ZONE_PATHS, heatColor } from "@/lib/shotchart-constants";
 
 interface ZoneAnnotationCourtProps {
   zones?: ZoneStat[] | null;
@@ -12,16 +12,6 @@ interface ZoneAnnotationCourtProps {
 // SVG viewport: 500 × 480, basket at (250, 430)
 const W = 500;
 const H = 480;
-
-// Centroid for each zone annotation label (SVG space)
-const ZONE_CENTROIDS: Record<string, [number, number]> = {
-  "Restricted Area":        [250, 416],
-  "In The Paint (Non-RA)":  [250, 318],
-  "Left Corner 3":          [15,  418],
-  "Right Corner 3":         [485, 418],
-  "Mid-Range":              [250, 268],
-  "Above the Break 3":      [250, 148],
-};
 
 interface ResolvedZoneStat {
   fgPct: number | null;

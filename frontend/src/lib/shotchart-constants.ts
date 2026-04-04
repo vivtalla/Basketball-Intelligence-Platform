@@ -50,6 +50,17 @@ export const ZONE_PATHS: Record<string, string> = {
   "Backcourt": "",
 };
 
+// Centroid (SVG coords) for annotation labels in each zone
+// Used by ZoneAnnotationCourt, ShotValueMap, and any future zone-aware component
+export const ZONE_CENTROIDS: Record<string, [number, number]> = {
+  "Restricted Area":       [250, 416],
+  "In The Paint (Non-RA)": [250, 318],
+  "Left Corner 3":         [15,  418],
+  "Right Corner 3":        [485, 418],
+  "Mid-Range":             [250, 268],
+  "Above the Break 3":     [250, 148],
+};
+
 // Green → gray → red gradient based on efficiency delta vs league avg
 export function heatColor(diff: number | null, alpha = 0.55): string {
   if (diff === null) return `rgba(156,163,175,${alpha})`;
