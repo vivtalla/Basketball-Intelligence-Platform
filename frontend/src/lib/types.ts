@@ -1782,3 +1782,37 @@ export interface WarehouseReadinessSummary {
   season: string;
   domains: WarehouseReadinessDomain[];
 }
+
+// Sprint 35 — Shot lab expansion
+
+export interface ShotChartShot {
+  game_id?: string | null;
+  game_date?: string | null;
+}
+
+export interface ShotChartResponse {
+  start_date?: string | null;
+  end_date?: string | null;
+  available_start_date?: string | null;
+  available_end_date?: string | null;
+  available_game_dates?: string[];
+}
+
+export interface ZoneProfileResponse {
+  start_date?: string | null;
+  end_date?: string | null;
+  available_start_date?: string | null;
+  available_end_date?: string | null;
+}
+
+export interface ShotLabDateRange {
+  startDate: string | null;
+  endDate: string | null;
+}
+
+export type ShotLabWindowPreset =
+  | "full"
+  | "last-5-games"
+  | "last-10-games"
+  | "last-30-days"
+  | "custom";

@@ -35,15 +35,15 @@ Likely shape:
 - standardize readiness metadata on any remaining legacy reads
 - keep `nba_api` only in queued/admin enrichment and explicit recovery workflows
 
-### Shot Chart Follow-Ons (Sprint 34 seeds)
+### Shot Lab Follow-Ons (Sprint 35 seeds)
 Why it matters:
-Sprint 34 shipped four new Goldsberry-style shot chart views. The highest-value follow-ons extend them to the compare surface and add temporal filtering.
+Sprint 35 turned player and compare shot charts into a real shot lab. The highest-value next gains extend that system into team-defense workflows, self-service refresh, and richer situational shot context.
 
 Likely shape:
-- Shot chart date-range filter using per-shot `game_date` to isolate hot/cold streaks or pre/post-trade splits
-- `ShotValueMap` in `ComparisonView` — two players' zone value maps side by side for direct scouting contrast
-- `ShotSeasonEvolution` playoff toggle — the filmstrip currently shows Regular Season only
-- Sprawl map for team-level shot defense — aggregate opponent shot locations to show which court areas a defense concedes
+- Team-level shot-defense sprawl/value maps using conceded opponent shots by team and season
+- Self-service shot-chart refresh action from missing/stale states instead of passive wait messaging
+- Richer shot context enrichment (`period`, `clock`, stronger action overlays) for situational study
+- Shareable or printable shot-lab snapshots that preserve the exact player/compare filter state
 
 ### Visualization Follow-Ons (Sprint 31 seeds)
 Why it matters:

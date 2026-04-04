@@ -41,12 +41,14 @@ import type {
   WhatIfScenarioResponse,
   StyleXRayResponse,
   PlayTypeScoutingReportResponse,
+  ShotLabDateRange,
 } from "@/lib/types";
 import {
   getPlayerProfile,
   getPlayerCareerStats,
   getPlayerTrendReport,
   getPersistedPlayerShotChart,
+  getPersistedPlayerShotChartWindow,
   getLeaderboard,
   getTeams,
   getTeamRoster,
@@ -78,6 +80,7 @@ import {
   getTeamAvailability,
   getUpcomingSchedule,
   getPersistedPlayerZoneProfile,
+  getPersistedPlayerZoneProfileWindow,
   getWarehouseReadinessSummary,
   postWhatIfScenario,
   getStyleXRay,
@@ -108,11 +111,17 @@ export function usePlayerTrendReport(playerId: number | null, season: string | n
 export function usePlayerShotChart(
   playerId: number,
   season: string,
-  seasonType = "Regular Season"
+  seasonType = "Regular Season",
+  filters?: ShotLabDateRange
 ) {
   return useSWR<PersistedShotChartResponse>(
-    season ? `shot-chart-${playerId}-${season}-${seasonType}` : null,
-    () => getPersistedPlayerShotChart(playerId, season, seasonType)
+    season
+      ? `shot-chart-${playerId}-${season}-${seasonType}-${filters?.startDate ?? "all"}-${filters?.endDate ?? "all"}`
+      : null,
+    () =>
+      filters?.startDate || filters?.endDate
+        ? getPersistedPlayerShotChartWindow(playerId, season, seasonType, filters)
+        : getPersistedPlayerShotChart(playerId, season, seasonType)
   );
 }
 
@@ -511,12 +520,16 @@ export function useStandingsHistory(season: string | null, days = 30) {
 export function usePlayerZoneProfile(
   playerId: number | null,
   season: string | null,
-  seasonType = "Regular Season"
+  seasonType = "Regular Season",
+  filters?: ShotLabDateRange
 ) {
   return useSWR<PersistedZoneProfileResponse>(
     playerId && season
-      ? `zone-profile-${playerId}-${season}-${seasonType}`
+      ? `zone-profile-${playerId}-${season}-${seasonType}-${filters?.startDate ?? "all"}-${filters?.endDate ?? "all"}`
       : null,
-    () => getPersistedPlayerZoneProfile(playerId!, season!, seasonType)
+    () =>
+      filters?.startDate || filters?.endDate
+        ? getPersistedPlayerZoneProfileWindow(playerId!, season!, seasonType, filters)
+        : getPersistedPlayerZoneProfile(playerId!, season!, seasonType)
   );
 }

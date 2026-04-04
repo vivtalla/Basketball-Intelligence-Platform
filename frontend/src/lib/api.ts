@@ -865,3 +865,52 @@ export async function getWarehouseReadinessSummary(
     `/api/warehouse/readiness/${encodeURIComponent(season)}`
   );
 }
+
+// Sprint 35 — Shot lab expansion
+
+export interface ShotLabFilters {
+  startDate?: string | null;
+  endDate?: string | null;
+}
+
+function buildShotLabQuery(
+  playerId: number,
+  season: string,
+  seasonType: string,
+  filters?: ShotLabFilters,
+  suffix = ""
+): string {
+  const params = new URLSearchParams({
+    season,
+    season_type: seasonType,
+  });
+  if (filters?.startDate) {
+    params.set("start_date", filters.startDate);
+  }
+  if (filters?.endDate) {
+    params.set("end_date", filters.endDate);
+  }
+  return `/api/shotchart/${playerId}${suffix}?${params.toString()}`;
+}
+
+export async function getPersistedPlayerShotChartWindow(
+  playerId: number,
+  season: string,
+  seasonType = "Regular Season",
+  filters?: ShotLabFilters
+): Promise<import("./types").PersistedShotChartResponse> {
+  return fetchApi<import("./types").PersistedShotChartResponse>(
+    buildShotLabQuery(playerId, season, seasonType, filters)
+  );
+}
+
+export async function getPersistedPlayerZoneProfileWindow(
+  playerId: number,
+  season: string,
+  seasonType = "Regular Season",
+  filters?: ShotLabFilters
+): Promise<import("./types").PersistedZoneProfileResponse> {
+  return fetchApi<import("./types").PersistedZoneProfileResponse>(
+    buildShotLabQuery(playerId, season, seasonType, filters, "/zones")
+  );
+}

@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo } from "react";
+import { useId, useMemo } from "react";
 import {
   LineChart,
   Line,
@@ -16,6 +16,8 @@ import { LEAGUE_AVG_FG, heatColor } from "@/lib/shotchart-constants";
 interface ShotDistanceProfileProps {
   shots: ShotChartShot[];
   playerLabel?: string;
+  scaleMaxFrequency?: number;
+  idPrefix?: string;
 }
 
 interface DistanceBin {
@@ -129,7 +131,11 @@ function fmt(val: number | null | undefined, suffix = ""): string {
 export default function ShotDistanceProfile({
   shots,
   playerLabel,
+  scaleMaxFrequency,
+  idPrefix,
 }: ShotDistanceProfileProps) {
+  const reactId = useId();
+  const scopedId = (suffix: string) => `${idPrefix ?? reactId}-${suffix}`;
   const bins = useMemo(() => buildDistanceBins(shots), [shots]);
 
   if (bins.length === 0) {
@@ -140,7 +146,9 @@ export default function ShotDistanceProfile({
     );
   }
 
-  const maxFreq = Math.max(...bins.map((b) => b.freq), 0.001);
+  const maxFreq = scaleMaxFrequency && scaleMaxFrequency > 0
+    ? scaleMaxFrequency
+    : Math.max(...bins.map((b) => b.freq), 0.001);
   const maxDist = bins[bins.length - 1].dist;
 
   // SVG dimensions for the ribbon
@@ -164,7 +172,7 @@ export default function ShotDistanceProfile({
     const color = heatColor(avgDiff, 0.72);
     const x1Pct = (start / (bins.length - 1)) * 100;
     const x2Pct = (end / (bins.length - 1)) * 100;
-    gradientSegments.push({ id: `sdp-seg-${start}`, color, x1Pct, x2Pct });
+    gradientSegments.push({ id: scopedId(`sdp-seg-${start}`), color, x1Pct, x2Pct });
   }
 
   // Recharts sparkline data (FG% per bin)
@@ -234,7 +242,7 @@ export default function ShotDistanceProfile({
             })}
 
             {/* Clipping mask so segments stay within the area curve */}
-            <clipPath id="sdp-clip">
+            <clipPath id={scopedId("sdp-clip")}>
               <path d={areaPath} />
             </clipPath>
 
@@ -251,7 +259,7 @@ export default function ShotDistanceProfile({
                   width={segW}
                   height={CHART_H}
                   fill={seg.color}
-                  clipPath="url(#sdp-clip)"
+                  clipPath={`url(#${scopedId("sdp-clip")})`}
                 />
               );
             })}

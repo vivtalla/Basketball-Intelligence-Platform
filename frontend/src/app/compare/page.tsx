@@ -12,15 +12,13 @@ import {
   useTeamAnalytics,
   useLineups,
   useTeams,
-  usePlayerZoneProfile,
 } from "@/hooks/usePlayerStats";
 import { useCompareAvailability } from "@/hooks/useCompareAvailability";
+import CompareShotLab from "@/components/CompareShotLab";
 import ComparisonView from "@/components/ComparisonView";
-import ZoneProfilePanel from "@/components/ZoneProfilePanel";
 import TeamComparisonView from "@/components/TeamComparisonView";
 import LineupComparisonView from "@/components/LineupComparisonView";
 import StyleComparisonView from "@/components/StyleComparisonView";
-import ShotProfileDuel from "@/components/ShotProfileDuel";
 import ChartStatusBadge from "@/components/ChartStatusBadge";
 import PerformanceCalendar from "@/components/PerformanceCalendar";
 
@@ -196,23 +194,17 @@ function ComparePageInner() {
     mode === "players" ? p2Id : null
   );
 
-  // Sprint 29 — zone profiles for each player slot (unconditional hooks, null-guarded via SWR key)
-  const p1LatestSeason =
-    career1 && career1.seasons.length > 0
-      ? career1.seasons[career1.seasons.length - 1].season
-      : null;
-  const p2LatestSeason =
-    career2 && career2.seasons.length > 0
-      ? career2.seasons[career2.seasons.length - 1].season
-      : null;
-  const { data: zoneA, isLoading: zoneALoading } = usePlayerZoneProfile(
-    mode === "players" ? p1Id : null,
-    mode === "players" ? p1LatestSeason : null
-  );
-  const { data: zoneB, isLoading: zoneBLoading } = usePlayerZoneProfile(
-    mode === "players" ? p2Id : null,
-    mode === "players" ? p2LatestSeason : null
-  );
+  const compareSeasons =
+    career1 && career2
+      ? Array.from(
+          new Set([
+            ...career1.seasons.map((entry) => entry.season),
+            ...career1.playoff_seasons.map((entry) => entry.season),
+            ...career2.seasons.map((entry) => entry.season),
+            ...career2.playoff_seasons.map((entry) => entry.season),
+          ].filter(Boolean))
+        ).sort((left, right) => right.localeCompare(left))
+      : ["2025-26", "2024-25", "2023-24", "2022-23"];
 
   function updateParams(mutator: (params: URLSearchParams) => void) {
     const params = new URLSearchParams(searchParams.toString());
@@ -238,7 +230,6 @@ function ComparePageInner() {
         params.delete("mode");
         params.delete("team_a");
         params.delete("team_b");
-        params.delete("season");
         params.delete("lineup_a");
         params.delete("lineup_b");
       } else {
@@ -258,7 +249,11 @@ function ComparePageInner() {
 
   function selectSeason(nextSeason: string) {
     updateParams((params) => {
-      params.set("mode", mode === "players" ? "teams" : mode);
+      if (mode === "players") {
+        params.delete("mode");
+      } else {
+        params.set("mode", mode);
+      }
       params.set("season", nextSeason);
     });
   }
@@ -454,24 +449,15 @@ function ComparePageInner() {
                 availabilityA={compareAvailability?.player_a}
                 availabilityB={compareAvailability?.player_b}
               />
-              <ShotProfileDuel
-                left={zoneA}
-                right={zoneB}
-                leftLabel={profile1!.full_name}
-                rightLabel={profile2!.full_name}
+              <CompareShotLab
+                playerAId={profile1!.id}
+                playerBId={profile2!.id}
+                playerALabel={profile1!.full_name}
+                playerBLabel={profile2!.full_name}
+                season={season}
+                seasons={compareSeasons}
+                onSeasonChange={selectSeason}
               />
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <ZoneProfilePanel
-                  data={zoneA}
-                  isLoading={zoneALoading}
-                  playerLabel={profile1!.full_name}
-                />
-                <ZoneProfilePanel
-                  data={zoneB}
-                  isLoading={zoneBLoading}
-                  playerLabel={profile2!.full_name}
-                />
-              </div>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <PerformanceCalendar playerId={profile1!.id} season={season} />
                 <PerformanceCalendar playerId={profile2!.id} season={season} />

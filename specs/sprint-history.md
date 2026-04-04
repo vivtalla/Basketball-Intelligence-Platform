@@ -1,9 +1,32 @@
 # Sprint History Archive
 
-Sprints 1–32. Current sprint summaries also live in `CLAUDE.md` under "Recent Sprints".
+Sprints 1–35. Current sprint summaries also live in `CLAUDE.md` under "Recent Sprints".
 
 For detailed per-sprint records, see the individual closeout files in this directory:
-`specs/sprint-09-closeout.md` through `specs/sprint-32-closeout.md`
+`specs/sprint-09-closeout.md` through `specs/sprint-35-closeout.md`
+
+---
+
+### Sprint 35 — Shot Lab Expansion
+**Branch:** `feature/sprint-35-shot-lab-expansion`
+
+- Enriched persisted shot-chart payloads with `game_id` / `game_date` and added optional date-window filters on the shot-chart and zone-profile APIs
+- Upgraded the player `ShotChart` into a shared-filter shot lab across scatter, heat, hex, value, sprawl, zone, and distance views
+- Added a dedicated compare-page `CompareShotLab` with synchronized season, season-type, and date-window controls plus side-by-side advanced shot views
+- Upgraded `ShotSeasonEvolution` with playoff support while keeping missing playoff seasons visible as empty cards
+- Verified the sprint with full backend `pytest` plus frontend `npm run lint` and `npm run build`
+
+### Sprint 34 — SprawlBall Edition
+**Branch:** `feature/sprint-34-goldsberry-shot-charts`
+
+- Shipped `ShotValueMap`, `ShotSprawlMap`, `ShotDistanceProfile`, and the first version of `ShotSeasonEvolution`
+- Expanded the shot-chart surface from scatter/heat/hex into a broader Goldsberry-inspired visualization system
+
+### Sprint 33 — Coaching System Expansion
+**Branch:** `feature/sprint-33-coaching-system`
+
+- Expanded the coaching intelligence layer with deeper play-style, decision-support, and scouting-linked surfaces
+- See `specs/sprint-33-closeout.md` for the full shipped scope
 
 ---
 

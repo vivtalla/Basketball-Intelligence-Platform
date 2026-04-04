@@ -257,11 +257,13 @@ CourtVue Labs uses a hybrid sprint model: major feature sprints typically run as
 
 > Full history → `specs/sprint-history.md`
 
-### Sprint 33 — Coaching System Expansion
-**Branch:** `feature/sprint-33-coaching-system` — merged
+### Sprint 35 — Shot Lab Expansion
+**Branch:** `feature/sprint-35-shot-lab-expansion` — ready for merge
 
-- Expanded the coaching intelligence layer with deeper play-style and decision-support surfaces
-- See `specs/sprint-history.md` for full detail
+- Enriched persisted shot-chart payloads with `game_id` / `game_date` and date-window filters on the shot-chart + zone APIs
+- Turned the player shot chart into a shared-filter shot lab with preset/custom windows across scatter, heat, hex, value, sprawl, zone, and distance views
+- Added `CompareShotLab` with synchronized season / season-type / date-window controls and side-by-side advanced shot surfaces
+- Upgraded `ShotSeasonEvolution` with playoff support while keeping empty playoff seasons visible in the filmstrip
 
 ### Sprint 34 — SprawlBall Edition
 **Branch:** `feature/sprint-34-goldsberry-shot-charts` — merged
@@ -278,6 +280,7 @@ CourtVue Labs uses a hybrid sprint model: major feature sprints typically run as
 
 | Branch | Owner | Status |
 |--------|-------|--------|
+| `feature/sprint-35-shot-lab-expansion` | Codex | Ready for merge |
 | `master` | — | Stable |
 
 Sprint branches are created at kickoff and listed in `AGENTS.md`.
@@ -305,3 +308,4 @@ Sprint branches are created at kickoff and listed in `AGENTS.md`.
 | `ShotSprawlMap` | `components/` | Gaussian density contours + convex hull court coverage map (Sprint 34) |
 | `ShotDistanceProfile` | `components/` | 0–30 ft frequency ribbon with efficiency-colored gradient fill (Sprint 34) |
 | `ShotSeasonEvolution` | `components/` | Career filmstrip of mini zone-heatmap courts + FG% timeline (Sprint 34) |
+| `CompareShotLab` | `components/` | Shared-filter compare shot workspace with side-by-side advanced shot views (Sprint 35) |
