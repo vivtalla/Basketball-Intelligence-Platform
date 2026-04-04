@@ -10,6 +10,7 @@ from sqlalchemy.orm import sessionmaker
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from db.database import Base  # noqa: E402
+from data.nba_client import _normalize_shot_chart_game_date  # noqa: E402
 from db.models import IngestionJob, Player, PlayerGameLog, PlayerShotChart, SourceRun, Team  # noqa: E402
 from routers.shotchart import player_shot_chart, player_shot_zones  # noqa: E402
 from services.warehouse_service import queue_player_shot_chart_sync, queue_season_shot_charts, run_next_job  # noqa: E402
@@ -83,6 +84,10 @@ def test_player_shot_chart_returns_ready_from_fresh_db_row():
         assert response.shots[0].game_date == "2025-01-01"
     finally:
         session.close()
+
+
+def test_normalize_shot_chart_game_date_accepts_compact_nba_format():
+    assert _normalize_shot_chart_game_date("20260119") == "2026-01-19"
 
 
 def test_player_shot_chart_returns_stale_cached_row_without_remote_fetch():

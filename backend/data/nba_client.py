@@ -1445,7 +1445,7 @@ def _normalize_shot_chart_game_date(raw_value: object) -> Optional[str]:
         return None
 
     normalized = value.replace("T00:00:00", "")
-    for fmt in ("%Y-%m-%d", "%Y-%m-%d %H:%M:%S", "%b %d, %Y", "%m/%d/%Y"):
+    for fmt in ("%Y-%m-%d", "%Y-%m-%d %H:%M:%S", "%Y%m%d", "%b %d, %Y", "%m/%d/%Y"):
         try:
             return datetime.strptime(normalized, fmt).date().isoformat()
         except ValueError:
