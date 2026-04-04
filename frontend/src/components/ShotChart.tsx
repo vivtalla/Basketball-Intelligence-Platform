@@ -6,6 +6,9 @@ import type { ShotChartShot } from "@/lib/types";
 import { LEAGUE_AVG_FG, ZONE_POINTS, ZONE_ORDER, ZONE_PATHS, heatColor } from "@/lib/shotchart-constants";
 import ChartStatusBadge from "./ChartStatusBadge";
 import ZoneAnnotationCourt from "./ZoneAnnotationCourt";
+import ShotValueMap from "./ShotValueMap";
+import ShotSprawlMap from "./ShotSprawlMap";
+import ShotDistanceProfile from "./ShotDistanceProfile";
 
 interface ShotChartProps {
   playerId: number;
@@ -305,18 +308,22 @@ function CourtMarkings() {
   );
 }
 
-type ChartView = "scatter" | "heatmap" | "hex";
+type ChartView = "scatter" | "heatmap" | "hex" | "value" | "sprawl";
 
 const VIEW_LABELS: Record<ChartView, string> = {
   scatter: "Scatter",
   heatmap: "Heat",
   hex: "Hex",
+  value: "Value",
+  sprawl: "Sprawl",
 };
 
 const COURT_LABEL: Record<ChartView, string> = {
   scatter: "Shot scatter",
   heatmap: "Zone wash",
   hex: "Hex density",
+  value: "Value map",
+  sprawl: "Sprawl map",
 };
 
 export default function ShotChart({
@@ -356,9 +363,9 @@ export default function ShotChart({
         <div className="flex flex-wrap items-center gap-3">
           <ChartStatusBadge status={dataStatus} compact />
 
-          {/* Scatter / Heat / Hex toggle */}
+          {/* Scatter / Heat / Hex / Value / Sprawl toggle */}
           <div className="flex rounded-lg overflow-hidden border border-[var(--border)] text-xs">
-            {(["scatter", "heatmap", "hex"] as ChartView[]).map((view) => (
+            {(["scatter", "heatmap", "hex", "value", "sprawl"] as ChartView[]).map((view) => (
               <button
                 key={view}
                 onClick={() => setChartView(view)}
@@ -438,6 +445,17 @@ export default function ShotChart({
           </p>
         )}
 
+        {/* Value map — full replacement for the SVG court section */}
+        {chartView === "value" && shotChart && shotChart.shots.length > 0 && (
+          <ShotValueMap shots={shotChart.shots} />
+        )}
+
+        {/* Sprawl map — full replacement for the SVG court section */}
+        {chartView === "sprawl" && shotChart && shotChart.shots.length > 0 && (
+          <ShotSprawlMap shots={shotChart.shots} />
+        )}
+
+        <div className={chartView === "value" || chartView === "sprawl" ? "hidden" : ""}>
         <div className="rounded-[1.75rem] border border-[rgba(25,52,42,0.12)] bg-[rgba(255,255,255,0.72)] p-3">
           <svg viewBox={`0 0 ${W} ${H}`} className="w-full max-w-lg mx-auto block">
             <defs>
@@ -579,6 +597,7 @@ export default function ShotChart({
               : "This chart is DB-first, and shot data has not been synced for this player-season yet."}
           </div>
         )}
+        </div>{/* end hidden wrapper for scatter/heat/hex */}
       </div>
 
       {/* Zone annotation court — primary zone view */}
@@ -592,6 +611,14 @@ export default function ShotChart({
       {/* Zone breakdown table — secondary detail */}
       {shotChart && shotChart.shots.length > 0 && (
         <ZoneBreakdown shots={shotChart.shots} />
+      )}
+
+      {/* Distance signature strip */}
+      {shotChart && shotChart.shots.length > 0 && (
+        <div className="mt-6 border-t border-[rgba(25,52,42,0.08)] pt-5">
+          <p className="bip-kicker mb-3">Distance Signature</p>
+          <ShotDistanceProfile shots={shotChart.shots} />
+        </div>
       )}
     </div>
   );
