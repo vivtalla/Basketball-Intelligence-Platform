@@ -36,6 +36,7 @@
 - Extending the existing JSON shot payload was enough to unlock temporal shot workflows without adding a new relational shot-event table this sprint.
 - Shared scaling hooks matter for compare visuals: value-map bubbles and distance ribbons needed synchronized maxima to make side-by-side reads trustworthy.
 - Historical shot-chart backfills against `stats.nba.com` are still operationally fragile; the product path is ready, but bulk refreshes need timeout-aware reruns rather than assuming a single clean pass.
+- Post-merge ops surfaced a live-data normalization gap: `stats.nba.com` returns shot-chart `GAME_DATE` as compact `YYYYMMDD`, so temporal QA required a small follow-up normalizer patch before enriched rows exposed usable date windows.
 
 ## Next Sprint Seeds
 
