@@ -69,6 +69,12 @@ export default function PlayerDashboard({ playerId }: PlayerDashboardProps) {
   const latestSeason = activeSeasonsArr.length > 0
     ? activeSeasonsArr[activeSeasonsArr.length - 1]
     : null;
+  const shotLabSeasons = Array.from(
+    new Set([
+      ...careerStats.seasons.map((season) => season.season).filter(Boolean),
+      ...careerStats.playoff_seasons.map((season) => season.season).filter(Boolean),
+    ])
+  ).sort((left, right) => left.localeCompare(right));
   const effectiveSeasonStr = selectedSeasonStr || latestSeason?.season || null;
   const selectedSeasonData = activeSeasonsArr.find((s) => s.season === effectiveSeasonStr) ?? latestSeason;
   const missingCoreData =
@@ -186,18 +192,17 @@ export default function PlayerDashboard({ playerId }: PlayerDashboardProps) {
       {careerStats.seasons.length > 0 && (
         <ShotChart
           playerId={playerId}
-          seasons={careerStats.seasons.map((s) => s.season).filter(Boolean)}
-          defaultSeason={
-            careerStats.seasons[careerStats.seasons.length - 1].season
-          }
+          seasons={shotLabSeasons}
+          defaultSeason={shotLabSeasons[shotLabSeasons.length - 1]}
         />
       )}
 
       {/* Shot profile evolution — small multiples across all seasons */}
-      {careerStats.seasons.length > 1 && (
+      {shotLabSeasons.length > 1 && (
         <ShotSeasonEvolution
           playerId={playerId}
           seasons={careerStats.seasons.map((s) => s.season).filter(Boolean)}
+          playoffSeasons={careerStats.playoff_seasons.map((s) => s.season).filter(Boolean)}
         />
       )}
 

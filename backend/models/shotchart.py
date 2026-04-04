@@ -14,6 +14,8 @@ class ShotChartShot(BaseModel):
     zone_basic: str
     zone_area: str
     distance: int
+    game_id: Optional[str] = None
+    game_date: Optional[str] = None
 
 
 class ShotChartResponse(BaseModel):
@@ -25,6 +27,11 @@ class ShotChartResponse(BaseModel):
     attempted: int
     data_status: str
     last_synced_at: Optional[str] = None
+    start_date: Optional[str] = None
+    end_date: Optional[str] = None
+    available_start_date: Optional[str] = None
+    available_end_date: Optional[str] = None
+    available_game_dates: List[str] = []
 
 
 class ZoneStat(BaseModel):
@@ -45,3 +52,7 @@ class ZoneProfileResponse(BaseModel):
     zones: List[ZoneStat]
     data_status: str
     last_synced_at: Optional[str] = None
+    start_date: Optional[str] = None
+    end_date: Optional[str] = None
+    available_start_date: Optional[str] = None
+    available_end_date: Optional[str] = None

@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo } from "react";
+import { useId, useMemo } from "react";
 import type { ShotChartShot } from "@/lib/types";
 import {
   LEAGUE_AVG_FG,
@@ -12,6 +12,9 @@ import {
 
 interface ShotValueMapProps {
   shots: ShotChartShot[];
+  playerLabel?: string;
+  scaleMaxFreq?: number;
+  idPrefix?: string;
 }
 
 interface ZoneValueStat {
@@ -83,12 +86,21 @@ function CourtMarkings() {
   );
 }
 
-export default function ShotValueMap({ shots }: ShotValueMapProps) {
+export default function ShotValueMap({
+  shots,
+  playerLabel,
+  scaleMaxFreq,
+  idPrefix,
+}: ShotValueMapProps) {
+  const reactId = useId();
+  const gradientId = `${idPrefix ?? reactId}-svm-wash`;
   const stats = useMemo(() => buildZoneValueStats(shots), [shots]);
-  const maxFreq = useMemo(
-    () => Math.max(...stats.map((s) => s.freq), 0.01),
-    [stats]
-  );
+  const maxFreq = useMemo(() => {
+    if (scaleMaxFreq && scaleMaxFreq > 0) {
+      return scaleMaxFreq;
+    }
+    return Math.max(...stats.map((s) => s.freq), 0.01);
+  }, [scaleMaxFreq, stats]);
 
   if (shots.length === 0) {
     return (
@@ -112,24 +124,29 @@ export default function ShotValueMap({ shots }: ShotValueMapProps) {
           aria-label="Shot value map — zone bubbles sized by frequency, colored by value"
         >
           <defs>
-            <linearGradient id="svm-wash" x1="0%" y1="0%" x2="100%" y2="100%">
+            <linearGradient id={gradientId} x1="0%" y1="0%" x2="100%" y2="100%">
               <stop offset="0%" stopColor="rgba(255,255,255,0.98)" />
               <stop offset="100%" stopColor="rgba(228,236,232,0.94)" />
             </linearGradient>
           </defs>
 
-          <rect x="0" y="0" width={W} height={H} rx="18" fill="url(#svm-wash)" />
+          <rect x="0" y="0" width={W} height={H} rx="18" fill={`url(#${gradientId})`} />
 
           <CourtMarkings />
 
           {/* Court label badge */}
-          <rect x="24" y="18" width="112" height="48" rx="14" fill="rgba(255,255,255,0.86)" />
+          <rect x="24" y="18" width="122" height={playerLabel ? 60 : 48} rx="14" fill="rgba(255,255,255,0.86)" />
           <text x="38" y="38" fontSize="10" fontWeight="600" fill="rgba(33,72,59,0.6)" letterSpacing="0.12em">
             GOLDSBERRY
           </text>
           <text x="38" y="55" fontSize="13" fontWeight="600" fill="rgba(33,72,59,0.9)">
             Value map
           </text>
+          {playerLabel ? (
+            <text x="38" y="69" fontSize="9" fontWeight="500" fill="rgba(33,72,59,0.6)">
+              {playerLabel}
+            </text>
+          ) : null}
 
           {/* Zone bubbles */}
           {stats.map((s) => {

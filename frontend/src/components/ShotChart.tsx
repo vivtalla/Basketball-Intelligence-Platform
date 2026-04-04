@@ -1,14 +1,16 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { usePlayerShotChart } from "@/hooks/usePlayerStats";
-import type { ShotChartShot } from "@/lib/types";
+import type { ShotChartShot, ShotLabDateRange, ShotLabWindowPreset } from "@/lib/types";
 import { LEAGUE_AVG_FG, ZONE_POINTS, ZONE_ORDER, ZONE_PATHS, heatColor } from "@/lib/shotchart-constants";
+import { clampShotLabCustomRange, resolveShotLabRange } from "@/lib/shotlab";
 import ChartStatusBadge from "./ChartStatusBadge";
 import ZoneAnnotationCourt from "./ZoneAnnotationCourt";
 import ShotValueMap from "./ShotValueMap";
 import ShotSprawlMap from "./ShotSprawlMap";
 import ShotDistanceProfile from "./ShotDistanceProfile";
+import ShotLabControls from "./ShotLabControls";
 
 interface ShotChartProps {
   playerId: number;
@@ -326,6 +328,23 @@ const COURT_LABEL: Record<ChartView, string> = {
   sprawl: "Sprawl map",
 };
 
+function describeShotWindow(
+  preset: ShotLabWindowPreset,
+  filters: ShotLabDateRange
+): string {
+  if (!filters.startDate && !filters.endDate) {
+    return "Full season window";
+  }
+
+  if (preset === "last-5-games") return "Last 5 game dates";
+  if (preset === "last-10-games") return "Last 10 game dates";
+  if (preset === "last-30-days") return "Last 30 days";
+  if (filters.startDate && filters.endDate) return `${filters.startDate} to ${filters.endDate}`;
+  if (filters.startDate) return `Since ${filters.startDate}`;
+  if (filters.endDate) return `Through ${filters.endDate}`;
+  return "Filtered window";
+}
+
 export default function ShotChart({
   playerId,
   seasons,
@@ -334,6 +353,8 @@ export default function ShotChart({
   const [selectedSeason, setSelectedSeason] = useState(defaultSeason);
   const [seasonType, setSeasonType] = useState<"Regular Season" | "Playoffs">("Regular Season");
   const [chartView, setChartView] = useState<ChartView>("scatter");
+  const [preset, setPreset] = useState<ShotLabWindowPreset>("full");
+  const [customRange, setCustomRange] = useState<ShotLabDateRange>({ startDate: null, endDate: null });
 
   const { data: shotChart, isLoading, error } = usePlayerShotChart(
     playerId,
@@ -341,13 +362,66 @@ export default function ShotChart({
     seasonType
   );
 
+  const availableDates = useMemo(
+    () => shotChart?.available_game_dates ?? [],
+    [shotChart?.available_game_dates]
+  );
+  const availableStartDate = shotChart?.available_start_date ?? null;
+  const availableEndDate = shotChart?.available_end_date ?? null;
+
+  const filters = useMemo(
+    () =>
+      resolveShotLabRange(
+        preset,
+        availableDates,
+        clampShotLabCustomRange(customRange, availableStartDate, availableEndDate)
+      ),
+    [availableDates, availableEndDate, availableStartDate, customRange, preset]
+  );
+
+  function handleSeasonChange(nextSeason: string) {
+    setSelectedSeason(nextSeason);
+    setPreset("full");
+    setCustomRange({ startDate: null, endDate: null });
+  }
+
+  function handleSeasonTypeChange(nextSeasonType: "Regular Season" | "Playoffs") {
+    setSeasonType(nextSeasonType);
+    setPreset("full");
+    setCustomRange({ startDate: null, endDate: null });
+  }
+
+  function handleCustomRangeChange(nextRange: ShotLabDateRange) {
+    setCustomRange(
+      clampShotLabCustomRange(nextRange, availableStartDate, availableEndDate)
+    );
+  }
+
+  const { data: filteredShotChart, isLoading: isFilteredLoading, error: filteredError } = usePlayerShotChart(
+    playerId,
+    selectedSeason,
+    seasonType,
+    filters
+  );
+
+  const activeShotChart = filteredShotChart ?? shotChart;
+
   const fgPct =
-    shotChart && shotChart.attempted > 0
-      ? ((shotChart.made / shotChart.attempted) * 100).toFixed(1)
+    activeShotChart && activeShotChart.attempted > 0
+      ? ((activeShotChart.made / activeShotChart.attempted) * 100).toFixed(1)
       : null;
-  const dataStatus = shotChart?.data_status ?? "missing";
+  const dataStatus = activeShotChart?.data_status ?? "missing";
   const isMissing = dataStatus === "missing";
   const isStale = dataStatus === "stale";
+  const hasNoAttemptsInWindow = Boolean(
+    activeShotChart &&
+      activeShotChart.attempted === 0 &&
+      !isMissing &&
+      (filters.startDate || filters.endDate)
+  );
+  const isLoadingState = isLoading || isFilteredLoading;
+  const activeError = filteredError ?? error;
+  const windowLabel = describeShotWindow(preset, filters);
 
   return (
     <div className="rounded-[2rem] border border-[var(--border)] bg-[linear-gradient(145deg,rgba(247,243,232,0.96),rgba(228,236,232,0.92))] p-6 shadow-[0_24px_80px_rgba(47,43,36,0.08)]">
@@ -377,82 +451,77 @@ export default function ShotChart({
               </button>
             ))}
           </div>
-
-          {/* Season selector */}
-          <select
-            value={selectedSeason}
-            onChange={(e) => setSelectedSeason(e.target.value)}
-            className="text-sm border border-[var(--border)] rounded-lg px-2 py-1 bg-[rgba(255,251,246,0.96)] text-[var(--foreground)] focus:outline-none focus:ring-2 focus:ring-[var(--accent)]"
-          >
-            {seasons.map((s) => (
-              <option key={s} value={s}>{s}</option>
-            ))}
-          </select>
-
-          {/* RS / Playoffs */}
-          <div className="flex rounded-lg overflow-hidden border border-[var(--border)] text-xs">
-            {(["Regular Season", "Playoffs"] as const).map((type) => (
-              <button
-                key={type}
-                onClick={() => setSeasonType(type)}
-                className={`px-3 py-1.5 transition-colors ${
-                  seasonType === type ? "bip-toggle-active" : "bip-toggle"
-                }`}
-              >
-                {type}
-              </button>
-            ))}
-          </div>
         </div>
       </div>
 
+      <ShotLabControls
+        seasons={seasons}
+        selectedSeason={selectedSeason}
+        onSeasonChange={handleSeasonChange}
+        seasonType={seasonType}
+        onSeasonTypeChange={handleSeasonTypeChange}
+        preset={preset}
+        onPresetChange={setPreset}
+        customRange={customRange}
+        onCustomRangeChange={handleCustomRangeChange}
+        availableStartDate={availableStartDate}
+        availableEndDate={availableEndDate}
+      />
+
       {/* FG% summary */}
-      {shotChart && !isLoading && (
+      {activeShotChart && !isLoadingState && (
         <div className="mb-3 flex flex-wrap items-center justify-between gap-2 rounded-[1.25rem] border border-[rgba(25,52,42,0.12)] bg-[rgba(255,255,255,0.7)] px-4 py-3 text-sm text-[var(--muted-strong)]">
           <p>
-            {shotChart.made} / {shotChart.attempted} FG
+            {activeShotChart.made} / {activeShotChart.attempted} FG
             {fgPct !== null && <> ({fgPct}%)</>}
-            {shotChart.attempted === 0 && !isMissing && (
+            {activeShotChart.attempted === 0 && !isMissing && (
               <span className="ml-1 italic">— no shot data for this period</span>
             )}
           </p>
           <div className="flex items-center gap-2">
-            {shotChart.last_synced_at && (
+            <span className="text-[11px]">{windowLabel}</span>
+            {activeShotChart.last_synced_at && (
               <span className="text-[11px]">
-                Synced {new Date(shotChart.last_synced_at).toLocaleDateString()}
+                Synced {new Date(activeShotChart.last_synced_at).toLocaleDateString()}
               </span>
             )}
           </div>
         </div>
       )}
 
-      {shotChart && !isLoading && isMissing && (
+      {activeShotChart && !isLoadingState && isMissing && (
         <div className="mb-4 rounded-xl border border-dashed border-[rgba(25,52,42,0.16)] bg-[rgba(255,255,255,0.66)] px-4 py-3 text-sm text-[var(--muted-strong)]">
           Shot chart data has not been synced for this player and season yet.
         </div>
       )}
 
+      {hasNoAttemptsInWindow && (
+        <div className="mb-4 rounded-xl border border-dashed border-[rgba(25,52,42,0.16)] bg-[rgba(255,255,255,0.66)] px-4 py-3 text-sm text-[var(--muted-strong)]">
+          No shot attempts fall inside this selected date window.
+        </div>
+      )}
+
       {/* Court SVG */}
       <div className="relative">
-        {isLoading && (
+        {isLoadingState && (
           <div className="absolute inset-0 flex items-center justify-center bg-white/80 rounded-lg z-10">
             <div className="w-8 h-8 border-2 border-[var(--accent)] border-t-transparent rounded-full animate-spin" />
           </div>
         )}
-        {error && !isLoading && (
+        {activeError && !isLoadingState && (
           <p className="text-center py-10 text-sm text-red-500">
             Could not load shot data.
           </p>
         )}
 
         {/* Value map — full replacement for the SVG court section */}
-        {chartView === "value" && shotChart && shotChart.shots.length > 0 && (
-          <ShotValueMap shots={shotChart.shots} />
+        {chartView === "value" && activeShotChart && activeShotChart.shots.length > 0 && (
+          <ShotValueMap shots={activeShotChart.shots} playerLabel={windowLabel} />
         )}
 
         {/* Sprawl map — full replacement for the SVG court section */}
-        {chartView === "sprawl" && shotChart && shotChart.shots.length > 0 && (
-          <ShotSprawlMap shots={shotChart.shots} />
+        {chartView === "sprawl" && activeShotChart && activeShotChart.shots.length > 0 && (
+          <ShotSprawlMap shots={activeShotChart.shots} playerLabel={windowLabel} />
         )}
 
         <div className={chartView === "value" || chartView === "sprawl" ? "hidden" : ""}>
@@ -467,13 +536,13 @@ export default function ShotChart({
             <rect x="0" y="0" width={W} height={H} rx="18" fill="url(#courtWash)" />
 
             {/* Zone heatmap overlays (behind court markings) */}
-            {chartView === "heatmap" && shotChart && shotChart.shots.length > 0 && (
-              <HeatmapZones shots={shotChart.shots} />
+            {chartView === "heatmap" && activeShotChart && activeShotChart.shots.length > 0 && (
+              <HeatmapZones shots={activeShotChart.shots} />
             )}
 
             {/* Hexbin layer (behind court markings) */}
-            {chartView === "hex" && shotChart && shotChart.shots.length > 0 && (
-              <HexLayer shots={shotChart.shots} />
+            {chartView === "hex" && activeShotChart && activeShotChart.shots.length > 0 && (
+              <HexLayer shots={activeShotChart.shots} />
             )}
 
             <CourtMarkings />
@@ -481,7 +550,7 @@ export default function ShotChart({
             {/* Season / mode label badge */}
             <rect x="24" y="18" width="130" height="48" rx="14" fill="rgba(255,255,255,0.86)" />
             <text x="38" y="38" fontSize="10" fontWeight="600" fill="var(--muted)" letterSpacing="0.12em">
-              {selectedSeason}
+              {selectedSeason} · {seasonType === "Regular Season" ? "RS" : "PO"}
             </text>
             <text x="38" y="55" fontSize="13" fontWeight="600" fill="var(--foreground)">
               {COURT_LABEL[chartView]}
@@ -489,7 +558,7 @@ export default function ShotChart({
 
             {/* Scatter: individual shots colored by made/missed */}
             {chartView === "scatter" &&
-              shotChart?.shots.map((shot, i) => {
+              activeShotChart?.shots.map((shot, i) => {
                 const [x, y] = toSvg(shot.loc_x, shot.loc_y);
                 return (
                   <circle
@@ -512,10 +581,10 @@ export default function ShotChart({
 
             {/* Heatmap: per-shot dots colored by zone efficiency */}
             {chartView === "heatmap" &&
-              shotChart &&
+              activeShotChart &&
               (() => {
-                const zoneStats = buildZoneStats(shotChart.shots);
-                return shotChart.shots.map((shot, i) => {
+                const zoneStats = buildZoneStats(activeShotChart.shots);
+                return activeShotChart.shots.map((shot, i) => {
                   const [x, y] = toSvg(shot.loc_x, shot.loc_y);
                   const stat = zoneStats[shot.zone_basic];
                   const avg = LEAGUE_AVG[shot.zone_basic] ?? null;
@@ -601,23 +670,23 @@ export default function ShotChart({
       </div>
 
       {/* Zone annotation court — primary zone view */}
-      {shotChart && shotChart.shots.length > 0 && (
+      {activeShotChart && activeShotChart.shots.length > 0 && (
         <div className="mt-6 border-t border-[rgba(25,52,42,0.08)] pt-5">
           <p className="bip-kicker mb-3">Zone Efficiency</p>
-          <ZoneAnnotationCourt shots={shotChart.shots} compact />
+          <ZoneAnnotationCourt shots={activeShotChart.shots} compact />
         </div>
       )}
 
       {/* Zone breakdown table — secondary detail */}
-      {shotChart && shotChart.shots.length > 0 && (
-        <ZoneBreakdown shots={shotChart.shots} />
+      {activeShotChart && activeShotChart.shots.length > 0 && (
+        <ZoneBreakdown shots={activeShotChart.shots} />
       )}
 
       {/* Distance signature strip */}
-      {shotChart && shotChart.shots.length > 0 && (
+      {activeShotChart && activeShotChart.shots.length > 0 && (
         <div className="mt-6 border-t border-[rgba(25,52,42,0.08)] pt-5">
           <p className="bip-kicker mb-3">Distance Signature</p>
-          <ShotDistanceProfile shots={shotChart.shots} />
+          <ShotDistanceProfile shots={activeShotChart.shots} playerLabel={windowLabel} />
         </div>
       )}
     </div>

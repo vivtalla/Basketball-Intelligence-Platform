@@ -1,5 +1,6 @@
 "use client";
 
+import { useMemo, useState } from "react";
 import {
   AreaChart,
   Area,
@@ -17,24 +18,29 @@ import { chartPalette } from "@/lib/chart-system";
 interface ShotSeasonEvolutionProps {
   playerId: number;
   seasons: string[]; // ordered oldest→newest, max 10
+  playoffSeasons?: string[];
 }
 
 // ─── Pre-allocated hook slots (React rules: no conditional hooks) ─────────────
 // The CLAUDE.md requirement: allocate a fixed maximum number of hook slots.
 // SWR returns undefined for null keys (empty-string season → null key in hook).
 
-function useTenShotChartSlots(playerId: number, seasons: string[]) {
+function useTenShotChartSlots(
+  playerId: number,
+  seasons: string[],
+  seasonType: "Regular Season" | "Playoffs"
+) {
   const s = (i: number) => seasons[i] ?? "";
-  const slot0 = usePlayerShotChart(playerId, s(0), "Regular Season");
-  const slot1 = usePlayerShotChart(playerId, s(1), "Regular Season");
-  const slot2 = usePlayerShotChart(playerId, s(2), "Regular Season");
-  const slot3 = usePlayerShotChart(playerId, s(3), "Regular Season");
-  const slot4 = usePlayerShotChart(playerId, s(4), "Regular Season");
-  const slot5 = usePlayerShotChart(playerId, s(5), "Regular Season");
-  const slot6 = usePlayerShotChart(playerId, s(6), "Regular Season");
-  const slot7 = usePlayerShotChart(playerId, s(7), "Regular Season");
-  const slot8 = usePlayerShotChart(playerId, s(8), "Regular Season");
-  const slot9 = usePlayerShotChart(playerId, s(9), "Regular Season");
+  const slot0 = usePlayerShotChart(playerId, s(0), seasonType);
+  const slot1 = usePlayerShotChart(playerId, s(1), seasonType);
+  const slot2 = usePlayerShotChart(playerId, s(2), seasonType);
+  const slot3 = usePlayerShotChart(playerId, s(3), seasonType);
+  const slot4 = usePlayerShotChart(playerId, s(4), seasonType);
+  const slot5 = usePlayerShotChart(playerId, s(5), seasonType);
+  const slot6 = usePlayerShotChart(playerId, s(6), seasonType);
+  const slot7 = usePlayerShotChart(playerId, s(7), seasonType);
+  const slot8 = usePlayerShotChart(playerId, s(8), seasonType);
+  const slot9 = usePlayerShotChart(playerId, s(9), seasonType);
   return [slot0, slot1, slot2, slot3, slot4, slot5, slot6, slot7, slot8, slot9];
 }
 
@@ -183,9 +189,15 @@ function MiniCourt({ shots, season, isCurrent, isLoading }: MiniCourtProps) {
 export default function ShotSeasonEvolution({
   playerId,
   seasons,
+  playoffSeasons = [],
 }: ShotSeasonEvolutionProps) {
-  const cappedSeasons = seasons.slice(0, 10);
-  const slots = useTenShotChartSlots(playerId, cappedSeasons);
+  const [seasonType, setSeasonType] = useState<"Regular Season" | "Playoffs">("Regular Season");
+  const allSeasons = useMemo(
+    () => Array.from(new Set([...seasons, ...playoffSeasons])).sort((left, right) => left.localeCompare(right)),
+    [playoffSeasons, seasons]
+  );
+  const cappedSeasons = allSeasons.slice(0, 10);
+  const slots = useTenShotChartSlots(playerId, cappedSeasons, seasonType);
 
   // Build timeline data for the Recharts chart
   const timelineData = cappedSeasons.map((season, i) => {
@@ -219,8 +231,22 @@ export default function ShotSeasonEvolution({
           Shot Profile Evolution
         </h3>
         <p className="mt-1 text-xs text-[var(--muted)]">
-          Regular season zone efficiency across every season · zone color = FG% vs league avg
+          {seasonType === "Regular Season" ? "Regular season" : "Playoff"} zone efficiency across every season · zone color = FG% vs league avg
         </p>
+      </div>
+
+      <div className="mb-5 flex overflow-hidden rounded-xl border border-[var(--border)] text-xs w-fit">
+        {(["Regular Season", "Playoffs"] as const).map((type) => (
+          <button
+            key={type}
+            onClick={() => setSeasonType(type)}
+            className={`px-3 py-2 transition-colors ${
+              seasonType === type ? "bip-toggle-active" : "bip-toggle"
+            }`}
+          >
+            {type}
+          </button>
+        ))}
       </div>
 
       {/* Mini court filmstrip */}
@@ -336,7 +362,7 @@ export default function ShotSeasonEvolution({
           />
           Current season
         </span>
-        <span>· ≥5 FGA to show zone efficiency</span>
+        <span>· {seasonType === "Playoffs" ? "empty cards mark seasons without playoff shot data" : "≥5 FGA to show zone efficiency"}</span>
       </div>
     </div>
   );

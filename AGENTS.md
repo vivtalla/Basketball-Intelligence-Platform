@@ -1,6 +1,6 @@
 # Agent Coordination
 
-Last updated: 2026-04-03 by Claude (Sprint 34 closeout)
+Last updated: 2026-04-03 by Codex (Sprint 35 closeout)
 
 > Both agents read this file before touching code at the start of every session.
 > The canonical source of truth is the clean `master` checkout at `/Users/viv/Documents/Basketball Intelligence Platform`.
@@ -14,7 +14,7 @@ Last updated: 2026-04-03 by Claude (Sprint 34 closeout)
 
 | Field | Value |
 |-------|-------|
-| Sprint | 35 |
+| Sprint | 36 |
 | Goal | TBD — awaiting Vivek's sprint kickoff |
 | Started | TBD |
 | Target merge | TBD |
@@ -39,12 +39,12 @@ If repo state, sprint numbering, or shipped features appear to disagree across l
 
 ### Claude
 - Branch: not assigned
-- Scope: available for Sprint 35 kickoff
+- Scope: available for Sprint 36 kickoff
 - Status: Not started
 
 ### Codex
 - Branch: not assigned
-- Scope: available for Sprint 35 kickoff
+- Scope: available for Sprint 36 kickoff
 - Status: Not started
 
 ---
@@ -78,7 +78,7 @@ Specs or review notes written by one stream for another. Check this before start
 
 ## Merge Order
 
-1. TBD at Sprint 35 kickoff
+1. TBD at Sprint 36 kickoff
 
 ---
 
@@ -86,7 +86,7 @@ Specs or review notes written by one stream for another. Check this before start
 
 | Files / Directories | Assigned this sprint |
 |---------------------|----------------------|
-| To be defined at Sprint 35 kickoff | — |
+| To be defined at Sprint 36 kickoff | — |
 
 ---
 
@@ -159,6 +159,8 @@ Specs or review notes written by one stream for another. Check this before start
 
 *Free-form, dated, newest first. Use this for coordination and repo-state exceptions.*
 
+2026-04-03 (Codex): Sprint 35 closeout prepared on `feature/sprint-35-shot-lab-expansion`. Shipped enriched shot payloads with date windows, the player shot lab, compare shot lab, and playoff-capable ShotSeasonEvolution. Automated verification covered full backend `pytest` plus frontend `npm run lint` and `npm run build`. Live historical shot backfill was attempted via `backend/data/backfill_shot_lab.sh` but hit repeated `stats.nba.com` timeouts, so that ops run remains a follow-up. See `specs/sprint-35-closeout.md` before Sprint 36 kickoff.
+2026-04-03 (Codex): Sprint 35 started on `feature/sprint-35-shot-lab-expansion`. Scope: shot lab expansion across enriched shot payloads, temporal filters, compare shot lab, and playoff-capable evolution.
 2026-04-03 (Claude): Sprint 34 closed on `master`. Shipped all four Goldsberry shot chart features (ShotValueMap, ShotSprawlMap, ShotDistanceProfile, ShotSeasonEvolution). Single-stream frontend-only sprint, no Codex branch. See `specs/sprint-34-closeout.md` before Sprint 35 kickoff.
 2026-04-03 (Codex): Sprint 32 closed on `master` as a single-stream sprint. Shipped warehouse-backed modern team intelligence, readiness metadata on team intelligence, the DB-first prep queue endpoint, and the new team-page prep workflow with urgency framing, scouting-mode launch, and share links. Closeout verification covered full backend `pytest` plus frontend `npm run lint` and `npm run build`. See `specs/sprint-32-closeout.md` before Sprint 33 kickoff.
 2026-04-03 (Claude): Sprint 31 closed on `feature/sprint-31-visual-renaissance`. Shipped hexbin shot chart, ZoneAnnotationCourt, PerformanceCalendar, full chart harmonization (CareerArcChart/DualCareerArcChart/RadarChart), homepage visual redesign, and StandingsBumpChart. Frontend-only sprint, no Codex branch. See `specs/sprint-31-closeout.md` before Sprint 32 kickoff.

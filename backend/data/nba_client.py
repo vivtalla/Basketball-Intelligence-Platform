@@ -4,7 +4,7 @@ import json
 import re
 import time
 from io import BytesIO
-from datetime import datetime, timedelta
+from datetime import date, datetime, timedelta
 from html.parser import HTMLParser
 from typing import List, Optional, Tuple
 import unicodedata
@@ -1393,7 +1393,7 @@ def get_shot_chart_data(
     """Fetch all shot attempts for a player in a given season from NBA.com.
 
     Returns a list of shot dicts with: loc_x, loc_y, shot_made, shot_type,
-    action_type, zone_basic, zone_area, distance.
+    action_type, zone_basic, zone_area, distance, game_id, game_date.
 
     Results are cached in SQLite; historical seasons are cached indefinitely,
     current season for CURRENT_SEASON_CACHE_TTL seconds.
@@ -1419,6 +1419,7 @@ def get_shot_chart_data(
     df = frames[0]
     shots = []
     for _, row in df.iterrows():
+        raw_game_date = row.get("GAME_DATE")
         shots.append({
             "loc_x": int(row.get("LOC_X", 0)),
             "loc_y": int(row.get("LOC_Y", 0)),
@@ -1428,6 +1429,34 @@ def get_shot_chart_data(
             "zone_basic": str(row.get("SHOT_ZONE_BASIC", "")),
             "zone_area": str(row.get("SHOT_ZONE_AREA", "")),
             "distance": int(row.get("SHOT_DISTANCE", 0)),
+            "game_id": str(row.get("GAME_ID") or "") or None,
+            "game_date": _normalize_shot_chart_game_date(raw_game_date),
         })
     CacheManager.set(cache_key, {"shots": shots}, _cache_ttl_for_season(season))
     return shots
+
+
+def _normalize_shot_chart_game_date(raw_value: object) -> Optional[str]:
+    if raw_value is None:
+        return None
+
+    value = str(raw_value).strip()
+    if not value:
+        return None
+
+    normalized = value.replace("T00:00:00", "")
+    for fmt in ("%Y-%m-%d", "%Y-%m-%d %H:%M:%S", "%b %d, %Y", "%m/%d/%Y"):
+        try:
+            return datetime.strptime(normalized, fmt).date().isoformat()
+        except ValueError:
+            continue
+
+    try:
+        return datetime.fromisoformat(normalized.replace("Z", "+00:00")).date().isoformat()
+    except ValueError:
+        pass
+
+    try:
+        return date.fromisoformat(normalized[:10]).isoformat()
+    except ValueError:
+        return None
