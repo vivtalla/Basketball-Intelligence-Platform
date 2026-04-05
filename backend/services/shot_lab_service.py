@@ -7,7 +7,7 @@ from typing import Dict, List, Optional, Sequence, Tuple
 from fastapi import HTTPException
 from sqlalchemy.orm import Session
 
-from db.models import GamePlayerStat, PlayByPlayEvent, PlayerShotChart, ShotLabSnapshot, Team, WarehouseGame
+from db.models import GamePlayerStat, PlayByPlay, PlayByPlayEvent, PlayerShotChart, ShotLabSnapshot, Team, WarehouseGame
 from models.shotchart import (
     ShotCompletenessDomain,
     ShotCompletenessEntity,
@@ -352,23 +352,36 @@ def get_shot_completeness_report(
         for row in db.query(WarehouseGame).filter(WarehouseGame.season == season).all()
         if matches_season_type(row.game_id, season_type)
     ]
+    legacy_game_ids = {
+        row[0]
+        for row in (
+            db.query(PlayByPlay.game_id)
+            .filter(PlayByPlay.game_id.in_([game.game_id for game in games]))
+            .distinct()
+            .all()
+        )
+    } if games else set()
     event_entities: List[ShotCompletenessEntity] = []
     event_counts = {"ready": 0, "partial": 0, "legacy": 0, "missing": 0}
     for game in games:
         if game.has_parsed_pbp:
             status = "ready"
+            data_status = "ready"
         elif game.has_pbp_payload:
             status = "partial"
-        elif game.has_schedule:
+            data_status = "stale"
+        elif game.game_id in legacy_game_ids:
             status = "legacy"
+            data_status = "ready"
         else:
             status = "missing"
+            data_status = "missing"
         event_counts[status] += 1
         event_entities.append(
             ShotCompletenessEntity(
                 entity_id=game.game_id,
                 entity_type="game_event_stream",
-                data_status="ready" if game.has_parsed_pbp else ("stale" if game.has_pbp_payload else "missing"),
+                data_status=data_status,
                 completeness_status=status,
                 total_shots=0,
                 contextual_shots=0,

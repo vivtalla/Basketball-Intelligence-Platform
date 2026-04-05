@@ -401,6 +401,8 @@ def get_pbp_coverage(player_id: int, season: str = "2024-25", db: Session = Depe
         status = "ready"
     else:
         status = "partial"
+    if status == "none" and legacy_games > 0:
+        status = "partial"
 
     if synced_games > 0 and synced_games >= eligible_games and has_on_off and has_scoring_splits:
         data_status = "ready"
