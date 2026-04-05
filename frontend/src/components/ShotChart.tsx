@@ -1,7 +1,9 @@
 "use client";
 
-import { useMemo, useState } from "react";
-import { usePlayerShotChart, useShotChartRefresh } from "@/hooks/usePlayerStats";
+import dynamic from "next/dynamic";
+import { useSearchParams } from "next/navigation";
+import { startTransition, useEffect, useMemo, useState } from "react";
+import { usePlayerShotChart, useShotChartRefresh, useShotLabSnapshot } from "@/hooks/usePlayerStats";
 import type {
   ShotChartShot,
   ShotLabDateRange,
@@ -18,6 +20,16 @@ import ShotSprawlMap from "./ShotSprawlMap";
 import ShotDistanceProfile from "./ShotDistanceProfile";
 import ShotLabControls from "./ShotLabControls";
 import ShotContextPanel from "./ShotContextPanel";
+import ShotSnapshotButton from "./ShotSnapshotButton";
+
+const ShotLab3DScene = dynamic(() => import("./three/ShotLab3DScene"), {
+  ssr: false,
+  loading: () => (
+    <div className="rounded-[1.25rem] border border-[rgba(25,52,42,0.12)] bg-[rgba(255,255,255,0.68)] p-6 text-sm text-[var(--muted)]">
+      Loading 3D view...
+    </div>
+  ),
+});
 
 interface ShotChartProps {
   playerId: number;
@@ -377,7 +389,7 @@ function ZoneBreakdown({ shots }: { shots: ShotChartShot[] }) {
   );
 }
 
-type ChartView = "scatter" | "heatmap" | "hex" | "value" | "sprawl";
+type ChartView = "scatter" | "heatmap" | "hex" | "value" | "sprawl" | "three";
 
 const VIEW_LABELS: Record<ChartView, string> = {
   scatter: "Scatter",
@@ -385,6 +397,7 @@ const VIEW_LABELS: Record<ChartView, string> = {
   hex: "Hex",
   value: "Value",
   sprawl: "Sprawl",
+  three: "3D",
 };
 
 const COURT_LABEL: Record<ChartView, string> = {
@@ -393,6 +406,7 @@ const COURT_LABEL: Record<ChartView, string> = {
   hex: "Hex density",
   value: "Value map",
   sprawl: "Sprawl map",
+  three: "3D shot scene",
 };
 
 const VIEW_DESCRIPTIONS: Record<ChartView, string> = {
@@ -401,6 +415,7 @@ const VIEW_DESCRIPTIONS: Record<ChartView, string> = {
   hex: "Efficiency and volume compressed into hex bins.",
   value: "Where shot diet creates or loses value.",
   sprawl: "A cinematic portrait of spatial pressure.",
+  three: "A reconstructed 3D court view with analytical shot arcs to the rim.",
 };
 
 const DEFAULT_SITUATIONAL_FILTERS: ShotLabSituationalFilters = {
@@ -450,6 +465,9 @@ export default function ShotChart({
   seasons,
   defaultSeason,
 }: ShotChartProps) {
+  const searchParams = useSearchParams();
+  const snapshotId = searchParams.get("shot_snapshot_id");
+  const { data: snapshot } = useShotLabSnapshot(snapshotId);
   const [selectedSeason, setSelectedSeason] = useState(defaultSeason);
   const [seasonType, setSeasonType] = useState<"Regular Season" | "Playoffs">("Regular Season");
   const [chartView, setChartView] = useState<ChartView>("scatter");
@@ -458,6 +476,7 @@ export default function ShotChart({
   const [situationalFilters, setSituationalFilters] = useState<ShotLabSituationalFilters>(
     DEFAULT_SITUATIONAL_FILTERS
   );
+  const [appliedSnapshotId, setAppliedSnapshotId] = useState<string | null>(null);
 
   const { data: shotChart, isLoading, error } = usePlayerShotChart(
     playerId,
@@ -558,6 +577,26 @@ export default function ShotChart({
   const situationalLabel = describeSituationalFilters(situationalFilters);
   const activeViewLabel = VIEW_LABELS[chartView];
 
+  useEffect(() => {
+    if (!snapshotId || !snapshot || appliedSnapshotId === snapshotId) return;
+    if (snapshot.payload.subject_type !== "player" || snapshot.payload.subject_id !== playerId) return;
+    startTransition(() => {
+      setSelectedSeason(snapshot.payload.season);
+      setSeasonType(snapshot.payload.season_type === "Playoffs" ? "Playoffs" : "Regular Season");
+      setChartView((snapshot.payload.active_view as ChartView) ?? "scatter");
+      setCustomRange({
+        startDate: snapshot.payload.filters.start_date ?? null,
+        endDate: snapshot.payload.filters.end_date ?? null,
+      });
+      setSituationalFilters({
+        periodBucket: snapshot.payload.filters.period_bucket ?? "all",
+        result: snapshot.payload.filters.result ?? "all",
+        shotValue: snapshot.payload.filters.shot_value ?? "all",
+      });
+      setAppliedSnapshotId(snapshotId);
+    });
+  }, [appliedSnapshotId, playerId, snapshot, snapshotId]);
+
   return (
     <div className="bip-shot-shell bip-shot-shell-accent">
       {/* Header */}
@@ -576,10 +615,28 @@ export default function ShotChart({
 
         <div className="flex flex-wrap items-center gap-3">
           <ChartStatusBadge status={dataStatus} compact />
+          <ShotSnapshotButton
+            payload={{
+              subject_type: "player",
+              subject_id: playerId,
+              season: selectedSeason,
+              season_type: seasonType,
+              active_view: chartView,
+              route_path: `/players/${playerId}`,
+              filters: {
+                start_date: filters.startDate,
+                end_date: filters.endDate,
+                period_bucket: situationalFilters.periodBucket,
+                result: situationalFilters.result,
+                shot_value: situationalFilters.shotValue,
+              },
+              metadata: {},
+            }}
+          />
 
           {/* Scatter / Heat / Hex / Value / Sprawl toggle */}
           <div className="flex flex-wrap gap-2 rounded-full border border-[rgba(25,52,42,0.08)] bg-[rgba(255,255,255,0.44)] p-1 text-xs shadow-[inset_0_1px_0_rgba(255,255,255,0.7)]">
-            {(["scatter", "heatmap", "hex", "value", "sprawl"] as ChartView[]).map((view) => (
+            {(["scatter", "heatmap", "hex", "value", "sprawl", "three"] as ChartView[]).map((view) => (
               <button
                 key={view}
                 onClick={() => setChartView(view)}
@@ -694,7 +751,11 @@ export default function ShotChart({
           <ShotSprawlMap shots={activeShotChart.shots} playerLabel={windowLabel} />
         )}
 
-        <div className={chartView === "value" || chartView === "sprawl" ? "hidden" : ""}>
+        {chartView === "three" && activeShotChart && activeShotChart.shots.length > 0 && (
+          <ShotLab3DScene shots={activeShotChart.shots} />
+        )}
+
+        <div className={chartView === "value" || chartView === "sprawl" || chartView === "three" ? "hidden" : ""}>
         <div className="bip-shot-canvas">
           <svg viewBox={`0 0 ${W} ${H}`} className="w-full max-w-lg mx-auto block">
             <defs>

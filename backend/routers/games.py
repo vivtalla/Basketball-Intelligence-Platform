@@ -1,20 +1,22 @@
 from __future__ import annotations
 
 from collections import defaultdict
-from typing import Dict, List
+from typing import Dict, List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
 from db.database import get_db
-from db.models import GameLog, PlayByPlay, Player, Team
+from db.models import GameLog, PlayByPlay, PlayByPlayEvent, Player, Team
 from models.game import (
     GameDetailResponse,
     GameEvent,
     GamePlayerSummary,
     GameSummaryResponse,
     GameTimelinePoint,
+    GameVisualizationResponse,
 )
+from services.game_visualization_service import build_game_visualization
 from services.game_summary_service import get_game_summary
 
 router = APIRouter()
@@ -42,11 +44,20 @@ def get_game_detail(game_id: str, db: Session = Depends(get_db)):
         raise HTTPException(status_code=404, detail=f"Game {game_id} not found.")
 
     events = (
-        db.query(PlayByPlay)
+        db.query(PlayByPlayEvent)
         .filter_by(game_id=game_id)
-        .order_by(PlayByPlay.action_number.asc())
+        .order_by(PlayByPlayEvent.order_index.asc())
         .all()
     )
+    using_warehouse_events = True
+    if not events:
+        using_warehouse_events = False
+        events = (
+            db.query(PlayByPlay)
+            .filter_by(game_id=game_id)
+            .order_by(PlayByPlay.action_number.asc())
+            .all()
+        )
     if not events:
         raise HTTPException(status_code=404, detail=f"No play-by-play found for game {game_id}.")
 
@@ -74,7 +85,7 @@ def get_game_detail(game_id: str, db: Session = Depends(get_db)):
         if event.score_home is not None or event.score_away is not None:
             timeline.append(
                 GameTimelinePoint(
-                    action_number=event.action_number,
+                    action_number=event.action_number or getattr(event, "order_index", 0),
                     period=event.period,
                     clock=event.clock,
                     home_score=score_home,
@@ -88,7 +99,9 @@ def get_game_detail(game_id: str, db: Session = Depends(get_db)):
         player_name = players.get(event.player_id).full_name if event.player_id in players else None
         event_rows.append(
             GameEvent(
-                action_number=event.action_number,
+                action_number=event.action_number or getattr(event, "order_index", 0),
+                order_index=getattr(event, "order_index", None),
+                source_event_id=getattr(event, "source_event_id", None) if using_warehouse_events else str(event.action_number),
                 period=event.period,
                 clock=event.clock,
                 team_id=event.team_id,
@@ -96,6 +109,8 @@ def get_game_detail(game_id: str, db: Session = Depends(get_db)):
                 player_id=event.player_id,
                 player_name=player_name,
                 event_type=event.action_type,
+                action_family=getattr(event, "action_family", event.action_type),
+                sub_type=getattr(event, "sub_type", None),
                 description=event.description,
                 home_score=event.score_home,
                 away_score=event.score_away,
@@ -172,3 +187,29 @@ def get_game_detail(game_id: str, db: Session = Depends(get_db)):
         top_players=top_players,
         events=event_rows,
     )
+
+
+@router.get("/{game_id}/visualization", response_model=GameVisualizationResponse)
+def get_game_visualization(
+    game_id: str,
+    shot_event_id: Optional[str] = None,
+    player_id: Optional[int] = None,
+    period: Optional[int] = None,
+    event_type: Optional[str] = None,
+    query: Optional[str] = None,
+    source: Optional[str] = None,
+    db: Session = Depends(get_db),
+):
+    payload = build_game_visualization(
+        db,
+        game_id=game_id,
+        shot_event_id=shot_event_id,
+        player_id=player_id,
+        period=period,
+        event_type=event_type,
+        query=query,
+        source=source,
+    )
+    if payload is None:
+        raise HTTPException(status_code=404, detail=f"No visualization payload found for game {game_id}.")
+    return payload

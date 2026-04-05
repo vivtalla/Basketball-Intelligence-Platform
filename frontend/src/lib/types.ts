@@ -1848,3 +1848,189 @@ export interface QueueResponse {
   queued: number;
   jobs: IngestionJobResponse[];
 }
+
+// Sprint 38 — Platform overhaul
+
+export type ShotCompletenessStatus = "ready" | "partial" | "legacy" | "missing";
+
+export interface ShotCompletenessSummary {
+  status: ShotCompletenessStatus;
+  total_shots: number;
+  contextual_shots: number;
+  linked_shots: number;
+  exact_linked_shots: number;
+  completeness_pct: number;
+  linked_pct: number;
+  missing_context_fields: string[];
+}
+
+export interface ShotChartShot {
+  team_id?: number | null;
+  team_abbreviation?: string | null;
+  opponent_team_id?: number | null;
+  opponent_team_abbreviation?: string | null;
+  home_score?: number | null;
+  away_score?: number | null;
+  score_margin?: number | null;
+  event_order_index?: number | null;
+  action_number?: number | null;
+  linkage_mode?: string | null;
+}
+
+export interface PersistedShotChartResponse {
+  completeness_status?: ShotCompletenessStatus;
+  missing_context_fields?: string[];
+  exact_event_linked_attempts?: number;
+  completeness?: ShotCompletenessSummary | null;
+}
+
+export interface PersistedZoneProfileResponse {
+  available_game_dates?: string[];
+  completeness_status?: ShotCompletenessStatus;
+  missing_context_fields?: string[];
+  exact_event_linked_attempts?: number;
+  completeness?: ShotCompletenessSummary | null;
+}
+
+export interface TeamDefenseShotChartResponse {
+  team_id: number;
+  team_abbreviation?: string | null;
+  team_name?: string | null;
+  season: string;
+  season_type: string;
+  shots: ShotChartShot[];
+  made: number;
+  attempted: number;
+  data_status: ShotChartDataStatus;
+  last_synced_at?: string | null;
+  start_date?: string | null;
+  end_date?: string | null;
+  available_start_date?: string | null;
+  available_end_date?: string | null;
+  available_game_dates?: string[];
+  completeness_status?: ShotCompletenessStatus;
+  missing_context_fields?: string[];
+  exact_event_linked_attempts?: number;
+  completeness?: ShotCompletenessSummary | null;
+}
+
+export interface TeamDefenseZoneProfileResponse {
+  team_id: number;
+  team_abbreviation?: string | null;
+  team_name?: string | null;
+  season: string;
+  season_type: string;
+  total_attempts: number;
+  zones: ZoneStat[];
+  data_status: ShotChartDataStatus;
+  last_synced_at?: string | null;
+  start_date?: string | null;
+  end_date?: string | null;
+  available_start_date?: string | null;
+  available_end_date?: string | null;
+  available_game_dates?: string[];
+  completeness_status?: ShotCompletenessStatus;
+  missing_context_fields?: string[];
+  exact_event_linked_attempts?: number;
+  completeness?: ShotCompletenessSummary | null;
+}
+
+export interface ShotLabSnapshotFiltersPayload {
+  start_date?: string | null;
+  end_date?: string | null;
+  period_bucket: ShotLabPeriodBucket;
+  result: ShotLabResultFilter;
+  shot_value: ShotLabShotValueFilter;
+}
+
+export interface ShotLabSnapshotPayload {
+  subject_type: "player" | "compare" | "team-defense";
+  subject_id?: number | null;
+  compare_subject_id?: number | null;
+  team_id?: number | null;
+  season: string;
+  season_type: string;
+  active_view: string;
+  route_path: string;
+  filters: ShotLabSnapshotFiltersPayload;
+  metadata?: Record<string, string>;
+}
+
+export interface ShotLabSnapshotResponse {
+  snapshot_id: string;
+  share_url: string;
+  created_at?: string | null;
+  payload: ShotLabSnapshotPayload;
+}
+
+export interface WarehouseCompletenessDomain {
+  domain: string;
+  eligible_count?: number;
+  ready_count: number;
+  partial_count: number;
+  legacy_count: number;
+  missing_count: number;
+  completeness_pct: number;
+}
+
+export interface WarehouseCompletenessSummary {
+  season: string;
+  season_type: string;
+  domains: WarehouseCompletenessDomain[];
+}
+
+export interface GameEvent {
+  source_event_id?: string | null;
+  order_index?: number | null;
+  action_family?: string | null;
+  sub_type?: string | null;
+}
+
+export interface GameVisualizationElement {
+  kind: string;
+  label?: string | null;
+  exactness: "exact" | "inferred" | "timeline";
+  x?: number | null;
+  y?: number | null;
+  z?: number | null;
+  shot_made?: boolean | null;
+  shot_value?: number | null;
+  team_id?: number | null;
+  team_abbreviation?: string | null;
+  player_id?: number | null;
+  player_name?: string | null;
+  event_type?: string | null;
+}
+
+export interface GameVisualizationStep {
+  action_number: number;
+  order_index?: number | null;
+  source_event_id?: string | null;
+  period?: number | null;
+  clock?: string | null;
+  event_type?: string | null;
+  action_family?: string | null;
+  sub_type?: string | null;
+  description?: string | null;
+  team_id?: number | null;
+  team_abbreviation?: string | null;
+  player_id?: number | null;
+  player_name?: string | null;
+  home_score?: number | null;
+  away_score?: number | null;
+  exact_shot_match: boolean;
+  elements: GameVisualizationElement[];
+}
+
+export interface GameVisualizationResponse {
+  game_id: string;
+  season: string;
+  shot_event_id?: string | null;
+  source?: string | null;
+  selected_player_id?: number | null;
+  selected_period?: number | null;
+  selected_event_type?: string | null;
+  selected_query?: string | null;
+  exact_shot_match: boolean;
+  steps: GameVisualizationStep[];
+}

@@ -1,20 +1,37 @@
 from __future__ import annotations
 
 from datetime import date, datetime
-from typing import Dict, List, Optional
+from typing import List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 
 from db.database import get_db
 from db.models import PlayerShotChart
+from models.shotchart import (
+    ShotChartResponse,
+    ShotChartShot,
+    ShotCompletenessReportResponse,
+    ShotLabSnapshotCreateRequest,
+    ShotLabSnapshotResponse,
+    TeamDefenseShotChartResponse,
+    TeamDefenseZoneProfileResponse,
+    ZoneProfileResponse,
+    ZoneStat,
+)
 from models.warehouse import IngestionJobResponse, QueueResponse
-from models.shotchart import ShotChartResponse, ShotChartShot, ZoneProfileResponse, ZoneStat
+from services.shot_lab_service import (
+    build_shot_completeness_fields,
+    create_shot_lab_snapshot,
+    enrich_player_shot_payload,
+    get_shot_completeness_report,
+    get_shot_lab_snapshot,
+    get_team_defense_raw_shots,
+)
 from services.warehouse_service import queue_player_shot_chart_sync
 
 router = APIRouter()
 
-# Zone point values for PPS calculation
 _ZONE_POINTS = {
     "Restricted Area": 2,
     "In The Paint (Non-RA)": 2,
@@ -45,9 +62,7 @@ def _last_synced_at(cached: Optional[PlayerShotChart]) -> Optional[str]:
 
 
 def _parse_filter_date(raw_value: Optional[str], field_name: str) -> Optional[date]:
-    if raw_value is None:
-        return None
-    if not isinstance(raw_value, str):
+    if raw_value is None or not isinstance(raw_value, str):
         return None
     try:
         return date.fromisoformat(raw_value)
@@ -110,8 +125,7 @@ def _matches_period_bucket(raw_shot: dict, period_bucket: str) -> bool:
         return False
     if period_bucket == "ot":
         return period > 4
-    expected = int(period_bucket[1])
-    return period == expected
+    return period == int(period_bucket[1])
 
 
 def _matches_shot_result(raw_shot: dict, result: str) -> bool:
@@ -135,23 +149,14 @@ def _matches_shot_value(raw_shot: dict, shot_value: str) -> bool:
     return parsed == (3 if shot_value == "3pt" else 2)
 
 
-def _available_game_dates(raw_shots: list[dict]) -> list[str]:
-    dates = sorted(
+def _available_game_dates(raw_shots: List[dict]) -> List[str]:
+    return sorted(
         {
             parsed.isoformat()
             for shot in raw_shots
             if (parsed := _shot_date(shot)) is not None
         }
     )
-    return dates
-
-
-def _filter_shots(
-    raw_shots: List[dict],
-    start_date: Optional[date],
-    end_date: Optional[date],
-) -> List[dict]:
-    return _filter_shots_with_context(raw_shots, start_date, end_date, "all", "all", "all")
 
 
 def _filter_shots_with_context(
@@ -208,6 +213,10 @@ def _job_response(row) -> IngestionJobResponse:
     )
 
 
+def _typed_shots(raw_shots: List[dict]) -> List[ShotChartShot]:
+    return [ShotChartShot(**shot) for shot in raw_shots]
+
+
 def _build_response(
     player_id: int,
     season: str,
@@ -219,9 +228,10 @@ def _build_response(
     data_status: str,
     last_synced_at: Optional[str],
 ) -> ShotChartResponse:
-    shots = [ShotChartShot(**s) for s in raw_shots]
-    made = sum(1 for s in shots if s.shot_made)
+    shots = _typed_shots(raw_shots)
+    made = sum(1 for shot in shots if shot.shot_made)
     available_dates = _available_game_dates(available_shots)
+    completeness_fields = build_shot_completeness_fields(available_shots)
     return ShotChartResponse(
         player_id=player_id,
         season=season,
@@ -236,7 +246,191 @@ def _build_response(
         available_start_date=available_dates[0] if available_dates else None,
         available_end_date=available_dates[-1] if available_dates else None,
         available_game_dates=available_dates,
+        **completeness_fields,
     )
+
+
+def _build_zone_response(
+    *,
+    entity_id: int,
+    season: str,
+    season_type: str,
+    raw_shots: List[dict],
+    available_shots: List[dict],
+    data_status: str,
+    last_synced_at: Optional[str],
+    start_date: Optional[date],
+    end_date: Optional[date],
+    team_abbreviation: Optional[str] = None,
+    team_name: Optional[str] = None,
+):
+    total = len(raw_shots)
+    zone_map = {}
+    for shot in raw_shots:
+        key = (shot.get("zone_basic", "Unknown"), shot.get("zone_area", ""))
+        zone_map.setdefault(key, {"made": 0, "attempted": 0})
+        zone_map[key]["attempted"] += 1
+        if shot.get("shot_made"):
+            zone_map[key]["made"] += 1
+
+    zones = []
+    for (zone_basic, zone_area), counts in zone_map.items():
+        att = counts["attempted"]
+        made = counts["made"]
+        pts = _ZONE_POINTS.get(zone_basic, 2)
+        fg_pct = (made / att) if att >= 5 else None
+        pps = round(fg_pct * pts, 4) if fg_pct is not None else None
+        zones.append(
+            ZoneStat(
+                zone_basic=zone_basic,
+                zone_area=zone_area,
+                attempts=att,
+                made=made,
+                fg_pct=round(fg_pct, 4) if fg_pct is not None else None,
+                pps=pps,
+                freq=round(att / total, 4) if total > 0 else 0.0,
+            )
+        )
+    zones.sort(key=lambda zone: zone.freq, reverse=True)
+    available_dates = _available_game_dates(available_shots)
+    completeness_fields = build_shot_completeness_fields(available_shots)
+    shared = dict(
+        season=season,
+        season_type=season_type,
+        total_attempts=total,
+        zones=zones,
+        data_status=data_status,
+        last_synced_at=last_synced_at,
+        start_date=start_date.isoformat() if start_date else None,
+        end_date=end_date.isoformat() if end_date else None,
+        available_start_date=available_dates[0] if available_dates else None,
+        available_end_date=available_dates[-1] if available_dates else None,
+        available_game_dates=available_dates,
+        **completeness_fields,
+    )
+    if team_abbreviation is None:
+        return ZoneProfileResponse(player_id=entity_id, **shared)
+    return TeamDefenseZoneProfileResponse(
+        team_id=entity_id,
+        team_abbreviation=team_abbreviation,
+        team_name=team_name,
+        **shared,
+    )
+
+
+@router.get("/completeness/{season}", response_model=ShotCompletenessReportResponse)
+def shot_completeness_report(
+    season: str,
+    season_type: str = Query("Regular Season"),
+    db: Session = Depends(get_db),
+):
+    return get_shot_completeness_report(db, season, season_type)
+
+
+@router.get("/team-defense/{team_id}", response_model=TeamDefenseShotChartResponse)
+def team_defense_shot_chart(
+    team_id: int,
+    season: str = Query(...),
+    season_type: str = Query("Regular Season"),
+    start_date: Optional[str] = Query(None),
+    end_date: Optional[str] = Query(None),
+    period_bucket: str = Query("all"),
+    result: str = Query("all"),
+    shot_value: str = Query("all"),
+    db: Session = Depends(get_db),
+):
+    parsed_start_date = _parse_filter_date(start_date, "start_date")
+    parsed_end_date = _parse_filter_date(end_date, "end_date")
+    parsed_period_bucket = _parse_period_bucket(period_bucket)
+    parsed_result = _parse_shot_result(result)
+    parsed_shot_value = _parse_shot_value(shot_value)
+    team, available_shots, data_status, last_synced_at = get_team_defense_raw_shots(db, team_id, season, season_type)
+    raw_shots = _filter_shots_with_context(
+        available_shots,
+        parsed_start_date,
+        parsed_end_date,
+        parsed_period_bucket,
+        parsed_result,
+        parsed_shot_value,
+    )
+    typed_shots = _typed_shots(raw_shots)
+    available_dates = _available_game_dates(available_shots)
+    completeness_fields = build_shot_completeness_fields(available_shots)
+    return TeamDefenseShotChartResponse(
+        team_id=team.id,
+        team_abbreviation=team.abbreviation,
+        team_name=team.name,
+        season=season,
+        season_type=season_type,
+        shots=typed_shots,
+        made=sum(1 for shot in typed_shots if shot.shot_made),
+        attempted=len(typed_shots),
+        data_status=data_status,
+        last_synced_at=last_synced_at,
+        start_date=parsed_start_date.isoformat() if parsed_start_date else None,
+        end_date=parsed_end_date.isoformat() if parsed_end_date else None,
+        available_start_date=available_dates[0] if available_dates else None,
+        available_end_date=available_dates[-1] if available_dates else None,
+        available_game_dates=available_dates,
+        **completeness_fields,
+    )
+
+
+@router.get("/team-defense/{team_id}/zones", response_model=TeamDefenseZoneProfileResponse)
+def team_defense_shot_zones(
+    team_id: int,
+    season: str = Query(...),
+    season_type: str = Query("Regular Season"),
+    start_date: Optional[str] = Query(None),
+    end_date: Optional[str] = Query(None),
+    period_bucket: str = Query("all"),
+    result: str = Query("all"),
+    shot_value: str = Query("all"),
+    db: Session = Depends(get_db),
+):
+    parsed_start_date = _parse_filter_date(start_date, "start_date")
+    parsed_end_date = _parse_filter_date(end_date, "end_date")
+    parsed_period_bucket = _parse_period_bucket(period_bucket)
+    parsed_result = _parse_shot_result(result)
+    parsed_shot_value = _parse_shot_value(shot_value)
+    team, available_shots, data_status, last_synced_at = get_team_defense_raw_shots(db, team_id, season, season_type)
+    raw_shots = _filter_shots_with_context(
+        available_shots,
+        parsed_start_date,
+        parsed_end_date,
+        parsed_period_bucket,
+        parsed_result,
+        parsed_shot_value,
+    )
+    return _build_zone_response(
+        entity_id=team.id,
+        season=season,
+        season_type=season_type,
+        raw_shots=raw_shots,
+        available_shots=available_shots,
+        data_status=data_status,
+        last_synced_at=last_synced_at,
+        start_date=parsed_start_date,
+        end_date=parsed_end_date,
+        team_abbreviation=team.abbreviation,
+        team_name=team.name,
+    )
+
+
+@router.post("/snapshots", response_model=ShotLabSnapshotResponse)
+def post_shot_lab_snapshot(
+    payload: ShotLabSnapshotCreateRequest,
+    db: Session = Depends(get_db),
+):
+    return create_shot_lab_snapshot(db, payload)
+
+
+@router.get("/snapshots/{snapshot_id}", response_model=ShotLabSnapshotResponse)
+def get_shot_lab_snapshot_route(
+    snapshot_id: str,
+    db: Session = Depends(get_db),
+):
+    return get_shot_lab_snapshot(db, snapshot_id)
 
 
 @router.get("/{player_id}/zones", response_model=ZoneProfileResponse)
@@ -251,11 +445,6 @@ def player_shot_zones(
     shot_value: str = Query("all", description='"all", "2pt", or "3pt"'),
     db: Session = Depends(get_db),
 ):
-    """Return zone-aggregated shot efficiency for a player from cached shot data.
-
-    Reads only from the player_shot_charts DB cache — no nba_api call.
-    Returns total_attempts=0 and zones=[] if no cached data exists.
-    """
     if season_type not in ("Regular Season", "Playoffs"):
         raise HTTPException(status_code=422, detail='season_type must be "Regular Season" or "Playoffs"')
     parsed_start_date = _parse_filter_date(start_date, "start_date")
@@ -276,60 +465,25 @@ def player_shot_zones(
         )
         .first()
     )
-
-    raw_shots = (cached.shots or []) if cached else []
-    available_dates = _available_game_dates(raw_shots)
-    shots = _filter_shots_with_context(
-        raw_shots,
+    available_shots = enrich_player_shot_payload(db, player_id, (cached.shots or []) if cached else [])
+    raw_shots = _filter_shots_with_context(
+        available_shots,
         parsed_start_date,
         parsed_end_date,
         parsed_period_bucket,
         parsed_result,
         parsed_shot_value,
     )
-    total = len(shots)
-
-    # Aggregate by (zone_basic, zone_area)
-    zone_map: dict = {}
-    for s in shots:
-        key = (s.get("zone_basic", "Unknown"), s.get("zone_area", ""))
-        if key not in zone_map:
-            zone_map[key] = {"made": 0, "attempted": 0}
-        zone_map[key]["attempted"] += 1
-        if s.get("shot_made"):
-            zone_map[key]["made"] += 1
-
-    zones = []
-    for (zone_basic, zone_area), counts in zone_map.items():
-        att = counts["attempted"]
-        made = counts["made"]
-        pts = _ZONE_POINTS.get(zone_basic, 2)
-        fg_pct = (made / att) if att >= 5 else None
-        pps = round(fg_pct * pts, 4) if fg_pct is not None else None
-        zones.append(ZoneStat(
-            zone_basic=zone_basic,
-            zone_area=zone_area,
-            attempts=att,
-            made=made,
-            fg_pct=round(fg_pct, 4) if fg_pct is not None else None,
-            pps=pps,
-            freq=round(att / total, 4) if total > 0 else 0.0,
-        ))
-
-    zones.sort(key=lambda z: z.freq, reverse=True)
-
-    return ZoneProfileResponse(
-        player_id=player_id,
+    return _build_zone_response(
+        entity_id=player_id,
         season=season,
         season_type=season_type,
-        total_attempts=total,
-        zones=zones,
+        raw_shots=raw_shots,
+        available_shots=available_shots,
         data_status=_data_status(cached, now),
         last_synced_at=_last_synced_at(cached),
-        start_date=parsed_start_date.isoformat() if parsed_start_date else None,
-        end_date=parsed_end_date.isoformat() if parsed_end_date else None,
-        available_start_date=available_dates[0] if available_dates else None,
-        available_end_date=available_dates[-1] if available_dates else None,
+        start_date=parsed_start_date,
+        end_date=parsed_end_date,
     )
 
 
@@ -356,8 +510,6 @@ def player_shot_chart(
         raise HTTPException(status_code=422, detail="start_date must be on or before end_date")
 
     now = datetime.utcnow()
-
-    # --- DB cache check ---
     cached = (
         db.query(PlayerShotChart)
         .filter(
@@ -367,37 +519,25 @@ def player_shot_chart(
         )
         .first()
     )
-    if cached:
-        filtered_shots = _filter_shots_with_context(
-            cached.shots or [],
-            parsed_start_date,
-            parsed_end_date,
-            parsed_period_bucket,
-            parsed_result,
-            parsed_shot_value,
-        )
-        return _build_response(
-            player_id,
-            season,
-            season_type,
-            filtered_shots,
-            cached.shots or [],
-            parsed_start_date,
-            parsed_end_date,
-            data_status=_data_status(cached, now),
-            last_synced_at=_last_synced_at(cached),
-        )
-
+    available_shots = enrich_player_shot_payload(db, player_id, (cached.shots or []) if cached else [])
+    filtered_shots = _filter_shots_with_context(
+        available_shots,
+        parsed_start_date,
+        parsed_end_date,
+        parsed_period_bucket,
+        parsed_result,
+        parsed_shot_value,
+    )
     return _build_response(
         player_id,
         season,
         season_type,
-        [],
-        [],
+        filtered_shots,
+        available_shots,
         parsed_start_date,
         parsed_end_date,
-        data_status="missing",
-        last_synced_at=None,
+        data_status=_data_status(cached, now),
+        last_synced_at=_last_synced_at(cached),
     )
 
 

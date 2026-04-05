@@ -1,9 +1,19 @@
 # Sprint History Archive
 
-Sprints 1–37. Current sprint summaries also live in `CLAUDE.md` under "Recent Sprints".
+Sprints 1–38. Current sprint summaries also live in `CLAUDE.md` under "Recent Sprints".
 
 For detailed per-sprint records, see the individual closeout files in this directory:
-`specs/sprint-09-closeout.md` through `specs/sprint-37-closeout.md`
+`specs/sprint-09-closeout.md` through `specs/sprint-38-closeout.md`
+
+---
+
+### Sprint 38 — Platform Overhaul: Data Foundation, Shot-Lab Follow-Through, and 3D Visualizer
+**Branch:** `feature/sprint-38-platform-overhaul`
+
+- Established a canonical shot/event completeness surface with ready/partial/legacy/missing reporting so the platform can reason about data freshness instead of treating every older row the same
+- Added team-defense shot surfaces, shareable shot-lab snapshots, and stronger Game Explorer 3D entry points on top of the shared shot-lab contract
+- Built the first 3D shot/game visualizer foundation with a procedural court, reconstructed shot arcs, event markers, and a safe WebGL fallback
+- Verified the sprint with backend `pytest`, frontend `npm run lint`, frontend `npm run build`, and local route/API smoke checks
 
 ---
 

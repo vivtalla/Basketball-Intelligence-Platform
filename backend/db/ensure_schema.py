@@ -66,10 +66,13 @@ def apply_schema_updates():
     # Sprint 27 — Injury identity hardening: new tables picked up by create_all():
     #   player_name_aliases     — durable player identity lookup variants
     #   injury_sync_unresolved  — unresolved official report rows for review
+    # Sprint 38 — Platform overhaul: new tables picked up by create_all():
+    #   shot_lab_snapshots      — shareable shot-lab state payloads
     # No new columns on existing tables this sprint.
 
     # Sprint 29 — Standings history: snapshot_date column + constraint migration
     ensure_column_exists(engine, "team_standings", "snapshot_date", "DATE")
+    ensure_column_exists(engine, "shot_lab_snapshots", "route_path", "VARCHAR(255)")
 
     with engine.connect() as conn:
         # Backfill existing rows (idempotent — only updates NULLs)

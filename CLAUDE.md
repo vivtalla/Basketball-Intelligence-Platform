@@ -257,8 +257,16 @@ CourtVue Labs uses a hybrid sprint model: major feature sprints typically run as
 
 > Full history → `specs/sprint-history.md`
 
+### Sprint 38 — Platform Overhaul: Data Foundation, Shot-Lab Follow-Through, and 3D Visualizer
+**Branch:** `feature/sprint-38-platform-overhaul` — merged
+
+- Established a canonical shot/event completeness surface with explicit ready/partial/legacy/missing reporting
+- Added team-defense shot surfaces, shareable shot-lab snapshots, and stronger Game Explorer 3D entry points
+- Built the first 3D shot/game visualizer foundation with a procedural court, reconstructed shot arcs, event markers, and a WebGL fallback
+- Verified the sprint with backend `pytest`, frontend `npm run lint`, frontend `npm run build`, and local route/API smoke checks
+
 ### Sprint 37 — Situational Shot Intelligence + 3D Foundation
-**Branch:** `feature/sprint-37-situational-shot-intelligence` — ready for review
+**Branch:** `feature/sprint-37-situational-shot-intelligence` — merged
 
 - Widened persisted shot payloads with situational context and added shared `period_bucket`, `result`, and `shot_value` filters on shot and zone reads
 - Added self-service shot refresh backed by the warehouse queue path and wired it into player and compare shot-lab states
@@ -279,8 +287,8 @@ CourtVue Labs uses a hybrid sprint model: major feature sprints typically run as
 
 | Branch | Owner | Status |
 |--------|-------|--------|
-| `feature/sprint-37-situational-shot-intelligence` | Codex | Ready for review |
 | `master` | — | Stable |
+| `feature/sprint-38-platform-overhaul` | Codex | Merged |
 
 Sprint branches are created at kickoff and listed in `AGENTS.md`.
 
@@ -308,3 +316,9 @@ Sprint branches are created at kickoff and listed in `AGENTS.md`.
 | `ShotDistanceProfile` | `components/` | 0–30 ft frequency ribbon with efficiency-colored gradient fill (Sprint 34) |
 | `ShotSeasonEvolution` | `components/` | Career filmstrip of mini zone-heatmap courts + FG% timeline (Sprint 34) |
 | `CompareShotLab` | `components/` | Shared-filter compare shot workspace with side-by-side advanced shot views (Sprint 35) |
+| `ShotSnapshotButton` | `components/` | Shared snapshot save action for shot-lab surfaces |
+| `TeamDefenseShotLab` | `components/` | Opponent shot lab for team-defense surfaces |
+| `ProceduralHalfCourt` | `components/three/` | Procedural NBA court geometry for 3D visualizers |
+| `ShotLab3DScene` | `components/three/` | React Three Fiber shot-lab 3D scene scaffold |
+| `GameVisualization3D` | `components/three/` | React Three Fiber Game Explorer visualizer |
+| `ThreeUnavailableState` | `components/three/` | WebGL fallback for 3D visualizers |

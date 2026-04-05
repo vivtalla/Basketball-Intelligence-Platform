@@ -1,13 +1,13 @@
 "use client";
 
-import type { PersistedZoneProfileResponse, ZoneStat } from "@/lib/types";
+import type { PersistedZoneProfileResponse, TeamDefenseZoneProfileResponse, ZoneStat } from "@/lib/types";
 import { LEAGUE_AVG_FG, ZONE_POINTS } from "@/lib/shotchart-constants";
 import ChartStatusBadge from "./ChartStatusBadge";
 import ShotProfileFingerprint from "./ShotProfileFingerprint";
 import ZoneAnnotationCourt from "./ZoneAnnotationCourt";
 
 interface ZoneProfilePanelProps {
-  data: PersistedZoneProfileResponse | undefined;
+  data: PersistedZoneProfileResponse | TeamDefenseZoneProfileResponse | undefined;
   isLoading: boolean;
   playerLabel?: string;
 }

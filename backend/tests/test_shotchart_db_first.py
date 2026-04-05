@@ -11,8 +11,29 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from db.database import Base  # noqa: E402
 from data.nba_client import _format_shot_clock, _normalize_shot_chart_game_date  # noqa: E402
-from db.models import IngestionJob, Player, PlayerGameLog, PlayerShotChart, SourceRun, Team  # noqa: E402
-from routers.shotchart import player_shot_chart, player_shot_zones, refresh_player_shot_chart  # noqa: E402
+from db.models import (  # noqa: E402
+    GamePlayerStat,
+    IngestionJob,
+    PlayByPlayEvent,
+    Player,
+    PlayerGameLog,
+    PlayerShotChart,
+    SourceRun,
+    Team,
+    WarehouseGame,
+)
+from routers.shotchart import (  # noqa: E402
+    get_shot_lab_snapshot_route,
+    player_shot_chart,
+    player_shot_zones,
+    post_shot_lab_snapshot,
+    refresh_player_shot_chart,
+    shot_completeness_report,
+    team_defense_shot_chart,
+    team_defense_shot_zones,
+)
+from models.shotchart import ShotLabSnapshotCreateRequest  # noqa: E402
+from services.game_visualization_service import build_game_visualization  # noqa: E402
 from services.warehouse_service import queue_player_shot_chart_sync, queue_season_shot_charts, run_next_job  # noqa: E402
 
 
@@ -24,11 +45,50 @@ def make_session():
 
 
 def seed_player(session, player_id: int = 7):
-    team = Team(id=1610612737, abbreviation="ATL", name="Atlanta Hawks")
+    team = session.query(Team).filter_by(id=1610612737).first()
+    if team is None:
+        team = Team(id=1610612737, abbreviation="ATL", name="Atlanta Hawks")
+        session.add(team)
+        session.flush()
     player = Player(id=player_id, full_name="Test Shooter", team_id=team.id, is_active=True)
-    session.add_all([team, player])
+    session.add(player)
     session.commit()
     return player
+
+
+def seed_game(
+    session,
+    *,
+    game_id: str = "0022400001",
+    season: str = "2024-25",
+    home_team_id: int = 1610612737,
+    away_team_id: int = 1610612738,
+    home_team_abbreviation: str = "ATL",
+    away_team_abbreviation: str = "BOS",
+    has_schedule: bool = True,
+    has_pbp_payload: bool = True,
+    has_parsed_pbp: bool = True,
+):
+    game = WarehouseGame(
+        game_id=game_id,
+        season=season,
+        game_date=datetime(2025, 1, 1).date(),
+        status="final",
+        home_team_id=home_team_id,
+        away_team_id=away_team_id,
+        home_team_abbreviation=home_team_abbreviation,
+        away_team_abbreviation=away_team_abbreviation,
+        home_team_name=home_team_abbreviation,
+        away_team_name=away_team_abbreviation,
+        home_score=110,
+        away_score=104,
+        has_schedule=has_schedule,
+        has_pbp_payload=has_pbp_payload,
+        has_parsed_pbp=has_parsed_pbp,
+    )
+    session.add(game)
+    session.commit()
+    return game
 
 
 def shot_payload(
@@ -478,5 +538,275 @@ def test_refresh_player_shot_chart_queues_single_player_job():
         assert response.queued == 1
         assert response.jobs[0].job_type == "sync_player_shot_chart"
         assert response.jobs[0].job_key == "19:2024-25:Regular Season"
+    finally:
+        session.close()
+
+
+def test_shot_completeness_report_counts_ready_legacy_and_missing():
+    session = make_session()
+    try:
+        seed_player(session, player_id=21)
+        seed_player(session, player_id=22)
+        seed_player(session, player_id=23)
+        seed_game(session, game_id="0022400100", has_schedule=True, has_pbp_payload=True, has_parsed_pbp=True)
+        seed_game(session, game_id="0022400101", has_schedule=True, has_pbp_payload=True, has_parsed_pbp=False)
+        seed_game(session, game_id="0022400102", has_schedule=True, has_pbp_payload=False, has_parsed_pbp=False)
+        session.add_all(
+            [
+                GamePlayerStat(game_id="0022400100", season="2024-25", player_id=21, team_id=1610612737, team_abbreviation="ATL"),
+                GamePlayerStat(game_id="0022400101", season="2024-25", player_id=22, team_id=1610612737, team_abbreviation="ATL"),
+                GamePlayerStat(game_id="0022400102", season="2024-25", player_id=23, team_id=1610612737, team_abbreviation="ATL"),
+                PlayerShotChart(
+                    player_id=21,
+                    season="2024-25",
+                    season_type="Regular Season",
+                    shots=[dict(shot_payload(), team_id=1610612737, opponent_team_id=1610612738, event_order_index=1, linkage_mode="exact")],
+                    shot_count=1,
+                    fetched_at=datetime(2026, 4, 5, 12, 0, 0),
+                    expires_at=datetime.utcnow() + timedelta(days=1),
+                ),
+                PlayerShotChart(
+                    player_id=22,
+                    season="2024-25",
+                    season_type="Regular Season",
+                    shots=[{
+                        "loc_x": 0,
+                        "loc_y": 0,
+                        "shot_made": True,
+                        "shot_type": "2PT Field Goal",
+                        "action_type": "Jump Shot",
+                        "zone_basic": "Mid-Range",
+                        "zone_area": "Center(C)",
+                        "distance": 12,
+                    }],
+                    shot_count=1,
+                    fetched_at=datetime(2026, 4, 5, 12, 0, 0),
+                    expires_at=datetime.utcnow() + timedelta(days=1),
+                ),
+            ]
+        )
+        session.commit()
+
+        response = shot_completeness_report("2024-25", season_type="Regular Season", db=session)
+        domains = {domain.domain: domain for domain in response.domains}
+
+        assert domains["player_shot_chart"].ready_count == 1
+        assert domains["player_shot_chart"].legacy_count == 1
+        assert domains["player_shot_chart"].missing_count == 1
+        assert domains["game_event_stream"].ready_count == 1
+        assert domains["game_event_stream"].partial_count == 1
+        assert domains["game_event_stream"].legacy_count == 1
+    finally:
+        session.close()
+
+
+def test_shot_lab_snapshot_roundtrip_preserves_payload():
+    session = make_session()
+    try:
+        snapshot = post_shot_lab_snapshot(
+            payload=ShotLabSnapshotCreateRequest(
+                subject_type="player",
+                subject_id=7,
+                season="2024-25",
+                season_type="Regular Season",
+                active_view="sprawl",
+                route_path="/players/7",
+                filters={
+                    "start_date": "2025-01-01",
+                    "end_date": "2025-01-10",
+                    "period_bucket": "q4",
+                    "result": "made",
+                    "shot_value": "3pt",
+                },
+                metadata={"label": "Test Snapshot"},
+            ),
+            db=session,
+        )
+
+        fetched = get_shot_lab_snapshot_route(snapshot.snapshot_id, db=session)
+
+        assert snapshot.snapshot_id == fetched.snapshot_id
+        assert "shot_snapshot_id=" in snapshot.share_url
+        assert fetched.payload.active_view == "sprawl"
+        assert fetched.payload.filters.period_bucket == "q4"
+        assert fetched.payload.metadata["label"] == "Test Snapshot"
+    finally:
+        session.close()
+
+
+def test_team_defense_routes_filter_opponent_attempts():
+    session = make_session()
+    try:
+        home_team = Team(id=1610612737, abbreviation="ATL", name="Atlanta Hawks")
+        away_team = Team(id=1610612738, abbreviation="BOS", name="Boston Celtics")
+        opponent = Player(id=30, full_name="Opponent Shooter", team_id=away_team.id, is_active=True)
+        session.add_all([home_team, away_team, opponent])
+        session.commit()
+        seed_game(session, game_id="0022400200", home_team_id=home_team.id, away_team_id=away_team.id)
+        session.add(
+            GamePlayerStat(
+                game_id="0022400200",
+                season="2024-25",
+                player_id=opponent.id,
+                team_id=away_team.id,
+                team_abbreviation="BOS",
+            )
+        )
+        session.add(
+            PlayerShotChart(
+                player_id=opponent.id,
+                season="2024-25",
+                season_type="Regular Season",
+                shots=[
+                    dict(
+                        shot_payload(
+                            game_id="0022400200",
+                            game_date="2025-01-11",
+                            period=4,
+                            shot_made=True,
+                            shot_type="3PT Field Goal",
+                            shot_value=3,
+                            zone_basic="Above the Break 3",
+                            distance=27,
+                        ),
+                        team_id=away_team.id,
+                        opponent_team_id=home_team.id,
+                    ),
+                    dict(
+                        shot_payload(
+                            game_id="0022400200",
+                            game_date="2025-01-11",
+                            period=2,
+                            shot_made=False,
+                            shot_type="2PT Field Goal",
+                            shot_value=2,
+                            zone_basic="Mid-Range",
+                            distance=14,
+                        ),
+                        team_id=away_team.id,
+                        opponent_team_id=home_team.id,
+                    ),
+                ],
+                shot_count=2,
+                fetched_at=datetime(2026, 4, 5, 12, 0, 0),
+                expires_at=datetime.utcnow() + timedelta(days=1),
+            )
+        )
+        session.commit()
+
+        chart = team_defense_shot_chart(
+            home_team.id,
+            season="2024-25",
+            season_type="Regular Season",
+            period_bucket="q4",
+            shot_value="3pt",
+            db=session,
+        )
+        zones = team_defense_shot_zones(
+            home_team.id,
+            season="2024-25",
+            season_type="Regular Season",
+            period_bucket="q4",
+            shot_value="3pt",
+            db=session,
+        )
+
+        assert chart.team_abbreviation == "ATL"
+        assert chart.attempted == 1
+        assert chart.shots[0].team_abbreviation == "BOS"
+        assert chart.completeness_status in {"partial", "ready"}
+        assert zones.total_attempts == 1
+        assert zones.zones[0].zone_basic == "Above the Break 3"
+    finally:
+        session.close()
+
+
+def test_build_game_visualization_marks_exact_and_timeline_elements():
+    session = make_session()
+    try:
+        home_team = Team(id=1610612737, abbreviation="ATL", name="Atlanta Hawks")
+        away_team = Team(id=1610612738, abbreviation="BOS", name="Boston Celtics")
+        shooter = Player(id=40, full_name="Visualizer Shooter", team_id=away_team.id, is_active=True)
+        session.add_all([home_team, away_team, shooter])
+        session.commit()
+        seed_game(session, game_id="0022400300", home_team_id=home_team.id, away_team_id=away_team.id)
+        session.add_all(
+            [
+                PlayByPlayEvent(
+                    game_id="0022400300",
+                    season="2024-25",
+                    source_event_id="evt-1",
+                    action_number=101,
+                    order_index=1,
+                    period=4,
+                    clock="1:22",
+                    team_id=away_team.id,
+                    player_id=shooter.id,
+                    action_type="3pt",
+                    action_family="jump_shot",
+                    sub_type="made",
+                    description="Visualizer Shooter makes 3-pt jump shot",
+                    score_home=100,
+                    score_away=103,
+                ),
+                PlayByPlayEvent(
+                    game_id="0022400300",
+                    season="2024-25",
+                    source_event_id="evt-2",
+                    action_number=102,
+                    order_index=2,
+                    period=4,
+                    clock="1:05",
+                    team_id=home_team.id,
+                    action_type="turnover",
+                    action_family="live_ball_turnover",
+                    description="Turnover by ATL",
+                    score_home=100,
+                    score_away=103,
+                ),
+                PlayerShotChart(
+                    player_id=shooter.id,
+                    season="2024-25",
+                    season_type="Regular Season",
+                    shots=[
+                        dict(
+                            shot_payload(
+                                game_id="0022400300",
+                                game_date="2025-01-12",
+                                period=4,
+                                clock="1:22",
+                                shot_type="3PT Field Goal",
+                                shot_value=3,
+                                shot_event_id="evt-1",
+                            ),
+                            event_order_index=1,
+                            action_number=101,
+                            team_id=away_team.id,
+                            opponent_team_id=home_team.id,
+                            linkage_mode="exact",
+                        )
+                    ],
+                    shot_count=1,
+                    fetched_at=datetime(2026, 4, 5, 12, 0, 0),
+                    expires_at=datetime.utcnow() + timedelta(days=1),
+                ),
+            ]
+        )
+        session.commit()
+
+        response = build_game_visualization(
+            session,
+            game_id="0022400300",
+            shot_event_id="evt-1",
+            source="shot-lab",
+        )
+
+        assert response is not None
+        assert response.exact_shot_match is True
+        assert response.steps[0].exact_shot_match is True
+        assert response.steps[0].elements[0].kind == "shot_arc"
+        assert response.steps[0].elements[0].exactness == "exact"
+        assert response.steps[1].elements[0].kind == "context_token"
+        assert response.steps[1].elements[0].exactness == "timeline"
     finally:
         session.close()

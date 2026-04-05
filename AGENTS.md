@@ -1,6 +1,6 @@
 # Agent Coordination
 
-Last updated: 2026-04-05 by Codex (Sprint 37 closeout)
+Last updated: 2026-04-05 by Codex (Sprint 39 kickoff)
 
 > Both agents read this file before touching code at the start of every session.
 > The canonical source of truth is the clean `master` checkout at `/Users/viv/Documents/Basketball Intelligence Platform`.
@@ -14,13 +14,13 @@ Last updated: 2026-04-05 by Codex (Sprint 37 closeout)
 
 | Field | Value |
 |-------|-------|
-| Sprint | 38 |
-| Goal | TBD — awaiting Vivek's sprint kickoff |
-| Started | TBD |
+| Sprint | 39 |
+| Goal | TBD |
+| Started | 2026-04-05 |
 | Target merge | TBD |
 | Sprint shape | TBD |
-| Branch | not created yet |
-| Worker policy | Unassigned until kickoff |
+| Branch | `TBD` |
+| Worker policy | TBD |
 
 ---
 
@@ -38,14 +38,14 @@ If repo state, sprint numbering, or shipped features appear to disagree across l
 ## Current Assignments
 
 ### Claude
-- Branch: not assigned
-- Scope: available for Sprint 38 kickoff
-- Status: Not started
+- Branch: `TBD`
+- Scope: available for Sprint 39 planning / review / optimization roles across any stream
+- Status: Available
 
 ### Codex
-- Branch: not assigned
-- Scope: available for Sprint 38 kickoff
-- Status: Not started
+- Branch: `TBD`
+- Scope: Sprint 39 kickoff, integration, and engineering lead across the next three streams
+- Status: Available
 
 ---
 
@@ -58,8 +58,8 @@ Claim a shared file here before editing. If a file is already claimed, read that
 
 | File | Claimed by | Purpose |
 |------|------------|---------|
-| `frontend/src/lib/types.ts` | — |  |
-| `frontend/src/lib/api.ts` | — |  |
+| `frontend/src/lib/types.ts` | Codex | Sprint 38 Team 2 additive shot-lab contract updates |
+| `frontend/src/lib/api.ts` | Codex | Sprint 38 Team 2 additive shot-lab API updates |
 | `backend/main.py` | — |  |
 
 ---
@@ -78,7 +78,10 @@ Specs or review notes written by one stream for another. Check this before start
 
 ## Merge Order
 
-1. TBD at Sprint 38 kickoff
+1. Team 1 — Data foundation / completeness contract / reconciliation paths
+2. Team 2 — Shot-lab follow-ons built on the Team 1 contract
+3. Team 3 — 3D shot lab and Game Explorer visualizer after Team 1 contract lands
+4. Final integration / verification / merge to `master`
 
 ---
 
@@ -86,7 +89,9 @@ Specs or review notes written by one stream for another. Check this before start
 
 | Files / Directories | Assigned this sprint |
 |---------------------|----------------------|
-| To be defined at Sprint 38 kickoff | — |
+| `backend/models/shotchart.py`, `backend/routers/shotchart.py`, `backend/services/warehouse_service.py`, `backend/models/game.py`, `backend/routers/games.py`, `backend/services/game_visualization_service.py`, `backend/services/shot_snapshot_service.py`, `backend/tests/test_shotchart_db_first.py`, `backend/tests/test_game_visualization.py` | Team 1 / Team 2 / Team 3 coordinated through Codex |
+| `frontend/src/hooks/usePlayerStats.ts`, `frontend/src/app/games/[gameId]/page.tsx`, `frontend/src/components/ShotChart.tsx`, `frontend/src/components/CompareShotLab.tsx`, `frontend/src/components/TeamDefenseShotLab.tsx`, `frontend/src/components/ShotSnapshotButton.tsx`, `frontend/src/components/three/*`, `frontend/src/lib/shot3d.ts` | Team 2 / Team 3 coordinated through Codex |
+| `frontend/package.json`, `frontend/src/lib/api.ts`, `frontend/src/lib/types.ts` | Shared contract surface — edits must stay additive and centrally coordinated |
 
 ---
 
@@ -159,6 +164,7 @@ Specs or review notes written by one stream for another. Check this before start
 
 *Free-form, dated, newest first. Use this for coordination and repo-state exceptions.*
 
+2026-04-05 (Codex): Sprint 38 closed on `feature/sprint-38-platform-overhaul`. Shipped canonical shot/event completeness reporting, team-defense shot surfaces, shareable shot-lab snapshots, and the first 3D shot/game visualizer foundation. See `specs/sprint-38-closeout.md` before Sprint 39 kickoff.
 2026-04-05 (Codex): Sprint 37 closed on `feature/sprint-37-situational-shot-intelligence`. Shipped situational shot filters, richer persisted shot context, self-service shot refresh, and the first shot-lab bridge into Game Explorer. Verification covered full backend `pytest`, frontend `npm run lint`, frontend `npm run build`, plus local route/API smoke checks. See `specs/sprint-37-closeout.md` before Sprint 38 kickoff.
 2026-04-04 (Codex): Sprint 36 closed on `feature/sprint-36-shot-lab-renaissance`. Shipped the shot-lab visual renaissance across player, compare, and evolution surfaces, including the shared shot-lab surface system, hero `ShotSprawlMap` redesign, shot-frequency heatmap refresh, and a shared `ShotCourt` foundation. Verification covered frontend `npm run lint` and `npm run build`. See `specs/sprint-36-closeout.md` before Sprint 37 kickoff.
 2026-04-03 (Codex): Sprint 35 closeout prepared on `feature/sprint-35-shot-lab-expansion`. Shipped enriched shot payloads with date windows, the player shot lab, compare shot lab, and playoff-capable ShotSeasonEvolution. Automated verification covered full backend `pytest` plus frontend `npm run lint` and `npm run build`. Live historical shot backfill was attempted via `backend/data/backfill_shot_lab.sh` but hit repeated `stats.nba.com` timeouts, so that ops run remains a follow-up. See `specs/sprint-35-closeout.md` before Sprint 36 kickoff.

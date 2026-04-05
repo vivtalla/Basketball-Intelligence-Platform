@@ -46,6 +46,17 @@ import type {
   ShotLabPeriodBucket,
   ShotLabResultFilter,
   ShotLabShotValueFilter,
+  TeamDefenseShotChartResponse,
+  TeamDefenseZoneProfileResponse,
+  ShotLabSnapshotPayload,
+  ShotLabSnapshotResponse,
+  WarehouseCompletenessSummary,
+  GameVisualizationResponse,
+  GameSummaryResponse,
+  WarehouseJobSummary,
+  WarehouseSeasonHealth,
+  IngestionJobResponse,
+  StandingsHistoryEntry,
 } from "@/lib/types";
 import {
   getPlayerProfile,
@@ -88,6 +99,17 @@ import {
   getSituationalPlayerShotChart,
   getSituationalPlayerZoneProfile,
   refreshPlayerShotChart as postRefreshPlayerShotChart,
+  getTeamDefenseShotChart,
+  getTeamDefenseZoneProfile,
+  createShotLabSnapshot as postCreateShotLabSnapshot,
+  getShotLabSnapshot,
+  getWarehouseCompletenessSummary,
+  getGameVisualization,
+  getWarehouseJobSummary,
+  getWarehouseSeasonHealth,
+  getWarehouseJobs,
+  getGameSummary,
+  getStandingsHistory,
 } from "@/lib/api";
 
 const DEFAULT_SHOT_LAB_FILTERS: ShotLabFilters = {
@@ -166,6 +188,34 @@ export function usePlayerShotChart(
         seasonType,
         normalizeShotLabFilters(filters)
       )
+  );
+}
+
+export function useTeamDefenseShotChart(
+  teamId: number | null,
+  season: string | null,
+  seasonType = "Regular Season",
+  filters?: Partial<ShotLabFilters>
+) {
+  return useSWR<TeamDefenseShotChartResponse>(
+    teamId && season
+      ? `team-defense-shot-chart-${teamId}-${season}-${seasonType}-${JSON.stringify(normalizeShotLabFilters(filters))}`
+      : null,
+    () => getTeamDefenseShotChart(teamId!, season!, seasonType, normalizeShotLabFilters(filters))
+  );
+}
+
+export function useTeamDefenseZoneProfile(
+  teamId: number | null,
+  season: string | null,
+  seasonType = "Regular Season",
+  filters?: Partial<ShotLabFilters>
+) {
+  return useSWR<TeamDefenseZoneProfileResponse>(
+    teamId && season
+      ? `team-defense-zone-profile-${teamId}-${season}-${seasonType}-${JSON.stringify(normalizeShotLabFilters(filters))}`
+      : null,
+    () => getTeamDefenseZoneProfile(teamId!, season!, seasonType, normalizeShotLabFilters(filters))
   );
 }
 
@@ -498,17 +548,6 @@ export function useCareerLeaderboard(
 
 // ── Warehouse pipeline hooks ──────────────────────────────────────────────────
 
-import type {
-  WarehouseJobSummary,
-  WarehouseSeasonHealth,
-  IngestionJobResponse,
-} from "@/lib/types";
-import {
-  getWarehouseJobSummary,
-  getWarehouseSeasonHealth,
-  getWarehouseJobs,
-} from "@/lib/api";
-
 export function useWarehouseSeasonHealth(season: string | null) {
   return useSWR<WarehouseSeasonHealth>(
     season ? `warehouse-health-${season}` : null,
@@ -539,9 +578,6 @@ export function useWarehouseReadiness(season?: string | null) {
 
 // ── Game summary hook ─────────────────────────────────────────────────────────
 
-import type { GameSummaryResponse } from "@/lib/types";
-import { getGameSummary } from "@/lib/api";
-
 export function useGameSummary(gameId: string | null) {
   return useSWR<GameSummaryResponse>(
     gameId ? `game-summary-${gameId}` : null,
@@ -549,10 +585,56 @@ export function useGameSummary(gameId: string | null) {
   );
 }
 
-// ── Sprint 29 hooks ───────────────────────────────────────────────────────────
+export function useGameVisualization(
+  gameId: string | null,
+  options?: {
+    shotEventId?: string | null;
+    playerId?: number | null;
+    period?: number | null;
+    eventType?: string | null;
+    query?: string | null;
+    source?: string | null;
+  }
+) {
+  return useSWR<GameVisualizationResponse>(
+    gameId
+      ? `game-visualization-${gameId}-${options?.shotEventId ?? "none"}-${options?.playerId ?? "all"}-${options?.period ?? "all"}-${options?.eventType ?? "all"}-${options?.query ?? "none"}-${options?.source ?? "none"}`
+      : null,
+    () => getGameVisualization(gameId!, options)
+  );
+}
 
-import type { StandingsHistoryEntry } from "@/lib/types";
-import { getStandingsHistory } from "@/lib/api";
+export function useWarehouseCompletenessSummary(
+  season: string | null,
+  seasonType = "Regular Season"
+) {
+  return useSWR<WarehouseCompletenessSummary>(
+    season ? `warehouse-completeness-${season}-${seasonType}` : null,
+    () => getWarehouseCompletenessSummary(season!, seasonType)
+  );
+}
+
+export function useShotLabSnapshot(snapshotId: string | null) {
+  return useSWR<ShotLabSnapshotResponse>(
+    snapshotId ? `shot-lab-snapshot-${snapshotId}` : null,
+    () => getShotLabSnapshot(snapshotId!)
+  );
+}
+
+export function useCreateShotLabSnapshot() {
+  const [isSaving, setIsSaving] = useState(false);
+  async function createSnapshot(payload: ShotLabSnapshotPayload) {
+    setIsSaving(true);
+    try {
+      return await postCreateShotLabSnapshot(payload);
+    } finally {
+      setIsSaving(false);
+    }
+  }
+  return { createSnapshot, isSaving };
+}
+
+// ── Sprint 29 hooks ───────────────────────────────────────────────────────────
 
 export function useStandingsHistory(season: string | null, days = 30) {
   return useSWR<StandingsHistoryEntry[]>(

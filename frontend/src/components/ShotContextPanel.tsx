@@ -33,6 +33,12 @@ function buildGameExplorerHref(shot: ShotChartShot, season: string, index: numbe
   if (shot.period != null) {
     params.set("period", String(shot.period));
   }
+  if (shot.shot_event_id) {
+    params.set("shot_event_id", shot.shot_event_id);
+  }
+  if (shot.action_number != null) {
+    params.set("action_number", String(shot.action_number));
+  }
   return `/games/${shot.game_id}?${params.toString()}`;
 }
 

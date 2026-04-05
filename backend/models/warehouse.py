@@ -111,6 +111,21 @@ class WarehouseReadinessSummary(BaseModel):
     domains: List[WarehouseReadinessDomain]
 
 
+class WarehouseCompletenessDomain(BaseModel):
+    domain: str
+    ready_count: int = 0
+    partial_count: int = 0
+    legacy_count: int = 0
+    missing_count: int = 0
+    completeness_pct: float = 0.0
+
+
+class WarehouseCompletenessSummary(BaseModel):
+    season: str
+    season_type: str
+    domains: List[WarehouseCompletenessDomain]
+
+
 class QueueResponse(BaseModel):
     queued: int
     jobs: List[IngestionJobResponse]

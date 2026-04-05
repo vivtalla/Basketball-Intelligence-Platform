@@ -978,3 +978,94 @@ export async function refreshPlayerShotChart(
     { method: "POST" }
   );
 }
+
+export async function getTeamDefenseShotChart(
+  teamId: number,
+  season: string,
+  seasonType = "Regular Season",
+  filters?: import("./types").ShotLabFilters
+): Promise<import("./types").TeamDefenseShotChartResponse> {
+  const params = new URLSearchParams({
+    season,
+    season_type: seasonType,
+    period_bucket: filters?.periodBucket ?? "all",
+    result: filters?.result ?? "all",
+    shot_value: filters?.shotValue ?? "all",
+  });
+  if (filters?.startDate) params.set("start_date", filters.startDate);
+  if (filters?.endDate) params.set("end_date", filters.endDate);
+  return fetchApi<import("./types").TeamDefenseShotChartResponse>(
+    `/api/shotchart/team-defense/${teamId}?${params.toString()}`
+  );
+}
+
+export async function getTeamDefenseZoneProfile(
+  teamId: number,
+  season: string,
+  seasonType = "Regular Season",
+  filters?: import("./types").ShotLabFilters
+): Promise<import("./types").TeamDefenseZoneProfileResponse> {
+  const params = new URLSearchParams({
+    season,
+    season_type: seasonType,
+    period_bucket: filters?.periodBucket ?? "all",
+    result: filters?.result ?? "all",
+    shot_value: filters?.shotValue ?? "all",
+  });
+  if (filters?.startDate) params.set("start_date", filters.startDate);
+  if (filters?.endDate) params.set("end_date", filters.endDate);
+  return fetchApi<import("./types").TeamDefenseZoneProfileResponse>(
+    `/api/shotchart/team-defense/${teamId}/zones?${params.toString()}`
+  );
+}
+
+export async function createShotLabSnapshot(
+  payload: import("./types").ShotLabSnapshotPayload
+): Promise<import("./types").ShotLabSnapshotResponse> {
+  return fetchApi<import("./types").ShotLabSnapshotResponse>("/api/shotchart/snapshots", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function getShotLabSnapshot(
+  snapshotId: string
+): Promise<import("./types").ShotLabSnapshotResponse> {
+  return fetchApi<import("./types").ShotLabSnapshotResponse>(
+    `/api/shotchart/snapshots/${encodeURIComponent(snapshotId)}`
+  );
+}
+
+export async function getWarehouseCompletenessSummary(
+  season: string,
+  seasonType = "Regular Season"
+): Promise<import("./types").WarehouseCompletenessSummary> {
+  return fetchApi<import("./types").WarehouseCompletenessSummary>(
+    `/api/warehouse/completeness/${encodeURIComponent(season)}?season_type=${encodeURIComponent(seasonType)}`
+  );
+}
+
+export async function getGameVisualization(
+  gameId: string,
+  options?: {
+    shotEventId?: string | null;
+    playerId?: number | null;
+    period?: number | null;
+    eventType?: string | null;
+    query?: string | null;
+    source?: string | null;
+  }
+): Promise<import("./types").GameVisualizationResponse> {
+  const params = new URLSearchParams();
+  if (options?.shotEventId) params.set("shot_event_id", options.shotEventId);
+  if (options?.playerId != null) params.set("player_id", String(options.playerId));
+  if (options?.period != null) params.set("period", String(options.period));
+  if (options?.eventType) params.set("event_type", options.eventType);
+  if (options?.query) params.set("query", options.query);
+  if (options?.source) params.set("source", options.source);
+  const suffix = params.toString() ? `?${params.toString()}` : "";
+  return fetchApi<import("./types").GameVisualizationResponse>(
+    `/api/games/${encodeURIComponent(gameId)}/visualization${suffix}`
+  );
+}

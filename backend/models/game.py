@@ -5,6 +5,8 @@ from pydantic import BaseModel
 
 class GameEvent(BaseModel):
     action_number: int
+    source_event_id: Optional[str] = None
+    order_index: Optional[int] = None
     period: Optional[int] = None
     clock: Optional[str] = None
     team_id: Optional[int] = None
@@ -12,6 +14,8 @@ class GameEvent(BaseModel):
     player_id: Optional[int] = None
     player_name: Optional[str] = None
     event_type: Optional[str] = None
+    action_family: Optional[str] = None
+    sub_type: Optional[str] = None
     description: Optional[str] = None
     home_score: Optional[int] = None
     away_score: Optional[int] = None
@@ -130,3 +134,52 @@ class GameSummaryResponse(BaseModel):
     home_team_stats: Optional[GameTeamBoxScore] = None
     away_team_stats: Optional[GameTeamBoxScore] = None
     players: List[GamePlayerBoxScore]
+
+
+class GameVisualizationElement(BaseModel):
+    kind: str
+    label: Optional[str] = None
+    exactness: str
+    x: Optional[float] = None
+    y: Optional[float] = None
+    z: Optional[float] = None
+    shot_made: Optional[bool] = None
+    shot_value: Optional[int] = None
+    team_id: Optional[int] = None
+    team_abbreviation: Optional[str] = None
+    player_id: Optional[int] = None
+    player_name: Optional[str] = None
+    event_type: Optional[str] = None
+
+
+class GameVisualizationStep(BaseModel):
+    action_number: int
+    order_index: int
+    source_event_id: Optional[str] = None
+    period: Optional[int] = None
+    clock: Optional[str] = None
+    event_type: Optional[str] = None
+    action_family: Optional[str] = None
+    sub_type: Optional[str] = None
+    description: Optional[str] = None
+    team_id: Optional[int] = None
+    team_abbreviation: Optional[str] = None
+    player_id: Optional[int] = None
+    player_name: Optional[str] = None
+    home_score: Optional[int] = None
+    away_score: Optional[int] = None
+    exact_shot_match: bool = False
+    elements: List[GameVisualizationElement]
+
+
+class GameVisualizationResponse(BaseModel):
+    game_id: str
+    season: str
+    shot_event_id: Optional[str] = None
+    source: Optional[str] = None
+    selected_player_id: Optional[int] = None
+    selected_period: Optional[int] = None
+    selected_event_type: Optional[str] = None
+    selected_query: Optional[str] = None
+    exact_shot_match: bool = False
+    steps: List[GameVisualizationStep]

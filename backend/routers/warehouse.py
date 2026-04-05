@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session
 
 from db.database import get_db
 from models.warehouse import (
+    WarehouseCompletenessSummary,
     IngestionJobResponse,
     JobRunResponse,
     QueueResponse,
@@ -19,6 +20,7 @@ from models.warehouse import (
 from services.warehouse_service import (
     get_game_health,
     get_job_summary,
+    get_completeness_summary,
     get_readiness_summary,
     get_season_health,
     list_jobs,
@@ -32,6 +34,9 @@ from services.warehouse_service import (
     queue_player_gamelogs_sync,
     queue_player_profile_sync,
     queue_player_shot_chart_sync,
+    queue_shot_context_upgrade,
+    queue_shot_linkage_upgrade,
+    queue_completeness_reconciliation,
     queue_season_shot_charts,
     reset_stale_jobs,
     retry_failed_jobs,
@@ -226,6 +231,42 @@ def queue_shot_charts(
     return QueueResponse(queued=len(jobs), jobs=[_job_response(job) for job in jobs])
 
 
+@router.post("/queue/shot-context-upgrade", response_model=QueueResponse)
+def queue_shot_context_upgrade_route(
+    season: str = Query(...),
+    season_type: str = Query("Regular Season"),
+    force: bool = Query(True),
+    db: Session = Depends(get_db),
+):
+    jobs = queue_shot_context_upgrade(db, season=season, season_type=season_type, force=force)
+    db.commit()
+    return QueueResponse(queued=len(jobs), jobs=[_job_response(job) for job in jobs])
+
+
+@router.post("/queue/shot-linkage-upgrade", response_model=QueueResponse)
+def queue_shot_linkage_upgrade_route(
+    season: str = Query(...),
+    season_type: str = Query("Regular Season"),
+    force: bool = Query(True),
+    db: Session = Depends(get_db),
+):
+    jobs = queue_shot_linkage_upgrade(db, season=season, season_type=season_type, force=force)
+    db.commit()
+    return QueueResponse(queued=len(jobs), jobs=[_job_response(job) for job in jobs])
+
+
+@router.post("/queue/completeness-reconcile", response_model=QueueResponse)
+def queue_completeness_reconcile_route(
+    season: str = Query(...),
+    season_type: str = Query("Regular Season"),
+    force: bool = Query(True),
+    db: Session = Depends(get_db),
+):
+    jobs = queue_completeness_reconciliation(db, season=season, season_type=season_type, force=force)
+    db.commit()
+    return QueueResponse(queued=len(jobs), jobs=[_job_response(job) for job in jobs])
+
+
 @router.get("/health/{season}", response_model=WarehouseSeasonHealth)
 def season_health(season: str, db: Session = Depends(get_db)):
     payload = get_season_health(db, season)
@@ -259,3 +300,12 @@ def jobs_summary(season: Optional[str] = Query(None), db: Session = Depends(get_
 @router.get("/readiness/{season}", response_model=WarehouseReadinessSummary)
 def readiness_summary(season: str, db: Session = Depends(get_db)):
     return WarehouseReadinessSummary(**get_readiness_summary(db, season))
+
+
+@router.get("/completeness/{season}", response_model=WarehouseCompletenessSummary)
+def completeness_summary(
+    season: str,
+    season_type: str = Query("Regular Season"),
+    db: Session = Depends(get_db),
+):
+    return WarehouseCompletenessSummary(**get_completeness_summary(db, season, season_type=season_type))

@@ -7,6 +7,7 @@ import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { useTeamAvailability, useTeamPrepQueue, useTeamRoster, useTeamAnalytics, useTeamFocusLevers, useTeamIntelligence, useTeamRotationReport } from "@/hooks/usePlayerStats";
 import AvailabilitySummaryCard from "@/components/AvailabilitySummaryCard";
 import TeamAnalyticsPanel from "@/components/TeamAnalyticsPanel";
+import TeamDefenseShotLab from "@/components/TeamDefenseShotLab";
 import TeamIntelligencePanel from "@/components/TeamIntelligencePanel";
 import TeamPrepQueuePanel from "@/components/TeamPrepQueuePanel";
 import TeamRotationIntelligencePanel from "@/components/TeamRotationIntelligencePanel";
@@ -470,13 +471,23 @@ export default function TeamDetailPage() {
             </div>
           )}
           {intelligence && !intelligenceLoading && (
-            <TeamIntelligencePanel
-              intelligence={intelligence}
-              currentAnalytics={currentAnalytics ?? null}
-              priorAnalytics={priorAnalytics ?? null}
-              season={effectiveSeason}
-              focusLevers={focusLevers ?? null}
-            />
+            <div className="space-y-6">
+              <TeamIntelligencePanel
+                intelligence={intelligence}
+                currentAnalytics={currentAnalytics ?? null}
+                priorAnalytics={priorAnalytics ?? null}
+                season={effectiveSeason}
+                focusLevers={focusLevers ?? null}
+              />
+              {roster ? (
+                <TeamDefenseShotLab
+                  teamId={roster.team_id}
+                  teamAbbreviation={roster.abbreviation}
+                  seasons={availableSeasons.length > 0 ? availableSeasons : [effectiveSeason]}
+                  defaultSeason={effectiveSeason}
+                />
+              ) : null}
+            </div>
           )}
         </section>
       )}
@@ -501,7 +512,17 @@ export default function TeamDetailPage() {
             </div>
           )}
           {currentAnalytics && !analyticsLoading && (
+            <div className="space-y-6">
               <TeamAnalyticsPanel analytics={currentAnalytics} />
+              {roster ? (
+                <TeamDefenseShotLab
+                  teamId={roster.team_id}
+                  teamAbbreviation={roster.abbreviation}
+                  seasons={availableSeasons.length > 0 ? availableSeasons : [effectiveSeason]}
+                  defaultSeason={effectiveSeason}
+                />
+              ) : null}
+            </div>
           )}
         </section>
       )}

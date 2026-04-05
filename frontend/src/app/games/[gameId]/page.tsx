@@ -1,10 +1,23 @@
 "use client";
 
+import dynamic from "next/dynamic";
 import Link from "next/link";
 import { useParams, useSearchParams } from "next/navigation";
-import { useDeferredValue, useState } from "react";
-import { useGameDetail, useGameSummary } from "@/hooks/usePlayerStats";
+import { startTransition, useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
+import { useGameDetail, useGameSummary, useGameVisualization } from "@/hooks/usePlayerStats";
 import GameContextBanner from "@/components/GameContextBanner";
+
+const GameVisualization3D = dynamic(
+  () => import("@/components/three/GameVisualization3D"),
+  {
+    ssr: false,
+    loading: () => (
+      <div className="rounded-[1.5rem] border border-gray-200 bg-white p-6 text-sm text-gray-500 dark:border-gray-800 dark:bg-gray-900 dark:text-gray-400">
+        Loading 3D visualizer...
+      </div>
+    ),
+  }
+);
 
 function formatScore(value: number | null) {
   return value == null ? "-" : String(value);
@@ -160,6 +173,8 @@ export default function GameDetailPage() {
   const initialPeriod = searchParams.get("period");
   const initialEventType = searchParams.get("event_type");
   const initialQuery = searchParams.get("query");
+  const shotEventId = searchParams.get("shot_event_id");
+  const initialActionNumberParam = searchParams.get("action_number");
   const { data, error, isLoading } = useGameDetail(gameId);
   const { data: summary } = useGameSummary(gameId);
   const [searchQuery, setSearchQuery] = useState(initialQuery ?? "");
@@ -168,7 +183,63 @@ export default function GameDetailPage() {
   const [selectedEventType, setSelectedEventType] = useState(initialEventType ?? "all");
   const [scoringOnly, setScoringOnly] = useState(false);
   const [selectedActionNumber, setSelectedActionNumber] = useState<number | null>(null);
+  const [explorerMode, setExplorerMode] = useState<"feed" | "three">(
+    source === "shot-lab" ? "three" : "feed"
+  );
+  const drillDownRef = useRef<HTMLDivElement | null>(null);
   const deferredSearchQuery = useDeferredValue(searchQuery);
+  const parsedInitialActionNumber =
+    initialActionNumberParam != null && Number.isFinite(Number(initialActionNumberParam))
+      ? Number(initialActionNumberParam)
+      : null;
+  const visualizationPeriod =
+    selectedPeriod !== "all" && Number.isFinite(Number(selectedPeriod))
+      ? Number(selectedPeriod)
+      : null;
+  const visualizationEventType = selectedEventType !== "all" ? selectedEventType : null;
+  const visualizationQuery = deferredSearchQuery.trim().length > 0 ? deferredSearchQuery.trim() : initialQuery;
+  const { data: visualization } = useGameVisualization(gameId, {
+    shotEventId,
+    period: visualizationPeriod,
+    eventType: visualizationEventType,
+    query: visualizationQuery,
+    source,
+  });
+  const exactVisualizationStep = useMemo(
+    () =>
+      visualization?.steps.find((step) => {
+        if (shotEventId && step.source_event_id) {
+          return String(step.source_event_id) === String(shotEventId);
+        }
+        return false;
+      }) ?? null,
+    [shotEventId, visualization?.steps]
+  );
+  const exactActionNumber = exactVisualizationStep?.action_number ?? null;
+
+  function handleExplorerMode(nextMode: "feed" | "three") {
+    setExplorerMode(nextMode);
+    if (nextMode === "three") {
+      requestAnimationFrame(() => {
+        drillDownRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+      });
+    }
+  }
+
+  useEffect(() => {
+    if (selectedActionNumber != null) return;
+    if (parsedInitialActionNumber != null) {
+      startTransition(() => {
+        setSelectedActionNumber(parsedInitialActionNumber);
+      });
+      return;
+    }
+    if (exactActionNumber != null) {
+      startTransition(() => {
+        setSelectedActionNumber(exactActionNumber);
+      });
+    }
+  }, [exactActionNumber, parsedInitialActionNumber, selectedActionNumber]);
 
   if (!gameId) {
     return (
@@ -332,7 +403,6 @@ export default function GameDetailPage() {
           Math.min(filteredEvents.length, selectedEventIndex + 2)
         )
       : [];
-
   return (
     <div className="mx-auto max-w-6xl space-y-8">
       <div>
@@ -353,6 +423,38 @@ export default function GameDetailPage() {
         reason={reason}
         returnHref={returnHref}
       />
+
+      <section className="rounded-[2rem] border border-sky-200 bg-gradient-to-r from-sky-50 via-white to-cyan-50 p-5 dark:border-sky-900/70 dark:from-slate-900 dark:via-slate-950 dark:to-cyan-950/30">
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-[0.24em] text-sky-600 dark:text-sky-300">
+              Explorer Mode
+            </p>
+            <h2 className="mt-2 text-2xl font-semibold text-slate-900 dark:text-slate-100">
+              Switch the game into 3D when you want the reconstructed court view
+            </h2>
+            <p className="mt-2 max-w-2xl text-sm text-slate-600 dark:text-slate-300">
+              Feed focus keeps you in the play-by-play stream. 3D visualizer opens the reconstructed possession scene for the selected game context.
+            </p>
+          </div>
+          <div className="flex flex-wrap gap-2 rounded-full border border-sky-100 bg-white/80 p-1 shadow-sm dark:border-sky-900/50 dark:bg-slate-900/80">
+            {(["feed", "three"] as const).map((mode) => (
+                <button
+                  key={`hero-mode-${mode}`}
+                  type="button"
+                  onClick={() => handleExplorerMode(mode)}
+                  className={`rounded-full px-4 py-2 text-xs font-semibold uppercase tracking-[0.16em] transition ${
+                    explorerMode === mode
+                      ? "bg-blue-600 text-white shadow-sm"
+                    : "text-gray-500 hover:bg-sky-50 dark:text-gray-400 dark:hover:bg-slate-800"
+                }`}
+              >
+                {mode === "feed" ? "Feed focus" : "3D visualizer"}
+              </button>
+            ))}
+          </div>
+        </div>
+      </section>
 
       <section className="rounded-[2rem] border border-gray-200 bg-white p-8 dark:border-gray-800 dark:bg-gray-900">
         <div className="flex flex-col gap-8 lg:flex-row lg:items-end lg:justify-between">
@@ -679,7 +781,7 @@ export default function GameDetailPage() {
         </section>
 
         <section className="space-y-6">
-          <div className="rounded-[2rem] border border-gray-200 bg-white p-6 dark:border-gray-800 dark:bg-gray-900">
+          <div ref={drillDownRef} className="rounded-[2rem] border border-gray-200 bg-white p-6 dark:border-gray-800 dark:bg-gray-900">
             <div className="flex items-end justify-between gap-4">
               <div>
                 <h2 className="text-2xl font-semibold text-gray-900 dark:text-gray-100">
@@ -694,7 +796,41 @@ export default function GameDetailPage() {
               </div>
             </div>
 
-            {selectedEvent ? (
+            <div className="mt-5 flex flex-wrap items-center justify-between gap-3">
+              <div className="flex flex-wrap gap-2 rounded-full border border-gray-200 bg-gray-50 p-1 dark:border-gray-800 dark:bg-gray-950">
+                {(["feed", "three"] as const).map((mode) => (
+                  <button
+                    key={mode}
+                    type="button"
+                    onClick={() => handleExplorerMode(mode)}
+                    className={`rounded-full px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.16em] transition ${
+                      explorerMode === mode
+                        ? "bg-blue-600 text-white"
+                        : "text-gray-500 hover:bg-white dark:text-gray-400 dark:hover:bg-gray-900"
+                    }`}
+                  >
+                    {mode === "feed" ? "Feed focus" : "3D visualizer"}
+                  </button>
+                ))}
+              </div>
+              {visualization?.exact_shot_match ? (
+                <div className="rounded-full bg-blue-50 px-3 py-1 text-xs font-medium uppercase tracking-[0.16em] text-blue-700 dark:bg-blue-950/30 dark:text-blue-300">
+                  Exact shot linkage active
+                </div>
+              ) : source === "shot-lab" ? (
+                <div className="rounded-full bg-amber-50 px-3 py-1 text-xs font-medium uppercase tracking-[0.16em] text-amber-700 dark:bg-amber-950/30 dark:text-amber-300">
+                  Context-preserving fallback
+                </div>
+              ) : null}
+            </div>
+
+            {explorerMode === "three" && visualization && visualization.steps.length > 0 ? (
+              <div className="mt-5">
+                <GameVisualization3D data={visualization} />
+              </div>
+            ) : null}
+
+            {explorerMode === "feed" && selectedEvent ? (
               <div className="mt-5 grid gap-4 lg:grid-cols-[0.95fr,1.05fr]">
                 <div className="rounded-3xl bg-blue-50 p-5 dark:bg-blue-950/30">
                   <div className="text-[11px] uppercase tracking-[0.18em] text-blue-600 dark:text-blue-300">
@@ -708,6 +844,11 @@ export default function GameDetailPage() {
                     <span>{selectedEvent.team_abbreviation ?? "NBA"}</span>
                     <span>{selectedEvent.player_name ?? "Team event"}</span>
                     <span>{formatEventType(selectedEvent.event_type)}</span>
+                    {selectedEvent.source_event_id && shotEventId && String(selectedEvent.source_event_id) === String(shotEventId) ? (
+                      <span className="rounded-full bg-blue-100 px-2 py-1 text-[10px] font-semibold tracking-[0.18em] text-blue-700 dark:bg-blue-900/40 dark:text-blue-200">
+                        Exact shot
+                      </span>
+                    ) : null}
                   </div>
                   <div className="mt-4 text-3xl font-bold tabular-nums text-blue-700 dark:text-blue-200">
                     {selectedEvent.away_score != null && selectedEvent.home_score != null
@@ -744,9 +885,13 @@ export default function GameDetailPage() {
                   </div>
                 </div>
               </div>
-            ) : (
+            ) : explorerMode === "feed" ? (
               <div className="mt-5 rounded-3xl border border-dashed border-gray-200 p-6 text-sm text-gray-500 dark:border-gray-700 dark:text-gray-400">
                 No event matches the current filters. Reset filters to inspect a specific play.
+              </div>
+            ) : (
+              <div className="mt-5 rounded-3xl border border-dashed border-gray-200 p-6 text-sm text-gray-500 dark:border-gray-700 dark:text-gray-400">
+                No visualization steps match the current filters. Reset the filters or switch back to feed focus.
               </div>
             )}
           </div>
@@ -847,6 +992,8 @@ export default function GameDetailPage() {
                     className={`grid w-full gap-3 rounded-3xl border p-4 text-left transition-colors md:grid-cols-[5.25rem,1fr,6rem] ${
                       selectedEvent?.action_number === event.action_number
                         ? "border-blue-300 bg-blue-50 dark:border-blue-700 dark:bg-blue-950/20"
+                        : shotEventId && event.source_event_id && String(event.source_event_id) === String(shotEventId)
+                        ? "border-sky-200 bg-sky-50 dark:border-sky-800 dark:bg-sky-950/20"
                         : "border-gray-200 dark:border-gray-800"
                     }`}
                   >
@@ -864,6 +1011,11 @@ export default function GameDetailPage() {
                         <span className="rounded-full bg-gray-100 px-2 py-1 text-[10px] font-semibold tracking-[0.18em] text-gray-500 dark:bg-gray-800 dark:text-gray-400">
                           {formatEventType(event.event_type)}
                         </span>
+                        {shotEventId && event.source_event_id && String(event.source_event_id) === String(shotEventId) ? (
+                          <span className="rounded-full bg-sky-100 px-2 py-1 text-[10px] font-semibold tracking-[0.18em] text-sky-700 dark:bg-sky-900/40 dark:text-sky-300">
+                            Exact shot
+                          </span>
+                        ) : null}
                       </div>
                     </div>
                     <div className="text-right text-sm font-semibold tabular-nums text-gray-900 dark:text-gray-100">

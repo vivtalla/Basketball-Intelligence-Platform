@@ -652,3 +652,24 @@ class PreReadSnapshot(Base):
     payload = Column(JSON, nullable=False)
     created_at = Column(DateTime, server_default=func.now())
     updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
+
+
+class ShotLabSnapshot(Base):
+    __tablename__ = "shot_lab_snapshots"
+    __table_args__ = (
+        UniqueConstraint("snapshot_id", name="uq_shot_lab_snapshot_id"),
+        Index("ix_shot_lab_snapshots_subject", "subject_kind", "subject_id", "season"),
+        Index("ix_shot_lab_snapshots_created", "created_at"),
+    )
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    snapshot_id = Column(String(36), nullable=False)
+    snapshot_type = Column(String(30), nullable=False)
+    subject_kind = Column(String(30), nullable=False)
+    subject_id = Column(String(50), nullable=False)
+    season = Column(String(10), nullable=False)
+    season_type = Column(String(30), nullable=False, default="Regular Season")
+    route_path = Column(String(255), nullable=False, default="/compare")
+    payload = Column(JSON, nullable=False)
+    created_at = Column(DateTime, server_default=func.now())
+    updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())

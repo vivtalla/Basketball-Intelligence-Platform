@@ -1,7 +1,8 @@
 "use client";
 
-import { useMemo, useState, type ReactNode } from "react";
-import { usePlayerShotChart, usePlayerZoneProfile, useShotChartRefresh } from "@/hooks/usePlayerStats";
+import { startTransition, useEffect, useMemo, useState, type ReactNode } from "react";
+import { useSearchParams } from "next/navigation";
+import { usePlayerShotChart, usePlayerZoneProfile, useShotChartRefresh, useShotLabSnapshot } from "@/hooks/usePlayerStats";
 import type {
   ShotChartShot,
   ShotLabDateRange,
@@ -16,6 +17,7 @@ import ShotProfileDuel from "./ShotProfileDuel";
 import ShotSprawlMap from "./ShotSprawlMap";
 import ShotValueMap from "./ShotValueMap";
 import ZoneProfilePanel from "./ZoneProfilePanel";
+import ShotSnapshotButton from "./ShotSnapshotButton";
 
 type CompareShotView = "value" | "sprawl" | "distance";
 
@@ -143,6 +145,9 @@ export default function CompareShotLab({
   seasons,
   onSeasonChange,
 }: CompareShotLabProps) {
+  const searchParams = useSearchParams();
+  const snapshotId = searchParams.get("shot_snapshot_id");
+  const { data: snapshot } = useShotLabSnapshot(snapshotId);
   const [seasonType, setSeasonType] = useState<"Regular Season" | "Playoffs">("Regular Season");
   const [preset, setPreset] = useState<ShotLabWindowPreset>("full");
   const [customRange, setCustomRange] = useState<ShotLabDateRange>({ startDate: null, endDate: null });
@@ -150,6 +155,7 @@ export default function CompareShotLab({
     DEFAULT_SITUATIONAL_FILTERS
   );
   const [view, setView] = useState<CompareShotView>("value");
+  const [appliedSnapshotId, setAppliedSnapshotId] = useState<string | null>(null);
 
   const { data: baseA } = usePlayerShotChart(playerAId, season, seasonType);
   const { data: baseB } = usePlayerShotChart(playerBId, season, seasonType);
@@ -225,6 +231,27 @@ export default function CompareShotLab({
   );
   const compareNeedsPeriodRefresh = leftNeedsPeriodRefresh || rightNeedsPeriodRefresh;
 
+  useEffect(() => {
+    if (!snapshotId || !snapshot || appliedSnapshotId === snapshotId) return;
+    if (snapshot.payload.subject_type !== "compare") return;
+    if (snapshot.payload.subject_id !== playerAId || snapshot.payload.compare_subject_id !== playerBId) return;
+    startTransition(() => {
+      onSeasonChange(snapshot.payload.season);
+      setSeasonType(snapshot.payload.season_type === "Playoffs" ? "Playoffs" : "Regular Season");
+      setView((snapshot.payload.active_view as CompareShotView) ?? "value");
+      setCustomRange({
+        startDate: snapshot.payload.filters.start_date ?? null,
+        endDate: snapshot.payload.filters.end_date ?? null,
+      });
+      setSituationalFilters({
+        periodBucket: snapshot.payload.filters.period_bucket ?? "all",
+        result: snapshot.payload.filters.result ?? "all",
+        shotValue: snapshot.payload.filters.shot_value ?? "all",
+      });
+      setAppliedSnapshotId(snapshotId);
+    });
+  }, [appliedSnapshotId, onSeasonChange, playerAId, playerBId, snapshot, snapshotId]);
+
   function handleSeasonChange(nextSeason: string) {
     onSeasonChange(nextSeason);
     setPreset("full");
@@ -272,6 +299,28 @@ export default function CompareShotLab({
             </button>
           ))}
         </div>
+        <ShotSnapshotButton
+          payload={{
+            subject_type: "compare",
+            subject_id: playerAId,
+            compare_subject_id: playerBId,
+            season,
+            season_type: seasonType,
+            active_view: view,
+            route_path: `/compare`,
+            filters: {
+              start_date: filters.startDate,
+              end_date: filters.endDate,
+              period_bucket: situationalFilters.periodBucket,
+              result: situationalFilters.result,
+              shot_value: situationalFilters.shotValue,
+            },
+            metadata: {
+              left: playerALabel,
+              right: playerBLabel,
+            },
+          }}
+        />
       </div>
 
       <ShotLabControls

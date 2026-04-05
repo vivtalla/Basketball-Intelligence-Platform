@@ -44,6 +44,7 @@ from db.models import (
     WarehouseGame,
 )
 from services.advanced_metrics import enrich_season_with_advanced
+from services.shot_lab_service import enrich_player_shot_payload, summarize_shot_completeness
 from services.sync_service import canonical_player_name, sync_player
 from services.pbp_service import (
     build_stints,
@@ -1546,6 +1547,7 @@ def _sync_player_shot_chart(
             }
 
         raw_shots = get_shot_chart_data(player_id, season, season_type)
+        raw_shots = enrich_player_shot_payload(db, player_id, raw_shots)
         expires_at = now + timedelta(seconds=_cache_ttl_for_season(season))
 
         if existing:
@@ -1571,7 +1573,10 @@ def _sync_player_shot_chart(
             run,
             status=JOB_STATUS_COMPLETE,
             records_written=len(raw_shots),
-            run_metadata={"shot_count": len(raw_shots)},
+            run_metadata={
+                "shot_count": len(raw_shots),
+                "completeness": summarize_shot_completeness(raw_shots).model_dump(),
+            },
         )
         db.commit()
         return {
@@ -1631,6 +1636,33 @@ def queue_season_shot_charts(
             payload={"season_type": season_type, "force": force},
         )
     ]
+
+
+def queue_shot_context_upgrade(
+    db: Session,
+    season: str,
+    season_type: str = "Regular Season",
+    force: bool = True,
+) -> List[IngestionJob]:
+    return queue_season_shot_charts(db, season, season_type=season_type, force=force)
+
+
+def queue_shot_linkage_upgrade(
+    db: Session,
+    season: str,
+    season_type: str = "Regular Season",
+    force: bool = True,
+) -> List[IngestionJob]:
+    return queue_season_shot_charts(db, season, season_type=season_type, force=force)
+
+
+def queue_completeness_reconciliation(
+    db: Session,
+    season: str,
+    season_type: str = "Regular Season",
+    force: bool = True,
+) -> List[IngestionJob]:
+    return queue_season_shot_charts(db, season, season_type=season_type, force=force)
 
 
 def _claim_next_job(db: Session, season: Optional[str] = None) -> Optional[IngestionJob]:
@@ -1908,6 +1940,79 @@ def get_readiness_summary(db: Session, season: str) -> dict:
                 "ready_count": shotchart_counts["ready"],
                 "stale_count": shotchart_counts["stale"],
                 "missing_count": shotchart_counts["missing"],
+            },
+        ],
+    }
+
+
+def get_completeness_summary(db: Session, season: str, season_type: str = "Regular Season") -> dict:
+    shotchart_player_ids = _eligible_shot_chart_player_ids(db, season, season_type)
+    shotchart_rows = {}
+    if shotchart_player_ids:
+        shotchart_rows = {
+            row.player_id: row
+            for row in db.query(PlayerShotChart).filter(
+                PlayerShotChart.season == season,
+                PlayerShotChart.season_type == season_type,
+                PlayerShotChart.player_id.in_(shotchart_player_ids),
+            ).all()
+        }
+
+    shot_counts = {"ready": 0, "partial": 0, "legacy": 0, "missing": 0}
+    for player_id in shotchart_player_ids:
+        row = shotchart_rows.get(player_id)
+        if row is None:
+            shot_counts["missing"] += 1
+            continue
+        completeness = summarize_shot_completeness(row.shots or [])
+        shot_counts[completeness.status] = shot_counts.get(completeness.status, 0) + 1
+
+    warehouse_games = db.query(WarehouseGame).filter(WarehouseGame.season == season).all()
+    event_counts = {"ready": 0, "partial": 0, "legacy": 0, "missing": 0}
+    for game in warehouse_games:
+        if game.has_parsed_pbp:
+            event_counts["ready"] += 1
+        elif game.has_pbp_payload:
+            event_counts["partial"] += 1
+        else:
+            legacy_rows = db.query(PlayByPlay).filter(PlayByPlay.game_id == game.game_id).count()
+            if legacy_rows > 0:
+                event_counts["legacy"] += 1
+            else:
+                event_counts["missing"] += 1
+
+    def _pct(ready: int, partial: int, total: int) -> float:
+        if total <= 0:
+            return 0.0
+        return round(((ready + (0.5 * partial)) / total) * 100.0, 1)
+
+    return {
+        "season": season,
+        "season_type": season_type,
+        "domains": [
+            {
+                "domain": "shot_charts",
+                "ready_count": shot_counts["ready"],
+                "partial_count": shot_counts["partial"],
+                "legacy_count": shot_counts["legacy"],
+                "missing_count": shot_counts["missing"],
+                "completeness_pct": _pct(
+                    shot_counts["ready"],
+                    shot_counts["partial"],
+                    len(shotchart_player_ids),
+                ),
+            },
+            {
+                "domain": "game_events",
+                "ready_count": event_counts["ready"],
+                "partial_count": event_counts["partial"],
+                "legacy_count": event_counts["legacy"],
+                "missing_count": event_counts["missing"],
+                "completeness_pct": _pct(
+                    event_counts["ready"],
+                    event_counts["partial"],
+                    len(warehouse_games),
+                ),
             },
         ],
     }

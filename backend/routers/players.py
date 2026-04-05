@@ -2,14 +2,14 @@ from datetime import datetime, timedelta
 from typing import List
 
 from fastapi import APIRouter, Depends, HTTPException, Query
+from sqlalchemy import or_
 from sqlalchemy.orm import Session
 
-from data.nba_client import search_players
 from db.database import get_db
 from db.models import Player
 from models.player import PlayerProfile, PlayerSearchResult, PlayerTrendReport
 from services.player_trend_service import build_player_trend_report
-from services.sync_service import canonical_player_name, sync_player_if_needed
+from services.sync_service import canonical_player_name
 
 router = APIRouter()
 
@@ -53,9 +53,32 @@ def _empty_profile(player_id: int) -> PlayerProfile:
 
 
 @router.get("/search", response_model=List[PlayerSearchResult])
-def search(q: str = Query(..., min_length=2, description="Player name to search")):
-    results = search_players(q)
-    return results
+def search(
+    q: str = Query(..., min_length=2, description="Player name to search"),
+    db: Session = Depends(get_db),
+):
+    query = f"%{q.strip()}%"
+    rows = (
+        db.query(Player)
+        .filter(
+            or_(
+                Player.full_name.ilike(query),
+                Player.first_name.ilike(query),
+                Player.last_name.ilike(query),
+            )
+        )
+        .order_by(Player.is_active.desc(), Player.full_name.asc())
+        .limit(20)
+        .all()
+    )
+    return [
+        PlayerSearchResult(
+            id=row.id,
+            full_name=canonical_player_name(row.full_name, row.first_name or "", row.last_name or ""),
+            is_active=bool(row.is_active),
+        )
+        for row in rows
+    ]
 
 
 @router.get("/{player_id}", response_model=PlayerProfile)
@@ -113,9 +136,8 @@ def get_player_trend_report(
     season: str = Query("2024-25"),
     db: Session = Depends(get_db),
 ):
-    try:
-        player = sync_player_if_needed(db, player_id)
-    except Exception as e:
-        raise HTTPException(status_code=404, detail=f"Player not found: {e}")
+    player = db.query(Player).filter(Player.id == player_id).first()
+    if not player:
+        raise HTTPException(status_code=404, detail=f"Player {player_id} not found in local warehouse.")
 
     return build_player_trend_report(db=db, player=player, season=season)

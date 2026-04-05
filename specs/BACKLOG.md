@@ -17,15 +17,15 @@ Guidelines:
 
 ## Now
 
-### Data Completeness and Forward-Compatible Event Capture
+### Canonical Event Completeness and Backfill
 Why it matters:
-Sprint 37 exposed a broader platform need: when we add richer context later, older persisted rows can lag behind and new product filters look incomplete until a refresh/backfill catches up. We need a more deliberate completeness strategy so future enhancements can rely on a wide, stable event payload instead of repeatedly widening the model in reactive passes.
+Sprint 38 proved the platform needs a durable completeness contract, not another one-off field expansion. We now have explicit completeness reporting and richer shot/game context, but older rows still need systematic backfill and reconciliation before future features can assume the full payload is always present.
 
 Likely shape:
-- define the full medium-term event payload CourtVue should preserve for shot charts and play analysis, including timing, event identity, action context, lineup/team state, and any other high-value upstream fields we are likely to need for 3D, clip, and sequence workflows
-- add completeness metadata so the product can tell the difference between “no data exists upstream,” “data exists but has not been enriched yet,” and “legacy row missing newly required fields”
-- create repeatable backfill and validation workflows that upgrade older persisted rows whenever the canonical payload expands
-- prefer payload completeness and durable storage contracts over piecemeal one-feature field additions, so future analysis surfaces can launch without another reactive persistence redesign
+- define the final medium-term payload CourtVue should preserve for shot charts, play analysis, and 3D reconstruction, including timing, event identity, action context, lineup/team state, and any other high-value upstream fields we are likely to need
+- keep completeness metadata attached to product reads so the UI can tell the difference between “no data exists upstream,” “data exists but has not been enriched yet,” and “legacy row missing newly required fields”
+- maintain repeatable backfill and validation workflows that upgrade older persisted rows whenever the canonical payload expands
+- prefer payload completeness and durable storage contracts over piecemeal feature-specific additions, so future analysis surfaces can launch without another reactive persistence redesign
 
 ### Alias Backfill for Edge-Case Players
 Why it matters:
@@ -45,15 +45,16 @@ Likely shape:
 - standardize readiness metadata on any remaining legacy reads
 - keep `nba_api` only in queued/admin enrichment and explicit recovery workflows
 
-### Shot Lab Follow-Ons (Sprint 35 seeds)
+### Shot Lab Refinement and Precision Follow-Ons
 Why it matters:
-Sprint 35 turned player and compare shot charts into a real shot lab. The highest-value next gains extend that system into team-defense workflows, self-service refresh, and richer situational shot context.
+Sprint 35 turned player and compare shot charts into a real shot lab, and Sprint 38 extended that model into team-defense, snapshots, and stronger completeness signaling. The remaining gains are more about polish and exactness than core coverage.
 
 Likely shape:
-- Team-level shot-defense sprawl/value maps using conceded opponent shots by team and season
-- Shareable or printable shot-lab snapshots that preserve the exact player/compare filter state
+- sharpen shot-lab replay and snapshot workflows so saved states feel fully staff-ready
+- continue tightening exact shot-to-event handoff and any compare/team-defense parity gaps that still feel rough
+- add light explanatory affordances where the richer shot surfaces need more interpretation help
 
-### Shot Lab Visual Follow-Ons (Sprint 36 seeds)
+### Shot Lab Visual Polish
 Why it matters:
 Sprint 36 gave the shot lab a much stronger editorial identity, but the final layer of trust and delight still depends on court geometry polish, heatmap calibration, and clearer chart storytelling.
 
@@ -65,17 +66,16 @@ Likely shape:
 
 ### 3D Shot Charts and Play Reconstruction
 Why it matters:
-CourtVue Labs now has the shot-context and Game Explorer bridge foundation from Sprint 37. The next gain is turning that into a signature 3D surface that is both visually breathtaking and genuinely useful for film-adjacent analysis.
+Sprint 38 introduced the first 3D shot/game scaffold, but the platform still needs the next layer: richer possession playback and a more expressive analytical scene that remains truthful about what is exact versus inferred.
 
 Likely shape:
-- Introduce a 3D rendering layer and a narrow first 3D shot mode that visualizes arc, depth, and court location in a way flat charts cannot
-- Build on Sprint 37’s `game_id` / timing / action context to reconstruct selected possessions or shot sequences on the same 3D court
-- Start with analyst-friendly views such as made/missed trajectories, shot clusters by action family, and simple sequence playback tied to quarter/clock context
-- Keep the first version grounded in real basketball analysis value, not just spectacle, so the 3D layer helps both storytelling and game review
+- deepen the procedural 3D half-court into a fuller possession playback system
+- keep using shot arcs, event markers, and camera presets, but expand the scene choreography where it adds real analysis value
+- preserve the exact/inferred labeling contract so the 3D layer stays trustworthy rather than theatrical
 
 ### Shot-to-Event Precision Follow-Ons
 Why it matters:
-Sprint 37 added a useful shot-lab bridge into Game Explorer, but it still works as a context-preserving filter jump rather than exact shot replay.
+Sprint 37 and Sprint 38 both improved the shot-lab bridge into Game Explorer, but the most helpful next gain is to make that handoff more exact whenever the data supports it.
 
 Likely shape:
 - use `shot_event_id`, `period`, `clock`, and play-by-play descriptions to tighten shot-to-event matching where support is strong

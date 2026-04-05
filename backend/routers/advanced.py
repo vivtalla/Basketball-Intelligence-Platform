@@ -316,8 +316,6 @@ def get_clutch(player_id: int, season: str = "2024-25", db: Session = Depends(ge
 @router.get("/{player_id}/pbp-coverage", response_model=PbpCoverage)
 def get_pbp_coverage(player_id: int, season: str = "2024-25", db: Session = Depends(get_db)):
     """Return play-by-play sync coverage metadata for a player-season."""
-    sync_player_if_needed(db, player_id)
-
     season_row = (
         db.query(SeasonStat)
         .filter(
