@@ -12,16 +12,21 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from db.database import Base  # noqa: E402
 from data.nba_client import _format_shot_clock, _normalize_shot_chart_game_date  # noqa: E402
 from db.models import (  # noqa: E402
+    GameLog,
     GamePlayerStat,
     IngestionJob,
+    PlayByPlay,
     PlayByPlayEvent,
     Player,
     PlayerGameLog,
     PlayerShotChart,
+    SeasonStat,
     SourceRun,
     Team,
     WarehouseGame,
 )
+from routers.advanced import get_pbp_coverage  # noqa: E402
+from routers.games import get_game_detail  # noqa: E402
 from routers.shotchart import (  # noqa: E402
     get_shot_lab_snapshot_route,
     player_shot_chart,
@@ -548,6 +553,7 @@ def test_refresh_team_defense_shot_chart_queues_opponent_player_jobs():
     try:
         session.add_all(
             [
+                Team(id=1610612737, abbreviation="ATL", name="Atlanta Hawks"),
                 Team(id=1610612738, abbreviation="BOS", name="Boston Celtics"),
                 Team(id=1610612739, abbreviation="CLE", name="Cleveland Cavaliers"),
                 Player(id=41, full_name="Opponent One", team_id=1610612738, is_active=True),
@@ -635,7 +641,8 @@ def test_shot_completeness_report_counts_ready_legacy_and_missing():
         assert domains["player_shot_chart"].missing_count == 1
         assert domains["game_event_stream"].ready_count == 1
         assert domains["game_event_stream"].partial_count == 1
-        assert domains["game_event_stream"].legacy_count == 1
+        assert domains["game_event_stream"].legacy_count == 0
+        assert domains["game_event_stream"].missing_count == 1
     finally:
         session.close()
 
@@ -848,5 +855,180 @@ def test_build_game_visualization_marks_exact_and_timeline_elements():
         assert response.steps[0].elements[0].exactness == "exact"
         assert response.steps[1].elements[0].kind == "context_token"
         assert response.steps[1].elements[0].exactness == "timeline"
+    finally:
+        session.close()
+
+
+def test_game_detail_reports_legacy_event_stream_when_only_legacy_rows_exist():
+    session = make_session()
+    try:
+        home_team = Team(id=1610612737, abbreviation="ATL", name="Atlanta Hawks")
+        away_team = Team(id=1610612738, abbreviation="BOS", name="Boston Celtics")
+        shooter = Player(id=77, full_name="Legacy Guard", team_id=away_team.id, is_active=True)
+        session.add_all([home_team, away_team, shooter])
+        session.commit()
+        session.add(
+            GameLog(
+                game_id="0022400400",
+                season="2024-25",
+                game_date=datetime(2025, 1, 14).date(),
+                home_team_id=home_team.id,
+                away_team_id=away_team.id,
+                home_score=98,
+                away_score=101,
+            )
+        )
+        seed_game(
+            session,
+            game_id="0022400400",
+            home_team_id=home_team.id,
+            away_team_id=away_team.id,
+            has_schedule=True,
+            has_pbp_payload=False,
+            has_parsed_pbp=False,
+        )
+        session.add(
+            PlayByPlay(
+                game_id="0022400400",
+                action_number=11,
+                period=4,
+                clock="1:11",
+                team_id=away_team.id,
+                player_id=shooter.id,
+                action_type="3pt",
+                sub_type="made",
+                description="Legacy Guard makes 3-pt jump shot",
+                score_home=98,
+                score_away=101,
+            )
+        )
+        session.commit()
+
+        response = get_game_detail("0022400400", db=session)
+
+        assert response.data_status == "ready"
+        assert response.completeness_status == "legacy"
+        assert response.canonical_source == "legacy-play-by-play"
+        assert response.events[0].source_event_id == "11"
+    finally:
+        session.close()
+
+
+def test_shot_completeness_report_distinguishes_legacy_vs_missing_game_events():
+    session = make_session()
+    try:
+        seed_game(
+            session,
+            game_id="0022400500",
+            season="2024-25",
+            has_schedule=True,
+            has_pbp_payload=False,
+            has_parsed_pbp=False,
+        )
+        seed_game(
+            session,
+            game_id="0022400501",
+            season="2024-25",
+            has_schedule=True,
+            has_pbp_payload=False,
+            has_parsed_pbp=False,
+        )
+        session.add(
+            PlayByPlay(
+                game_id="0022400500",
+                action_number=1,
+                period=1,
+                clock="12:00",
+                team_id=1610612737,
+                player_id=None,
+                action_type="jumpball",
+                sub_type=None,
+                description="Jump ball",
+                score_home=0,
+                score_away=0,
+            )
+        )
+        session.commit()
+
+        response = shot_completeness_report("2024-25", season_type="Regular Season", db=session)
+        rows = {
+            row.entity_id: row
+            for row in response.rows
+            if row.entity_type == "game_event_stream"
+        }
+
+        assert rows["0022400500"].completeness_status == "legacy"
+        assert rows["0022400500"].data_status == "ready"
+        assert rows["0022400501"].completeness_status == "missing"
+        assert rows["0022400501"].data_status == "missing"
+    finally:
+        session.close()
+
+
+def test_pbp_coverage_reports_legacy_when_only_legacy_rows_exist():
+    session = make_session()
+    try:
+        player = seed_player(session, player_id=88)
+        session.add(
+            SeasonStat(
+                player_id=player.id,
+                season="2024-25",
+                team_abbreviation="ATL",
+                is_playoff=False,
+                gp=1,
+            )
+        )
+        session.add(
+            PlayerGameLog(
+                player_id=player.id,
+                game_id="0022400600",
+                season="2024-25",
+                season_type="Regular Season",
+                game_date=datetime(2025, 1, 20).date(),
+                matchup="ATL vs BOS",
+            )
+        )
+        session.add(
+            GameLog(
+                game_id="0022400600",
+                season="2024-25",
+                game_date=datetime(2025, 1, 20).date(),
+                home_team_id=1610612737,
+                away_team_id=1610612738,
+                home_score=102,
+                away_score=99,
+            )
+        )
+        seed_game(
+            session,
+            game_id="0022400600",
+            season="2024-25",
+            has_schedule=True,
+            has_pbp_payload=False,
+            has_parsed_pbp=False,
+        )
+        session.add(
+            PlayByPlay(
+                game_id="0022400600",
+                action_number=7,
+                period=1,
+                clock="8:20",
+                team_id=1610612737,
+                player_id=player.id,
+                action_type="2pt",
+                sub_type="made",
+                description="Legacy Guard makes 2-pt shot",
+                score_home=2,
+                score_away=0,
+            )
+        )
+        session.commit()
+
+        response = get_pbp_coverage(player.id, season="2024-25", db=session)
+
+        assert response.status == "partial"
+        assert response.data_status == "ready"
+        assert response.completeness_status == "legacy"
+        assert response.canonical_source == "legacy-play-by-play"
     finally:
         session.close()
