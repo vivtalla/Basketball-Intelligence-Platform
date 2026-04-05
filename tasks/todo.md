@@ -14,11 +14,12 @@
 - [x] Update `CLAUDE.md`
 - [x] Reset `AGENTS.md` for Sprint 39 kickoff
 - [x] Verify lint/build/test status
-- [ ] Commit Sprint 38 changes
-- [ ] Merge to `master`
-- [ ] Push `master` to `origin/master`
+- [x] Commit Sprint 38 changes
+- [x] Merge to `master`
+- [x] Push `master` to `origin/master`
 
 ## Review
 - Closeout package should reflect the shipped data foundation, shot-lab follow-through, and 3D visualizer work.
 - Preserve the backlog item for forward-compatible completeness and the new 3D/play-visualization follow-ons.
 - Sprint 38 closeout docs now mirror the shipped code and the sprint is ready to be packaged into the merge commit.
+- Sprint 38 is merged to `master` and the transient checklist is now fully complete.
