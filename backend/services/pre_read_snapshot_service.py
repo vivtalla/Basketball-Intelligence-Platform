@@ -62,7 +62,7 @@ def create_pre_read_snapshot(db: Session, payload: PreReadSnapshotCreateRequest)
         season=payload.season,
         game_id=payload.game_id,
         saved_from=payload.source_view,
-        payload=json.loads(deck.json()),
+        payload=json.loads(deck.model_dump_json()),
     )
     db.add(row)
     db.commit()

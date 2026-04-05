@@ -537,7 +537,7 @@ def build_team_style_profile(
         scenario_bins=scenario_bins,
         warnings=warnings,
     )
-    CacheManager.set(cache_key, response.dict(), 900)
+    CacheManager.set(cache_key, response.model_dump(), 900)
     return response
 
 
@@ -730,7 +730,7 @@ def build_style_xray_report(
         },
         warnings=warnings,
     )
-    CacheManager.set(cache_key, response.dict(), 900)
+    CacheManager.set(cache_key, response.model_dump(), 900)
     return response
 
 

@@ -262,7 +262,7 @@ def build_trend_cards_report(db: Session, team_abbr: str, season: str, window_ga
         cards=cards,
         warnings=warnings,
     )
-    CacheManager.set(cache_key, response.dict(), 900)
+    CacheManager.set(cache_key, response.model_dump(), 900)
     return response
 
 
@@ -556,7 +556,7 @@ def build_what_if_report(db: Session, payload: WhatIfRequest) -> WhatIfResponse:
         ),
         warnings=warnings,
     )
-    CacheManager.set(cache_key, response.dict(), 900)
+    CacheManager.set(cache_key, response.model_dump(), 900)
     return response
 
 

@@ -5,7 +5,7 @@ from datetime import date, datetime
 from typing import List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 from sqlalchemy.orm import Session
 
 from db.database import get_db
@@ -26,8 +26,7 @@ class InjuryEntry(BaseModel):
     comment: Optional[str]
     season: Optional[str]
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class InjuryReportResponse(BaseModel):
@@ -50,8 +49,7 @@ class InjurySyncUnresolvedEntry(BaseModel):
     source_url: Optional[str]
     normalized_lookup_key: str
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 @router.get("/current", response_model=InjuryReportResponse)

@@ -229,7 +229,7 @@ def build_lineup_impact_report(
             confidence="low",
             warnings=warnings,
         )
-        CacheManager.set(cache_key, response.dict(), 300)
+        CacheManager.set(cache_key, response.model_dump(), 300)
         return response
 
     row_payloads: List[LineupImpactRow] = []
@@ -299,7 +299,7 @@ def build_lineup_impact_report(
         confidence=confidence,  # type: ignore[arg-type]
         warnings=warnings,
     )
-    CacheManager.set(cache_key, response.dict(), 900)
+    CacheManager.set(cache_key, response.model_dump(), 900)
     return response
 
 
@@ -358,7 +358,7 @@ def build_play_type_ev_report(
             underused_flags=[],
             warnings=["No play-by-play coverage was found for the requested team and season."],
         )
-        CacheManager.set(cache_key, response.dict(), 300)
+        CacheManager.set(cache_key, response.model_dump(), 300)
         return response
 
     recent_game_ids = [row.game_id for row, _game in game_rows[:window_games]] if window_games else [row.game_id for row, _game in game_rows]
@@ -404,7 +404,7 @@ def build_play_type_ev_report(
             underused_flags=[],
             warnings=["Could not infer any action-family usage for this team."],
         )
-        CacheManager.set(cache_key, response.dict(), 300)
+        CacheManager.set(cache_key, response.model_dump(), 300)
         return response
 
     rows: List[PlayTypeEVRow] = []
@@ -501,7 +501,7 @@ def build_play_type_ev_report(
         underused_flags=underused_flags[:3],
         warnings=warnings,
     )
-    CacheManager.set(cache_key, response.dict(), 900)
+    CacheManager.set(cache_key, response.model_dump(), 900)
     return response
 
 
@@ -727,7 +727,7 @@ def build_matchup_flags_report(
         flags=flags,
         warnings=warnings,
     )
-    CacheManager.set(cache_key, response.dict(), 900)
+    CacheManager.set(cache_key, response.model_dump(), 900)
     return response
 
 
@@ -864,7 +864,7 @@ def build_follow_through_report(db: Session, payload: FollowThroughRequest) -> F
         games=candidate_rows[:5],
         warnings=warnings,
     )
-    CacheManager.set(cache_key, response.dict(), 900)
+    CacheManager.set(cache_key, response.model_dump(), 900)
     return response
 
 
