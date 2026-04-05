@@ -24,6 +24,8 @@ from services.pbp_service import (
     compute_second_chance_and_fast_break,
 )
 from services.player_identity_service import sync_player_aliases
+from services.sync_service import canonical_player_name
+from services.warehouse_service import player_profile_needs_enrichment, queue_player_profile_sync
 
 PBP_REQUEST_DELAY = 1.0
 PBP_TIMEOUT = 60
@@ -119,16 +121,31 @@ def _ensure_box_score_entities(db: Session, box_score: dict) -> None:
             db.add(
                 Player(
                     id=player_id,
-                    full_name=player.get("player_name") or f"Player {player_id}",
+                    full_name=canonical_player_name(
+                        player.get("player_name") or "",
+                        player.get("first_name") or "",
+                        player.get("last_name") or "",
+                    ) or f"Player {player_id}",
+                    first_name=player.get("first_name") or None,
+                    last_name=player.get("last_name") or None,
                     team_id=player.get("team_id"),
                     is_active=True,
                 )
             )
         else:
             if player.get("player_name") and not existing.full_name:
-                existing.full_name = player.get("player_name")
+                existing.full_name = canonical_player_name(
+                    player.get("player_name") or "",
+                    player.get("first_name") or existing.first_name or "",
+                    player.get("last_name") or existing.last_name or "",
+                )
+            if player.get("first_name") and not existing.first_name:
+                existing.first_name = player.get("first_name")
+            if player.get("last_name") and not existing.last_name:
+                existing.last_name = player.get("last_name")
             if player.get("team_id"):
                 existing.team_id = player.get("team_id")
+            existing.is_active = True
 
     db.flush()
     for player in box_score.get("players", []):
@@ -138,6 +155,8 @@ def _ensure_box_score_entities(db: Session, box_score: dict) -> None:
         synced_player = existing_players.get(player_id) or db.query(Player).filter_by(id=player_id).first()
         if synced_player:
             sync_player_aliases(db, synced_player, source="pbp_sync")
+            if player_profile_needs_enrichment(synced_player):
+                queue_player_profile_sync(db, synced_player.id, force=False)
 
 
 def _store_pbp_events(

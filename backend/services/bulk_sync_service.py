@@ -29,6 +29,8 @@ from services.advanced_metrics import enrich_season_with_advanced
 from services.pbp_sync_service import sync_pbp_for_season
 from services.player_identity_service import sync_player_aliases
 from services.shot_lab_service import enrich_and_validate_player_shot_payload
+from services.sync_service import canonical_player_name
+from services.warehouse_service import player_profile_needs_enrichment, queue_player_profile_sync
 
 logger = logging.getLogger(__name__)
 
@@ -124,7 +126,7 @@ def sync_all_players(
         player_accum: dict[int, dict] = defaultdict(lambda: {
             "gp": 0, "gs": 0, "min_total": 0.0,
             **{f: 0 for f in _ACCUMULATE_FIELDS},
-            "team_id": None, "team_abbreviation": "", "player_name": "",
+            "team_id": None, "team_abbreviation": "", "player_name": "", "first_name": "", "last_name": "",
         })
         teams_seen: dict[int, dict] = {}
         games_processed = 0
@@ -151,7 +153,14 @@ def sync_all_players(
                         continue
 
                     acc = player_accum[pid]
-                    acc["player_name"] = p.get("player_name", "") or acc["player_name"]
+                    acc["first_name"] = p.get("first_name", "") or acc["first_name"]
+                    acc["last_name"] = p.get("last_name", "") or acc["last_name"]
+                    resolved_name = canonical_player_name(
+                        p.get("player_name", ""),
+                        p.get("first_name", ""),
+                        p.get("last_name", ""),
+                    )
+                    acc["player_name"] = resolved_name or acc["player_name"]
                     acc["team_id"] = p.get("team_id") or acc["team_id"]
                     acc["team_abbreviation"] = p.get("team_abbreviation", "") or acc["team_abbreviation"]
 
@@ -204,6 +213,8 @@ def sync_all_players(
                 player = Player(
                     id=player_id,
                     full_name=acc["player_name"],
+                    first_name=acc["first_name"] or None,
+                    last_name=acc["last_name"] or None,
                     team_id=acc["team_id"],
                     is_active=True,
                 )
@@ -211,11 +222,17 @@ def sync_all_players(
             else:
                 if acc["player_name"]:
                     player.full_name = acc["player_name"]
+                if acc["first_name"] and not player.first_name:
+                    player.first_name = acc["first_name"]
+                if acc["last_name"] and not player.last_name:
+                    player.last_name = acc["last_name"]
                 if acc["team_id"]:
                     player.team_id = acc["team_id"]
                 player.is_active = True
             db.flush()
             sync_player_aliases(db, player, source="bulk_sync")
+            if player_profile_needs_enrichment(player):
+                queue_player_profile_sync(db, player.id, force=False)
 
             # Build season data
             season_data = {
@@ -362,19 +379,35 @@ def sync_all_game_logs(
                     if not player:
                         player = Player(
                             id=pid,
-                            full_name=p.get("player_name", ""),
+                            full_name=canonical_player_name(
+                                p.get("player_name", ""),
+                                p.get("first_name", ""),
+                                p.get("last_name", ""),
+                            ),
+                            first_name=p.get("first_name") or None,
+                            last_name=p.get("last_name") or None,
                             team_id=p.get("team_id"),
                             is_active=True,
                         )
                         db.add(player)
                     else:
                         if p.get("player_name"):
-                            player.full_name = p.get("player_name")
+                            player.full_name = canonical_player_name(
+                                p.get("player_name", ""),
+                                p.get("first_name", "") or player.first_name or "",
+                                p.get("last_name", "") or player.last_name or "",
+                            )
+                        if p.get("first_name") and not player.first_name:
+                            player.first_name = p.get("first_name")
+                        if p.get("last_name") and not player.last_name:
+                            player.last_name = p.get("last_name")
                         if p.get("team_id"):
                             player.team_id = p.get("team_id")
                         player.is_active = True
                     db.flush()
                     sync_player_aliases(db, player, source="bulk_sync")
+                    if player_profile_needs_enrichment(player):
+                        queue_player_profile_sync(db, player.id, force=False)
 
                     is_home = p.get("team_id") == home_tid
                     matchup = box.get("matchup_home") if is_home else box.get("matchup_away")

@@ -10,12 +10,14 @@ from sqlalchemy.orm import sessionmaker
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from db.database import Base  # noqa: E402
-from db.models import GamePlayerStat, Player, PlayerGameLog, SeasonStat, Team  # noqa: E402
+from db.models import GamePlayerStat, IngestionJob, Player, PlayerGameLog, SeasonStat, Team  # noqa: E402
 from routers.gamelogs import player_game_logs  # noqa: E402
 from routers.players import get_player  # noqa: E402
 from routers.stats import career_stats  # noqa: E402
 from services.warehouse_service import (  # noqa: E402
+    _get_or_create_player,
     get_readiness_summary,
+    player_profile_needs_enrichment,
     queue_player_career_sync,
     queue_player_gamelogs_sync,
     queue_player_profile_sync,
@@ -285,5 +287,33 @@ def test_player_jobs_queue_and_run_through_workers():
         assert refreshed_career is not None
         assert refreshed_log is not None
         assert refreshed_log.game_id == "0022500099"
+    finally:
+        session.close()
+
+
+def test_incomplete_player_rows_queue_profile_enrichment():
+    session = make_session()
+    try:
+        team = Team(id=1610612737, abbreviation="ATL", name="Atlanta Hawks")
+        session.add(team)
+        session.commit()
+
+        player = _get_or_create_player(
+            session,
+            player_id=901,
+            full_name="Rookie Lastname",
+            team_id=team.id,
+        )
+        session.commit()
+
+        assert player is not None
+        assert player_profile_needs_enrichment(player) is True
+
+        queued = session.query(IngestionJob).filter_by(
+            job_type="sync_player_profile",
+            job_key="901",
+        ).one_or_none()
+        assert queued is not None
+        assert queued.status == "queued"
     finally:
         session.close()

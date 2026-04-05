@@ -106,6 +106,23 @@ def _player_profile_status(player: Optional[Player]) -> str:
     return "ready"
 
 
+def player_profile_needs_enrichment(player: Optional[Player]) -> bool:
+    if not player:
+        return True
+    full_name = (player.full_name or "").strip()
+    has_compound_name = " " in full_name
+    return any(
+        [
+            not player.first_name,
+            not player.last_name,
+            not has_compound_name,
+            not player.draft_year,
+            player.from_year is None,
+            not player.headshot_url,
+        ]
+    )
+
+
 def _season_stat_status(rows: List[SeasonStat]) -> str:
     if not rows:
         return "missing"
@@ -199,6 +216,8 @@ def _get_or_create_player(
     player_id: Optional[int],
     full_name: Optional[str],
     team_id: Optional[int],
+    first_name: Optional[str] = None,
+    last_name: Optional[str] = None,
 ) -> Optional[Player]:
     if not player_id:
         return None
@@ -211,7 +230,9 @@ def _get_or_create_player(
     if not player:
         player = Player(
             id=player_id,
-            full_name=canonical_player_name(full_name, None, None) or "Player {0}".format(player_id),
+            full_name=canonical_player_name(full_name, first_name, last_name) or "Player {0}".format(player_id),
+            first_name=first_name or None,
+            last_name=last_name or None,
             team_id=team_id,
             is_active=True,
         )
@@ -219,12 +240,18 @@ def _get_or_create_player(
         db.flush()
     else:
         if full_name:
-            resolved = canonical_player_name(full_name, player.first_name, player.last_name)
+            resolved = canonical_player_name(full_name, first_name or player.first_name, last_name or player.last_name)
             if resolved and (not player.full_name or " " not in player.full_name):
                 player.full_name = resolved
+        if first_name and not player.first_name:
+            player.first_name = first_name
+        if last_name and not player.last_name:
+            player.last_name = last_name
         if team_id:
             player.team_id = team_id
         player.is_active = True
+    if player_profile_needs_enrichment(player):
+        queue_player_profile_sync(db, player.id, force=False)
     return player
 
 
@@ -346,6 +373,8 @@ def _normalize_box_payload(game_id: str, payload: dict) -> dict:
             players.append(
                 {
                     "player_id": player.get("personId"),
+                    "first_name": player.get("firstName", ""),
+                    "last_name": player.get("familyName", ""),
                     "player_name": canonical_player_name(
                         player.get("name", ""),
                         player.get("firstName", ""),
@@ -592,7 +621,14 @@ def sync_game_boxscore(db: Session, game_id: str) -> dict:
         away_abbr = normalized.get("away_team_abbreviation") or ""
         game_date = normalized.get("game_date")
         for player in normalized.get("players", []):
-            _get_or_create_player(db, player.get("player_id"), player.get("player_name"), player.get("team_id"))
+            _get_or_create_player(
+                db,
+                player.get("player_id"),
+                player.get("player_name"),
+                player.get("team_id"),
+                first_name=player.get("first_name"),
+                last_name=player.get("last_name"),
+            )
             team_abbr = player.get("team_abbreviation") or ""
             is_home = team_abbr == home_abbr
             matchup = f"{away_abbr} @ {home_abbr}" if is_home else f"{team_abbr} @ {home_abbr}"
