@@ -108,6 +108,9 @@ class PbpCoverage(BaseModel):
     has_on_off: bool = False
     has_scoring_splits: bool = False
     status: str
+    data_status: str = "missing"
+    completeness_status: str = "missing"
+    canonical_source: Optional[str] = None
     last_derived_at: Optional[str] = None
 
 

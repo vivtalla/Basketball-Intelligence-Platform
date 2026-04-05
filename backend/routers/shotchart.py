@@ -26,6 +26,7 @@ from services.shot_lab_service import (
     enrich_player_shot_payload,
     get_shot_completeness_report,
     get_shot_lab_snapshot,
+    get_team_defense_player_ids,
     get_team_defense_raw_shots,
 )
 from services.warehouse_service import queue_player_shot_chart_sync
@@ -431,6 +432,33 @@ def get_shot_lab_snapshot_route(
     db: Session = Depends(get_db),
 ):
     return get_shot_lab_snapshot(db, snapshot_id)
+
+
+@router.post("/team-defense/{team_id}/refresh", response_model=QueueResponse)
+def refresh_team_defense_shot_chart(
+    team_id: int,
+    season: str = Query(..., description='Season ID, e.g. "2023-24"'),
+    season_type: str = Query("Regular Season", description='"Regular Season" or "Playoffs"'),
+    force: bool = Query(False),
+    db: Session = Depends(get_db),
+):
+    if season_type not in ("Regular Season", "Playoffs"):
+        raise HTTPException(status_code=422, detail='season_type must be "Regular Season" or "Playoffs"')
+
+    _, player_ids, _ = get_team_defense_player_ids(db, team_id, season, season_type)
+    jobs = []
+    for player_id in player_ids:
+        jobs.extend(
+            queue_player_shot_chart_sync(
+                db,
+                player_id=player_id,
+                season=season,
+                season_type=season_type,
+                force=force,
+            )
+        )
+    db.commit()
+    return QueueResponse(queued=len(jobs), jobs=[_job_response(job) for job in jobs])
 
 
 @router.get("/{player_id}/zones", response_model=ZoneProfileResponse)

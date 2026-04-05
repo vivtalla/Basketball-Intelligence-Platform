@@ -16,6 +16,7 @@ from models.game import (
     GameTimelinePoint,
     GameVisualizationResponse,
 )
+from services.pbp_service import describe_event_stream_for_game
 from services.game_visualization_service import build_game_visualization
 from services.game_summary_service import get_game_summary
 
@@ -42,6 +43,8 @@ def get_game_detail(game_id: str, db: Session = Depends(get_db)):
     game = db.query(GameLog).filter_by(game_id=game_id).first()
     if not game:
         raise HTTPException(status_code=404, detail=f"Game {game_id} not found.")
+
+    event_stream = describe_event_stream_for_game(db, game_id)
 
     events = (
         db.query(PlayByPlayEvent)
@@ -183,6 +186,10 @@ def get_game_detail(game_id: str, db: Session = Depends(get_db)):
         away_team_abbreviation=away_team.abbreviation if away_team else None,
         home_score=game.home_score,
         away_score=game.away_score,
+        data_status=event_stream.data_status,
+        completeness_status=event_stream.completeness_status,
+        canonical_source=event_stream.canonical_source,
+        last_synced_at=event_stream.last_synced_at,
         timeline=timeline,
         top_players=top_players,
         events=event_rows,

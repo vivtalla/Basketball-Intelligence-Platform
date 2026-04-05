@@ -60,6 +60,10 @@ class GameDetailResponse(BaseModel):
     away_team_abbreviation: Optional[str] = None
     home_score: Optional[int] = None
     away_score: Optional[int] = None
+    data_status: str = "missing"
+    completeness_status: str = "missing"
+    canonical_source: Optional[str] = None
+    last_synced_at: Optional[str] = None
     timeline: List[GameTimelinePoint]
     top_players: List[GamePlayerSummary]
     events: List[GameEvent]
@@ -181,5 +185,9 @@ class GameVisualizationResponse(BaseModel):
     selected_period: Optional[int] = None
     selected_event_type: Optional[str] = None
     selected_query: Optional[str] = None
+    data_status: str = "missing"
+    completeness_status: str = "missing"
+    canonical_source: Optional[str] = None
+    last_synced_at: Optional[str] = None
     exact_shot_match: bool = False
     steps: List[GameVisualizationStep]

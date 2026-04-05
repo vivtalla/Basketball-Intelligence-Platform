@@ -101,6 +101,7 @@ import {
   refreshPlayerShotChart as postRefreshPlayerShotChart,
   getTeamDefenseShotChart,
   getTeamDefenseZoneProfile,
+  refreshTeamDefenseShotChart as postRefreshTeamDefenseShotChart,
   createShotLabSnapshot as postCreateShotLabSnapshot,
   getShotLabSnapshot,
   getWarehouseCompletenessSummary,
@@ -152,6 +153,28 @@ function buildZoneProfileKey(
   return `zone-profile-${playerId}-${season}-${seasonType}-${normalized.startDate ?? "all"}-${normalized.endDate ?? "all"}-${normalized.periodBucket}-${normalized.result}-${normalized.shotValue}`;
 }
 
+function buildTeamDefenseShotChartKey(
+  teamId: number | null,
+  season: string | null,
+  seasonType = "Regular Season",
+  filters?: Partial<ShotLabFilters>
+) {
+  if (!teamId || !season) return null;
+  const normalized = normalizeShotLabFilters(filters);
+  return `team-defense-shot-chart-${teamId}-${season}-${seasonType}-${normalized.startDate ?? "all"}-${normalized.endDate ?? "all"}-${normalized.periodBucket}-${normalized.result}-${normalized.shotValue}`;
+}
+
+function buildTeamDefenseZoneProfileKey(
+  teamId: number | null,
+  season: string | null,
+  seasonType = "Regular Season",
+  filters?: Partial<ShotLabFilters>
+) {
+  if (!teamId || !season) return null;
+  const normalized = normalizeShotLabFilters(filters);
+  return `team-defense-zone-profile-${teamId}-${season}-${seasonType}-${normalized.startDate ?? "all"}-${normalized.endDate ?? "all"}-${normalized.periodBucket}-${normalized.result}-${normalized.shotValue}`;
+}
+
 export function usePlayerProfile(playerId: number | null) {
   return useSWR<DbFirstPlayerProfile>(
     playerId ? `player-profile-${playerId}` : null,
@@ -198,9 +221,7 @@ export function useTeamDefenseShotChart(
   filters?: Partial<ShotLabFilters>
 ) {
   return useSWR<TeamDefenseShotChartResponse>(
-    teamId && season
-      ? `team-defense-shot-chart-${teamId}-${season}-${seasonType}-${JSON.stringify(normalizeShotLabFilters(filters))}`
-      : null,
+    buildTeamDefenseShotChartKey(teamId, season, seasonType, filters),
     () => getTeamDefenseShotChart(teamId!, season!, seasonType, normalizeShotLabFilters(filters))
   );
 }
@@ -212,9 +233,7 @@ export function useTeamDefenseZoneProfile(
   filters?: Partial<ShotLabFilters>
 ) {
   return useSWR<TeamDefenseZoneProfileResponse>(
-    teamId && season
-      ? `team-defense-zone-profile-${teamId}-${season}-${seasonType}-${JSON.stringify(normalizeShotLabFilters(filters))}`
-      : null,
+    buildTeamDefenseZoneProfileKey(teamId, season, seasonType, filters),
     () => getTeamDefenseZoneProfile(teamId!, season!, seasonType, normalizeShotLabFilters(filters))
   );
 }
@@ -687,6 +706,66 @@ export function useShotChartRefresh(
     setIsRefreshing(true);
     try {
       const queueResult = await postRefreshPlayerShotChart(playerId, season, seasonType, force);
+      const pollStart = Date.now();
+
+      while (Date.now() - pollStart <= 60000) {
+        const freshBaseShot = baseShotKey ? await mutate(baseShotKey) : null;
+        const freshBaseZone = baseZoneKey ? await mutate(baseZoneKey) : null;
+        const freshActiveShot =
+          activeShotKey && activeShotKey !== baseShotKey ? await mutate(activeShotKey) : freshBaseShot;
+        const freshActiveZone =
+          activeZoneKey && activeZoneKey !== baseZoneKey ? await mutate(activeZoneKey) : freshBaseZone;
+
+        const latestShot = freshActiveShot ?? freshBaseShot;
+        const latestZone = freshActiveZone ?? freshBaseZone;
+        const syncedChanged =
+          latestShot?.last_synced_at != null && latestShot.last_synced_at !== previousSyncedAt;
+        const noLongerBlocked =
+          latestShot?.data_status === "ready" &&
+          latestZone?.data_status === "ready";
+
+        if (syncedChanged || noLongerBlocked) {
+          return queueResult;
+        }
+
+        await new Promise((resolve) => window.setTimeout(resolve, 5000));
+      }
+
+      return queueResult;
+    } finally {
+      setIsRefreshing(false);
+    }
+  }
+
+  return { refresh, isRefreshing };
+}
+
+export function useTeamDefenseShotChartRefresh(
+  teamId: number | null,
+  season: string | null,
+  seasonType = "Regular Season",
+  filters?: Partial<ShotLabFilters>
+) {
+  const { mutate, cache } = useSWRConfig();
+  const [isRefreshing, setIsRefreshing] = useState(false);
+
+  async function refresh(force = true) {
+    if (!teamId || !season || isRefreshing) return null;
+
+    const activeFilters = normalizeShotLabFilters(filters);
+    const baseFilters = DEFAULT_SHOT_LAB_FILTERS;
+    const activeShotKey = buildTeamDefenseShotChartKey(teamId, season, seasonType, activeFilters);
+    const activeZoneKey = buildTeamDefenseZoneProfileKey(teamId, season, seasonType, activeFilters);
+    const baseShotKey = buildTeamDefenseShotChartKey(teamId, season, seasonType, baseFilters);
+    const baseZoneKey = buildTeamDefenseZoneProfileKey(teamId, season, seasonType, baseFilters);
+    const previousSyncedAt =
+      (activeShotKey ? (cache.get(activeShotKey) as TeamDefenseShotChartResponse | undefined)?.last_synced_at : null) ??
+      (baseShotKey ? (cache.get(baseShotKey) as TeamDefenseShotChartResponse | undefined)?.last_synced_at : null) ??
+      null;
+
+    setIsRefreshing(true);
+    try {
+      const queueResult = await postRefreshTeamDefenseShotChart(teamId, season, seasonType, force);
       const pollStart = Date.now();
 
       while (Date.now() - pollStart <= 60000) {

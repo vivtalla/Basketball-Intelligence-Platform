@@ -34,6 +34,87 @@ def _canonical_name(name: str) -> str:
     return " ".join(normalized.lower().replace(".", "").split())
 
 
+@dataclass(frozen=True)
+class EventStreamStatus:
+    data_status: str
+    completeness_status: str
+    canonical_source: str
+    last_synced_at: Optional[str] = None
+    canonical_event_count: int = 0
+    legacy_event_count: int = 0
+
+
+def describe_event_stream_for_game(db, game_id: str, warehouse_game=None) -> EventStreamStatus:
+    """Summarize the current event-stream state for a game.
+
+    `play_by_play_events` is the canonical warehouse representation.
+    `play_by_play` is retained as a legacy fallback during migration.
+    """
+    from db.models import PlayByPlay, PlayByPlayEvent, WarehouseGame
+
+    game = warehouse_game
+    if game is None:
+        game = db.query(WarehouseGame).filter_by(game_id=game_id).first()
+
+    canonical_event_count = (
+        db.query(PlayByPlayEvent)
+        .filter(PlayByPlayEvent.game_id == game_id)
+        .count()
+    )
+    legacy_event_count = 0
+    if canonical_event_count == 0:
+        legacy_event_count = (
+            db.query(PlayByPlay)
+            .filter(PlayByPlay.game_id == game_id)
+            .count()
+        )
+
+    last_synced_at = (
+        game.last_pbp_sync_at.isoformat()
+        if game is not None and getattr(game, "last_pbp_sync_at", None)
+        else None
+    )
+
+    if canonical_event_count > 0 or (game is not None and bool(getattr(game, "has_parsed_pbp", False))):
+        return EventStreamStatus(
+            data_status="ready",
+            completeness_status="ready",
+            canonical_source="warehouse-parsed-pbp",
+            last_synced_at=last_synced_at,
+            canonical_event_count=canonical_event_count,
+            legacy_event_count=legacy_event_count,
+        )
+
+    if game is not None and bool(getattr(game, "has_pbp_payload", False)):
+        return EventStreamStatus(
+            data_status="stale",
+            completeness_status="partial",
+            canonical_source="warehouse-raw-pbp-payload",
+            last_synced_at=last_synced_at,
+            canonical_event_count=canonical_event_count,
+            legacy_event_count=legacy_event_count,
+        )
+
+    if legacy_event_count > 0:
+        return EventStreamStatus(
+            data_status="ready",
+            completeness_status="legacy",
+            canonical_source="legacy-play-by-play",
+            last_synced_at=last_synced_at,
+            canonical_event_count=canonical_event_count,
+            legacy_event_count=legacy_event_count,
+        )
+
+    return EventStreamStatus(
+        data_status="missing",
+        completeness_status="missing",
+        canonical_source="unavailable",
+        last_synced_at=last_synced_at,
+        canonical_event_count=canonical_event_count,
+        legacy_event_count=legacy_event_count,
+    )
+
+
 def load_pbp_events_for_game(db, game_id: str) -> List[dict]:
     """Load canonical PBP events for a game, falling back to legacy rows.
 

@@ -28,6 +28,7 @@ from routers.shotchart import (  # noqa: E402
     player_shot_zones,
     post_shot_lab_snapshot,
     refresh_player_shot_chart,
+    refresh_team_defense_shot_chart,
     shot_completeness_report,
     team_defense_shot_chart,
     team_defense_shot_zones,
@@ -538,6 +539,45 @@ def test_refresh_player_shot_chart_queues_single_player_job():
         assert response.queued == 1
         assert response.jobs[0].job_type == "sync_player_shot_chart"
         assert response.jobs[0].job_key == "19:2024-25:Regular Season"
+    finally:
+        session.close()
+
+
+def test_refresh_team_defense_shot_chart_queues_opponent_player_jobs():
+    session = make_session()
+    try:
+        session.add_all(
+            [
+                Team(id=1610612738, abbreviation="BOS", name="Boston Celtics"),
+                Team(id=1610612739, abbreviation="CLE", name="Cleveland Cavaliers"),
+                Player(id=41, full_name="Opponent One", team_id=1610612738, is_active=True),
+                Player(id=42, full_name="Opponent Two", team_id=1610612739, is_active=True),
+            ]
+        )
+        session.commit()
+        seed_game(session, game_id="0022400110", season="2024-25", home_team_id=1610612737, away_team_id=1610612738)
+        seed_game(session, game_id="0022400111", season="2024-25", home_team_id=1610612739, away_team_id=1610612737)
+        session.add_all(
+            [
+                GamePlayerStat(game_id="0022400110", season="2024-25", player_id=41, team_id=1610612738, team_abbreviation="BOS"),
+                GamePlayerStat(game_id="0022400111", season="2024-25", player_id=42, team_id=1610612739, team_abbreviation="CLE"),
+            ]
+        )
+        session.commit()
+
+        response = refresh_team_defense_shot_chart(
+            1610612737,
+            season="2024-25",
+            season_type="Regular Season",
+            force=True,
+            db=session,
+        )
+
+        assert response.queued == 2
+        assert [job.job_key for job in response.jobs] == [
+            "41:2024-25:Regular Season",
+            "42:2024-25:Regular Season",
+        ]
     finally:
         session.close()
 

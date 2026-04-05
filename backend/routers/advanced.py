@@ -14,7 +14,6 @@ from db.models import (
     LineupStats,
     Player,
     Team,
-    GameLog,
     PlayByPlay,
     GamePlayerStat,
     WarehouseGame,
@@ -335,6 +334,9 @@ def get_pbp_coverage(player_id: int, season: str = "2024-25", db: Session = Depe
             has_on_off=False,
             has_scoring_splits=False,
             status="none",
+            data_status="missing",
+            completeness_status="missing",
+            canonical_source="warehouse-plus-derived",
             last_derived_at=None,
         )
 
@@ -351,14 +353,21 @@ def get_pbp_coverage(player_id: int, season: str = "2024-25", db: Session = Depe
 
     eligible_games = len(player_game_ids)
     synced_games = 0
+    legacy_games = 0
     if player_game_ids:
         synced_games = (
-            db.query(func.count(func.distinct(PlayByPlay.game_id)))
-            .join(GameLog, PlayByPlay.game_id == GameLog.game_id)
+            db.query(func.count(func.distinct(WarehouseGame.game_id)))
             .filter(
-                GameLog.season == season,
-                PlayByPlay.game_id.in_(player_game_ids),
+                WarehouseGame.season == season,
+                WarehouseGame.game_id.in_(player_game_ids),
+                WarehouseGame.has_parsed_pbp == True,  # noqa: E712
             )
+            .scalar()
+            or 0
+        )
+        legacy_games = (
+            db.query(func.count(func.distinct(PlayByPlay.game_id)))
+            .filter(PlayByPlay.game_id.in_(player_game_ids))
             .scalar()
             or 0
         )
@@ -393,6 +402,23 @@ def get_pbp_coverage(player_id: int, season: str = "2024-25", db: Session = Depe
     else:
         status = "partial"
 
+    if synced_games > 0 and synced_games >= eligible_games and has_on_off and has_scoring_splits:
+        data_status = "ready"
+        completeness_status = "ready"
+        canonical_source = "warehouse-parsed-pbp"
+    elif synced_games > 0 or has_on_off or has_scoring_splits:
+        data_status = "ready"
+        completeness_status = "partial"
+        canonical_source = "warehouse-plus-derived"
+    elif legacy_games > 0:
+        data_status = "ready"
+        completeness_status = "legacy"
+        canonical_source = "legacy-play-by-play"
+    else:
+        data_status = "missing"
+        completeness_status = "missing"
+        canonical_source = "warehouse-plus-derived"
+
     return PbpCoverage(
         player_id=player_id,
         season=season,
@@ -401,6 +427,9 @@ def get_pbp_coverage(player_id: int, season: str = "2024-25", db: Session = Depe
         has_on_off=has_on_off,
         has_scoring_splits=has_scoring_splits,
         status=status,
+        data_status=data_status,
+        completeness_status=completeness_status,
+        canonical_source=canonical_source,
         last_derived_at=max(timestamps).isoformat() if timestamps else None,
     )
 

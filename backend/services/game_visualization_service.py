@@ -6,6 +6,7 @@ from sqlalchemy.orm import Session
 
 from db.models import PlayByPlayEvent, Player, PlayerShotChart, Team, WarehouseGame
 from models.game import GameVisualizationElement, GameVisualizationResponse, GameVisualizationStep
+from services.pbp_service import describe_event_stream_for_game
 from services.shot_lab_service import matches_season_type
 
 
@@ -97,6 +98,8 @@ def build_game_visualization(
     if game is None:
         return None
 
+    event_stream = describe_event_stream_for_game(db, game_id, warehouse_game=game)
+
     events = (
         db.query(PlayByPlayEvent)
         .filter(PlayByPlayEvent.game_id == game_id)
@@ -113,6 +116,10 @@ def build_game_visualization(
             selected_period=period,
             selected_event_type=event_type,
             selected_query=query,
+            data_status=event_stream.data_status,
+            completeness_status=event_stream.completeness_status,
+            canonical_source=event_stream.canonical_source,
+            last_synced_at=event_stream.last_synced_at,
             exact_shot_match=False,
             steps=[],
         )
@@ -211,6 +218,10 @@ def build_game_visualization(
         selected_period=period,
         selected_event_type=event_type,
         selected_query=query,
+        data_status=event_stream.data_status,
+        completeness_status=event_stream.completeness_status,
+        canonical_source=event_stream.canonical_source,
+        last_synced_at=event_stream.last_synced_at,
         exact_shot_match=exact_shot_match,
         steps=steps,
     )

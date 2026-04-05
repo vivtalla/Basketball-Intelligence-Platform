@@ -1069,3 +1069,20 @@ export async function getGameVisualization(
     `/api/games/${encodeURIComponent(gameId)}/visualization${suffix}`
   );
 }
+
+export async function refreshTeamDefenseShotChart(
+  teamId: number,
+  season: string,
+  seasonType = "Regular Season",
+  force = false
+): Promise<import("./types").QueueResponse> {
+  const params = new URLSearchParams({
+    season,
+    season_type: seasonType,
+    force: String(force),
+  });
+  return fetchApi<import("./types").QueueResponse>(
+    `/api/shotchart/team-defense/${teamId}/refresh?${params.toString()}`,
+    { method: "POST" }
+  );
+}
