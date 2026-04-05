@@ -2,8 +2,13 @@
 
 import { useSearchParams } from "next/navigation";
 import { startTransition, useEffect, useMemo, useState } from "react";
-import { useShotLabSnapshot, useTeamDefenseShotChart, useTeamDefenseZoneProfile } from "@/hooks/usePlayerStats";
-import type { ShotLabDateRange, ShotLabSituationalFilters, ShotLabWindowPreset } from "@/lib/types";
+import {
+  useShotLabSnapshot,
+  useTeamDefenseShotChart,
+  useTeamDefenseShotChartRefresh,
+  useTeamDefenseZoneProfile,
+} from "@/hooks/usePlayerStats";
+import type { ShotChartShot, ShotLabDateRange, ShotLabSituationalFilters, ShotLabWindowPreset } from "@/lib/types";
 import { clampShotLabCustomRange, resolveShotLabRange } from "@/lib/shotlab";
 import ChartStatusBadge from "./ChartStatusBadge";
 import ShotLabControls from "./ShotLabControls";
@@ -34,6 +39,11 @@ function windowLabel(preset: ShotLabWindowPreset, range: ShotLabDateRange): stri
   if (preset === "last-30-days") return "Last 30 days";
   if (range.startDate && range.endDate) return `${range.startDate} to ${range.endDate}`;
   return "Custom window";
+}
+
+function isLegacyPeriodContext(shots: ShotChartShot[] | undefined): boolean {
+  if (!shots || shots.length === 0) return false;
+  return !shots.some((shot) => typeof shot.period === "number" && Number.isFinite(shot.period));
 }
 
 export default function TeamDefenseShotLab({
@@ -83,6 +93,12 @@ export default function TeamDefenseShotLab({
     seasonType,
     activeFilters
   );
+  const { refresh, isRefreshing } = useTeamDefenseShotChartRefresh(
+    teamId,
+    selectedSeason,
+    seasonType,
+    activeFilters
+  );
 
   useEffect(() => {
     if (!snapshotId || !snapshot || appliedSnapshotId === snapshotId) return;
@@ -106,6 +122,14 @@ export default function TeamDefenseShotLab({
 
   const activeShotChart = shotChart ?? baseShot;
   const hasNoAttempts = Boolean(activeShotChart && activeShotChart.attempted === 0 && activeShotChart.data_status !== "missing");
+  const needsPeriodRefresh = Boolean(
+    situationalFilters.periodBucket !== "all" &&
+      baseShot &&
+      baseShot.attempted > 0 &&
+      isLegacyPeriodContext(baseShot.shots) &&
+      activeShotChart &&
+      activeShotChart.attempted === 0
+  );
 
   return (
     <section className="bip-shot-shell bip-shot-shell-neutral space-y-5">
@@ -121,6 +145,15 @@ export default function TeamDefenseShotLab({
         </div>
         <div className="flex flex-wrap items-center gap-3">
           <ChartStatusBadge status={activeShotChart?.data_status ?? "missing"} compact />
+          {(activeShotChart?.data_status === "missing" || activeShotChart?.data_status === "stale") ? (
+            <button
+              onClick={() => void refresh(true)}
+              disabled={isRefreshing}
+              className="rounded-full border border-[rgba(25,52,42,0.12)] bg-white px-3 py-1.5 text-xs font-medium text-[var(--foreground)] transition-colors hover:border-[rgba(25,52,42,0.24)] disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {isRefreshing ? "Refreshing..." : "Refresh opponent shots"}
+            </button>
+          ) : null}
           <ShotSnapshotButton
             payload={{
               subject_type: "team-defense",
@@ -182,12 +215,34 @@ export default function TeamDefenseShotLab({
       </div>
 
       {activeShotChart?.data_status === "missing" ? (
-        <div className="bip-empty rounded-[1.25rem] px-4 py-3 text-sm text-[var(--muted-strong)]">
-          Opponent shot context has not been prepared for this team and season yet.
+        <div className="bip-empty flex flex-wrap items-center justify-between gap-3 rounded-[1.25rem] px-4 py-3 text-sm text-[var(--muted-strong)]">
+          <span>Opponent shot context has not been prepared for this team and season yet.</span>
+          <button
+            onClick={() => void refresh(true)}
+            disabled={isRefreshing}
+            className="rounded-full border border-[rgba(25,52,42,0.12)] bg-white px-3 py-1.5 text-xs font-medium text-[var(--foreground)] transition-colors hover:border-[rgba(25,52,42,0.24)] disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            {isRefreshing ? "Refreshing..." : "Refresh opponent shots"}
+          </button>
         </div>
       ) : null}
 
-      {hasNoAttempts ? (
+      {needsPeriodRefresh ? (
+        <div className="bip-empty flex flex-wrap items-center justify-between gap-3 rounded-[1.25rem] px-4 py-3 text-sm text-[var(--muted-strong)]">
+          <span>
+            Period filters need refreshed opponent shot-context data for this selection. Refresh now to pull the richer shot payload.
+          </span>
+          <button
+            onClick={() => void refresh(true)}
+            disabled={isRefreshing}
+            className="rounded-full border border-[rgba(25,52,42,0.12)] bg-white px-3 py-1.5 text-xs font-medium text-[var(--foreground)] transition-colors hover:border-[rgba(25,52,42,0.24)] disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            {isRefreshing ? "Refreshing..." : "Refresh opponent shots"}
+          </button>
+        </div>
+      ) : null}
+
+      {hasNoAttempts && !needsPeriodRefresh ? (
         <div className="bip-empty rounded-[1.25rem] px-4 py-3 text-sm text-[var(--muted-strong)]">
           No opponent attempts fall inside this selected window.
         </div>
