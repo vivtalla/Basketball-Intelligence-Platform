@@ -265,6 +265,11 @@ def test_scouting_report_and_export_include_claim_linked_clip_anchors():
         assert all(anchor.claim_id in claim_ids for anchor in report.clip_anchors)
         assert "source_type=scouting-report" in report.launch_context.compare_url
         assert all("source=scouting-report" in anchor.deep_link_url for anchor in report.clip_anchors)
+        assert all(anchor.linkage_quality in {"derived", "timeline"} for anchor in report.clip_anchors)
+        assert all("focus_window=1" in anchor.deep_link_url for anchor in report.clip_anchors)
+        assert all("source_id=" in anchor.deep_link_url for anchor in report.clip_anchors)
+        assert any(anchor.action_number is not None for anchor in report.clip_anchors)
+        assert any(anchor.source_context and anchor.source_context.get("source") == "scouting-report" for anchor in report.clip_anchors)
 
         export = export_scouting_clip_list(
             ScoutingClipExportRequest(team=atl.abbreviation, opponent=bos.abbreviation, season="2025-26"),
@@ -272,5 +277,6 @@ def test_scouting_report_and_export_include_claim_linked_clip_anchors():
         )
         assert export.clip_count == len(export.clip_anchors)
         assert export.data_status in {"ready", "partial", "limited"}
+        assert all(anchor.linkage_quality in {"derived", "timeline"} for anchor in export.clip_anchors)
     finally:
         session.close()

@@ -1063,6 +1063,16 @@ export async function getGameVisualization(
     eventType?: string | null;
     query?: string | null;
     source?: string | null;
+    sourceId?: string | null;
+    sourceLabel?: string | null;
+    reason?: string | null;
+    claimId?: string | null;
+    clipAnchorId?: string | null;
+    returnTo?: string | null;
+    linkageQuality?: string | null;
+    focusEventId?: string | null;
+    focusActionNumber?: number | null;
+    focusWindow?: number | null;
   }
 ): Promise<import("./types").GameVisualizationResponse> {
   const params = new URLSearchParams();
@@ -1072,6 +1082,16 @@ export async function getGameVisualization(
   if (options?.eventType) params.set("event_type", options.eventType);
   if (options?.query) params.set("query", options.query);
   if (options?.source) params.set("source", options.source);
+  if (options?.sourceId) params.set("source_id", options.sourceId);
+  if (options?.sourceLabel) params.set("source_label", options.sourceLabel);
+  if (options?.reason) params.set("reason", options.reason);
+  if (options?.claimId) params.set("claim_id", options.claimId);
+  if (options?.clipAnchorId) params.set("clip_anchor_id", options.clipAnchorId);
+  if (options?.returnTo) params.set("return_to", options.returnTo);
+  if (options?.linkageQuality) params.set("linkage_quality", options.linkageQuality);
+  if (options?.focusEventId) params.set("focus_event_id", options.focusEventId);
+  if (options?.focusActionNumber != null) params.set("focus_action_number", String(options.focusActionNumber));
+  if (options?.focusWindow != null) params.set("focus_window", String(options.focusWindow));
   const suffix = params.toString() ? `?${params.toString()}` : "";
   return fetchApi<import("./types").GameVisualizationResponse>(
     `/api/games/${encodeURIComponent(gameId)}/visualization${suffix}`

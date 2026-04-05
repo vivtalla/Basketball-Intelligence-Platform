@@ -31,12 +31,19 @@ class ScoutingClipAnchor(BaseModel):
     game_date: Optional[str] = None
     opponent_abbreviation: Optional[str] = None
     event_id: Optional[int] = None
+    source_event_id: Optional[str] = None
     action_number: Optional[int] = None
+    order_index: Optional[int] = None
     period: Optional[int] = None
     clock: Optional[str] = None
+    event_type: Optional[str] = None
+    action_family: Optional[str] = None
     title: str
     reason: str
     evidence_summary: str
+    event_description: Optional[str] = None
+    linkage_quality: str = "timeline"
+    source_context: Optional[Dict[str, str]] = None
     deep_link_url: str
 
 

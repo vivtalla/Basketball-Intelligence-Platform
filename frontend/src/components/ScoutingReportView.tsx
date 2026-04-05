@@ -44,6 +44,8 @@ export default function ScoutingReportView({
     return <div className="h-[28rem] animate-pulse rounded-[1.75rem] bg-[var(--surface-alt)]" />;
   }
 
+  const derivedAnchorCount = report.clip_anchors.filter((anchor) => anchor.linkage_quality === "derived").length;
+
   return (
     <section className="space-y-6">
       <section className="rounded-[1.75rem] border border-[var(--border)] bg-[var(--surface)] p-6">
@@ -55,6 +57,9 @@ export default function ScoutingReportView({
             </h2>
             <p className="mt-3 text-sm leading-6 text-[var(--muted-strong)]">
               {report.data_status} via synced scouting, style, comparison, and event data. Claims now carry linked film targets instead of stopping at narrative output.
+            </p>
+            <p className="mt-2 text-xs uppercase tracking-[0.16em] text-[var(--muted)]">
+              {derivedAnchorCount} event-backed anchors · {report.clip_anchors.length - derivedAnchorCount} timeline-context anchors
             </p>
           </div>
           <div className="flex flex-wrap gap-3">
@@ -113,7 +118,7 @@ export default function ScoutingReportView({
                               href={anchor.deep_link_url}
                               className="rounded-full bg-[rgba(216,228,221,0.4)] px-3 py-2 text-xs font-semibold uppercase tracking-[0.12em] text-[var(--accent-strong)] transition hover:bg-[rgba(216,228,221,0.62)]"
                             >
-                              {anchor.game_date ?? "Game"} · {anchor.evidence_summary}
+                              {anchor.game_date ?? "Game"} · {anchor.linkage_quality === "derived" ? "Event-backed" : "Timeline"} · {anchor.evidence_summary}
                             </Link>
                           ))}
                         </div>
@@ -143,9 +148,24 @@ export default function ScoutingReportView({
                     </div>
                     <div className="mt-2 font-semibold text-[var(--foreground)]">{anchor.title}</div>
                     <div className="mt-2 text-sm leading-6 text-[var(--muted-strong)]">{anchor.reason}</div>
+                    <div className="mt-3 flex flex-wrap gap-2">
+                      <span className="rounded-full border border-[var(--border)] px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--muted-strong)]">
+                        {anchor.linkage_quality === "derived" ? "Event-backed" : "Timeline context"}
+                      </span>
+                      {anchor.action_family ? (
+                        <span className="rounded-full border border-[var(--border)] px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--muted-strong)]">
+                          {anchor.action_family}
+                        </span>
+                      ) : null}
+                    </div>
                     <div className="mt-2 text-xs text-[var(--muted)]">
                       {anchor.period ? `Q${anchor.period}` : "Event"} {anchor.clock ? `· ${anchor.clock}` : ""} {anchor.action_number ? `· action ${anchor.action_number}` : ""}
                     </div>
+                    {anchor.event_description ? (
+                      <div className="mt-2 text-sm leading-6 text-[var(--muted-strong)]">
+                        {anchor.event_description}
+                      </div>
+                    ) : null}
                   </Link>
                 ))
               ) : (

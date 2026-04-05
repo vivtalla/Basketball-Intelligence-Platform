@@ -1,4 +1,4 @@
-from typing import List, Optional
+from typing import Dict, List, Optional
 
 from pydantic import BaseModel
 
@@ -175,6 +175,8 @@ class GameVisualizationStep(BaseModel):
     away_score: Optional[int] = None
     exact_shot_match: bool = False
     linkage_quality: str = "timeline"
+    sequence_role: Optional[str] = None
+    sequence_offset: Optional[int] = None
     elements: List[GameVisualizationElement]
 
 
@@ -192,5 +194,12 @@ class GameVisualizationResponse(BaseModel):
     canonical_source: Optional[str] = None
     last_synced_at: Optional[str] = None
     exact_shot_match: bool = False
+    linkage_quality: str = "timeline"
     highlighted_event_id: Optional[str] = None
+    highlighted_action_number: Optional[int] = None
+    focus_event_id: Optional[str] = None
+    focus_action_number: Optional[int] = None
+    focus_window: int = 1
+    focus_steps: List[GameVisualizationStep] = []
+    source_context: Optional[Dict[str, str]] = None
     steps: List[GameVisualizationStep]

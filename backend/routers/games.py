@@ -3,7 +3,7 @@ from __future__ import annotations
 from collections import defaultdict
 from typing import Dict, List, Optional
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 
 from db.database import get_db
@@ -199,12 +199,22 @@ def get_game_detail(game_id: str, db: Session = Depends(get_db)):
 @router.get("/{game_id}/visualization", response_model=GameVisualizationResponse)
 def get_game_visualization(
     game_id: str,
-    shot_event_id: Optional[str] = None,
-    player_id: Optional[int] = None,
-    period: Optional[int] = None,
-    event_type: Optional[str] = None,
-    query: Optional[str] = None,
-    source: Optional[str] = None,
+    shot_event_id: Optional[str] = Query(None),
+    player_id: Optional[int] = Query(None),
+    period: Optional[int] = Query(None),
+    event_type: Optional[str] = Query(None),
+    query: Optional[str] = Query(None),
+    source: Optional[str] = Query(None),
+    source_id: Optional[str] = Query(None),
+    source_label: Optional[str] = Query(None),
+    reason: Optional[str] = Query(None),
+    claim_id: Optional[str] = Query(None),
+    clip_anchor_id: Optional[str] = Query(None),
+    return_to: Optional[str] = Query(None),
+    linkage_quality: Optional[str] = Query(None),
+    focus_event_id: Optional[str] = Query(None),
+    focus_action_number: Optional[int] = Query(None),
+    focus_window: int = Query(1, ge=1, le=4),
     db: Session = Depends(get_db),
 ):
     payload = build_game_visualization(
@@ -216,6 +226,16 @@ def get_game_visualization(
         event_type=event_type,
         query=query,
         source=source,
+        source_id=source_id,
+        source_label=source_label,
+        reason=reason,
+        claim_id=claim_id,
+        clip_anchor_id=clip_anchor_id,
+        return_to=return_to,
+        linkage_quality=linkage_quality,
+        focus_event_id=focus_event_id,
+        focus_action_number=focus_action_number,
+        focus_window=focus_window,
     )
     if payload is None:
         raise HTTPException(status_code=404, detail=f"No visualization payload found for game {game_id}.")

@@ -64,23 +64,14 @@ Likely shape:
 - Add lightweight annotations or explainer overlays that help users read sprawl/value/distance views faster
 - Extend the new shot-lab visual language to any remaining chart surfaces that still feel older than the player and compare shot suites
 
-### 3D Shot Charts and Play Reconstruction
+### Replay Workflow Expansion
 Why it matters:
-Sprint 38 introduced the first 3D shot/game scaffold, but the platform still needs the next layer: richer possession playback and a more expressive analytical scene that remains truthful about what is exact versus inferred.
+Sprint 40 made Game Explorer event-centered and turned the first 3D/scouting replay loop into a real workflow. The next gains come from broadening where that replay contract appears and making the sequence view feel even more analytical.
 
 Likely shape:
-- deepen the procedural 3D half-court into a fuller possession playback system
-- keep using shot arcs, event markers, and camera presets, but expand the scene choreography where it adds real analysis value
-- preserve the exact/inferred labeling contract so the 3D layer stays trustworthy rather than theatrical
-
-### Shot-to-Event Precision Follow-Ons
-Why it matters:
-Sprint 37 and Sprint 38 both improved the shot-lab bridge into Game Explorer, but the most helpful next gain is to make that handoff more exact whenever the data supports it.
-
-Likely shape:
-- use `shot_event_id`, `period`, `clock`, and play-by-play descriptions to tighten shot-to-event matching where support is strong
-- highlight the specific play row or sequence in Game Explorer when a shot-lab link resolves cleanly
-- keep ambiguous cases honest instead of forcing false precision
+- extend focused replay handoffs into more source surfaces such as trend cards, What-If, prep queue, and compare stories
+- deepen the 3D scene choreography beyond the current short sequence view without losing the exact/derived/timeline trust model
+- keep sharpening sequence summaries, labels, and analyst controls so replay feels like a coaching tool rather than only a visual drill-down
 
 ### Visualization Follow-Ons (Sprint 31 seeds)
 Why it matters:
@@ -133,11 +124,11 @@ Likely shape:
 
 ### Play-Type Scouting and Clip Workflow
 Why it matters:
-Sprint 25 proved that inferred action families can support coach-readable prep, but the workflow is still early and should become more actionable for staff review.
+Sprint 40 turned scouting claims into event-backed replay targets and exportable clip candidates, but the workflow is still early and should become more actionable for staff review.
 
 Likely shape:
 - strengthen inferred action-family confidence and opponent-specific scouting claims
-- add event-based clip anchors and clip-list export so reports connect more directly to film review
+- improve clip-list export formatting, selection controls, and workflow continuity with pre-read and compare
 - keep all action-family claims evidence-backed and explicit about inference quality
 
 ---
@@ -176,14 +167,14 @@ Likely shape:
 - improve export/share formatting for staff review
 - connect meaningful card changes directly into follow-through games and compare launches
 
-### Event-Based Clip Anchors
+### Replay Adoption Across Workflows
 Why it matters:
-CourtVue Labs can become more useful to coaching staffs before native video support exists by working alongside the video tools they already use.
+Event-centered replay is now live in shot lab and scouting, and the next value comes from spreading that same handoff quality to the rest of the platform’s coaching and review surfaces.
 
 Likely shape:
-- tag possessions by event type, quarter, team, and play-type context
-- export clip-ready lists for shot attempts, turnovers, free-throw trips, and similar events
-- keep the workflow video-adjacent rather than trying to replace film tools
+- add source-aware replay launches from trend cards, What-If, prep queue, and other high-context surfaces
+- preserve exact versus inferred trust signals consistently across all replay entry points
+- keep the workflow URL/state-first until a stronger case for saved replay artifacts appears
 
 ### Focus Levers Follow-Ons
 Why it matters:

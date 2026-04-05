@@ -9,7 +9,6 @@ import {
   elementExactnessColor,
   supportsWebGL,
   visualizationStepCenter,
-  visualizationStepPositions,
 } from "@/lib/shot3d";
 import ProceduralHalfCourt from "./ProceduralHalfCourt";
 import ThreeUnavailableState from "./ThreeUnavailableState";
@@ -18,16 +17,24 @@ interface GameVisualization3DProps {
   data: GameVisualizationResponse;
 }
 
-function SceneMarker({ element }: { element: GameVisualizationElement }) {
+function SceneMarker({
+  element,
+  isActive,
+}: {
+  element: GameVisualizationElement;
+  isActive: boolean;
+}) {
   const color = elementExactnessColor(element.exactness);
   return (
     <group>
       <mesh position={[element.x ?? 0, (element.y ?? 0) + 0.25, element.z ?? 0]}>
-        <sphereGeometry args={[element.exactness === "exact" ? 0.42 : 0.34, 18, 18]} />
+        <sphereGeometry args={[isActive ? 0.5 : element.exactness === "exact" ? 0.42 : 0.32, 18, 18]} />
         <meshStandardMaterial
           color={color}
           emissive={color}
-          emissiveIntensity={element.exactness === "exact" ? 0.45 : 0.26}
+          emissiveIntensity={isActive ? 0.6 : element.exactness === "exact" ? 0.45 : 0.22}
+          opacity={isActive ? 1 : 0.72}
+          transparent
         />
       </mesh>
     </group>
@@ -44,21 +51,23 @@ function ConnectorLine({ points, color }: { points: Array<[number, number, numbe
 export default function GameVisualization3D({ data }: GameVisualization3DProps) {
   const [stepIndex, setStepIndex] = useState(0);
   const [hasWebGL] = useState<boolean>(() => supportsWebGL());
+  const sequenceSteps = data.focus_steps && data.focus_steps.length > 0 ? data.focus_steps : data.steps;
 
   useEffect(() => {
-    const exactIndex = data.steps.findIndex((step) => step.exact_shot_match);
+    const focusIndex = sequenceSteps.findIndex((step) => step.sequence_role === "focus");
+    const exactIndex = sequenceSteps.findIndex((step) => step.exact_shot_match);
     startTransition(() => {
-      setStepIndex(exactIndex >= 0 ? exactIndex : 0);
+      setStepIndex(focusIndex >= 0 ? focusIndex : exactIndex >= 0 ? exactIndex : 0);
     });
-  }, [data.steps]);
+  }, [sequenceSteps]);
 
-  const activeStep = data.steps[Math.min(stepIndex, Math.max(0, data.steps.length - 1))];
+  const activeStep = sequenceSteps[Math.min(stepIndex, Math.max(0, sequenceSteps.length - 1))];
   const focus = activeStep ? visualizationStepCenter(activeStep) : { x: 0, y: 0, z: 16 };
   const cameraPosition: [number, number, number] = useMemo(
     () => [focus.x + 18, 18, Math.min(COURT_3D.floorEndZ, focus.z + 22)],
     [focus.x, focus.z]
   );
-  const elementPoints = activeStep ? visualizationStepPositions(activeStep) : [];
+  const connectorPoints = sequenceSteps.map((step) => visualizationStepCenter(step)).map((point) => [point.x, point.y + 0.12, point.z] as [number, number, number]);
   const connectorColor = activeStep?.exact_shot_match ? "#38bdf8" : "#94a3b8";
   const activeLinkageLabel =
     activeStep?.linkage_quality === "exact"
@@ -66,6 +75,14 @@ export default function GameVisualization3D({ data }: GameVisualization3DProps) 
       : activeStep?.linkage_quality === "derived"
       ? "Derived shot linkage"
       : "Timeline context";
+  const focusLabel =
+    activeStep?.sequence_role === "focus"
+      ? "Focus event"
+      : activeStep?.sequence_offset != null && activeStep.sequence_offset < 0
+      ? "Lead-in"
+      : activeStep?.sequence_offset != null && activeStep.sequence_offset > 0
+      ? "Follow-through"
+      : "Sequence event";
 
   if (hasWebGL === false) {
     return (
@@ -96,17 +113,17 @@ export default function GameVisualization3D({ data }: GameVisualization3DProps) 
         <div className="flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400">
           <button
             onClick={() => setStepIndex((value) => Math.max(0, value - 1))}
-            disabled={data.steps.length === 0}
+            disabled={sequenceSteps.length === 0}
             className="rounded-full border px-3 py-1.5"
           >
             Prev
           </button>
           <span>
-            {data.steps.length === 0 ? "0 / 0" : `${Math.min(stepIndex + 1, data.steps.length)} / ${data.steps.length}`}
+            {sequenceSteps.length === 0 ? "0 / 0" : `${Math.min(stepIndex + 1, sequenceSteps.length)} / ${sequenceSteps.length}`}
           </span>
           <button
-            onClick={() => setStepIndex((value) => Math.min(data.steps.length - 1, value + 1))}
-            disabled={data.steps.length === 0}
+            onClick={() => setStepIndex((value) => Math.min(sequenceSteps.length - 1, value + 1))}
+            disabled={sequenceSteps.length === 0}
             className="rounded-full border px-3 py-1.5"
           >
             Next
@@ -133,11 +150,17 @@ export default function GameVisualization3D({ data }: GameVisualization3DProps) 
               <directionalLight position={[18, 28, 22]} intensity={1.2} />
               <ProceduralHalfCourt tone="dark" />
 
-              {activeStep?.elements.map((element, index) => (
-                <SceneMarker key={`${element.kind}-${index}`} element={element} />
-              ))}
+              {sequenceSteps.map((step) =>
+                step.elements.map((element, index) => (
+                  <SceneMarker
+                    key={`${step.action_number}-${element.kind}-${index}`}
+                    element={element}
+                    isActive={step.action_number === activeStep?.action_number}
+                  />
+                ))
+              )}
 
-              <ConnectorLine points={elementPoints.map((point) => [point.x, point.y + 0.12, point.z])} color={connectorColor} />
+              <ConnectorLine points={connectorPoints} color={connectorColor} />
 
               <OrbitControls enablePan={false} maxPolarAngle={Math.PI / 2.05} minDistance={10} maxDistance={64} />
             </Canvas>
@@ -162,9 +185,32 @@ export default function GameVisualization3D({ data }: GameVisualization3DProps) 
 
       <div className="rounded-[1rem] bg-gray-50 px-3 py-2 text-xs text-gray-600 dark:bg-gray-800/60 dark:text-gray-300">
         {activeStep
-          ? `${activeLinkageLabel} · ${activeStep.period ? `Q${activeStep.period}` : "Event"} ${activeStep.clock ?? ""} · ${activeStep.description ?? "No description"}`
+          ? `${focusLabel} · ${activeLinkageLabel} · ${activeStep.period ? `Q${activeStep.period}` : "Event"} ${activeStep.clock ?? ""} · ${activeStep.description ?? "No description"}`
           : "No visualization step available."}
       </div>
+
+      {sequenceSteps.length > 0 ? (
+        <div className="flex flex-wrap gap-2">
+          {sequenceSteps.map((step, index) => (
+            <button
+              key={`sequence-${step.action_number}`}
+              type="button"
+              onClick={() => setStepIndex(index)}
+              className={`rounded-full border px-3 py-1.5 text-[11px] font-semibold uppercase tracking-[0.14em] ${
+                index === stepIndex
+                  ? "border-sky-300 bg-sky-50 text-sky-700 dark:border-sky-700 dark:bg-sky-950/30 dark:text-sky-200"
+                  : "border-gray-200 bg-gray-50 text-gray-500 dark:border-gray-800 dark:bg-gray-800/60 dark:text-gray-300"
+              }`}
+            >
+              {step.sequence_role === "focus"
+                ? `Focus · ${step.action_number}`
+                : step.sequence_offset != null && step.sequence_offset < 0
+                ? `Lead-in · ${step.action_number}`
+                : `Follow-through · ${step.action_number}`}
+            </button>
+          ))}
+        </div>
+      ) : null}
     </div>
   );
 }

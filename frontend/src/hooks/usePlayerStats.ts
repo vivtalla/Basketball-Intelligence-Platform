@@ -620,11 +620,21 @@ export function useGameVisualization(
     eventType?: string | null;
     query?: string | null;
     source?: string | null;
+    sourceId?: string | null;
+    sourceLabel?: string | null;
+    reason?: string | null;
+    claimId?: string | null;
+    clipAnchorId?: string | null;
+    returnTo?: string | null;
+    linkageQuality?: string | null;
+    focusEventId?: string | null;
+    focusActionNumber?: number | null;
+    focusWindow?: number | null;
   }
 ) {
   return useSWR<GameVisualizationResponse>(
     gameId
-      ? `game-visualization-${gameId}-${options?.shotEventId ?? "none"}-${options?.playerId ?? "all"}-${options?.period ?? "all"}-${options?.eventType ?? "all"}-${options?.query ?? "none"}-${options?.source ?? "none"}`
+      ? `game-visualization-${gameId}-${options?.shotEventId ?? "none"}-${options?.playerId ?? "all"}-${options?.period ?? "all"}-${options?.eventType ?? "all"}-${options?.query ?? "none"}-${options?.source ?? "none"}-${options?.sourceId ?? "none"}-${options?.claimId ?? "none"}-${options?.clipAnchorId ?? "none"}-${options?.focusEventId ?? "none"}-${options?.focusActionNumber ?? "none"}-${options?.linkageQuality ?? "none"}-${options?.focusWindow ?? "none"}`
       : null,
     () => getGameVisualization(gameId!, options)
   );

@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Tuple
 
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
@@ -50,6 +50,54 @@ def _normalized_tokens(value: str) -> List[str]:
         for token in "".join(ch.lower() if ch.isalnum() else " " for ch in value).split()
         if len(token) >= 4
     ]
+
+
+def _claim_tokens(claim: ScoutingClaim) -> Tuple[set[str], set[str], set[str]]:
+    title_tokens = set(_normalized_tokens(claim.title))
+    summary_tokens = set(_normalized_tokens(claim.summary))
+    evidence_tokens = set()
+    for item in claim.evidence:
+        if item.label:
+            evidence_tokens.update(_normalized_tokens(item.label))
+        if item.context:
+            evidence_tokens.update(_normalized_tokens(item.context))
+    return title_tokens, summary_tokens, evidence_tokens
+
+
+def _score_event_for_claim(claim: ScoutingClaim, event: PlayByPlayEvent) -> int:
+    title_lower = claim.title.lower()
+    summary_lower = claim.summary.lower()
+    family_hint = None
+    if "(" in claim.title and ")" in claim.title:
+        family_hint = claim.title.split("(")[-1].split(")")[0].strip().lower()
+    title_tokens, summary_tokens, evidence_tokens = _claim_tokens(claim)
+    action_family = (event.action_family or "").lower()
+    description = (event.description or "").lower()
+    action_type = (event.action_type or "").lower()
+    sub_type = (event.sub_type or "").lower()
+    score = 0
+    if family_hint and family_hint == action_family:
+        score += 8
+    elif family_hint and family_hint in action_family:
+        score += 6
+    elif family_hint and family_hint in description:
+        score += 4
+    if action_type and action_type in title_lower:
+        score += 3
+    if sub_type and sub_type in summary_lower:
+        score += 2
+    score += sum(2 for token in title_tokens if token in description or token in action_family)
+    score += sum(1 for token in summary_tokens if token in description)
+    score += sum(1 for token in evidence_tokens if token in description or token in action_family)
+    if "turnover" in title_lower and action_type == "turnover":
+        score += 4
+    if "rebound" in title_lower and action_type == "rebound":
+        score += 4
+    if ("3pt" in title_lower or "three" in title_lower) and action_type == "3pt":
+        score += 4
+    if ("2pt" in title_lower or "paint" in title_lower or "rim" in title_lower) and action_type == "2pt":
+        score += 3
+    return score
 
 
 def _style_claims(profile) -> List[ScoutingClaim]:
@@ -109,21 +157,33 @@ def _game_link(
     game_id: str,
     claim_id: str,
     clip_anchor_id: str,
+    claim_title: str,
     reason: str,
+    linkage_quality: str,
+    focus_event_id: Optional[str],
+    focus_action_number: Optional[int],
 ) -> str:
-    return (
-        "/games/{0}?source=scouting-report&team={1}&opponent={2}&season={3}&claim_id={4}&clip_anchor_id={5}"
-        "&reason={6}&return_to={7}"
-    ).format(
-        game_id,
-        team,
-        opponent,
-        season,
-        claim_id,
-        clip_anchor_id,
-        reason.replace(" ", "+"),
-        "/pre-read?team={0}&opponent={1}&season={2}&mode=scouting".format(team, opponent, season).replace(" ", "+"),
-    )
+    params = [
+        "source=scouting-report",
+        "source_id={0}".format(claim_id),
+        "source_label={0}".format(claim_title.replace(" ", "+")),
+        "team={0}".format(team),
+        "opponent={0}".format(opponent),
+        "season={0}".format(season),
+        "claim_id={0}".format(claim_id),
+        "clip_anchor_id={0}".format(clip_anchor_id),
+        "reason={0}".format(reason.replace(" ", "+")),
+        "linkage_quality={0}".format(linkage_quality),
+        "focus_window=1",
+        "return_to={0}".format(
+            "/pre-read?team={0}&opponent={1}&season={2}&mode=scouting".format(team, opponent, season).replace(" ", "+")
+        ),
+    ]
+    if focus_event_id:
+        params.append("focus_event_id={0}".format(focus_event_id))
+    if focus_action_number is not None:
+        params.append("focus_action_number={0}".format(focus_action_number))
+    return "/games/{0}?{1}".format(game_id, "&".join(params))
 
 
 def _derive_clip_anchors(
@@ -152,52 +212,34 @@ def _derive_clip_anchors(
         events_by_game.setdefault(event.game_id, []).append(event)
 
     anchors: List[ScoutingClipAnchor] = []
-    for claim_index, claim in enumerate(claims, start=1):
-        claim_events: List[tuple[WarehouseGame, PlayByPlayEvent | None]] = []
-        title_lower = claim.title.lower()
-        summary_lower = claim.summary.lower()
-        family_hint = None
-        if "(" in claim.title and ")" in claim.title:
-            family_hint = claim.title.split("(")[-1].split(")")[0].strip().lower()
-        title_tokens = set(_normalized_tokens(claim.title))
-        summary_tokens = set(_normalized_tokens(claim.summary))
+    for claim in claims:
+        scored_games: List[Tuple[int, WarehouseGame, Optional[PlayByPlayEvent]]] = []
         for game in recent_games:
-            best_match: tuple[int, PlayByPlayEvent] | None = None
+            best_match: Optional[Tuple[int, PlayByPlayEvent]] = None
             for event in events_by_game.get(game.game_id, []):
-                action_family = (event.action_family or "").lower()
-                description = (event.description or "").lower()
-                action_type = (event.action_type or "").lower()
-                score = 0
-                if family_hint and family_hint in action_family:
-                    score += 6
-                if family_hint and family_hint in description:
-                    score += 4
-                if action_type and action_type in title_lower:
-                    score += 2
-                score += sum(2 for token in title_tokens if token in description)
-                score += sum(1 for token in summary_tokens if token in description)
-                if "turnover" in title_lower and action_type == "turnover":
-                    score += 4
-                if "rebound" in title_lower and action_type == "rebound":
-                    score += 4
-                if ("3pt" in title_lower or "three" in title_lower) and action_type == "3pt":
-                    score += 4
-                if ("2pt" in title_lower or "paint" in title_lower or "rim" in title_lower) and action_type == "2pt":
-                    score += 3
-                if score <= 0:
+                score = _score_event_for_claim(claim, event)
+                if score < 4:
                     continue
                 if best_match is None or score > best_match[0]:
                     best_match = (score, event)
-            matched_event = best_match[1] if best_match else None
-            claim_events.append((game, matched_event))
-            if len(claim_events) >= 2 and matched_event is not None:
-                break
+            scored_games.append((best_match[0] if best_match else 0, game, best_match[1] if best_match else None))
 
+        scored_games.sort(key=lambda item: (item[2] is not None, item[0]), reverse=True)
         clip_anchor_ids: List[str] = []
-        for anchor_index, (game, event) in enumerate(claim_events[:2], start=1):
+        for anchor_index, (match_score, game, event) in enumerate(scored_games[:2], start=1):
             clip_anchor_id = "{0}-clip-{1}".format(claim.claim_id, anchor_index)
             clip_anchor_ids.append(clip_anchor_id)
             reason = claim.summary[:100]
+            anchor_linkage_quality = "derived" if event is not None else "timeline"
+            source_context = {
+                "source": "scouting-report",
+                "source_id": claim.claim_id,
+                "source_label": claim.title,
+                "reason": reason,
+                "claim_id": claim.claim_id,
+                "clip_anchor_id": clip_anchor_id,
+                "linkage_quality": anchor_linkage_quality,
+            }
             anchors.append(
                 ScoutingClipAnchor(
                     clip_anchor_id=clip_anchor_id,
@@ -206,13 +248,32 @@ def _derive_clip_anchors(
                     game_date=game.game_date.isoformat() if game.game_date else None,
                     opponent_abbreviation=_game_opponent_abbreviation(game, team_id),
                     event_id=event.id if event else None,
-                    action_number=event.action_number if event else None,
+                    source_event_id=event.source_event_id if event else None,
+                    action_number=(event.action_number or event.order_index) if event else None,
+                    order_index=event.order_index if event else None,
                     period=event.period if event else None,
                     clock=event.clock if event else None,
+                    event_type=event.action_type if event else None,
+                    action_family=event.action_family if event else None,
                     title=claim.title,
                     reason=reason,
                     evidence_summary=(event.description or claim.evidence[0].label) if event else claim.evidence[0].label,
-                    deep_link_url=_game_link(team, opponent, season, game.game_id, claim.claim_id, clip_anchor_id, reason),
+                    event_description=event.description if event else None,
+                    linkage_quality=anchor_linkage_quality,
+                    source_context=source_context,
+                    deep_link_url=_game_link(
+                        team,
+                        opponent,
+                        season,
+                        game.game_id,
+                        claim.claim_id,
+                        clip_anchor_id,
+                        claim.title,
+                        reason,
+                        anchor_linkage_quality,
+                        event.source_event_id if event else None,
+                        (event.action_number or event.order_index) if event else None,
+                    ),
                 )
             )
         claim.clip_anchor_ids = clip_anchor_ids
@@ -409,7 +470,7 @@ def build_play_type_scouting_report(
         "report_title": "{0} vs {1}".format(team.upper(), opponent.upper()),
         "season": season,
         "format": "browser-print",
-        "generated_from": "Sprint 39 scouting follow-through",
+        "generated_from": "Sprint 40 event-centered replay workflow",
     }
     return PlayTypeScoutingReportResponse(
         team_abbreviation=team.upper(),

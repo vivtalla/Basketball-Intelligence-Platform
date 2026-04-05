@@ -1,9 +1,20 @@
 # Sprint History Archive
 
-Sprints 1–39. Current sprint summaries also live in `CLAUDE.md` under "Recent Sprints".
+Sprints 1–40. Current sprint summaries also live in `CLAUDE.md` under "Recent Sprints".
 
 For detailed per-sprint records, see the individual closeout files in this directory:
-`specs/sprint-09-closeout.md` through `specs/sprint-39-closeout.md`
+`specs/sprint-09-closeout.md` through `specs/sprint-40-closeout.md`
+
+---
+
+### Sprint 40 — Event-Centered Replay and Scouting Workflow
+**Branch:** `feature/sprint-40-event-replay-scouting`
+
+- Turned Game Explorer into an event-centered replay workflow with focused event targets, highlighted action numbers, short surrounding sequences, and additive source-aware replay context
+- Expanded the 3D visualizer into a sequence-aware analytical replay surface with lead-in, focus, and follow-through navigation while keeping exact, derived, and timeline trust labels explicit
+- Upgraded scouting clip anchors into event-backed replay candidates with richer event metadata, anchor-quality labeling, and export-ready claim context
+- Preserved replay continuity across shot lab and scouting through additive URL/state parameters instead of introducing a new persistence layer
+- Verified the sprint with full backend `pytest`, targeted replay/scouting backend tests, and frontend `npm run build`
 
 ---
 

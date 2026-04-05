@@ -257,6 +257,13 @@ CourtVue Labs uses a hybrid sprint model: major feature sprints typically run as
 
 > Full history → `specs/sprint-history.md`
 
+### Sprint 40 — Event-Centered Replay and Scouting Workflow
+
+- Turned Game Explorer into an event-centered replay workflow with focused event targets, highlighted action numbers, short surrounding sequences, and source-aware replay context
+- Expanded the 3D visualizer into a sequence-aware analytical replay surface with lead-in, focus, and follow-through navigation while keeping exact, derived, and timeline trust labels explicit
+- Upgraded scouting clip anchors into event-backed replay candidates with richer event metadata, anchor-quality labeling, and export-ready claim context
+- Verified the sprint with full backend `pytest`, targeted replay/scouting backend tests, and frontend `npm run build`
+
 ### Sprint 39 — Canonical Shot Enrichment + Product Follow-Through
 **Branch:** `master` — closeout prepared
 
@@ -265,14 +272,6 @@ CourtVue Labs uses a hybrid sprint model: major feature sprints typically run as
 - Normalized What-If scenario identifiers, improved bounded confidence framing, and added stronger source-aware follow-through between What-If, Style X-Ray, compare, scouting, and Game Explorer
 - Refreshed the backlog structure by splitting `Now` into shot/data-platform versus product-intelligence tracks and adding a standalone MVP Tracking section
 
-### Sprint 38 — Platform Overhaul: Data Foundation, Shot-Lab Follow-Through, and 3D Visualizer
-**Branch:** `feature/sprint-38-platform-overhaul` — merged
-
-- Established a canonical shot/event completeness surface with explicit ready/partial/legacy/missing reporting
-- Added team-defense shot surfaces, shareable shot-lab snapshots, and stronger Game Explorer 3D entry points
-- Built the first 3D shot/game visualizer foundation with a procedural court, reconstructed shot arcs, event markers, and a WebGL fallback
-- Verified the sprint with backend `pytest`, frontend `npm run lint`, frontend `npm run build`, and local route/API smoke checks
-
 ---
 
 ## Active Branches
@@ -280,7 +279,6 @@ CourtVue Labs uses a hybrid sprint model: major feature sprints typically run as
 | Branch | Owner | Status |
 |--------|-------|--------|
 | `master` | — | Stable |
-| `feature/sprint-38-platform-overhaul` | Codex | Merged |
 
 Sprint branches are created at kickoff and listed in `AGENTS.md`.
 

@@ -23,21 +23,35 @@ function parseClockToSeconds(clock: string | null | undefined): number {
 
 function buildGameExplorerHref(shot: ShotChartShot, season: string, index: number): string | null {
   if (!shot.game_id) return null;
+  const linkageQuality = shot.linkage_mode === "exact" ? "exact" : shot.linkage_mode === "derived" ? "derived" : "timeline";
+  const sourceLabel = shot.action_type || shot.zone_basic || "Shot attempt";
+  const reason =
+    linkageQuality === "exact"
+      ? "Exact shot replay target from shot lab"
+      : linkageQuality === "derived"
+      ? "Derived shot replay target from synced event timing"
+      : "Timeline context from shot lab";
   const params = new URLSearchParams({
     source: "shot-lab",
     source_id: shot.shot_event_id ?? `${shot.game_id}-${index}`,
+    source_label: sourceLabel,
     season,
     event_type: shot.shot_value === 3 ? "3pt" : "2pt",
     query: shot.action_type || shot.zone_basic || "shot",
+    reason,
+    linkage_quality: linkageQuality,
+    focus_window: "1",
   });
   if (shot.period != null) {
     params.set("period", String(shot.period));
   }
   if (shot.shot_event_id) {
     params.set("shot_event_id", shot.shot_event_id);
+    params.set("focus_event_id", shot.shot_event_id);
   }
   if (shot.action_number != null) {
     params.set("action_number", String(shot.action_number));
+    params.set("focus_action_number", String(shot.action_number));
   }
   return `/games/${shot.game_id}?${params.toString()}`;
 }

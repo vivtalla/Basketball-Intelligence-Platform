@@ -159,22 +159,49 @@ function formatEventType(value: string | null | undefined) {
     .join(" ");
 }
 
+function formatLinkageLabel(value: string | null | undefined) {
+  if (value === "exact") {
+    return "Exact replay target";
+  }
+  if (value === "derived") {
+    return "Derived replay target";
+  }
+  return "Timeline context";
+}
+
+function formatSequenceRole(value: string | null | undefined) {
+  if (value === "focus") {
+    return "Focus event";
+  }
+  if (value === "neighbor") {
+    return "Neighbor event";
+  }
+  return "Sequence event";
+}
+
 export default function GameDetailPage() {
   const params = useParams<{ gameId: string }>();
   const searchParams = useSearchParams();
   const gameId = params.gameId ?? null;
   const source = searchParams.get("source");
   const sourceId = searchParams.get("source_id");
+  const sourceLabel = searchParams.get("source_label");
   const team = searchParams.get("team");
   const opponent = searchParams.get("opponent");
   const seasonParam = searchParams.get("season");
   const reason = searchParams.get("reason");
+  const claimId = searchParams.get("claim_id");
+  const clipAnchorId = searchParams.get("clip_anchor_id");
+  const linkageQuality = searchParams.get("linkage_quality");
   const returnHref = searchParams.get("return_to");
   const initialPeriod = searchParams.get("period");
   const initialEventType = searchParams.get("event_type");
   const initialQuery = searchParams.get("query");
   const shotEventId = searchParams.get("shot_event_id");
+  const focusEventId = searchParams.get("focus_event_id");
   const initialActionNumberParam = searchParams.get("action_number");
+  const focusActionNumberParam = searchParams.get("focus_action_number");
+  const focusWindowParam = searchParams.get("focus_window");
   const { data, error, isLoading } = useGameDetail(gameId);
   const { data: summary } = useGameSummary(gameId);
   const [searchQuery, setSearchQuery] = useState(initialQuery ?? "");
@@ -192,6 +219,14 @@ export default function GameDetailPage() {
     initialActionNumberParam != null && Number.isFinite(Number(initialActionNumberParam))
       ? Number(initialActionNumberParam)
       : null;
+  const parsedFocusActionNumber =
+    focusActionNumberParam != null && Number.isFinite(Number(focusActionNumberParam))
+      ? Number(focusActionNumberParam)
+      : null;
+  const parsedFocusWindow =
+    focusWindowParam != null && Number.isFinite(Number(focusWindowParam))
+      ? Number(focusWindowParam)
+      : 1;
   const visualizationPeriod =
     selectedPeriod !== "all" && Number.isFinite(Number(selectedPeriod))
       ? Number(selectedPeriod)
@@ -204,6 +239,16 @@ export default function GameDetailPage() {
     eventType: visualizationEventType,
     query: visualizationQuery,
     source,
+    sourceId,
+    sourceLabel,
+    reason,
+    claimId,
+    clipAnchorId,
+    returnTo: returnHref,
+    linkageQuality,
+    focusEventId,
+    focusActionNumber: parsedFocusActionNumber,
+    focusWindow: parsedFocusWindow,
   });
   const exactVisualizationStep = useMemo(
     () =>
@@ -216,6 +261,7 @@ export default function GameDetailPage() {
     [shotEventId, visualization?.steps]
   );
   const exactActionNumber = exactVisualizationStep?.action_number ?? null;
+  const highlightedActionNumber = visualization?.highlighted_action_number ?? null;
 
   function handleExplorerMode(nextMode: "feed" | "three") {
     setExplorerMode(nextMode);
@@ -228,18 +274,24 @@ export default function GameDetailPage() {
 
   useEffect(() => {
     if (selectedActionNumber != null) return;
+    if (parsedFocusActionNumber != null) {
+      startTransition(() => {
+        setSelectedActionNumber(parsedFocusActionNumber);
+      });
+      return;
+    }
     if (parsedInitialActionNumber != null) {
       startTransition(() => {
         setSelectedActionNumber(parsedInitialActionNumber);
       });
       return;
     }
-    if (exactActionNumber != null) {
+    if (highlightedActionNumber != null || exactActionNumber != null) {
       startTransition(() => {
-        setSelectedActionNumber(exactActionNumber);
+        setSelectedActionNumber(highlightedActionNumber ?? exactActionNumber);
       });
     }
-  }, [exactActionNumber, parsedInitialActionNumber, selectedActionNumber]);
+  }, [exactActionNumber, highlightedActionNumber, parsedFocusActionNumber, parsedInitialActionNumber, selectedActionNumber]);
 
   if (!gameId) {
     return (
@@ -403,6 +455,8 @@ export default function GameDetailPage() {
           Math.min(filteredEvents.length, selectedEventIndex + 2)
         )
       : [];
+  const focusSequenceSteps = visualization?.focus_steps ?? [];
+  const replayLinkageLabel = formatLinkageLabel(visualization?.linkage_quality ?? linkageQuality);
   return (
     <div className="mx-auto max-w-6xl space-y-8">
       <div>
@@ -417,11 +471,15 @@ export default function GameDetailPage() {
       <GameContextBanner
         source={source}
         sourceId={sourceId}
+        sourceLabel={visualization?.source_context?.source_label ?? sourceLabel}
         team={team}
         opponent={opponent}
         season={seasonParam}
-        reason={reason}
+        reason={visualization?.source_context?.reason ?? reason}
         returnHref={returnHref}
+        claimId={claimId}
+        clipAnchorId={clipAnchorId}
+        linkageQuality={visualization?.linkage_quality ?? linkageQuality}
       />
 
       <section className="rounded-[2rem] border border-sky-200 bg-gradient-to-r from-sky-50 via-white to-cyan-50 p-5 dark:border-sky-900/70 dark:from-slate-900 dark:via-slate-950 dark:to-cyan-950/30">
@@ -788,7 +846,7 @@ export default function GameDetailPage() {
                   Event Drill-Down
                 </h2>
                 <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-                  Click any timeline row or feed event to pin the possession context here.
+                  Click any timeline row or feed event to pin the possession context here, or follow a source-aware replay target into its focused sequence.
                 </p>
               </div>
               <div className="rounded-full bg-gray-100 px-3 py-1 text-xs font-medium uppercase tracking-[0.18em] text-gray-500 dark:bg-gray-800 dark:text-gray-400">
@@ -813,17 +871,17 @@ export default function GameDetailPage() {
                   </button>
                 ))}
               </div>
-              {visualization?.exact_shot_match ? (
-                <div className="rounded-full bg-blue-50 px-3 py-1 text-xs font-medium uppercase tracking-[0.16em] text-blue-700 dark:bg-blue-950/30 dark:text-blue-300">
-                  Exact shot linkage active
-                </div>
-              ) : visualization?.highlighted_event_id && source === "shot-lab" ? (
-                <div className="rounded-full bg-amber-50 px-3 py-1 text-xs font-medium uppercase tracking-[0.16em] text-amber-700 dark:bg-amber-950/30 dark:text-amber-300">
-                  Derived shot linkage active
-                </div>
-              ) : source === "shot-lab" ? (
-                <div className="rounded-full bg-amber-50 px-3 py-1 text-xs font-medium uppercase tracking-[0.16em] text-amber-700 dark:bg-amber-950/30 dark:text-amber-300">
-                  Context-preserving fallback
+              {source ? (
+                <div
+                  className={`rounded-full px-3 py-1 text-xs font-medium uppercase tracking-[0.16em] ${
+                    visualization?.linkage_quality === "exact"
+                      ? "bg-blue-50 text-blue-700 dark:bg-blue-950/30 dark:text-blue-300"
+                      : visualization?.linkage_quality === "derived"
+                      ? "bg-amber-50 text-amber-700 dark:bg-amber-950/30 dark:text-amber-300"
+                      : "bg-slate-100 text-slate-700 dark:bg-slate-900 dark:text-slate-300"
+                  }`}
+                >
+                  {replayLinkageLabel}
                 </div>
               ) : null}
             </div>
@@ -848,9 +906,17 @@ export default function GameDetailPage() {
                     <span>{selectedEvent.team_abbreviation ?? "NBA"}</span>
                     <span>{selectedEvent.player_name ?? "Team event"}</span>
                     <span>{formatEventType(selectedEvent.event_type)}</span>
-                    {selectedEvent.source_event_id && shotEventId && String(selectedEvent.source_event_id) === String(shotEventId) ? (
-                      <span className="rounded-full bg-blue-100 px-2 py-1 text-[10px] font-semibold tracking-[0.18em] text-blue-700 dark:bg-blue-900/40 dark:text-blue-200">
-                        Exact shot
+                    {selectedEvent.action_number === highlightedActionNumber ? (
+                      <span
+                        className={`rounded-full px-2 py-1 text-[10px] font-semibold tracking-[0.18em] ${
+                          visualization?.linkage_quality === "exact"
+                            ? "bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-200"
+                            : visualization?.linkage_quality === "derived"
+                            ? "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-200"
+                            : "bg-slate-200 text-slate-700 dark:bg-slate-800 dark:text-slate-200"
+                        }`}
+                      >
+                        {replayLinkageLabel}
                       </span>
                     ) : null}
                   </div>
@@ -863,29 +929,54 @@ export default function GameDetailPage() {
 
                 <div className="rounded-3xl border border-gray-200 p-5 dark:border-gray-800">
                   <div className="text-[11px] uppercase tracking-[0.18em] text-gray-500 dark:text-gray-400">
-                    Nearby sequence
+                    Focused sequence
                   </div>
                   <div className="mt-3 space-y-3">
-                    {selectedEventNeighbors.map((event) => (
-                      <button
-                        key={`neighbor-${event.action_number}`}
-                        type="button"
-                        onClick={() => setSelectedActionNumber(event.action_number)}
-                        className={`w-full rounded-2xl border px-4 py-3 text-left transition-colors ${
-                          event.action_number === selectedEvent.action_number
-                            ? "border-blue-300 bg-blue-50 dark:border-blue-700 dark:bg-blue-950/30"
-                            : "border-gray-200 hover:border-blue-200 hover:bg-gray-50 dark:border-gray-800 dark:hover:border-blue-900 dark:hover:bg-gray-900"
-                        }`}
-                      >
-                        <div className="flex items-center justify-between gap-3 text-xs uppercase tracking-[0.16em] text-gray-500 dark:text-gray-400">
-                          <span>Play {event.action_number}</span>
-                          <span>Q{event.period ?? "—"} {event.clock ?? ""}</span>
-                        </div>
-                        <div className="mt-2 text-sm font-medium text-gray-900 dark:text-gray-100">
-                          {event.description ?? formatEventType(event.event_type)}
-                        </div>
-                      </button>
-                    ))}
+                    {focusSequenceSteps.length > 0
+                      ? focusSequenceSteps.map((step) => (
+                          <button
+                            key={`focus-sequence-${step.action_number}`}
+                            type="button"
+                            onClick={() => setSelectedActionNumber(step.action_number)}
+                            className={`w-full rounded-2xl border px-4 py-3 text-left transition-colors ${
+                              step.action_number === selectedEvent.action_number
+                                ? "border-blue-300 bg-blue-50 dark:border-blue-700 dark:bg-blue-950/30"
+                                : "border-gray-200 hover:border-blue-200 hover:bg-gray-50 dark:border-gray-800 dark:hover:border-blue-900 dark:hover:bg-gray-900"
+                            }`}
+                          >
+                            <div className="flex items-center justify-between gap-3 text-xs uppercase tracking-[0.16em] text-gray-500 dark:text-gray-400">
+                              <span>{formatSequenceRole(step.sequence_role)}</span>
+                              <span>Q{step.period ?? "—"} {step.clock ?? ""}</span>
+                            </div>
+                            <div className="mt-2 text-sm font-medium text-gray-900 dark:text-gray-100">
+                              {step.description ?? formatEventType(step.event_type)}
+                            </div>
+                            <div className="mt-2 flex flex-wrap gap-2 text-[11px] uppercase tracking-[0.14em] text-gray-500 dark:text-gray-400">
+                              <span>Play {step.action_number}</span>
+                              <span>{formatLinkageLabel(step.linkage_quality)}</span>
+                            </div>
+                          </button>
+                        ))
+                      : selectedEventNeighbors.map((event) => (
+                          <button
+                            key={`neighbor-${event.action_number}`}
+                            type="button"
+                            onClick={() => setSelectedActionNumber(event.action_number)}
+                            className={`w-full rounded-2xl border px-4 py-3 text-left transition-colors ${
+                              event.action_number === selectedEvent.action_number
+                                ? "border-blue-300 bg-blue-50 dark:border-blue-700 dark:bg-blue-950/30"
+                                : "border-gray-200 hover:border-blue-200 hover:bg-gray-50 dark:border-gray-800 dark:hover:border-blue-900 dark:hover:bg-gray-900"
+                            }`}
+                          >
+                            <div className="flex items-center justify-between gap-3 text-xs uppercase tracking-[0.16em] text-gray-500 dark:text-gray-400">
+                              <span>Play {event.action_number}</span>
+                              <span>Q{event.period ?? "—"} {event.clock ?? ""}</span>
+                            </div>
+                            <div className="mt-2 text-sm font-medium text-gray-900 dark:text-gray-100">
+                              {event.description ?? formatEventType(event.event_type)}
+                            </div>
+                          </button>
+                        ))}
                   </div>
                 </div>
               </div>
@@ -996,7 +1087,7 @@ export default function GameDetailPage() {
                     className={`grid w-full gap-3 rounded-3xl border p-4 text-left transition-colors md:grid-cols-[5.25rem,1fr,6rem] ${
                       selectedEvent?.action_number === event.action_number
                         ? "border-blue-300 bg-blue-50 dark:border-blue-700 dark:bg-blue-950/20"
-                        : shotEventId && event.source_event_id && String(event.source_event_id) === String(shotEventId)
+                        : highlightedActionNumber != null && event.action_number === highlightedActionNumber
                         ? "border-sky-200 bg-sky-50 dark:border-sky-800 dark:bg-sky-950/20"
                         : "border-gray-200 dark:border-gray-800"
                     }`}
@@ -1015,9 +1106,9 @@ export default function GameDetailPage() {
                         <span className="rounded-full bg-gray-100 px-2 py-1 text-[10px] font-semibold tracking-[0.18em] text-gray-500 dark:bg-gray-800 dark:text-gray-400">
                           {formatEventType(event.event_type)}
                         </span>
-                        {shotEventId && event.source_event_id && String(event.source_event_id) === String(shotEventId) ? (
+                        {highlightedActionNumber != null && event.action_number === highlightedActionNumber ? (
                           <span className="rounded-full bg-sky-100 px-2 py-1 text-[10px] font-semibold tracking-[0.18em] text-sky-700 dark:bg-sky-900/40 dark:text-sky-300">
-                            Exact shot
+                            {replayLinkageLabel}
                           </span>
                         ) : null}
                       </div>

@@ -924,6 +924,13 @@ def test_build_game_visualization_marks_exact_and_timeline_elements():
 
         assert response is not None
         assert response.exact_shot_match is True
+        assert response.linkage_quality == "exact"
+        assert response.highlighted_event_id == "evt-1"
+        assert response.highlighted_action_number == 101
+        assert response.focus_action_number == 101
+        assert len(response.focus_steps) == 2
+        assert response.focus_steps[0].sequence_role == "focus"
+        assert response.focus_steps[1].sequence_role == "neighbor"
         assert response.steps[0].exact_shot_match is True
         assert response.steps[0].elements[0].kind == "shot_arc"
         assert response.steps[0].elements[0].exactness == "exact"
@@ -1000,7 +1007,10 @@ def test_game_visualization_marks_derived_shot_linkage_honestly():
 
         assert response is not None
         assert response.exact_shot_match is False
+        assert response.linkage_quality == "derived"
         assert response.highlighted_event_id == "evt-derived"
+        assert response.highlighted_action_number == 21
+        assert response.focus_steps[0].sequence_role == "focus"
         assert response.steps[0].linkage_quality == "derived"
         assert response.steps[0].elements[0].exactness == "inferred"
         assert response.steps[0].elements[0].linkage_mode == "derived"

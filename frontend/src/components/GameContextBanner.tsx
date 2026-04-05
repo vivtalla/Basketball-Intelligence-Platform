@@ -5,11 +5,15 @@ import Link from "next/link";
 interface GameContextBannerProps {
   source?: string | null;
   sourceId?: string | null;
+  sourceLabel?: string | null;
   team?: string | null;
   opponent?: string | null;
   season?: string | null;
   reason?: string | null;
   returnHref?: string | null;
+  claimId?: string | null;
+  clipAnchorId?: string | null;
+  linkageQuality?: string | null;
 }
 
 function chip(value: string) {
@@ -23,13 +27,17 @@ function chip(value: string) {
 export default function GameContextBanner({
   source,
   sourceId,
+  sourceLabel,
   team,
   opponent,
   season,
   reason,
   returnHref,
+  claimId,
+  clipAnchorId,
+  linkageQuality,
 }: GameContextBannerProps) {
-  if (!source && !team && !season && !reason) {
+  if (!source && !team && !season && !reason && !sourceLabel && !clipAnchorId) {
     return null;
   }
 
@@ -39,10 +47,14 @@ export default function GameContextBanner({
         <div className="space-y-2">
           <div className="flex flex-wrap gap-2">
             {source ? chip(source) : null}
+            {sourceLabel ? chip(sourceLabel) : null}
             {team ? chip(team) : null}
             {opponent ? chip(`vs ${opponent}`) : null}
             {season ? chip(season) : null}
             {sourceId ? chip(sourceId) : null}
+            {claimId ? chip(claimId) : null}
+            {clipAnchorId ? chip(clipAnchorId) : null}
+            {linkageQuality ? chip(`${linkageQuality} link`) : null}
           </div>
           {reason ? (
             <p className="text-sm leading-6 text-[var(--muted-strong)]">

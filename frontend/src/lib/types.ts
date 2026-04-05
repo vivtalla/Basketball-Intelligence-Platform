@@ -1475,12 +1475,19 @@ export interface ScoutingClipAnchor {
   game_date: string | null;
   opponent_abbreviation: string | null;
   event_id: number | null;
+  source_event_id?: string | null;
   action_number: number | null;
+  order_index?: number | null;
   period: number | null;
   clock: string | null;
+  event_type?: string | null;
+  action_family?: string | null;
   title: string;
   reason: string;
   evidence_summary: string;
+  event_description?: string | null;
+  linkage_quality?: "exact" | "derived" | "timeline";
+  source_context?: Record<string, string> | null;
   deep_link_url: string;
 }
 
@@ -2022,6 +2029,8 @@ export interface GameVisualizationStep {
   away_score?: number | null;
   exact_shot_match: boolean;
   linkage_quality?: "exact" | "derived" | "timeline";
+  sequence_role?: "focus" | "neighbor" | null;
+  sequence_offset?: number | null;
   elements: GameVisualizationElement[];
 }
 
@@ -2035,6 +2044,13 @@ export interface GameVisualizationResponse {
   selected_event_type?: string | null;
   selected_query?: string | null;
   exact_shot_match: boolean;
+  linkage_quality?: "exact" | "derived" | "timeline";
   highlighted_event_id?: string | null;
+  highlighted_action_number?: number | null;
+  focus_event_id?: string | null;
+  focus_action_number?: number | null;
+  focus_window?: number;
+  focus_steps?: GameVisualizationStep[];
+  source_context?: Record<string, string> | null;
   steps: GameVisualizationStep[];
 }
