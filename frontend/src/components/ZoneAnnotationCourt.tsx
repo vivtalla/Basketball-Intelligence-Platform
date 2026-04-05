@@ -2,6 +2,7 @@
 
 import type { ZoneStat, ShotChartShot } from "@/lib/types";
 import { LEAGUE_AVG_FG, ZONE_CENTROIDS, ZONE_ORDER, ZONE_PATHS, heatColor } from "@/lib/shotchart-constants";
+import ShotCourt from "./ShotCourt";
 
 interface ZoneAnnotationCourtProps {
   zones?: ZoneStat[] | null;
@@ -60,23 +61,6 @@ function resolveFromShots(shots: ShotChartShot[]): Record<string, ResolvedZoneSt
   return result;
 }
 
-function CourtMarkings() {
-  return (
-    <g stroke="rgba(33,72,59,0.35)" strokeWidth="1.5" fill="none">
-      <rect x="0" y="0" width={W} height={H} />
-      <rect x="170" y="240" width="160" height="190" />
-      <path d="M 170,240 A 60,60 0 0 0 330,240" />
-      <path d="M 170,240 A 60,60 0 0 1 330,240" strokeDasharray="5 4" />
-      <path d="M 210,430 A 40,40 0 0 0 290,430" />
-      <circle cx="250" cy="430" r="7.5" />
-      <line x1="220" y1="438" x2="280" y2="438" strokeWidth="2.5" />
-      <line x1="30" y1={H} x2="30" y2="341" />
-      <line x1="470" y1={H} x2="470" y2="341" />
-      <path d="M 30,341 A 237.5,237.5 0 0 0 470,341" />
-    </g>
-  );
-}
-
 export default function ZoneAnnotationCourt({
   zones,
   shots,
@@ -125,7 +109,7 @@ export default function ZoneAnnotationCourt({
           );
         })}
 
-        <CourtMarkings />
+        <ShotCourt />
 
         {/* Zone stat annotations */}
         {hasData &&

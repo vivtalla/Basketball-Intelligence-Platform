@@ -117,7 +117,7 @@ export default function ZoneProfilePanel({
 }: ZoneProfilePanelProps) {
   if (isLoading) {
     return (
-      <div className="bip-panel rounded-2xl p-4 space-y-3 animate-pulse">
+      <div className="bip-shot-shell bip-shot-shell-neutral space-y-3 animate-pulse">
         <div className="h-4 w-32 rounded bg-[var(--surface-alt)]" />
         <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
           {TILE_CONFIG.map((t) => (
@@ -130,7 +130,7 @@ export default function ZoneProfilePanel({
 
   if (!data || data.total_attempts === 0) {
     return (
-      <div className="bip-panel rounded-2xl p-4">
+      <div className="bip-shot-shell bip-shot-shell-neutral">
         <div className="mb-2 flex items-center justify-between gap-3">
           <div>
             {playerLabel && (
@@ -152,7 +152,7 @@ export default function ZoneProfilePanel({
   const zoneMap = aggregateZonesByBasic(data.zones, data.total_attempts);
 
   return (
-    <div className="bip-panel rounded-2xl p-4 space-y-3">
+    <div className="bip-shot-shell bip-shot-shell-neutral space-y-3">
       <div className="flex items-center justify-between">
         <div>
           {playerLabel && <p className="bip-kicker text-[10px] mb-0.5">{playerLabel}</p>}

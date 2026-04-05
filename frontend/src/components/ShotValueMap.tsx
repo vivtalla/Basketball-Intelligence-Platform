@@ -9,6 +9,12 @@ import {
   ZONE_POINTS,
   heatColor,
 } from "@/lib/shotchart-constants";
+import {
+  ShotLabLegendItem,
+  ShotLabStat,
+  ShotLabSurface,
+} from "./ShotLabSurface";
+import ShotCourt from "./ShotCourt";
 
 interface ShotValueMapProps {
   shots: ShotChartShot[];
@@ -69,23 +75,6 @@ function buildZoneValueStats(shots: ShotChartShot[]): ZoneValueStat[] {
   });
 }
 
-function CourtMarkings() {
-  return (
-    <g stroke="rgba(33,72,59,0.30)" strokeWidth="1.5" fill="none">
-      <rect x="0" y="0" width={W} height={H} />
-      <rect x="170" y="240" width="160" height="190" />
-      <path d="M 170,240 A 60,60 0 0 0 330,240" />
-      <path d="M 170,240 A 60,60 0 0 1 330,240" strokeDasharray="5 4" />
-      <path d="M 210,430 A 40,40 0 0 0 290,430" />
-      <circle cx="250" cy="430" r="7.5" />
-      <line x1="220" y1="438" x2="280" y2="438" strokeWidth="2.5" />
-      <line x1="30" y1={H} x2="30" y2="341" />
-      <line x1="470" y1={H} x2="470" y2="341" />
-      <path d="M 30,341 A 237.5,237.5 0 0 0 470,341" />
-    </g>
-  );
-}
-
 export default function ShotValueMap({
   shots,
   playerLabel,
@@ -113,11 +102,66 @@ export default function ShotValueMap({
   // Shot diet bar — proportional segments, one per zone with shots
   const dietZones = stats.filter((s) => s.attempted > 0);
   const totalAttempted = shots.length;
+  const topVolumeZone = [...dietZones].sort((left, right) => right.freq - left.freq)[0];
+  const bestValueZone = [...dietZones]
+    .filter((zone) => zone.valuePerShot !== null)
+    .sort((left, right) => (right.valuePerShot ?? -999) - (left.valuePerShot ?? -999))[0];
 
   return (
-    <div>
-      {/* Court SVG */}
-      <div className="rounded-[1.75rem] border border-[rgba(25,52,42,0.12)] bg-[rgba(255,255,255,0.72)] p-3">
+    <ShotLabSurface
+      kicker="VALUE MAP"
+      title="Volume weighted by outcome"
+      subtitle={playerLabel ? `${playerLabel} · zone bubbles sized by diet and colored by shot value versus expectation` : "Zone bubbles sized by diet and colored by shot value versus expectation"}
+      tone="signal"
+      stats={
+        <>
+          <ShotLabStat
+            label="Attempts"
+            value={`${shots.length}`}
+            detail="All shots in the selected window"
+          />
+          <ShotLabStat
+            label="Primary Zone"
+            value={topVolumeZone?.zone ?? "—"}
+            detail={topVolumeZone ? `${Math.round(topVolumeZone.freq * 100)}% of FGA` : "No attempts"}
+          />
+          <ShotLabStat
+            label="Best Value"
+            value={bestValueZone?.zone ?? "—"}
+            detail={
+              bestValueZone?.valuePerShot != null
+                ? `${bestValueZone.valuePerShot >= 0 ? "+" : ""}${bestValueZone.valuePerShot.toFixed(2)} pts/shot`
+                : "Need more volume"
+            }
+          />
+        </>
+      }
+      legend={
+        <>
+          <ShotLabLegendItem
+            swatch={<span className="inline-block h-3.5 w-6 rounded-full bg-emerald-500/80" />}
+            label="Positive value"
+          />
+          <ShotLabLegendItem
+            swatch={<span className="inline-block h-3.5 w-6 rounded-full bg-[rgba(156,163,175,0.58)]" />}
+            label="Neutral"
+          />
+          <ShotLabLegendItem
+            swatch={<span className="inline-block h-3.5 w-6 rounded-full bg-red-500/75" />}
+            label="Negative value"
+          />
+          <ShotLabLegendItem
+            swatch={
+              <svg width="26" height="12" viewBox="0 0 26 12" aria-hidden="true">
+                <circle cx="13" cy="6" r="5" fill="none" stroke="rgba(33,72,59,0.24)" strokeDasharray="3 3" />
+              </svg>
+            }
+            label="Reference ring"
+          />
+        </>
+      }
+    >
+      <div>
         <svg
           viewBox={`0 0 ${W} ${H}`}
           className="w-full max-w-lg mx-auto block"
@@ -132,7 +176,7 @@ export default function ShotValueMap({
 
           <rect x="0" y="0" width={W} height={H} rx="18" fill={`url(#${gradientId})`} />
 
-          <CourtMarkings />
+          <ShotCourt />
 
           {/* Court label badge */}
           <rect x="24" y="18" width="122" height={playerLabel ? 60 : 48} rx="14" fill="rgba(255,255,255,0.86)" />
@@ -262,26 +306,6 @@ export default function ShotValueMap({
             );
           })}
         </svg>
-      </div>
-
-      {/* Legend */}
-      <div className="flex flex-wrap items-center justify-center gap-5 mt-3 text-xs text-[var(--muted)]">
-        <span className="flex items-center gap-1.5">
-          <span className="inline-block w-3 h-3 rounded-full bg-emerald-500 opacity-80" />
-          Value above avg
-        </span>
-        <span className="flex items-center gap-1.5">
-          <span className="inline-block w-3 h-3 rounded-full bg-gray-300" />
-          Near avg
-        </span>
-        <span className="flex items-center gap-1.5">
-          <span className="inline-block w-3 h-3 rounded-full bg-red-400 opacity-80" />
-          Value below avg
-        </span>
-        <span>· Bubble area ∝ shot frequency · dashed ring = volume baseline</span>
-      </div>
-
-      {/* Shot diet strip */}
       <div className="mt-5 border-t border-[rgba(25,52,42,0.08)] pt-4">
         <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[var(--muted)] mb-3">
           Shot Diet
@@ -358,5 +382,6 @@ export default function ShotValueMap({
         </p>
       </div>
     </div>
+    </ShotLabSurface>
   );
 }

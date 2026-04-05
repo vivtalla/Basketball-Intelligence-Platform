@@ -45,6 +45,26 @@ Likely shape:
 - Richer shot context enrichment (`period`, `clock`, stronger action overlays) for situational study
 - Shareable or printable shot-lab snapshots that preserve the exact player/compare filter state
 
+### Shot Lab Visual Follow-Ons (Sprint 36 seeds)
+Why it matters:
+Sprint 36 gave the shot lab a much stronger editorial identity, but the final layer of trust and delight still depends on court geometry polish, heatmap calibration, and clearer chart storytelling.
+
+Likely shape:
+- Finish the shared `ShotCourt` silhouette so the three-point shell, baseline, lane, and free-throw geometry unmistakably match a real half-court
+- Keep tuning shot-frequency heatmaps so the hottest pockets pop on neutral backgrounds without making the whole surface feel heavy
+- Add lightweight annotations or explainer overlays that help users read sprawl/value/distance views faster
+- Extend the new shot-lab visual language to any remaining chart surfaces that still feel older than the player and compare shot suites
+
+### 3D Shot Charts and Play Reconstruction
+Why it matters:
+CourtVue Labs has a chance to create a signature visual surface here: a breathtaking 3D shot environment that is not just beautiful, but useful for film-adjacent analysis of how possessions and shot outcomes unfold in space.
+
+Likely shape:
+- Build a 3D shot-chart mode that visualizes arc, depth, and court location in a way flat charts cannot
+- Use play-by-play data to reconstruct selected possessions or shot sequences on the same 3D court so users can study how actions lead to attempts
+- Start with analyst-friendly views such as made/missed trajectories, shot clusters by action family, and sequence playback tied to quarter/clock context
+- Keep the first version grounded in real basketball analysis value, not just spectacle, so the 3D layer helps both storytelling and game review
+
 ### Visualization Follow-Ons (Sprint 31 seeds)
 Why it matters:
 Sprint 31 shipped the visual renaissance layer. Remaining follow-ons extend it to comparison surfaces and add interactivity.

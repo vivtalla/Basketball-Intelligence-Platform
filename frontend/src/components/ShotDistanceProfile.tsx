@@ -12,6 +12,11 @@ import {
 } from "recharts";
 import type { ShotChartShot } from "@/lib/types";
 import { LEAGUE_AVG_FG, heatColor } from "@/lib/shotchart-constants";
+import {
+  ShotLabLegendItem,
+  ShotLabStat,
+  ShotLabSurface,
+} from "./ShotLabSurface";
 
 interface ShotDistanceProfileProps {
   shots: ShotChartShot[];
@@ -150,6 +155,10 @@ export default function ShotDistanceProfile({
     ? scaleMaxFrequency
     : Math.max(...bins.map((b) => b.freq), 0.001);
   const maxDist = bins[bins.length - 1].dist;
+  const peakBin = [...bins].sort((left, right) => right.freq - left.freq)[0];
+  const bestEfficiencyBin = [...bins]
+    .filter((bin) => bin.diff !== null)
+    .sort((left, right) => (right.diff ?? -999) - (left.diff ?? -999))[0];
 
   // SVG dimensions for the ribbon
   const CHART_W = 460;
@@ -184,13 +193,56 @@ export default function ShotDistanceProfile({
   }));
 
   return (
-    <div>
-      {playerLabel && (
-        <p className="text-xs text-[var(--muted)] mb-2">{playerLabel}</p>
-      )}
-
-      {/* Distance ribbon SVG */}
-      <div className="rounded-[1.25rem] border border-[rgba(25,52,42,0.10)] bg-[rgba(255,255,255,0.72)] p-4 overflow-hidden">
+    <ShotLabSurface
+      kicker="DISTANCE PROFILE"
+      title="Frequency ribbon by distance"
+      subtitle={playerLabel ? `${playerLabel} · frequency and efficiency separated by foot-by-foot scoring range` : "Frequency and efficiency separated by foot-by-foot scoring range"}
+      tone="neutral"
+      stats={
+        <>
+          <ShotLabStat
+            label="Range"
+            value={`0–${maxDist} ft`}
+            detail="Observed footprint in this window"
+          />
+          <ShotLabStat
+            label="Peak Volume"
+            value={peakBin ? `${peakBin.dist} ft` : "—"}
+            detail={peakBin ? `${Math.round(peakBin.freq * 100)}% of attempts` : "No attempts"}
+          />
+          <ShotLabStat
+            label="Best Edge"
+            value={bestEfficiencyBin ? `${bestEfficiencyBin.dist} ft` : "—"}
+            detail={
+              bestEfficiencyBin?.diff != null
+                ? `${bestEfficiencyBin.diff >= 0 ? "+" : ""}${(bestEfficiencyBin.diff * 100).toFixed(1)}% vs expected`
+                : "Need more sample"
+            }
+          />
+        </>
+      }
+      legend={
+        <>
+          <ShotLabLegendItem
+            swatch={<span className="inline-block h-1.5 w-8 rounded-full bg-emerald-400/80" />}
+            label="Above expected"
+          />
+          <ShotLabLegendItem
+            swatch={<span className="inline-block h-1.5 w-8 rounded-full bg-red-400/80" />}
+            label="Below expected"
+          />
+          <ShotLabLegendItem
+            swatch={
+              <svg width="26" height="10" viewBox="0 0 26 10" aria-hidden="true">
+                <line x1="1" y1="5" x2="25" y2="5" stroke="rgba(33,72,59,0.25)" strokeDasharray="4 3" />
+              </svg>
+            }
+            label="Expected baseline"
+          />
+        </>
+      }
+    >
+      <div className="overflow-hidden">
         <svg
           viewBox={`0 0 ${CHART_W + PAD_L + 8} ${CHART_H + PAD_B + 8}`}
           className="w-full block"
@@ -371,19 +423,6 @@ export default function ShotDistanceProfile({
           Distance (feet) · FG% (solid) vs expected (dashed)
         </p>
       </div>
-
-      {/* Legend */}
-      <div className="flex flex-wrap items-center justify-center gap-4 mt-2 text-[10px] text-[var(--muted)]">
-        <span className="flex items-center gap-1.5">
-          <span className="inline-block w-8 h-1.5 rounded-full bg-emerald-400 opacity-80" />
-          Above expected
-        </span>
-        <span className="flex items-center gap-1.5">
-          <span className="inline-block w-8 h-1.5 rounded-full bg-red-400 opacity-80" />
-          Below expected
-        </span>
-        <span>· Ribbon height = shot frequency · ≥3 attempts to show FG%</span>
-      </div>
-    </div>
+    </ShotLabSurface>
   );
 }

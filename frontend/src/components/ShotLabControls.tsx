@@ -40,7 +40,7 @@ export default function ShotLabControls({
   seasonLabel = "Season",
 }: ShotLabControlsProps) {
   return (
-    <div className="space-y-3 rounded-[1.5rem] border border-[rgba(25,52,42,0.12)] bg-[rgba(255,255,255,0.68)] p-4">
+    <div className="space-y-4 rounded-[1.6rem] border border-[rgba(25,52,42,0.12)] bg-[linear-gradient(180deg,rgba(255,252,247,0.9),rgba(244,238,228,0.72))] p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.7)]">
       <div className="flex flex-wrap items-center gap-3">
         <label className="space-y-1">
           <span className="text-[10px] font-semibold uppercase tracking-[0.16em] text-[var(--muted)]">
@@ -63,12 +63,12 @@ export default function ShotLabControls({
           <span className="text-[10px] font-semibold uppercase tracking-[0.16em] text-[var(--muted)]">
             Season Type
           </span>
-          <div className="flex overflow-hidden rounded-xl border border-[var(--border)] text-xs">
+          <div className="flex overflow-hidden rounded-xl border border-[var(--border)] bg-[rgba(255,255,255,0.56)] p-1 text-xs">
             {(["Regular Season", "Playoffs"] as const).map((type) => (
               <button
                 key={type}
                 onClick={() => onSeasonTypeChange(type)}
-                className={`px-3 py-2 transition-colors ${
+                className={`rounded-lg px-3 py-2 transition-colors ${
                   seasonType === type ? "bip-toggle-active" : "bip-toggle"
                 }`}
               >

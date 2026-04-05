@@ -50,13 +50,13 @@ export default function ShotProfileDuel({
   const rightMap = zoneMap(right);
 
   return (
-    <section className="rounded-[2rem] border border-[var(--border)] bg-[linear-gradient(145deg,rgba(247,243,232,0.96),rgba(228,236,232,0.94))] p-6">
+    <section className="bip-shot-shell bip-shot-shell-neutral">
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
-          <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[var(--muted)]">
+          <p className="bip-shot-kicker">
             Shooting Duel
           </p>
-          <h3 className="mt-1 text-2xl font-semibold text-[var(--foreground)]">
+          <h3 className="bip-display mt-2 text-[1.5rem] font-semibold text-[var(--foreground)]">
             Head-to-head zone pressure
           </h3>
         </div>
@@ -94,7 +94,7 @@ export default function ShotProfileDuel({
           return (
             <div
               key={zone.key}
-              className="grid grid-cols-[1fr_auto_1fr] items-center gap-3 rounded-[1.25rem] border border-[rgba(25,52,42,0.12)] bg-[rgba(255,255,255,0.68)] px-4 py-3"
+              className="grid grid-cols-[1fr_auto_1fr] items-center gap-3 rounded-[1.4rem] border border-[rgba(25,52,42,0.12)] bg-[rgba(255,255,255,0.68)] px-4 py-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.72)]"
             >
               <div className="flex items-center justify-end gap-3">
                 <div className="text-right">

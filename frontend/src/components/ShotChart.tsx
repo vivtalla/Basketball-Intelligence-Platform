@@ -3,10 +3,11 @@
 import { useMemo, useState } from "react";
 import { usePlayerShotChart } from "@/hooks/usePlayerStats";
 import type { ShotChartShot, ShotLabDateRange, ShotLabWindowPreset } from "@/lib/types";
-import { LEAGUE_AVG_FG, ZONE_POINTS, ZONE_ORDER, ZONE_PATHS, heatColor } from "@/lib/shotchart-constants";
+import { LEAGUE_AVG_FG, ZONE_POINTS, ZONE_ORDER, heatColor } from "@/lib/shotchart-constants";
 import { clampShotLabCustomRange, resolveShotLabRange } from "@/lib/shotlab";
 import ChartStatusBadge from "./ChartStatusBadge";
 import ZoneAnnotationCourt from "./ZoneAnnotationCourt";
+import ShotCourt from "./ShotCourt";
 import ShotValueMap from "./ShotValueMap";
 import ShotSprawlMap from "./ShotSprawlMap";
 import ShotDistanceProfile from "./ShotDistanceProfile";
@@ -45,6 +46,53 @@ function buildZoneStats(shots: ShotChartShot[]): Record<string, ZoneStat> {
     if (shot.shot_made) stats[z].made++;
   }
   return stats;
+}
+
+const HEAT_COLS = 28;
+const HEAT_ROWS = 26;
+const HEAT_CELL_W = W / HEAT_COLS;
+const HEAT_CELL_H = H / HEAT_ROWS;
+
+const HEAT_KERNEL = [
+  [1, 4, 7, 4, 1],
+  [4, 16, 26, 16, 4],
+  [7, 26, 41, 26, 7],
+  [4, 16, 26, 16, 4],
+  [1, 4, 7, 4, 1],
+];
+const HEAT_KERNEL_SUM = 273;
+
+function gaussianBlurHeatGrid(grid: number[][]): number[][] {
+  const out: number[][] = Array.from({ length: HEAT_COLS }, () => new Array(HEAT_ROWS).fill(0));
+  for (let col = 0; col < HEAT_COLS; col++) {
+    for (let row = 0; row < HEAT_ROWS; row++) {
+      let value = 0;
+      for (let ki = 0; ki < 5; ki++) {
+        for (let kj = 0; kj < 5; kj++) {
+          const nc = col + ki - 2;
+          const nr = row + kj - 2;
+          if (nc >= 0 && nc < HEAT_COLS && nr >= 0 && nr < HEAT_ROWS) {
+            value += HEAT_KERNEL[ki][kj] * grid[nc][nr];
+          }
+        }
+      }
+      out[col][row] = value / HEAT_KERNEL_SUM;
+    }
+  }
+  return out;
+}
+
+function heatmapColor(t: number): string {
+  if (t >= 0.92) return "rgba(255,250,181,0.96)";
+  if (t >= 0.76) return "rgba(255,201,103,0.82)";
+  if (t >= 0.56) return "rgba(255,142,110,0.62)";
+  if (t >= 0.34) return "rgba(198,116,241,0.46)";
+  if (t >= 0.16) return "rgba(129,74,205,0.3)";
+  return "rgba(92,56,164,0.14)";
+}
+
+function heatmapRadius(t: number): number {
+  return 14 + t * 28;
 }
 
 // ─── Hexbin logic (flat-top hexagons, pure math — no library) ────────────────
@@ -140,38 +188,73 @@ function HexLayer({ shots }: { shots: ShotChartShot[] }) {
 // ─────────────────────────────────────────────────────────────────────────────
 
 function HeatmapZones({ shots }: { shots: ShotChartShot[] }) {
-  const zoneStats = buildZoneStats(shots);
-  const total = shots.length;
+  const nodes = useMemo(() => {
+    if (shots.length === 0) return [];
+
+    const rawGrid: number[][] = Array.from({ length: HEAT_COLS }, () =>
+      new Array(HEAT_ROWS).fill(0)
+    );
+
+    for (const shot of shots) {
+      const [svgX, svgY] = toSvg(shot.loc_x, shot.loc_y);
+      const col = Math.min(HEAT_COLS - 1, Math.max(0, Math.floor(svgX / HEAT_CELL_W)));
+      const row = Math.min(HEAT_ROWS - 1, Math.max(0, Math.floor(svgY / HEAT_CELL_H)));
+      rawGrid[col][row]++;
+    }
+
+    const blurred = gaussianBlurHeatGrid(rawGrid);
+    const positiveValues = blurred.flat().filter((value) => value > 0).sort((left, right) => left - right);
+    const softPeak =
+      positiveValues[Math.max(0, Math.floor(positiveValues.length * 0.94) - 1)] ??
+      Math.max(...blurred.flat(), 0.0001);
+    const values: Array<{ x: number; y: number; intensity: number; core: number }> = [];
+
+    for (let col = 0; col < HEAT_COLS; col++) {
+      for (let row = 0; row < HEAT_ROWS; row++) {
+        const normalized = Math.min(1, blurred[col][row] / Math.max(softPeak, 0.0001));
+        const intensity = Math.pow(normalized, 0.88);
+        if (intensity < 0.06) continue;
+        values.push({
+          x: col * HEAT_CELL_W + HEAT_CELL_W / 2,
+          y: row * HEAT_CELL_H + HEAT_CELL_H / 2,
+          intensity,
+          core: Math.max(0, (intensity - 0.58) / 0.42),
+        });
+      }
+    }
+
+    return values.sort((left, right) => left.intensity - right.intensity);
+  }, [shots]);
 
   return (
     <>
-      {ZONE_ORDER.filter((z) => ZONE_PATHS[z]).map((zone) => {
-        const stat = zoneStats[zone];
-        const avg = LEAGUE_AVG[zone] ?? null;
-        const pct = stat && stat.attempted >= 5 ? stat.made / stat.attempted : null;
-        const diff = pct !== null && avg !== null ? pct - avg : null;
-        const freqPct = stat && total > 0 ? ((stat.attempted / total) * 100).toFixed(0) : "0";
-        const path = ZONE_PATHS[zone];
-        if (!path) return null;
-        return (
-          <path
-            key={zone}
-            d={path}
-            fill={heatColor(diff)}
-            stroke="rgba(255,255,255,0.25)"
-            strokeWidth="1"
-          >
-            <title>
-              {zone}
-              {stat ? `\n${stat.made}/${stat.attempted} FGM/FGA` : "\nNo shots"}
-              {pct !== null
-                ? `\n${(pct * 100).toFixed(1)}% FG (${diff !== null ? (diff >= 0 ? "+" : "") + (diff * 100).toFixed(1) : "—"}% vs avg)`
-                : "\n< 5 attempts"}
-              {`\n${freqPct}% of shots`}
-            </title>
-          </path>
-        );
-      })}
+      <rect x="0" y="0" width={W} height={H} rx="18" fill="rgba(248,243,235,0.98)" />
+      <rect x="0" y="0" width={W} height={H} rx="18" fill="url(#heatmapAtmosphere)" />
+      <rect x="0" y="0" width={W} height={H} rx="18" fill="url(#heatmapVignette)" />
+      <g filter="url(#heatmapGlow)">
+        {nodes.map((node, index) => (
+          <circle
+            key={`${node.x}-${node.y}-${index}`}
+            cx={node.x}
+            cy={node.y}
+            r={heatmapRadius(node.intensity)}
+            fill={heatmapColor(node.intensity)}
+          />
+        ))}
+      </g>
+      <g filter="url(#heatmapCoreGlow)">
+        {nodes
+          .filter((node) => node.core > 0)
+          .map((node, index) => (
+            <circle
+              key={`core-${node.x}-${node.y}-${index}`}
+              cx={node.x}
+              cy={node.y}
+              r={8 + node.core * 18}
+              fill={`rgba(255,248,182,${0.2 + node.core * 0.72})`}
+            />
+          ))}
+      </g>
     </>
   );
 }
@@ -288,28 +371,6 @@ function ZoneBreakdown({ shots }: { shots: ShotChartShot[] }) {
   );
 }
 
-function CourtMarkings() {
-  return (
-    <g
-      stroke="currentColor"
-      strokeWidth="1.5"
-      fill="none"
-      className="text-gray-300 dark:text-gray-600"
-    >
-      <rect x="0" y="0" width={W} height={H} />
-      <rect x="170" y="240" width="160" height="190" />
-      <path d="M 170,240 A 60,60 0 0 0 330,240" />
-      <path d="M 170,240 A 60,60 0 0 1 330,240" strokeDasharray="5 4" />
-      <path d="M 210,430 A 40,40 0 0 0 290,430" />
-      <circle cx="250" cy="430" r="7.5" />
-      <line x1="220" y1="438" x2="280" y2="438" strokeWidth="2.5" />
-      <line x1="30" y1={H} x2="30" y2="341" />
-      <line x1="470" y1={H} x2="470" y2="341" />
-      <path d="M 30,341 A 237.5,237.5 0 0 0 470,341" />
-    </g>
-  );
-}
-
 type ChartView = "scatter" | "heatmap" | "hex" | "value" | "sprawl";
 
 const VIEW_LABELS: Record<ChartView, string> = {
@@ -322,10 +383,18 @@ const VIEW_LABELS: Record<ChartView, string> = {
 
 const COURT_LABEL: Record<ChartView, string> = {
   scatter: "Shot scatter",
-  heatmap: "Zone wash",
+  heatmap: "Frequency heat",
   hex: "Hex density",
   value: "Value map",
   sprawl: "Sprawl map",
+};
+
+const VIEW_DESCRIPTIONS: Record<ChartView, string> = {
+  scatter: "Every attempt plotted one by one.",
+  heatmap: "A glowing shot-frequency portrait inspired by classic NBA density maps.",
+  hex: "Efficiency and volume compressed into hex bins.",
+  value: "Where shot diet creates or loses value.",
+  sprawl: "A cinematic portrait of spatial pressure.",
 };
 
 function describeShotWindow(
@@ -422,28 +491,34 @@ export default function ShotChart({
   const isLoadingState = isLoading || isFilteredLoading;
   const activeError = filteredError ?? error;
   const windowLabel = describeShotWindow(preset, filters);
+  const activeViewLabel = VIEW_LABELS[chartView];
 
   return (
-    <div className="rounded-[2rem] border border-[var(--border)] bg-[linear-gradient(145deg,rgba(247,243,232,0.96),rgba(228,236,232,0.92))] p-6 shadow-[0_24px_80px_rgba(47,43,36,0.08)]">
+    <div className="bip-shot-shell bip-shot-shell-accent">
       {/* Header */}
-      <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
+      <div className="mb-5 flex flex-wrap items-start justify-between gap-4">
         <div>
-          <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[var(--muted)]">
+          <p className="bip-shot-kicker">
             Player Surface
           </p>
-          <h3 className="mt-1 text-xl font-semibold text-[var(--foreground)]">Shot Chart</h3>
+          <h3 className="bip-display mt-2 text-[1.7rem] font-semibold text-[var(--foreground)]">
+            Shot Lab
+          </h3>
+          <p className="mt-2 max-w-2xl text-sm leading-6 text-[var(--muted-strong)]">
+            {VIEW_DESCRIPTIONS[chartView]}
+          </p>
         </div>
 
         <div className="flex flex-wrap items-center gap-3">
           <ChartStatusBadge status={dataStatus} compact />
 
           {/* Scatter / Heat / Hex / Value / Sprawl toggle */}
-          <div className="flex rounded-lg overflow-hidden border border-[var(--border)] text-xs">
+          <div className="flex flex-wrap gap-2 rounded-full border border-[rgba(25,52,42,0.08)] bg-[rgba(255,255,255,0.44)] p-1 text-xs shadow-[inset_0_1px_0_rgba(255,255,255,0.7)]">
             {(["scatter", "heatmap", "hex", "value", "sprawl"] as ChartView[]).map((view) => (
               <button
                 key={view}
                 onClick={() => setChartView(view)}
-                className={`px-3 py-1.5 transition-colors ${
+                className={`rounded-full px-3 py-1.5 transition-colors ${
                   chartView === view ? "bip-toggle-active" : "bip-toggle"
                 }`}
               >
@@ -470,14 +545,19 @@ export default function ShotChart({
 
       {/* FG% summary */}
       {activeShotChart && !isLoadingState && (
-        <div className="mb-3 flex flex-wrap items-center justify-between gap-2 rounded-[1.25rem] border border-[rgba(25,52,42,0.12)] bg-[rgba(255,255,255,0.7)] px-4 py-3 text-sm text-[var(--muted-strong)]">
-          <p>
+        <div className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-[1.35rem] border border-[rgba(25,52,42,0.12)] bg-[rgba(255,255,255,0.6)] px-4 py-3 text-sm text-[var(--muted-strong)]">
+          <div>
+            <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[var(--muted)]">
+              {activeViewLabel}
+            </p>
+            <p className="mt-1">
             {activeShotChart.made} / {activeShotChart.attempted} FG
             {fgPct !== null && <> ({fgPct}%)</>}
             {activeShotChart.attempted === 0 && !isMissing && (
               <span className="ml-1 italic">— no shot data for this period</span>
             )}
-          </p>
+            </p>
+          </div>
           <div className="flex items-center gap-2">
             <span className="text-[11px]">{windowLabel}</span>
             {activeShotChart.last_synced_at && (
@@ -490,13 +570,13 @@ export default function ShotChart({
       )}
 
       {activeShotChart && !isLoadingState && isMissing && (
-        <div className="mb-4 rounded-xl border border-dashed border-[rgba(25,52,42,0.16)] bg-[rgba(255,255,255,0.66)] px-4 py-3 text-sm text-[var(--muted-strong)]">
+        <div className="bip-empty mb-4 rounded-[1.25rem] px-4 py-3 text-sm text-[var(--muted-strong)]">
           Shot chart data has not been synced for this player and season yet.
         </div>
       )}
 
       {hasNoAttemptsInWindow && (
-        <div className="mb-4 rounded-xl border border-dashed border-[rgba(25,52,42,0.16)] bg-[rgba(255,255,255,0.66)] px-4 py-3 text-sm text-[var(--muted-strong)]">
+        <div className="bip-empty mb-4 rounded-[1.25rem] px-4 py-3 text-sm text-[var(--muted-strong)]">
           No shot attempts fall inside this selected date window.
         </div>
       )}
@@ -525,13 +605,28 @@ export default function ShotChart({
         )}
 
         <div className={chartView === "value" || chartView === "sprawl" ? "hidden" : ""}>
-        <div className="rounded-[1.75rem] border border-[rgba(25,52,42,0.12)] bg-[rgba(255,255,255,0.72)] p-3">
+        <div className="bip-shot-canvas">
           <svg viewBox={`0 0 ${W} ${H}`} className="w-full max-w-lg mx-auto block">
             <defs>
               <linearGradient id="courtWash" x1="0%" y1="0%" x2="100%" y2="100%">
                 <stop offset="0%" stopColor="rgba(255,255,255,0.98)" />
                 <stop offset="100%" stopColor="rgba(228,236,232,0.94)" />
               </linearGradient>
+              <radialGradient id="heatmapAtmosphere" cx="50%" cy="18%" r="88%">
+                <stop offset="0%" stopColor="rgba(145,108,224,0.18)" />
+                <stop offset="42%" stopColor="rgba(92,56,164,0.12)" />
+                <stop offset="100%" stopColor="rgba(255,255,255,0)" />
+              </radialGradient>
+              <radialGradient id="heatmapVignette" cx="50%" cy="64%" r="82%">
+                <stop offset="0%" stopColor="rgba(255,255,255,0)" />
+                <stop offset="100%" stopColor="rgba(72,39,137,0.08)" />
+              </radialGradient>
+              <filter id="heatmapGlow" x="-35%" y="-35%" width="170%" height="170%">
+                <feGaussianBlur stdDeviation="14" />
+              </filter>
+              <filter id="heatmapCoreGlow" x="-30%" y="-30%" width="160%" height="160%">
+                <feGaussianBlur stdDeviation="8" />
+              </filter>
             </defs>
             <rect x="0" y="0" width={W} height={H} rx="18" fill="url(#courtWash)" />
 
@@ -545,14 +640,34 @@ export default function ShotChart({
               <HexLayer shots={activeShotChart.shots} />
             )}
 
-            <CourtMarkings />
+            <ShotCourt tone={chartView === "heatmap" ? "dark" : "light"} />
 
             {/* Season / mode label badge */}
-            <rect x="24" y="18" width="130" height="48" rx="14" fill="rgba(255,255,255,0.86)" />
-            <text x="38" y="38" fontSize="10" fontWeight="600" fill="var(--muted)" letterSpacing="0.12em">
+            <rect
+              x="24"
+              y="18"
+              width="130"
+              height="48"
+              rx="14"
+              fill={chartView === "heatmap" ? "rgba(255,255,255,0.78)" : "rgba(255,255,255,0.86)"}
+            />
+            <text
+              x="38"
+              y="38"
+              fontSize="10"
+              fontWeight="600"
+              fill={chartView === "heatmap" ? "rgba(100,71,167,0.82)" : "var(--muted)"}
+              letterSpacing="0.12em"
+            >
               {selectedSeason} · {seasonType === "Regular Season" ? "RS" : "PO"}
             </text>
-            <text x="38" y="55" fontSize="13" fontWeight="600" fill="var(--foreground)">
+            <text
+              x="38"
+              y="55"
+              fontSize="13"
+              fontWeight="600"
+              fill={chartView === "heatmap" ? "rgba(43,34,71,0.96)" : "var(--foreground)"}
+            >
               {COURT_LABEL[chartView]}
             </text>
 
@@ -579,82 +694,71 @@ export default function ShotChart({
                 );
               })}
 
-            {/* Heatmap: per-shot dots colored by zone efficiency */}
-            {chartView === "heatmap" &&
-              activeShotChart &&
-              (() => {
-                const zoneStats = buildZoneStats(activeShotChart.shots);
-                return activeShotChart.shots.map((shot, i) => {
-                  const [x, y] = toSvg(shot.loc_x, shot.loc_y);
-                  const stat = zoneStats[shot.zone_basic];
-                  const avg = LEAGUE_AVG[shot.zone_basic] ?? null;
-                  const pct = stat && stat.attempted >= 5 ? stat.made / stat.attempted : null;
-                  const diff = pct !== null && avg !== null ? pct - avg : null;
-                  return (
-                    <circle
-                      key={i}
-                      cx={x}
-                      cy={y}
-                      r="3.5"
-                      fill={heatColor(diff, 0.7)}
-                      stroke="rgba(255,255,255,0.15)"
-                      strokeWidth="0.5"
-                    >
-                      <title>
-                        {shot.zone_basic} · {shot.action_type} · {shot.distance} ft ·{" "}
-                        {shot.shot_made ? "Made ✓" : "Missed ✗"}
-                      </title>
-                    </circle>
-                  );
-                });
-              })()}
           </svg>
         </div>
 
         {/* Legend */}
-        <div className="flex flex-wrap items-center justify-center gap-5 mt-3 text-xs text-[var(--muted)]">
+        <div className="bip-shot-legend mt-3 justify-center text-xs text-[var(--muted)]">
           {chartView === "scatter" ? (
             <>
-              <span className="flex items-center gap-1.5">
+              <span className="inline-flex items-center gap-1.5 rounded-full border border-[rgba(25,52,42,0.1)] bg-[rgba(255,255,255,0.72)] px-3 py-1.5">
                 <span className="inline-block w-3 h-3 rounded-full bg-[#21483b] opacity-80" />
                 Made
               </span>
-              <span className="flex items-center gap-1.5">
+              <span className="inline-flex items-center gap-1.5 rounded-full border border-[rgba(25,52,42,0.1)] bg-[rgba(255,255,255,0.72)] px-3 py-1.5">
                 <span className="inline-block w-3 h-3 rounded-full bg-[#b25b4f] opacity-50" />
                 Missed
               </span>
             </>
           ) : chartView === "hex" ? (
             <>
-              <span className="flex items-center gap-1.5">
+              <span className="inline-flex items-center gap-1.5 rounded-full border border-[rgba(25,52,42,0.1)] bg-[rgba(255,255,255,0.72)] px-3 py-1.5">
                 <span className="inline-block w-3 h-3 rounded-sm bg-emerald-500" />
                 Above avg
               </span>
-              <span className="flex items-center gap-1.5">
+              <span className="inline-flex items-center gap-1.5 rounded-full border border-[rgba(25,52,42,0.1)] bg-[rgba(255,255,255,0.72)] px-3 py-1.5">
                 <span className="inline-block w-3 h-3 rounded-sm bg-gray-400" />
                 Near avg
               </span>
-              <span className="flex items-center gap-1.5">
+              <span className="inline-flex items-center gap-1.5 rounded-full border border-[rgba(25,52,42,0.1)] bg-[rgba(255,255,255,0.72)] px-3 py-1.5">
                 <span className="inline-block w-3 h-3 rounded-sm bg-red-500" />
                 Below avg
               </span>
-              <span>· Larger hex = more attempts</span>
+              <span className="inline-flex items-center rounded-full border border-[rgba(25,52,42,0.1)] bg-[rgba(255,255,255,0.72)] px-3 py-1.5">
+                Larger hex = more attempts
+              </span>
             </>
           ) : (
             <>
-              <span className="flex items-center gap-1.5">
-                <span className="inline-block w-3 h-3 rounded-full bg-emerald-500" />
-                Above avg
-              </span>
-              <span className="flex items-center gap-1.5">
-                <span className="inline-block w-3 h-3 rounded-full bg-gray-400" />
-                Near avg
-              </span>
-              <span className="flex items-center gap-1.5">
-                <span className="inline-block w-3 h-3 rounded-full bg-red-500" />
-                Below avg
-              </span>
-              <span>· hover zones for details</span>
+              {chartView === "heatmap" ? (
+                <>
+                  <span className="inline-flex items-center gap-1.5 rounded-full border border-[rgba(25,52,42,0.1)] bg-[rgba(255,255,255,0.72)] px-3 py-1.5">
+                    <span className="inline-block h-3 w-8 rounded-full bg-[linear-gradient(90deg,rgba(62,19,128,0.9),rgba(255,123,84,0.95),rgba(255,249,179,0.98))]" />
+                    Shot frequency
+                  </span>
+                  <span className="inline-flex items-center rounded-full border border-[rgba(25,52,42,0.1)] bg-[rgba(255,255,255,0.72)] px-3 py-1.5">
+                    Darker glow = hotter shot volume
+                  </span>
+                </>
+              ) : (
+                <>
+                  <span className="inline-flex items-center gap-1.5 rounded-full border border-[rgba(25,52,42,0.1)] bg-[rgba(255,255,255,0.72)] px-3 py-1.5">
+                    <span className="inline-block w-3 h-3 rounded-full bg-emerald-500" />
+                    Above avg
+                  </span>
+                  <span className="inline-flex items-center gap-1.5 rounded-full border border-[rgba(25,52,42,0.1)] bg-[rgba(255,255,255,0.72)] px-3 py-1.5">
+                    <span className="inline-block w-3 h-3 rounded-full bg-gray-400" />
+                    Near avg
+                  </span>
+                  <span className="inline-flex items-center gap-1.5 rounded-full border border-[rgba(25,52,42,0.1)] bg-[rgba(255,255,255,0.72)] px-3 py-1.5">
+                    <span className="inline-block w-3 h-3 rounded-full bg-red-500" />
+                    Below avg
+                  </span>
+                  <span className="inline-flex items-center rounded-full border border-[rgba(25,52,42,0.1)] bg-[rgba(255,255,255,0.72)] px-3 py-1.5">
+                    hover zones for details
+                  </span>
+                </>
+              )}
             </>
           )}
         </div>

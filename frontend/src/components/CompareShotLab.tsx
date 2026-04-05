@@ -63,18 +63,29 @@ function ShotLabColumn({
   label,
   status,
   attempts,
+  side,
   children,
 }: {
   label: string;
   status: "ready" | "stale" | "missing";
   attempts: number;
+  side: "left" | "right";
   children: ReactNode;
 }) {
   return (
-    <div className="space-y-3 rounded-[1.75rem] border border-[rgba(25,52,42,0.12)] bg-[rgba(255,255,255,0.56)] p-4">
+    <div
+      className={`space-y-3 rounded-[1.9rem] border p-4 shadow-[0_16px_40px_rgba(47,43,36,0.06)] ${
+        side === "left"
+          ? "border-[rgba(33,72,59,0.16)] bg-[linear-gradient(180deg,rgba(255,252,247,0.88),rgba(228,236,232,0.72))]"
+          : "border-[rgba(181,145,78,0.18)] bg-[linear-gradient(180deg,rgba(255,250,244,0.88),rgba(239,231,212,0.74))]"
+      }`}
+    >
       <div className="flex items-center justify-between gap-3">
         <div>
-          <p className="text-sm font-semibold text-[var(--foreground)]">{label}</p>
+          <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[var(--muted)]">
+            {side === "left" ? "Left Surface" : "Right Surface"}
+          </p>
+          <p className="mt-1 text-sm font-semibold text-[var(--foreground)]">{label}</p>
           <p className="text-xs text-[var(--muted)]">{attempts} attempts in window</p>
         </div>
         <ChartStatusBadge status={status} compact />
@@ -159,20 +170,20 @@ export default function CompareShotLab({
   }
 
   return (
-    <section className="space-y-6 rounded-[2rem] border border-[var(--border)] bg-[linear-gradient(145deg,rgba(247,243,232,0.96),rgba(228,236,232,0.92))] p-6 shadow-[0_24px_80px_rgba(47,43,36,0.08)]">
+    <section className="bip-shot-shell bip-shot-shell-neutral space-y-6">
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
-          <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[var(--muted)]">
+          <p className="bip-shot-kicker">
             Compare Surface
           </p>
-          <h3 className="mt-1 text-xl font-semibold text-[var(--foreground)]">
+          <h3 className="bip-display mt-2 text-[1.7rem] font-semibold text-[var(--foreground)]">
             Shot Lab
           </h3>
-          <p className="mt-1 text-xs text-[var(--muted)]">
-            Shared season and date window across value, sprawl, and distance views.
+          <p className="mt-2 max-w-2xl text-sm leading-6 text-[var(--muted-strong)]">
+            A premium duel surface with shared season and date window across value, sprawl, and distance views.
           </p>
         </div>
-        <div className="flex flex-wrap gap-2">
+        <div className="flex flex-wrap gap-2 rounded-full border border-[rgba(25,52,42,0.08)] bg-[rgba(255,255,255,0.46)] p-1">
           {VIEW_OPTIONS.map((option) => (
             <button
               key={option.id}
@@ -201,12 +212,22 @@ export default function CompareShotLab({
         availableEndDate={availableEndDate}
       />
 
-      <div className="flex flex-wrap items-center gap-3 rounded-[1.25rem] border border-[rgba(25,52,42,0.12)] bg-[rgba(255,255,255,0.66)] px-4 py-3 text-sm text-[var(--muted-strong)]">
+      <div className="grid gap-3 rounded-[1.4rem] border border-[rgba(25,52,42,0.12)] bg-[rgba(255,255,255,0.62)] px-4 py-3 text-sm text-[var(--muted-strong)] md:grid-cols-[1fr_auto_1fr] md:items-center">
+        <div>
+          <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-[var(--muted)]">{playerALabel}</p>
+          <p className="mt-1 text-sm text-[var(--foreground)]">{shotA?.attempted ?? 0} attempts</p>
+        </div>
         <span>{windowLabel}</span>
-        <span className="text-[var(--muted)]">·</span>
-        <span>{season}</span>
-        <span className="text-[var(--muted)]">·</span>
-        <span>{seasonType}</span>
+        <div className="text-right">
+          <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-[var(--muted)]">{playerBLabel}</p>
+          <p className="mt-1 text-sm text-[var(--foreground)]">{shotB?.attempted ?? 0} attempts</p>
+        </div>
+      </div>
+
+      <div className="flex flex-wrap items-center gap-3 text-xs text-[var(--muted)]">
+        <span className="rounded-full border border-[rgba(25,52,42,0.1)] bg-[rgba(255,255,255,0.72)] px-3 py-1.5">{season}</span>
+        <span className="rounded-full border border-[rgba(25,52,42,0.1)] bg-[rgba(255,255,255,0.72)] px-3 py-1.5">{seasonType}</span>
+        <span className="rounded-full border border-[rgba(25,52,42,0.1)] bg-[rgba(255,255,255,0.72)] px-3 py-1.5">{VIEW_OPTIONS.find((option) => option.id === view)?.label}</span>
       </div>
 
       {bothMissing ? (
@@ -226,6 +247,7 @@ export default function CompareShotLab({
           label={playerALabel}
           status={shotA?.data_status ?? "missing"}
           attempts={shotA?.attempted ?? 0}
+          side="left"
         >
           {view === "value" ? (
             <ShotValueMap shots={shotA?.shots ?? []} playerLabel={windowLabel} scaleMaxFreq={sharedZoneFreq} idPrefix="compare-left-value" />
@@ -240,6 +262,7 @@ export default function CompareShotLab({
           label={playerBLabel}
           status={shotB?.data_status ?? "missing"}
           attempts={shotB?.attempted ?? 0}
+          side="right"
         >
           {view === "value" ? (
             <ShotValueMap shots={shotB?.shots ?? []} playerLabel={windowLabel} scaleMaxFreq={sharedZoneFreq} idPrefix="compare-right-value" />

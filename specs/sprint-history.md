@@ -1,11 +1,19 @@
 # Sprint History Archive
 
-Sprints 1–35. Current sprint summaries also live in `CLAUDE.md` under "Recent Sprints".
+Sprints 1–36. Current sprint summaries also live in `CLAUDE.md` under "Recent Sprints".
 
 For detailed per-sprint records, see the individual closeout files in this directory:
-`specs/sprint-09-closeout.md` through `specs/sprint-35-closeout.md`
+`specs/sprint-09-closeout.md` through `specs/sprint-36-closeout.md`
 
 ---
+
+### Sprint 36 — Shot Lab Visual Renaissance
+**Branch:** `feature/sprint-36-shot-lab-renaissance`
+
+- Rebuilt the shot lab into a shared editorial-luxe visual system across player, compare, and evolution surfaces
+- Turned `ShotSprawlMap` into the hero surface with layered organic density fields, softer footprint treatment, and richer story stats
+- Restyled the heat, value, distance, compare, duel, zone, and evolution shot views so they read as one premium suite without changing Sprint 35 filter behavior
+- Added a shared `ShotCourt` foundation for the major shot views and verified the sprint with frontend `npm run lint` and `npm run build`
 
 ### Sprint 35 — Shot Lab Expansion
 **Branch:** `feature/sprint-35-shot-lab-expansion`

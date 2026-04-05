@@ -257,22 +257,21 @@ CourtVue Labs uses a hybrid sprint model: major feature sprints typically run as
 
 > Full history → `specs/sprint-history.md`
 
+### Sprint 36 — Shot Lab Visual Renaissance
+**Branch:** `feature/sprint-36-shot-lab-renaissance` — ready for review
+
+- Rebuilt the shot lab into a shared editorial-luxe visual system across player, compare, and evolution surfaces
+- Turned `ShotSprawlMap` into the hero surface with layered density fields, softer footprint treatment, and richer visual storytelling
+- Reworked the `Heat` view into a true shot-frequency heatmap with brighter hotspot cores and a more neutral atmosphere
+- Added a shared `ShotCourt` foundation for the major shot views, with further silhouette polish deferred as a follow-on
+
 ### Sprint 35 — Shot Lab Expansion
-**Branch:** `feature/sprint-35-shot-lab-expansion` — ready for merge
+**Branch:** `feature/sprint-35-shot-lab-expansion` — merged
 
 - Enriched persisted shot-chart payloads with `game_id` / `game_date` and date-window filters on the shot-chart + zone APIs
 - Turned the player shot chart into a shared-filter shot lab with preset/custom windows across scatter, heat, hex, value, sprawl, zone, and distance views
 - Added `CompareShotLab` with synchronized season / season-type / date-window controls and side-by-side advanced shot surfaces
 - Upgraded `ShotSeasonEvolution` with playoff support while keeping empty playoff seasons visible in the filmstrip
-
-### Sprint 34 — SprawlBall Edition
-**Branch:** `feature/sprint-34-goldsberry-shot-charts` — merged
-
-- `ShotValueMap`: zone bubbles where area ∝ shot frequency and fill color ∝ value added (FG% delta × zone points) — new "Value" mode in ShotChart
-- `ShotSprawlMap`: 25×24 grid Gaussian-smoothed density contours (4 tiers) + convex hull with sq-ft court coverage stat — new "Sprawl" mode in ShotChart
-- `ShotDistanceProfile`: continuous 0–30 ft frequency ribbon with per-2ft efficiency-colored gradient fill and Recharts FG% sparkline — below zone breakdown table
-- `ShotSeasonEvolution`: mini zone-heatmap career filmstrip (10 pre-allocated SWR slots) + FG%/3P% AreaChart timeline — in PlayerDashboard between ShotChart and ZoneProfilePanel
-- `ZONE_CENTROIDS` extracted to `shotchart-constants.ts`; ShotChart toggle expanded from 3 → 5 modes
 
 ---
 
@@ -280,7 +279,7 @@ CourtVue Labs uses a hybrid sprint model: major feature sprints typically run as
 
 | Branch | Owner | Status |
 |--------|-------|--------|
-| `feature/sprint-35-shot-lab-expansion` | Codex | Ready for merge |
+| `feature/sprint-36-shot-lab-renaissance` | Codex | Ready for review |
 | `master` | — | Stable |
 
 Sprint branches are created at kickoff and listed in `AGENTS.md`.

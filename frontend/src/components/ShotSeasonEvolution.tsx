@@ -14,6 +14,8 @@ import type { ShotChartShot } from "@/lib/types";
 import { LEAGUE_AVG_FG, ZONE_ORDER, ZONE_PATHS, heatColor } from "@/lib/shotchart-constants";
 import { usePlayerShotChart } from "@/hooks/usePlayerStats";
 import { chartPalette } from "@/lib/chart-system";
+import { ShotLabLegendItem, ShotLabSurface } from "./ShotLabSurface";
+import ShotCourt from "./ShotCourt";
 
 interface ShotSeasonEvolutionProps {
   playerId: number;
@@ -99,17 +101,20 @@ function MiniCourt({ shots, season, isCurrent, isLoading }: MiniCourtProps) {
       <div
         className={`rounded-xl overflow-hidden border ${
           isCurrent
-            ? "border-[rgba(33,72,59,0.5)] shadow-[0_0_0_2px_rgba(33,72,59,0.18)]"
-            : "border-[rgba(25,52,42,0.12)]"
+            ? "border-[rgba(33,72,59,0.5)] shadow-[0_0_0_2px_rgba(33,72,59,0.18),0_14px_36px_rgba(47,43,36,0.08)]"
+            : "border-[rgba(25,52,42,0.12)] shadow-[0_10px_28px_rgba(47,43,36,0.06)]"
         }`}
         style={{ width: 150, height: 144 }}
       >
         {isLoading || total === 0 ? (
-          <div className="w-full h-full flex items-center justify-center bg-[rgba(228,236,232,0.5)]">
+          <div className="w-full h-full flex items-center justify-center bg-[linear-gradient(180deg,rgba(255,252,247,0.9),rgba(228,236,232,0.62))]">
             {isLoading ? (
               <div className="w-5 h-5 rounded-full border-2 border-[var(--accent)] border-t-transparent animate-spin" />
             ) : (
-              <span className="text-[10px] text-[var(--muted)]">No data</span>
+              <div className="text-center">
+                <div className="text-[10px] font-semibold uppercase tracking-[0.18em] text-[var(--muted)]">Empty lane</div>
+                <div className="mt-1 text-[10px] text-[var(--muted)]">No shot data</div>
+              </div>
             )}
           </div>
         ) : (
@@ -142,16 +147,7 @@ function MiniCourt({ shots, season, isCurrent, isLoading }: MiniCourtProps) {
               );
             })}
 
-            {/* Minimal court markings */}
-            <g stroke="rgba(33,72,59,0.28)" strokeWidth="2" fill="none">
-              <rect x="0" y="0" width="500" height="480" />
-              <rect x="170" y="240" width="160" height="190" />
-              <path d="M 210,430 A 40,40 0 0 0 290,430" />
-              <circle cx="250" cy="430" r="7.5" />
-              <line x1="30" y1="480" x2="30" y2="341" />
-              <line x1="470" y1="480" x2="470" y2="341" />
-              <path d="M 30,341 A 237.5,237.5 0 0 0 470,341" />
-            </g>
+            <ShotCourt />
 
             {/* Current season ring */}
             {isCurrent && (
@@ -168,7 +164,7 @@ function MiniCourt({ shots, season, isCurrent, isLoading }: MiniCourtProps) {
       </div>
 
       {/* Season label + stats */}
-      <div className="mt-1.5 text-center">
+      <div className="mt-2 text-center">
         <p className={`text-[11px] font-semibold ${isCurrent ? "text-[var(--accent-strong)]" : "text-[var(--muted-strong)]"}`}>
           {shortSeason}
         </p>
@@ -222,34 +218,46 @@ export default function ShotSeasonEvolution({
   if (cappedSeasons.length === 0) return null;
 
   return (
-    <div className="rounded-[2rem] border border-[var(--border)] bg-[linear-gradient(145deg,rgba(247,243,232,0.96),rgba(228,236,232,0.92))] p-6 shadow-[0_24px_80px_rgba(47,43,36,0.08)]">
-      <div className="mb-5">
-        <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[var(--muted)]">
-          Player Surface
-        </p>
-        <h3 className="mt-1 text-xl font-semibold text-[var(--foreground)]">
-          Shot Profile Evolution
-        </h3>
-        <p className="mt-1 text-xs text-[var(--muted)]">
-          {seasonType === "Regular Season" ? "Regular season" : "Playoff"} zone efficiency across every season · zone color = FG% vs league avg
-        </p>
-      </div>
-
-      <div className="mb-5 flex overflow-hidden rounded-xl border border-[var(--border)] text-xs w-fit">
-        {(["Regular Season", "Playoffs"] as const).map((type) => (
-          <button
-            key={type}
-            onClick={() => setSeasonType(type)}
-            className={`px-3 py-2 transition-colors ${
-              seasonType === type ? "bip-toggle-active" : "bip-toggle"
-            }`}
-          >
-            {type}
-          </button>
-        ))}
-      </div>
-
-      {/* Mini court filmstrip */}
+    <ShotLabSurface
+      kicker="EVOLUTION"
+      title="Shot profile evolution"
+      subtitle={`${seasonType === "Regular Season" ? "Regular season" : "Playoff"} zone efficiency across every season, with the active year held apart from the rest of the strip.`}
+      headerAside={
+        <div className="flex overflow-hidden rounded-xl border border-[var(--border)] bg-[rgba(255,255,255,0.56)] p-1 text-xs w-fit">
+          {(["Regular Season", "Playoffs"] as const).map((type) => (
+            <button
+              key={type}
+              onClick={() => setSeasonType(type)}
+              className={`rounded-lg px-3 py-2 transition-colors ${
+                seasonType === type ? "bip-toggle-active" : "bip-toggle"
+              }`}
+            >
+              {type}
+            </button>
+          ))}
+        </div>
+      }
+      legend={
+        <>
+          <ShotLabLegendItem
+            swatch={<span className="inline-block h-3.5 w-6 rounded-sm bg-emerald-500/80" />}
+            label="Above avg zone"
+          />
+          <ShotLabLegendItem
+            swatch={<span className="inline-block h-3.5 w-6 rounded-sm bg-gray-300" />}
+            label="Near avg"
+          />
+          <ShotLabLegendItem
+            swatch={<span className="inline-block h-3.5 w-6 rounded-sm bg-red-400/80" />}
+            label="Below avg"
+          />
+          <ShotLabLegendItem
+            swatch={<span className="inline-block h-3.5 w-6 rounded-sm border-2 border-[rgba(33,72,59,0.5)]" />}
+            label="Current season"
+          />
+        </>
+      }
+    >
       <div className="flex flex-wrap gap-4 justify-start">
         {cappedSeasons.map((season, i) => {
           const slot = slots[i];
@@ -269,7 +277,7 @@ export default function ShotSeasonEvolution({
       {timelineData.some((d) => d.fgPct !== null) && (
         <div className="mt-6 border-t border-[rgba(25,52,42,0.08)] pt-5">
           <p className="bip-kicker mb-3">Efficiency Trend</p>
-          <div style={{ height: 140 }}>
+          <div className="rounded-[1.35rem] border border-[rgba(25,52,42,0.1)] bg-[rgba(255,255,255,0.62)] p-3" style={{ height: 164 }}>
             <ResponsiveContainer width="100%" height="100%">
               <AreaChart data={timelineData} margin={{ top: 4, right: 8, bottom: 0, left: 0 }}>
                 <defs>
@@ -340,30 +348,9 @@ export default function ShotSeasonEvolution({
           </div>
         </div>
       )}
-
-      {/* Legend */}
-      <div className="flex flex-wrap items-center gap-4 mt-3 text-[10px] text-[var(--muted)]">
-        <span className="flex items-center gap-1.5">
-          <span className="inline-block w-3 h-3 rounded-[2px] bg-emerald-500 opacity-80" />
-          Above avg zone
-        </span>
-        <span className="flex items-center gap-1.5">
-          <span className="inline-block w-3 h-3 rounded-[2px] bg-gray-300" />
-          Near avg
-        </span>
-        <span className="flex items-center gap-1.5">
-          <span className="inline-block w-3 h-3 rounded-[2px] bg-red-400 opacity-80" />
-          Below avg
-        </span>
-        <span className="flex items-center gap-1.5">
-          <span
-            className="inline-block w-3 h-3 rounded-sm border-2"
-            style={{ borderColor: "rgba(33,72,59,0.5)" }}
-          />
-          Current season
-        </span>
-        <span>· {seasonType === "Playoffs" ? "empty cards mark seasons without playoff shot data" : "≥5 FGA to show zone efficiency"}</span>
-      </div>
-    </div>
+      <p className="text-[11px] text-[var(--muted)]">
+        {seasonType === "Playoffs" ? "Empty cards mark seasons without playoff shot data." : "At least 5 attempts are required before zone efficiency surfaces in the mini courts."}
+      </p>
+    </ShotLabSurface>
   );
 }
