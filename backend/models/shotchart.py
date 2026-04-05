@@ -16,6 +16,12 @@ class ShotChartShot(BaseModel):
     distance: int
     game_id: Optional[str] = None
     game_date: Optional[str] = None
+    period: Optional[int] = None
+    clock: Optional[str] = None
+    minutes_remaining: Optional[int] = None
+    seconds_remaining: Optional[int] = None
+    shot_value: Optional[int] = None
+    shot_event_id: Optional[str] = None
 
 
 class ShotChartResponse(BaseModel):

@@ -1,11 +1,19 @@
 # Sprint History Archive
 
-Sprints 1–36. Current sprint summaries also live in `CLAUDE.md` under "Recent Sprints".
+Sprints 1–37. Current sprint summaries also live in `CLAUDE.md` under "Recent Sprints".
 
 For detailed per-sprint records, see the individual closeout files in this directory:
-`specs/sprint-09-closeout.md` through `specs/sprint-36-closeout.md`
+`specs/sprint-09-closeout.md` through `specs/sprint-37-closeout.md`
 
 ---
+
+### Sprint 37 — Situational Shot Intelligence + 3D Foundation
+**Branch:** `feature/sprint-37-situational-shot-intelligence`
+
+- Widened persisted shot payloads with situational context fields and added shared `period_bucket`, `result`, and `shot_value` filters on the shot and zone APIs
+- Added a product-facing shot refresh endpoint backed by the warehouse queue path, then wired refresh actions into player and compare shot-lab states
+- Added the player `ShotContextPanel` with top-action summaries and recent filtered shots that deep-link into Game Explorer
+- Updated Game Explorer to accept shot-lab query state and verified the sprint with full backend `pytest`, frontend `npm run lint`, and frontend `npm run build`
 
 ### Sprint 36 — Shot Lab Visual Renaissance
 **Branch:** `feature/sprint-36-shot-lab-renaissance`

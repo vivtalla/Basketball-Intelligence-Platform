@@ -1816,3 +1816,35 @@ export type ShotLabWindowPreset =
   | "last-10-games"
   | "last-30-days"
   | "custom";
+
+// Sprint 37 — Situational shot intelligence
+
+export type ShotLabPeriodBucket = "all" | "q1" | "q2" | "q3" | "q4" | "ot";
+export type ShotLabResultFilter = "all" | "made" | "missed";
+export type ShotLabShotValueFilter = "all" | "2pt" | "3pt";
+
+export interface ShotLabSituationalFilters {
+  periodBucket: ShotLabPeriodBucket;
+  result: ShotLabResultFilter;
+  shotValue: ShotLabShotValueFilter;
+}
+
+export interface ShotLabFilters extends ShotLabDateRange, ShotLabSituationalFilters {}
+
+export interface ShotChartShot {
+  period?: number | null;
+  clock?: string | null;
+  minutes_remaining?: number | null;
+  seconds_remaining?: number | null;
+  shot_value?: number | null;
+  shot_event_id?: string | null;
+}
+
+export interface ZoneProfileResponse {
+  available_game_dates?: string[];
+}
+
+export interface QueueResponse {
+  queued: number;
+  jobs: IngestionJobResponse[];
+}

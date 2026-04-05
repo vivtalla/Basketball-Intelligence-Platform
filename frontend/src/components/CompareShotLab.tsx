@@ -1,8 +1,13 @@
 "use client";
 
 import { useMemo, useState, type ReactNode } from "react";
-import { usePlayerShotChart, usePlayerZoneProfile } from "@/hooks/usePlayerStats";
-import type { ShotChartShot, ShotLabDateRange, ShotLabWindowPreset } from "@/lib/types";
+import { usePlayerShotChart, usePlayerZoneProfile, useShotChartRefresh } from "@/hooks/usePlayerStats";
+import type {
+  ShotChartShot,
+  ShotLabDateRange,
+  ShotLabSituationalFilters,
+  ShotLabWindowPreset,
+} from "@/lib/types";
 import { clampShotLabCustomRange, mergeAvailableShotDates, resolveShotLabRange } from "@/lib/shotlab";
 import ChartStatusBadge from "./ChartStatusBadge";
 import ShotDistanceProfile from "./ShotDistanceProfile";
@@ -29,6 +34,12 @@ const VIEW_OPTIONS: Array<{ id: CompareShotView; label: string }> = [
   { id: "sprawl", label: "Sprawl map" },
   { id: "distance", label: "Distance profile" },
 ];
+
+const DEFAULT_SITUATIONAL_FILTERS: ShotLabSituationalFilters = {
+  periodBucket: "all",
+  result: "all",
+  shotValue: "all",
+};
 
 function buildZoneMaxFrequency(shots: ShotChartShot[]): number {
   if (shots.length === 0) return 0;
@@ -59,17 +70,29 @@ function formatWindowLabel(preset: ShotLabWindowPreset, range: ShotLabDateRange)
   return "Custom window";
 }
 
+function formatSituationalLabel(filters: ShotLabSituationalFilters): string {
+  const parts: string[] = [];
+  if (filters.periodBucket !== "all") parts.push(filters.periodBucket === "ot" ? "OT" : filters.periodBucket.toUpperCase());
+  if (filters.result !== "all") parts.push(filters.result === "made" ? "Makes" : "Misses");
+  if (filters.shotValue !== "all") parts.push(filters.shotValue === "3pt" ? "3PT" : "2PT");
+  return parts.length > 0 ? parts.join(" · ") : "All situations";
+}
+
 function ShotLabColumn({
   label,
   status,
   attempts,
   side,
+  onRefresh,
+  isRefreshing,
   children,
 }: {
   label: string;
   status: "ready" | "stale" | "missing";
   attempts: number;
   side: "left" | "right";
+  onRefresh: () => void;
+  isRefreshing: boolean;
   children: ReactNode;
 }) {
   return (
@@ -88,7 +111,18 @@ function ShotLabColumn({
           <p className="mt-1 text-sm font-semibold text-[var(--foreground)]">{label}</p>
           <p className="text-xs text-[var(--muted)]">{attempts} attempts in window</p>
         </div>
-        <ChartStatusBadge status={status} compact />
+        <div className="flex items-center gap-2">
+          <ChartStatusBadge status={status} compact />
+          {(status === "missing" || status === "stale") && (
+            <button
+              onClick={onRefresh}
+              disabled={isRefreshing}
+              className="rounded-full border border-[rgba(25,52,42,0.12)] bg-white px-3 py-1.5 text-[11px] font-medium text-[var(--foreground)] transition-colors hover:border-[rgba(25,52,42,0.24)] disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {isRefreshing ? "Refreshing..." : "Refresh"}
+            </button>
+          )}
+        </div>
       </div>
       {children}
     </div>
@@ -107,6 +141,9 @@ export default function CompareShotLab({
   const [seasonType, setSeasonType] = useState<"Regular Season" | "Playoffs">("Regular Season");
   const [preset, setPreset] = useState<ShotLabWindowPreset>("full");
   const [customRange, setCustomRange] = useState<ShotLabDateRange>({ startDate: null, endDate: null });
+  const [situationalFilters, setSituationalFilters] = useState<ShotLabSituationalFilters>(
+    DEFAULT_SITUATIONAL_FILTERS
+  );
   const [view, setView] = useState<CompareShotView>("value");
 
   const { data: baseA } = usePlayerShotChart(playerAId, season, seasonType);
@@ -129,10 +166,20 @@ export default function CompareShotLab({
     [availableDates, availableEndDate, availableStartDate, customRange, preset]
   );
 
-  const { data: shotA, isLoading: shotALoading } = usePlayerShotChart(playerAId, season, seasonType, filters);
-  const { data: shotB, isLoading: shotBLoading } = usePlayerShotChart(playerBId, season, seasonType, filters);
-  const { data: zoneA, isLoading: zoneALoading } = usePlayerZoneProfile(playerAId, season, seasonType, filters);
-  const { data: zoneB, isLoading: zoneBLoading } = usePlayerZoneProfile(playerBId, season, seasonType, filters);
+  const activeFilters = useMemo(
+    () => ({
+      ...filters,
+      ...situationalFilters,
+    }),
+    [filters, situationalFilters]
+  );
+
+  const { data: shotA, isLoading: shotALoading } = usePlayerShotChart(playerAId, season, seasonType, activeFilters);
+  const { data: shotB, isLoading: shotBLoading } = usePlayerShotChart(playerBId, season, seasonType, activeFilters);
+  const { data: zoneA, isLoading: zoneALoading } = usePlayerZoneProfile(playerAId, season, seasonType, activeFilters);
+  const { data: zoneB, isLoading: zoneBLoading } = usePlayerZoneProfile(playerBId, season, seasonType, activeFilters);
+  const { refresh: refreshA, isRefreshing: isRefreshingA } = useShotChartRefresh(playerAId, season, seasonType, activeFilters);
+  const { refresh: refreshB, isRefreshing: isRefreshingB } = useShotChartRefresh(playerBId, season, seasonType, activeFilters);
 
   const sharedZoneFreq = useMemo(
     () => Math.max(buildZoneMaxFrequency(shotA?.shots ?? []), buildZoneMaxFrequency(shotB?.shots ?? []), 0.01),
@@ -144,23 +191,32 @@ export default function CompareShotLab({
   );
 
   const windowLabel = formatWindowLabel(preset, filters);
+  const situationalLabel = formatSituationalLabel(situationalFilters);
   const bothMissing = (shotA?.data_status ?? "missing") === "missing" && (shotB?.data_status ?? "missing") === "missing";
   const noAttemptsInWindow = Boolean(
     ((shotA?.attempted ?? 0) === 0 || !shotA) &&
       ((shotB?.attempted ?? 0) === 0 || !shotB) &&
-      (filters.startDate || filters.endDate)
+      (
+        filters.startDate ||
+        filters.endDate ||
+        situationalFilters.periodBucket !== "all" ||
+        situationalFilters.result !== "all" ||
+        situationalFilters.shotValue !== "all"
+      )
   );
 
   function handleSeasonChange(nextSeason: string) {
     onSeasonChange(nextSeason);
     setPreset("full");
     setCustomRange({ startDate: null, endDate: null });
+    setSituationalFilters(DEFAULT_SITUATIONAL_FILTERS);
   }
 
   function handleSeasonTypeChange(nextSeasonType: "Regular Season" | "Playoffs") {
     setSeasonType(nextSeasonType);
     setPreset("full");
     setCustomRange({ startDate: null, endDate: null });
+    setSituationalFilters(DEFAULT_SITUATIONAL_FILTERS);
   }
 
   function handleCustomRangeChange(nextRange: ShotLabDateRange) {
@@ -208,6 +264,8 @@ export default function CompareShotLab({
         onPresetChange={setPreset}
         customRange={customRange}
         onCustomRangeChange={handleCustomRangeChange}
+        situationalFilters={situationalFilters}
+        onSituationalFiltersChange={setSituationalFilters}
         availableStartDate={availableStartDate}
         availableEndDate={availableEndDate}
       />
@@ -228,6 +286,8 @@ export default function CompareShotLab({
         <span className="rounded-full border border-[rgba(25,52,42,0.1)] bg-[rgba(255,255,255,0.72)] px-3 py-1.5">{season}</span>
         <span className="rounded-full border border-[rgba(25,52,42,0.1)] bg-[rgba(255,255,255,0.72)] px-3 py-1.5">{seasonType}</span>
         <span className="rounded-full border border-[rgba(25,52,42,0.1)] bg-[rgba(255,255,255,0.72)] px-3 py-1.5">{VIEW_OPTIONS.find((option) => option.id === view)?.label}</span>
+        <span className="rounded-full border border-[rgba(25,52,42,0.1)] bg-[rgba(255,255,255,0.72)] px-3 py-1.5">{windowLabel}</span>
+        <span className="rounded-full border border-[rgba(25,52,42,0.1)] bg-[rgba(255,255,255,0.72)] px-3 py-1.5">{situationalLabel}</span>
       </div>
 
       {bothMissing ? (
@@ -248,6 +308,8 @@ export default function CompareShotLab({
           status={shotA?.data_status ?? "missing"}
           attempts={shotA?.attempted ?? 0}
           side="left"
+          onRefresh={() => refreshA(true)}
+          isRefreshing={isRefreshingA}
         >
           {view === "value" ? (
             <ShotValueMap shots={shotA?.shots ?? []} playerLabel={windowLabel} scaleMaxFreq={sharedZoneFreq} idPrefix="compare-left-value" />
@@ -263,6 +325,8 @@ export default function CompareShotLab({
           status={shotB?.data_status ?? "missing"}
           attempts={shotB?.attempted ?? 0}
           side="right"
+          onRefresh={() => refreshB(true)}
+          isRefreshing={isRefreshingB}
         >
           {view === "value" ? (
             <ShotValueMap shots={shotB?.shots ?? []} playerLabel={windowLabel} scaleMaxFreq={sharedZoneFreq} idPrefix="compare-right-value" />

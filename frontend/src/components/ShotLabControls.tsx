@@ -1,6 +1,6 @@
 "use client";
 
-import type { ShotLabDateRange, ShotLabWindowPreset } from "@/lib/types";
+import type { ShotLabDateRange, ShotLabSituationalFilters, ShotLabWindowPreset } from "@/lib/types";
 
 const PRESET_OPTIONS: Array<{ id: ShotLabWindowPreset; label: string }> = [
   { id: "full", label: "Full season" },
@@ -20,6 +20,8 @@ interface ShotLabControlsProps {
   onPresetChange: (preset: ShotLabWindowPreset) => void;
   customRange: ShotLabDateRange;
   onCustomRangeChange: (range: ShotLabDateRange) => void;
+  situationalFilters: ShotLabSituationalFilters;
+  onSituationalFiltersChange: (filters: ShotLabSituationalFilters) => void;
   availableStartDate?: string | null;
   availableEndDate?: string | null;
   seasonLabel?: string;
@@ -35,6 +37,8 @@ export default function ShotLabControls({
   onPresetChange,
   customRange,
   onCustomRangeChange,
+  situationalFilters,
+  onSituationalFiltersChange,
   availableStartDate,
   availableEndDate,
   seasonLabel = "Season",
@@ -138,6 +142,71 @@ export default function ShotLabControls({
           </label>
         </div>
       )}
+
+      <div className="grid gap-3 md:grid-cols-3">
+        <label className="space-y-1">
+          <span className="text-[10px] font-semibold uppercase tracking-[0.16em] text-[var(--muted)]">
+            Period
+          </span>
+          <select
+            value={situationalFilters.periodBucket}
+            onChange={(event) =>
+              onSituationalFiltersChange({
+                ...situationalFilters,
+                periodBucket: event.target.value as ShotLabSituationalFilters["periodBucket"],
+              })
+            }
+            className="bip-input rounded-xl px-3 py-2 text-sm"
+          >
+            <option value="all">All periods</option>
+            <option value="q1">Q1</option>
+            <option value="q2">Q2</option>
+            <option value="q3">Q3</option>
+            <option value="q4">Q4</option>
+            <option value="ot">OT</option>
+          </select>
+        </label>
+
+        <label className="space-y-1">
+          <span className="text-[10px] font-semibold uppercase tracking-[0.16em] text-[var(--muted)]">
+            Result
+          </span>
+          <select
+            value={situationalFilters.result}
+            onChange={(event) =>
+              onSituationalFiltersChange({
+                ...situationalFilters,
+                result: event.target.value as ShotLabSituationalFilters["result"],
+              })
+            }
+            className="bip-input rounded-xl px-3 py-2 text-sm"
+          >
+            <option value="all">All results</option>
+            <option value="made">Made</option>
+            <option value="missed">Missed</option>
+          </select>
+        </label>
+
+        <label className="space-y-1">
+          <span className="text-[10px] font-semibold uppercase tracking-[0.16em] text-[var(--muted)]">
+            Shot Value
+          </span>
+          <select
+            value={situationalFilters.shotValue}
+            onChange={(event) =>
+              onSituationalFiltersChange({
+                ...situationalFilters,
+                shotValue: event.target.value as ShotLabSituationalFilters["shotValue"],
+              })
+            }
+            className="bip-input rounded-xl px-3 py-2 text-sm"
+          >
+            <option value="all">All shots</option>
+            <option value="2pt">2PT</option>
+            <option value="3pt">3PT</option>
+          </select>
+        </label>
+      </div>
 
       {availableStartDate && availableEndDate ? (
         <p className="text-xs text-[var(--muted)]">

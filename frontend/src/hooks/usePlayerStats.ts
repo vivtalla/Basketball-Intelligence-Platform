@@ -1,6 +1,7 @@
 "use client";
 
-import useSWR from "swr";
+import { useState } from "react";
+import useSWR, { useSWRConfig } from "swr";
 import type {
   DbFirstPlayerProfile,
   DbFirstCareerStatsResponse,
@@ -41,14 +42,15 @@ import type {
   WhatIfScenarioResponse,
   StyleXRayResponse,
   PlayTypeScoutingReportResponse,
-  ShotLabDateRange,
+  ShotLabFilters,
+  ShotLabPeriodBucket,
+  ShotLabResultFilter,
+  ShotLabShotValueFilter,
 } from "@/lib/types";
 import {
   getPlayerProfile,
   getPlayerCareerStats,
   getPlayerTrendReport,
-  getPersistedPlayerShotChart,
-  getPersistedPlayerShotChartWindow,
   getLeaderboard,
   getTeams,
   getTeamRoster,
@@ -79,13 +81,54 @@ import {
   getCareerLeaderboard,
   getTeamAvailability,
   getUpcomingSchedule,
-  getPersistedPlayerZoneProfile,
-  getPersistedPlayerZoneProfileWindow,
   getWarehouseReadinessSummary,
   postWhatIfScenario,
   getStyleXRay,
   getPlayTypeScoutingReport,
+  getSituationalPlayerShotChart,
+  getSituationalPlayerZoneProfile,
+  refreshPlayerShotChart as postRefreshPlayerShotChart,
 } from "@/lib/api";
+
+const DEFAULT_SHOT_LAB_FILTERS: ShotLabFilters = {
+  startDate: null,
+  endDate: null,
+  periodBucket: "all",
+  result: "all",
+  shotValue: "all",
+};
+
+function normalizeShotLabFilters(filters?: Partial<ShotLabFilters>): ShotLabFilters {
+  return {
+    startDate: filters?.startDate ?? null,
+    endDate: filters?.endDate ?? null,
+    periodBucket: (filters?.periodBucket ?? "all") as ShotLabPeriodBucket,
+    result: (filters?.result ?? "all") as ShotLabResultFilter,
+    shotValue: (filters?.shotValue ?? "all") as ShotLabShotValueFilter,
+  };
+}
+
+function buildShotChartKey(
+  playerId: number | null,
+  season: string | null,
+  seasonType = "Regular Season",
+  filters?: Partial<ShotLabFilters>
+) {
+  if (!playerId || !season) return null;
+  const normalized = normalizeShotLabFilters(filters);
+  return `shot-chart-${playerId}-${season}-${seasonType}-${normalized.startDate ?? "all"}-${normalized.endDate ?? "all"}-${normalized.periodBucket}-${normalized.result}-${normalized.shotValue}`;
+}
+
+function buildZoneProfileKey(
+  playerId: number | null,
+  season: string | null,
+  seasonType = "Regular Season",
+  filters?: Partial<ShotLabFilters>
+) {
+  if (!playerId || !season) return null;
+  const normalized = normalizeShotLabFilters(filters);
+  return `zone-profile-${playerId}-${season}-${seasonType}-${normalized.startDate ?? "all"}-${normalized.endDate ?? "all"}-${normalized.periodBucket}-${normalized.result}-${normalized.shotValue}`;
+}
 
 export function usePlayerProfile(playerId: number | null) {
   return useSWR<DbFirstPlayerProfile>(
@@ -112,16 +155,17 @@ export function usePlayerShotChart(
   playerId: number,
   season: string,
   seasonType = "Regular Season",
-  filters?: ShotLabDateRange
+  filters?: Partial<ShotLabFilters>
 ) {
   return useSWR<PersistedShotChartResponse>(
-    season
-      ? `shot-chart-${playerId}-${season}-${seasonType}-${filters?.startDate ?? "all"}-${filters?.endDate ?? "all"}`
-      : null,
+    buildShotChartKey(playerId, season, seasonType, filters),
     () =>
-      filters?.startDate || filters?.endDate
-        ? getPersistedPlayerShotChartWindow(playerId, season, seasonType, filters)
-        : getPersistedPlayerShotChart(playerId, season, seasonType)
+      getSituationalPlayerShotChart(
+        playerId,
+        season,
+        seasonType,
+        normalizeShotLabFilters(filters)
+      )
   );
 }
 
@@ -521,15 +565,76 @@ export function usePlayerZoneProfile(
   playerId: number | null,
   season: string | null,
   seasonType = "Regular Season",
-  filters?: ShotLabDateRange
+  filters?: Partial<ShotLabFilters>
 ) {
   return useSWR<PersistedZoneProfileResponse>(
-    playerId && season
-      ? `zone-profile-${playerId}-${season}-${seasonType}-${filters?.startDate ?? "all"}-${filters?.endDate ?? "all"}`
-      : null,
+    buildZoneProfileKey(playerId, season, seasonType, filters),
     () =>
-      filters?.startDate || filters?.endDate
-        ? getPersistedPlayerZoneProfileWindow(playerId!, season!, seasonType, filters)
-        : getPersistedPlayerZoneProfile(playerId!, season!, seasonType)
+      getSituationalPlayerZoneProfile(
+        playerId!,
+        season!,
+        seasonType,
+        normalizeShotLabFilters(filters)
+      )
   );
+}
+
+export function useShotChartRefresh(
+  playerId: number | null,
+  season: string | null,
+  seasonType = "Regular Season",
+  filters?: Partial<ShotLabFilters>
+) {
+  const { mutate, cache } = useSWRConfig();
+  const [isRefreshing, setIsRefreshing] = useState(false);
+
+  async function refresh(force = true) {
+    if (!playerId || !season || isRefreshing) return null;
+
+    const activeFilters = normalizeShotLabFilters(filters);
+    const baseFilters = DEFAULT_SHOT_LAB_FILTERS;
+    const activeShotKey = buildShotChartKey(playerId, season, seasonType, activeFilters);
+    const activeZoneKey = buildZoneProfileKey(playerId, season, seasonType, activeFilters);
+    const baseShotKey = buildShotChartKey(playerId, season, seasonType, baseFilters);
+    const baseZoneKey = buildZoneProfileKey(playerId, season, seasonType, baseFilters);
+    const previousSyncedAt =
+      (activeShotKey ? (cache.get(activeShotKey) as PersistedShotChartResponse | undefined)?.last_synced_at : null) ??
+      (baseShotKey ? (cache.get(baseShotKey) as PersistedShotChartResponse | undefined)?.last_synced_at : null) ??
+      null;
+
+    setIsRefreshing(true);
+    try {
+      const queueResult = await postRefreshPlayerShotChart(playerId, season, seasonType, force);
+      const pollStart = Date.now();
+
+      while (Date.now() - pollStart <= 60000) {
+        const freshBaseShot = baseShotKey ? await mutate(baseShotKey) : null;
+        const freshBaseZone = baseZoneKey ? await mutate(baseZoneKey) : null;
+        const freshActiveShot =
+          activeShotKey && activeShotKey !== baseShotKey ? await mutate(activeShotKey) : freshBaseShot;
+        const freshActiveZone =
+          activeZoneKey && activeZoneKey !== baseZoneKey ? await mutate(activeZoneKey) : freshBaseZone;
+
+        const latestShot = freshActiveShot ?? freshBaseShot;
+        const latestZone = freshActiveZone ?? freshBaseZone;
+        const syncedChanged =
+          latestShot?.last_synced_at != null && latestShot.last_synced_at !== previousSyncedAt;
+        const noLongerBlocked =
+          latestShot?.data_status === "ready" &&
+          latestZone?.data_status === "ready";
+
+        if (syncedChanged || noLongerBlocked) {
+          return queueResult;
+        }
+
+        await new Promise((resolve) => window.setTimeout(resolve, 5000));
+      }
+
+      return queueResult;
+    } finally {
+      setIsRefreshing(false);
+    }
+  }
+
+  return { refresh, isRefreshing };
 }

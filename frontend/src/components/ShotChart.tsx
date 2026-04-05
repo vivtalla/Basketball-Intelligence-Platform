@@ -1,8 +1,13 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { usePlayerShotChart } from "@/hooks/usePlayerStats";
-import type { ShotChartShot, ShotLabDateRange, ShotLabWindowPreset } from "@/lib/types";
+import { usePlayerShotChart, useShotChartRefresh } from "@/hooks/usePlayerStats";
+import type {
+  ShotChartShot,
+  ShotLabDateRange,
+  ShotLabSituationalFilters,
+  ShotLabWindowPreset,
+} from "@/lib/types";
 import { LEAGUE_AVG_FG, ZONE_POINTS, ZONE_ORDER, heatColor } from "@/lib/shotchart-constants";
 import { clampShotLabCustomRange, resolveShotLabRange } from "@/lib/shotlab";
 import ChartStatusBadge from "./ChartStatusBadge";
@@ -12,6 +17,7 @@ import ShotValueMap from "./ShotValueMap";
 import ShotSprawlMap from "./ShotSprawlMap";
 import ShotDistanceProfile from "./ShotDistanceProfile";
 import ShotLabControls from "./ShotLabControls";
+import ShotContextPanel from "./ShotContextPanel";
 
 interface ShotChartProps {
   playerId: number;
@@ -397,6 +403,12 @@ const VIEW_DESCRIPTIONS: Record<ChartView, string> = {
   sprawl: "A cinematic portrait of spatial pressure.",
 };
 
+const DEFAULT_SITUATIONAL_FILTERS: ShotLabSituationalFilters = {
+  periodBucket: "all",
+  result: "all",
+  shotValue: "all",
+};
+
 function describeShotWindow(
   preset: ShotLabWindowPreset,
   filters: ShotLabDateRange
@@ -414,6 +426,20 @@ function describeShotWindow(
   return "Filtered window";
 }
 
+function describeSituationalFilters(filters: ShotLabSituationalFilters): string {
+  const parts: string[] = [];
+  if (filters.periodBucket !== "all") {
+    parts.push(filters.periodBucket === "ot" ? "OT only" : filters.periodBucket.toUpperCase());
+  }
+  if (filters.result !== "all") {
+    parts.push(filters.result === "made" ? "Makes only" : "Misses only");
+  }
+  if (filters.shotValue !== "all") {
+    parts.push(filters.shotValue === "3pt" ? "3PT only" : "2PT only");
+  }
+  return parts.length > 0 ? parts.join(" · ") : "All situations";
+}
+
 export default function ShotChart({
   playerId,
   seasons,
@@ -424,6 +450,9 @@ export default function ShotChart({
   const [chartView, setChartView] = useState<ChartView>("scatter");
   const [preset, setPreset] = useState<ShotLabWindowPreset>("full");
   const [customRange, setCustomRange] = useState<ShotLabDateRange>({ startDate: null, endDate: null });
+  const [situationalFilters, setSituationalFilters] = useState<ShotLabSituationalFilters>(
+    DEFAULT_SITUATIONAL_FILTERS
+  );
 
   const { data: shotChart, isLoading, error } = usePlayerShotChart(
     playerId,
@@ -448,16 +477,26 @@ export default function ShotChart({
     [availableDates, availableEndDate, availableStartDate, customRange, preset]
   );
 
+  const activeFilters = useMemo(
+    () => ({
+      ...filters,
+      ...situationalFilters,
+    }),
+    [filters, situationalFilters]
+  );
+
   function handleSeasonChange(nextSeason: string) {
     setSelectedSeason(nextSeason);
     setPreset("full");
     setCustomRange({ startDate: null, endDate: null });
+    setSituationalFilters(DEFAULT_SITUATIONAL_FILTERS);
   }
 
   function handleSeasonTypeChange(nextSeasonType: "Regular Season" | "Playoffs") {
     setSeasonType(nextSeasonType);
     setPreset("full");
     setCustomRange({ startDate: null, endDate: null });
+    setSituationalFilters(DEFAULT_SITUATIONAL_FILTERS);
   }
 
   function handleCustomRangeChange(nextRange: ShotLabDateRange) {
@@ -470,7 +509,14 @@ export default function ShotChart({
     playerId,
     selectedSeason,
     seasonType,
-    filters
+    activeFilters
+  );
+
+  const { refresh, isRefreshing } = useShotChartRefresh(
+    playerId,
+    selectedSeason,
+    seasonType,
+    activeFilters
   );
 
   const activeShotChart = filteredShotChart ?? shotChart;
@@ -482,15 +528,21 @@ export default function ShotChart({
   const dataStatus = activeShotChart?.data_status ?? "missing";
   const isMissing = dataStatus === "missing";
   const isStale = dataStatus === "stale";
+  const hasActiveSelection =
+    Boolean(filters.startDate || filters.endDate) ||
+    situationalFilters.periodBucket !== "all" ||
+    situationalFilters.result !== "all" ||
+    situationalFilters.shotValue !== "all";
   const hasNoAttemptsInWindow = Boolean(
     activeShotChart &&
       activeShotChart.attempted === 0 &&
       !isMissing &&
-      (filters.startDate || filters.endDate)
+      hasActiveSelection
   );
   const isLoadingState = isLoading || isFilteredLoading;
   const activeError = filteredError ?? error;
   const windowLabel = describeShotWindow(preset, filters);
+  const situationalLabel = describeSituationalFilters(situationalFilters);
   const activeViewLabel = VIEW_LABELS[chartView];
 
   return (
@@ -539,6 +591,8 @@ export default function ShotChart({
         onPresetChange={setPreset}
         customRange={customRange}
         onCustomRangeChange={handleCustomRangeChange}
+        situationalFilters={situationalFilters}
+        onSituationalFiltersChange={setSituationalFilters}
         availableStartDate={availableStartDate}
         availableEndDate={availableEndDate}
       />
@@ -560,6 +614,7 @@ export default function ShotChart({
           </div>
           <div className="flex items-center gap-2">
             <span className="text-[11px]">{windowLabel}</span>
+            <span className="text-[11px]">{situationalLabel}</span>
             {activeShotChart.last_synced_at && (
               <span className="text-[11px]">
                 Synced {new Date(activeShotChart.last_synced_at).toLocaleDateString()}
@@ -570,8 +625,15 @@ export default function ShotChart({
       )}
 
       {activeShotChart && !isLoadingState && isMissing && (
-        <div className="bip-empty mb-4 rounded-[1.25rem] px-4 py-3 text-sm text-[var(--muted-strong)]">
-          Shot chart data has not been synced for this player and season yet.
+        <div className="bip-empty mb-4 flex flex-wrap items-center justify-between gap-3 rounded-[1.25rem] px-4 py-3 text-sm text-[var(--muted-strong)]">
+          <span>Shot chart data has not been synced for this player and season yet.</span>
+          <button
+            onClick={() => refresh(true)}
+            disabled={isRefreshing}
+            className="rounded-full border border-[rgba(25,52,42,0.12)] bg-white px-3 py-1.5 text-xs font-medium text-[var(--foreground)] transition-colors hover:border-[rgba(25,52,42,0.24)] disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            {isRefreshing ? "Refreshing..." : "Refresh shot chart"}
+          </button>
         </div>
       )}
 
@@ -768,6 +830,15 @@ export default function ShotChart({
             {isStale
               ? "Showing cached shot data while the persisted feed catches up."
               : "This chart is DB-first, and shot data has not been synced for this player-season yet."}
+            {(isStale || isMissing) && (
+              <button
+                onClick={() => refresh(true)}
+                disabled={isRefreshing}
+                className="ml-3 rounded-full border border-[rgba(25,52,42,0.12)] bg-white px-3 py-1.5 text-[11px] font-medium text-[var(--foreground)] transition-colors hover:border-[rgba(25,52,42,0.24)] disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {isRefreshing ? "Refreshing..." : "Refresh now"}
+              </button>
+            )}
           </div>
         )}
         </div>{/* end hidden wrapper for scatter/heat/hex */}
@@ -792,6 +863,10 @@ export default function ShotChart({
           <p className="bip-kicker mb-3">Distance Signature</p>
           <ShotDistanceProfile shots={activeShotChart.shots} playerLabel={windowLabel} />
         </div>
+      )}
+
+      {activeShotChart && activeShotChart.shots.length > 0 && (
+        <ShotContextPanel shots={activeShotChart.shots} season={selectedSeason} />
       )}
     </div>
   );

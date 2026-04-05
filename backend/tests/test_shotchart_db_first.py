@@ -10,9 +10,9 @@ from sqlalchemy.orm import sessionmaker
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from db.database import Base  # noqa: E402
-from data.nba_client import _normalize_shot_chart_game_date  # noqa: E402
+from data.nba_client import _format_shot_clock, _normalize_shot_chart_game_date  # noqa: E402
 from db.models import IngestionJob, Player, PlayerGameLog, PlayerShotChart, SourceRun, Team  # noqa: E402
-from routers.shotchart import player_shot_chart, player_shot_zones  # noqa: E402
+from routers.shotchart import player_shot_chart, player_shot_zones, refresh_player_shot_chart  # noqa: E402
 from services.warehouse_service import queue_player_shot_chart_sync, queue_season_shot_charts, run_next_job  # noqa: E402
 
 
@@ -43,6 +43,12 @@ def shot_payload(
     distance: int = 12,
     game_id: Optional[str] = "0022400001",
     game_date: Optional[str] = "2025-01-01",
+    period: Optional[int] = 1,
+    clock: Optional[str] = "11:42",
+    minutes_remaining: Optional[int] = 11,
+    seconds_remaining: Optional[int] = 42,
+    shot_value: Optional[int] = 2,
+    shot_event_id: Optional[str] = "101",
 ):
     return {
         "loc_x": loc_x,
@@ -55,6 +61,12 @@ def shot_payload(
         "distance": distance,
         "game_id": game_id,
         "game_date": game_date,
+        "period": period,
+        "clock": clock,
+        "minutes_remaining": minutes_remaining,
+        "seconds_remaining": seconds_remaining,
+        "shot_value": shot_value,
+        "shot_event_id": shot_event_id,
     }
 
 
@@ -82,12 +94,22 @@ def test_player_shot_chart_returns_ready_from_fresh_db_row():
         assert response.last_synced_at == "2026-04-02T12:00:00"
         assert response.shots[0].game_id == "0022400001"
         assert response.shots[0].game_date == "2025-01-01"
+        assert response.shots[0].period == 1
+        assert response.shots[0].clock == "11:42"
+        assert response.shots[0].minutes_remaining == 11
+        assert response.shots[0].seconds_remaining == 42
+        assert response.shots[0].shot_value == 2
+        assert response.shots[0].shot_event_id == "101"
     finally:
         session.close()
 
 
 def test_normalize_shot_chart_game_date_accepts_compact_nba_format():
     assert _normalize_shot_chart_game_date("20260119") == "2026-01-19"
+
+
+def test_format_shot_clock_returns_mm_ss():
+    assert _format_shot_clock(3, 7) == "3:07"
 
 
 def test_player_shot_chart_returns_stale_cached_row_without_remote_fetch():
@@ -239,6 +261,92 @@ def test_player_shot_zones_filters_by_date_window():
         session.close()
 
 
+def test_player_shot_chart_filters_by_period_result_and_shot_value():
+    session = make_session()
+    try:
+        player = seed_player(session)
+        session.add(
+            PlayerShotChart(
+                player_id=player.id,
+                season="2024-25",
+                season_type="Regular Season",
+                shots=[
+                    shot_payload(game_id="0022400001", game_date="2025-01-01", period=1, shot_made=True, shot_type="2PT Field Goal", shot_value=2, zone_basic="Restricted Area", distance=2),
+                    shot_payload(game_id="0022400002", game_date="2025-01-02", period=1, shot_made=False, shot_type="3PT Field Goal", shot_value=3, zone_basic="Above the Break 3", distance=26),
+                    shot_payload(game_id="0022400003", game_date="2025-01-03", period=5, shot_made=False, shot_type="2PT Field Goal", shot_value=2, zone_basic="Mid-Range", distance=15),
+                ],
+                shot_count=3,
+                fetched_at=datetime(2026, 4, 5, 12, 0, 0),
+                expires_at=datetime.utcnow() + timedelta(days=1),
+            )
+        )
+        session.commit()
+
+        response = player_shot_chart(
+            player.id,
+            season="2024-25",
+            season_type="Regular Season",
+            period_bucket="ot",
+            result="missed",
+            shot_value="2pt",
+            db=session,
+        )
+
+        assert response.attempted == 1
+        assert response.shots[0].game_id == "0022400003"
+        assert response.shots[0].period == 5
+        assert response.shots[0].shot_made is False
+        assert response.shots[0].shot_value == 2
+    finally:
+        session.close()
+
+
+def test_player_shot_zones_filters_by_context_and_date_window_together():
+    session = make_session()
+    try:
+        player = seed_player(session)
+        session.add(
+            PlayerShotChart(
+                player_id=player.id,
+                season="2024-25",
+                season_type="Regular Season",
+                shots=[
+                    shot_payload(game_id="0022400001", game_date="2025-01-01", period=4, shot_made=True, shot_type="3PT Field Goal", shot_value=3, zone_basic="Above the Break 3", distance=25),
+                    shot_payload(game_id="0022400002", game_date="2025-01-02", period=4, shot_made=False, shot_type="3PT Field Goal", shot_value=3, zone_basic="Above the Break 3", distance=25),
+                    shot_payload(game_id="0022400003", game_date="2025-01-03", period=4, shot_made=True, shot_type="3PT Field Goal", shot_value=3, zone_basic="Above the Break 3", distance=25),
+                    shot_payload(game_id="0022400004", game_date="2025-01-03", period=4, shot_made=False, shot_type="3PT Field Goal", shot_value=3, zone_basic="Above the Break 3", distance=25),
+                    shot_payload(game_id="0022400005", game_date="2025-01-03", period=4, shot_made=True, shot_type="3PT Field Goal", shot_value=3, zone_basic="Above the Break 3", distance=25),
+                    shot_payload(game_id="0022400006", game_date="2025-01-03", period=4, shot_made=True, shot_type="3PT Field Goal", shot_value=3, zone_basic="Above the Break 3", distance=25),
+                    shot_payload(game_id="0022400007", game_date="2025-01-03", period=2, shot_made=True, shot_type="2PT Field Goal", shot_value=2, zone_basic="Restricted Area", distance=1),
+                ],
+                shot_count=7,
+                fetched_at=datetime(2026, 4, 5, 12, 0, 0),
+                expires_at=datetime.utcnow() + timedelta(days=1),
+            )
+        )
+        session.commit()
+
+        response = player_shot_zones(
+            player.id,
+            season="2024-25",
+            season_type="Regular Season",
+            start_date="2025-01-02",
+            end_date="2025-01-03",
+            period_bucket="q4",
+            result="made",
+            shot_value="3pt",
+            db=session,
+        )
+
+        assert response.total_attempts == 3
+        assert len(response.zones) == 1
+        assert response.zones[0].zone_basic == "Above the Break 3"
+        assert response.zones[0].attempts == 3
+        assert response.zones[0].made == 3
+    finally:
+        session.close()
+
+
 def test_season_shot_chart_job_enqueues_and_player_job_persists_rows():
     session = make_session()
     try:
@@ -350,5 +458,25 @@ def test_player_shot_chart_force_sync_overwrites_minimal_cached_payload_with_enr
         assert persisted.shots[0]["game_id"] == "0022400999"
         assert persisted.shots[0]["game_date"] == "2025-02-01"
         assert persisted.shots[0]["zone_basic"] == "Above the Break 3"
+    finally:
+        session.close()
+
+
+def test_refresh_player_shot_chart_queues_single_player_job():
+    session = make_session()
+    try:
+        player = seed_player(session, player_id=19)
+
+        response = refresh_player_shot_chart(
+            player.id,
+            season="2024-25",
+            season_type="Regular Season",
+            force=True,
+            db=session,
+        )
+
+        assert response.queued == 1
+        assert response.jobs[0].job_type == "sync_player_shot_chart"
+        assert response.jobs[0].job_key == "19:2024-25:Regular Season"
     finally:
         session.close()

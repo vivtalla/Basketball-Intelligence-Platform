@@ -257,21 +257,21 @@ CourtVue Labs uses a hybrid sprint model: major feature sprints typically run as
 
 > Full history → `specs/sprint-history.md`
 
+### Sprint 37 — Situational Shot Intelligence + 3D Foundation
+**Branch:** `feature/sprint-37-situational-shot-intelligence` — ready for review
+
+- Widened persisted shot payloads with situational context and added shared `period_bucket`, `result`, and `shot_value` filters on shot and zone reads
+- Added self-service shot refresh backed by the warehouse queue path and wired it into player and compare shot-lab states
+- Added the player `ShotContextPanel` plus Game Explorer deep links from recent filtered shots
+- Updated Game Explorer to honor shot-lab query params for period, event type, and search context
+
 ### Sprint 36 — Shot Lab Visual Renaissance
-**Branch:** `feature/sprint-36-shot-lab-renaissance` — ready for review
+**Branch:** `feature/sprint-36-shot-lab-renaissance` — merged
 
 - Rebuilt the shot lab into a shared editorial-luxe visual system across player, compare, and evolution surfaces
 - Turned `ShotSprawlMap` into the hero surface with layered density fields, softer footprint treatment, and richer visual storytelling
 - Reworked the `Heat` view into a true shot-frequency heatmap with brighter hotspot cores and a more neutral atmosphere
 - Added a shared `ShotCourt` foundation for the major shot views, with further silhouette polish deferred as a follow-on
-
-### Sprint 35 — Shot Lab Expansion
-**Branch:** `feature/sprint-35-shot-lab-expansion` — merged
-
-- Enriched persisted shot-chart payloads with `game_id` / `game_date` and date-window filters on the shot-chart + zone APIs
-- Turned the player shot chart into a shared-filter shot lab with preset/custom windows across scatter, heat, hex, value, sprawl, zone, and distance views
-- Added `CompareShotLab` with synchronized season / season-type / date-window controls and side-by-side advanced shot surfaces
-- Upgraded `ShotSeasonEvolution` with playoff support while keeping empty playoff seasons visible in the filmstrip
 
 ---
 
@@ -279,7 +279,7 @@ CourtVue Labs uses a hybrid sprint model: major feature sprints typically run as
 
 | Branch | Owner | Status |
 |--------|-------|--------|
-| `feature/sprint-36-shot-lab-renaissance` | Codex | Ready for review |
+| `feature/sprint-37-situational-shot-intelligence` | Codex | Ready for review |
 | `master` | — | Stable |
 
 Sprint branches are created at kickoff and listed in `AGENTS.md`.

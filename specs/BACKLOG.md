@@ -41,8 +41,6 @@ Sprint 35 turned player and compare shot charts into a real shot lab. The highes
 
 Likely shape:
 - Team-level shot-defense sprawl/value maps using conceded opponent shots by team and season
-- Self-service shot-chart refresh action from missing/stale states instead of passive wait messaging
-- Richer shot context enrichment (`period`, `clock`, stronger action overlays) for situational study
 - Shareable or printable shot-lab snapshots that preserve the exact player/compare filter state
 
 ### Shot Lab Visual Follow-Ons (Sprint 36 seeds)
@@ -57,13 +55,22 @@ Likely shape:
 
 ### 3D Shot Charts and Play Reconstruction
 Why it matters:
-CourtVue Labs has a chance to create a signature visual surface here: a breathtaking 3D shot environment that is not just beautiful, but useful for film-adjacent analysis of how possessions and shot outcomes unfold in space.
+CourtVue Labs now has the shot-context and Game Explorer bridge foundation from Sprint 37. The next gain is turning that into a signature 3D surface that is both visually breathtaking and genuinely useful for film-adjacent analysis.
 
 Likely shape:
-- Build a 3D shot-chart mode that visualizes arc, depth, and court location in a way flat charts cannot
-- Use play-by-play data to reconstruct selected possessions or shot sequences on the same 3D court so users can study how actions lead to attempts
-- Start with analyst-friendly views such as made/missed trajectories, shot clusters by action family, and sequence playback tied to quarter/clock context
+- Introduce a 3D rendering layer and a narrow first 3D shot mode that visualizes arc, depth, and court location in a way flat charts cannot
+- Build on Sprint 37’s `game_id` / timing / action context to reconstruct selected possessions or shot sequences on the same 3D court
+- Start with analyst-friendly views such as made/missed trajectories, shot clusters by action family, and simple sequence playback tied to quarter/clock context
 - Keep the first version grounded in real basketball analysis value, not just spectacle, so the 3D layer helps both storytelling and game review
+
+### Shot-to-Event Precision Follow-Ons
+Why it matters:
+Sprint 37 added a useful shot-lab bridge into Game Explorer, but it still works as a context-preserving filter jump rather than exact shot replay.
+
+Likely shape:
+- use `shot_event_id`, `period`, `clock`, and play-by-play descriptions to tighten shot-to-event matching where support is strong
+- highlight the specific play row or sequence in Game Explorer when a shot-lab link resolves cleanly
+- keep ambiguous cases honest instead of forcing false precision
 
 ### Visualization Follow-Ons (Sprint 31 seeds)
 Why it matters:

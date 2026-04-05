@@ -914,3 +914,67 @@ export async function getPersistedPlayerZoneProfileWindow(
     buildShotLabQuery(playerId, season, seasonType, filters, "/zones")
   );
 }
+
+// Sprint 37 — Situational shot intelligence
+
+function buildSituationalShotLabQuery(
+  playerId: number,
+  season: string,
+  seasonType: string,
+  filters?: import("./types").ShotLabFilters,
+  suffix = ""
+): string {
+  const params = new URLSearchParams({
+    season,
+    season_type: seasonType,
+    period_bucket: filters?.periodBucket ?? "all",
+    result: filters?.result ?? "all",
+    shot_value: filters?.shotValue ?? "all",
+  });
+  if (filters?.startDate) {
+    params.set("start_date", filters.startDate);
+  }
+  if (filters?.endDate) {
+    params.set("end_date", filters.endDate);
+  }
+  return `/api/shotchart/${playerId}${suffix}?${params.toString()}`;
+}
+
+export async function getSituationalPlayerShotChart(
+  playerId: number,
+  season: string,
+  seasonType = "Regular Season",
+  filters?: import("./types").ShotLabFilters
+): Promise<import("./types").PersistedShotChartResponse> {
+  return fetchApi<import("./types").PersistedShotChartResponse>(
+    buildSituationalShotLabQuery(playerId, season, seasonType, filters)
+  );
+}
+
+export async function getSituationalPlayerZoneProfile(
+  playerId: number,
+  season: string,
+  seasonType = "Regular Season",
+  filters?: import("./types").ShotLabFilters
+): Promise<import("./types").PersistedZoneProfileResponse> {
+  return fetchApi<import("./types").PersistedZoneProfileResponse>(
+    buildSituationalShotLabQuery(playerId, season, seasonType, filters, "/zones")
+  );
+}
+
+export async function refreshPlayerShotChart(
+  playerId: number,
+  season: string,
+  seasonType = "Regular Season",
+  force = false
+): Promise<import("./types").QueueResponse> {
+  const params = new URLSearchParams({
+    season,
+    season_type: seasonType,
+    force: String(force),
+  });
+  return fetchApi<import("./types").QueueResponse>(
+    `/api/shotchart/${playerId}/refresh?${params.toString()}`,
+    { method: "POST" }
+  );
+}

@@ -1393,7 +1393,9 @@ def get_shot_chart_data(
     """Fetch all shot attempts for a player in a given season from NBA.com.
 
     Returns a list of shot dicts with: loc_x, loc_y, shot_made, shot_type,
-    action_type, zone_basic, zone_area, distance, game_id, game_date.
+    action_type, zone_basic, zone_area, distance, game_id, game_date,
+    period, clock, minutes_remaining, seconds_remaining, shot_value,
+    and shot_event_id when available.
 
     Results are cached in SQLite; historical seasons are cached indefinitely,
     current season for CURRENT_SEASON_CACHE_TTL seconds.
@@ -1420,20 +1422,41 @@ def get_shot_chart_data(
     shots = []
     for _, row in df.iterrows():
         raw_game_date = row.get("GAME_DATE")
+        minutes_remaining = row.get("MINUTES_REMAINING")
+        seconds_remaining = row.get("SECONDS_REMAINING")
+        shot_type = str(row.get("SHOT_TYPE", ""))
+        shot_value = 3 if "3PT" in shot_type.upper() else 2
         shots.append({
             "loc_x": int(row.get("LOC_X", 0)),
             "loc_y": int(row.get("LOC_Y", 0)),
             "shot_made": bool(row.get("SHOT_MADE_FLAG", 0)),
-            "shot_type": str(row.get("SHOT_TYPE", "")),
+            "shot_type": shot_type,
             "action_type": str(row.get("ACTION_TYPE", "")),
             "zone_basic": str(row.get("SHOT_ZONE_BASIC", "")),
             "zone_area": str(row.get("SHOT_ZONE_AREA", "")),
             "distance": int(row.get("SHOT_DISTANCE", 0)),
             "game_id": str(row.get("GAME_ID") or "") or None,
             "game_date": _normalize_shot_chart_game_date(raw_game_date),
+            "period": int(row.get("PERIOD")) if row.get("PERIOD") is not None else None,
+            "clock": _format_shot_clock(minutes_remaining, seconds_remaining),
+            "minutes_remaining": int(minutes_remaining) if minutes_remaining is not None else None,
+            "seconds_remaining": int(seconds_remaining) if seconds_remaining is not None else None,
+            "shot_value": shot_value,
+            "shot_event_id": str(row.get("GAME_EVENT_ID") or "") or None,
         })
     CacheManager.set(cache_key, {"shots": shots}, _cache_ttl_for_season(season))
     return shots
+
+
+def _format_shot_clock(raw_minutes: object, raw_seconds: object) -> Optional[str]:
+    if raw_minutes is None or raw_seconds is None:
+        return None
+    try:
+        minutes = int(raw_minutes)
+        seconds = int(raw_seconds)
+    except (TypeError, ValueError):
+        return None
+    return "{0}:{1:02d}".format(minutes, seconds)
 
 
 def _normalize_shot_chart_game_date(raw_value: object) -> Optional[str]:
