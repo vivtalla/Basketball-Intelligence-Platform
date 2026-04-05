@@ -78,6 +78,11 @@ function formatSituationalLabel(filters: ShotLabSituationalFilters): string {
   return parts.length > 0 ? parts.join(" · ") : "All situations";
 }
 
+function isLegacyPeriodContext(shots: ShotChartShot[] | undefined): boolean {
+  if (!shots || shots.length === 0) return false;
+  return !shots.some((shot) => typeof shot.period === "number" && Number.isFinite(shot.period));
+}
+
 function ShotLabColumn({
   label,
   status,
@@ -204,6 +209,21 @@ export default function CompareShotLab({
         situationalFilters.shotValue !== "all"
       )
   );
+  const leftNeedsPeriodRefresh = Boolean(
+    situationalFilters.periodBucket !== "all" &&
+      baseA &&
+      baseA.attempted > 0 &&
+      isLegacyPeriodContext(baseA.shots) &&
+      (shotA?.attempted ?? 0) === 0
+  );
+  const rightNeedsPeriodRefresh = Boolean(
+    situationalFilters.periodBucket !== "all" &&
+      baseB &&
+      baseB.attempted > 0 &&
+      isLegacyPeriodContext(baseB.shots) &&
+      (shotB?.attempted ?? 0) === 0
+  );
+  const compareNeedsPeriodRefresh = leftNeedsPeriodRefresh || rightNeedsPeriodRefresh;
 
   function handleSeasonChange(nextSeason: string) {
     onSeasonChange(nextSeason);
@@ -296,7 +316,19 @@ export default function CompareShotLab({
         </div>
       ) : null}
 
-      {noAttemptsInWindow ? (
+      {compareNeedsPeriodRefresh ? (
+        <div className="rounded-[1.5rem] border border-dashed border-[rgba(25,52,42,0.16)] bg-[rgba(255,255,255,0.62)] px-4 py-4 text-sm text-[var(--muted-strong)]">
+          Period filters need refreshed shot-context data for
+          {leftNeedsPeriodRefresh && rightNeedsPeriodRefresh
+            ? " both players"
+            : leftNeedsPeriodRefresh
+              ? ` ${playerALabel}`
+              : ` ${playerBLabel}`}{" "}
+          in this selection. Use the refresh action on the affected side to pull the richer shot payload.
+        </div>
+      ) : null}
+
+      {noAttemptsInWindow && !compareNeedsPeriodRefresh ? (
         <div className="rounded-[1.5rem] border border-dashed border-[rgba(25,52,42,0.16)] bg-[rgba(255,255,255,0.62)] px-4 py-4 text-sm text-[var(--muted-strong)]">
           Neither player has shot attempts inside this selected window.
         </div>

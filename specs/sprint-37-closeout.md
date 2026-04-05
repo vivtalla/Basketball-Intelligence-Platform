@@ -21,6 +21,7 @@
 - The Game Explorer bridge is intentionally filter-based in v1; it does not yet promise exact shot-to-event replay matching.
 - The 3D foundation shipped as data and UX groundwork only; no actual 3D rendering surface landed in this sprint.
 - Live QA was completed through local route and API smoke checks, but not through a full interactive browser walkthrough with click-by-click confirmation of every filter combination.
+- Legacy persisted shot-chart rows created before Sprint 37 do not automatically contain the new `period` / clock context. Period-based filters now explain this state honestly in the UI and offer refresh actions, but broader refresh/backfill work is still needed for full dataset completeness.
 
 ## Coordination Lessons
 
@@ -36,6 +37,7 @@
 - Richer shot context can stay in the existing JSON payload for now; it unlocked meaningful situational analysis without forcing a new relational shot-event schema.
 - Shared SWR key builders matter once refresh polling and multiple filter dimensions exist; centralizing those keys avoided drift between player and compare surfaces.
 - The most useful 3D preparation work is not graphics first; it is reliable shot context plus a credible bridge into play-by-play exploration.
+- Feature completeness is not enough without data completeness. If persisted rows can exist in multiple payload generations, the product needs both honest UX for legacy rows and an operational plan for backfilling them before new filters are treated as fully complete.
 
 ## Next Sprint Seeds
 
@@ -43,8 +45,10 @@
 - Improve the Game Explorer bridge from filter-based context to stronger shot-to-event matching where `shot_event_id`, `period`, `clock`, and descriptions are sufficient.
 - Add shareable or printable shot-lab snapshots that preserve season, date window, and situational filters together.
 - Extend the shot-lab model to team-defense / conceded-shot surfaces once the player and compare workflows have stabilized.
+- Define a forward-compatible event completeness plan so future shot, play, and 3D enhancements can rely on a richer canonical payload without repeated reactive widening passes.
 
 ## Backlog Refresh
 
 - Removed the shipped self-service shot refresh and richer situational shot-context items from the shot-lab backlog.
 - Updated the 3D shot-chart backlog item so it now refers to building on the new Sprint 37 shot-context and Game Explorer foundation rather than starting from scratch.
+- Added a new backlog item for dataset completeness and forward-compatible event capture so future enhancements can build on a stable, richer persisted contract instead of repeated ad hoc payload expansions.

@@ -17,6 +17,16 @@ Guidelines:
 
 ## Now
 
+### Data Completeness and Forward-Compatible Event Capture
+Why it matters:
+Sprint 37 exposed a broader platform need: when we add richer context later, older persisted rows can lag behind and new product filters look incomplete until a refresh/backfill catches up. We need a more deliberate completeness strategy so future enhancements can rely on a wide, stable event payload instead of repeatedly widening the model in reactive passes.
+
+Likely shape:
+- define the full medium-term event payload CourtVue should preserve for shot charts and play analysis, including timing, event identity, action context, lineup/team state, and any other high-value upstream fields we are likely to need for 3D, clip, and sequence workflows
+- add completeness metadata so the product can tell the difference between “no data exists upstream,” “data exists but has not been enriched yet,” and “legacy row missing newly required fields”
+- create repeatable backfill and validation workflows that upgrade older persisted rows whenever the canonical payload expands
+- prefer payload completeness and durable storage contracts over piecemeal one-feature field additions, so future analysis surfaces can launch without another reactive persistence redesign
+
 ### Alias Backfill for Edge-Case Players
 Why it matters:
 Sprint 28 shipped the unresolved ops UI, but the underlying identity gaps (two-way players, recently traded players, inactive roster edge cases) still need targeted alias expansion to prevent future unresolved rows accumulating.

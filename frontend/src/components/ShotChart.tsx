@@ -440,6 +440,11 @@ function describeSituationalFilters(filters: ShotLabSituationalFilters): string 
   return parts.length > 0 ? parts.join(" · ") : "All situations";
 }
 
+function isLegacyPeriodContext(shots: ShotChartShot[] | undefined): boolean {
+  if (!shots || shots.length === 0) return false;
+  return !shots.some((shot) => typeof shot.period === "number" && Number.isFinite(shot.period));
+}
+
 export default function ShotChart({
   playerId,
   seasons,
@@ -539,6 +544,14 @@ export default function ShotChart({
       !isMissing &&
       hasActiveSelection
   );
+  const needsPeriodRefresh = Boolean(
+    situationalFilters.periodBucket !== "all" &&
+      shotChart &&
+      shotChart.attempted > 0 &&
+      isLegacyPeriodContext(shotChart.shots) &&
+      activeShotChart &&
+      activeShotChart.attempted === 0
+  );
   const isLoadingState = isLoading || isFilteredLoading;
   const activeError = filteredError ?? error;
   const windowLabel = describeShotWindow(preset, filters);
@@ -637,7 +650,22 @@ export default function ShotChart({
         </div>
       )}
 
-      {hasNoAttemptsInWindow && (
+      {needsPeriodRefresh && (
+        <div className="bip-empty mb-4 flex flex-wrap items-center justify-between gap-3 rounded-[1.25rem] px-4 py-3 text-sm text-[var(--muted-strong)]">
+          <span>
+            Period filters need refreshed shot-context data for this selection. Refresh now to pull the richer shot payload.
+          </span>
+          <button
+            onClick={() => refresh(true)}
+            disabled={isRefreshing}
+            className="rounded-full border border-[rgba(25,52,42,0.12)] bg-white px-3 py-1.5 text-xs font-medium text-[var(--foreground)] transition-colors hover:border-[rgba(25,52,42,0.24)] disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            {isRefreshing ? "Refreshing..." : "Refresh shot chart"}
+          </button>
+        </div>
+      )}
+
+      {hasNoAttemptsInWindow && !needsPeriodRefresh && (
         <div className="bip-empty mb-4 rounded-[1.25rem] px-4 py-3 text-sm text-[var(--muted-strong)]">
           No shot attempts fall inside this selected date window.
         </div>
