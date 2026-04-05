@@ -121,6 +121,7 @@ def build_game_visualization(
             canonical_source=event_stream.canonical_source,
             last_synced_at=event_stream.last_synced_at,
             exact_shot_match=False,
+            highlighted_event_id=None,
             steps=[],
         )
 
@@ -143,6 +144,7 @@ def build_game_visualization(
 
     steps: List[GameVisualizationStep] = []
     exact_shot_match = False
+    highlighted_event_id: Optional[str] = None
     for event in filtered_events:
         elements: List[GameVisualizationElement] = []
         linked_shot = shot_lookup.get(str(event.source_event_id or ""))
@@ -150,13 +152,20 @@ def build_game_visualization(
             linked_shot
             and shot_event_id
             and str(event.source_event_id or "") == str(shot_event_id)
+            and str(linked_shot.get("linkage_mode") or "") == "exact"
         )
+        linkage_quality = "timeline"
         if linked_shot:
+            linkage_mode = str(linked_shot.get("linkage_mode") or "derived")
+            linkage_quality = "exact" if linkage_mode == "exact" else "derived"
+            if shot_event_id and str(event.source_event_id or "") == str(shot_event_id):
+                highlighted_event_id = str(event.source_event_id or shot_event_id)
             elements.append(
                 GameVisualizationElement(
                     kind="shot_arc",
                     label=linked_shot.get("action_type") or event.description,
-                    exactness="exact",
+                    exactness="exact" if linkage_mode == "exact" else "inferred",
+                    linkage_mode=linkage_mode,
                     x=float(linked_shot.get("loc_x", 0)) / 10.0,
                     y=0.35,
                     z=max(0.0, float(linked_shot.get("loc_y", 0)) / 10.0),
@@ -176,6 +185,7 @@ def build_game_visualization(
                     kind="context_token",
                     label=event.action_family or event.action_type or "Context",
                     exactness="timeline",
+                    linkage_mode="timeline",
                     x=anchor_x,
                     y=0.35,
                     z=anchor_z,
@@ -205,6 +215,7 @@ def build_game_visualization(
                 home_score=event.score_home,
                 away_score=event.score_away,
                 exact_shot_match=step_exact_match,
+                linkage_quality=linkage_quality,
                 elements=elements,
             )
         )
@@ -223,5 +234,6 @@ def build_game_visualization(
         canonical_source=event_stream.canonical_source,
         last_synced_at=event_stream.last_synced_at,
         exact_shot_match=exact_shot_match,
+        highlighted_event_id=highlighted_event_id,
         steps=steps,
     )

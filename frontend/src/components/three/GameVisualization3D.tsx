@@ -60,6 +60,12 @@ export default function GameVisualization3D({ data }: GameVisualization3DProps) 
   );
   const elementPoints = activeStep ? visualizationStepPositions(activeStep) : [];
   const connectorColor = activeStep?.exact_shot_match ? "#38bdf8" : "#94a3b8";
+  const activeLinkageLabel =
+    activeStep?.linkage_quality === "exact"
+      ? "Exact shot linkage"
+      : activeStep?.linkage_quality === "derived"
+      ? "Derived shot linkage"
+      : "Timeline context";
 
   if (hasWebGL === false) {
     return (
@@ -82,6 +88,8 @@ export default function GameVisualization3D({ data }: GameVisualization3DProps) 
           <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
             {data.exact_shot_match
               ? "Exact shot linkage where available, timeline anchors otherwise."
+              : activeStep?.linkage_quality === "derived"
+              ? "Derived shot linkage from synced event timing and result."
               : "Analytical reconstruction from synced event order."}
           </p>
         </div>
@@ -154,7 +162,7 @@ export default function GameVisualization3D({ data }: GameVisualization3DProps) 
 
       <div className="rounded-[1rem] bg-gray-50 px-3 py-2 text-xs text-gray-600 dark:bg-gray-800/60 dark:text-gray-300">
         {activeStep
-          ? `${activeStep.period ? `Q${activeStep.period}` : "Event"} ${activeStep.clock ?? ""} · ${activeStep.description ?? "No description"}`
+          ? `${activeLinkageLabel} · ${activeStep.period ? `Q${activeStep.period}` : "Event"} ${activeStep.clock ?? ""} · ${activeStep.description ?? "No description"}`
           : "No visualization step available."}
       </div>
     </div>

@@ -429,11 +429,18 @@ export function useTeamRotationReport(
 export function useTeamComparison(
   teamA: string | null,
   teamB: string | null,
-  season: string | null
+  season: string | null,
+  options?: {
+    sourceType?: string | null;
+    sourceId?: string | null;
+    reason?: string | null;
+  }
 ) {
   return useSWR<TeamComparisonResponse>(
-    teamA && teamB && season ? `team-comparison-${teamA}-${teamB}-${season}` : null,
-    () => getTeamComparison(teamA!, teamB!, season!)
+    teamA && teamB && season
+      ? `team-comparison-${teamA}-${teamB}-${season}-${options?.sourceType ?? "none"}-${options?.sourceId ?? "none"}-${options?.reason ?? "none"}`
+      : null,
+    () => getTeamComparison(teamA!, teamB!, season!, options)
   );
 }
 

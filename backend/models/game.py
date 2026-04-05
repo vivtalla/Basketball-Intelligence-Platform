@@ -144,6 +144,7 @@ class GameVisualizationElement(BaseModel):
     kind: str
     label: Optional[str] = None
     exactness: str
+    linkage_mode: Optional[str] = None
     x: Optional[float] = None
     y: Optional[float] = None
     z: Optional[float] = None
@@ -173,6 +174,7 @@ class GameVisualizationStep(BaseModel):
     home_score: Optional[int] = None
     away_score: Optional[int] = None
     exact_shot_match: bool = False
+    linkage_quality: str = "timeline"
     elements: List[GameVisualizationElement]
 
 
@@ -190,4 +192,5 @@ class GameVisualizationResponse(BaseModel):
     canonical_source: Optional[str] = None
     last_synced_at: Optional[str] = None
     exact_shot_match: bool = False
+    highlighted_event_id: Optional[str] = None
     steps: List[GameVisualizationStep]

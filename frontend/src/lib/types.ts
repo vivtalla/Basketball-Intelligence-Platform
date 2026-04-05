@@ -1056,6 +1056,7 @@ export interface TeamComparisonResponse {
   team_b: TeamComparisonSnapshot;
   rows: TeamComparisonRow[];
   stories: TeamComparisonStory[];
+  source_context?: Record<string, string> | null;
 }
 
 export interface TeamFactorRow {
@@ -1990,6 +1991,7 @@ export interface GameVisualizationElement {
   kind: string;
   label?: string | null;
   exactness: "exact" | "inferred" | "timeline";
+  linkage_mode?: string | null;
   x?: number | null;
   y?: number | null;
   z?: number | null;
@@ -2019,6 +2021,7 @@ export interface GameVisualizationStep {
   home_score?: number | null;
   away_score?: number | null;
   exact_shot_match: boolean;
+  linkage_quality?: "exact" | "derived" | "timeline";
   elements: GameVisualizationElement[];
 }
 
@@ -2032,5 +2035,6 @@ export interface GameVisualizationResponse {
   selected_event_type?: string | null;
   selected_query?: string | null;
   exact_shot_match: boolean;
+  highlighted_event_id?: string | null;
   steps: GameVisualizationStep[];
 }

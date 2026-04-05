@@ -228,6 +228,30 @@ def test_what_if_response_keeps_opponent_specific_context_and_links():
         session.close()
 
 
+def test_what_if_accepts_legacy_aliases_and_returns_source_aware_compare_links():
+    session = make_session()
+    try:
+        atl, bos, _ = seed_context(session)
+        response = build_what_if_report(
+            session,
+            WhatIfRequest(
+                team=atl.abbreviation,
+                opponent=bos.abbreviation,
+                season="2025-26",
+                scenario_type="increase_pnr_handoff_proxy",
+                delta=0.02,
+            ),
+        )
+
+        assert response.scenario_type == "increase_pnr_proxy"
+        assert response.scenario_label == "Protect shot quality"
+        assert "source_type=what-if" in response.launch_links.compare_url
+        assert "return_to=" in response.launch_links.compare_url
+        assert response.directional_note is not None
+    finally:
+        session.close()
+
+
 def test_scouting_report_and_export_include_claim_linked_clip_anchors():
     session = make_session()
     try:
@@ -239,6 +263,8 @@ def test_scouting_report_and_export_include_claim_linked_clip_anchors():
         assert claim_ids
         assert report.clip_anchors
         assert all(anchor.claim_id in claim_ids for anchor in report.clip_anchors)
+        assert "source_type=scouting-report" in report.launch_context.compare_url
+        assert all("source=scouting-report" in anchor.deep_link_url for anchor in report.clip_anchors)
 
         export = export_scouting_clip_list(
             ScoutingClipExportRequest(team=atl.abbreviation, opponent=bos.abbreviation, season="2025-26"),

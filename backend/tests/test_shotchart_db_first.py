@@ -606,7 +606,7 @@ def test_shot_completeness_report_counts_ready_legacy_and_missing():
                     player_id=21,
                     season="2024-25",
                     season_type="Regular Season",
-                    shots=[dict(shot_payload(), team_id=1610612737, opponent_team_id=1610612738, event_order_index=1, linkage_mode="exact")],
+                    shots=[dict(shot_payload(), team_id=1610612737, opponent_team_id=1610612738, event_order_index=1, action_number=1, linkage_mode="exact")],
                     shot_count=1,
                     fetched_at=datetime(2026, 4, 5, 12, 0, 0),
                     expires_at=datetime.utcnow() + timedelta(days=1),
@@ -677,6 +677,80 @@ def test_shot_lab_snapshot_roundtrip_preserves_payload():
         assert fetched.payload.active_view == "sprawl"
         assert fetched.payload.filters.period_bucket == "q4"
         assert fetched.payload.metadata["label"] == "Test Snapshot"
+    finally:
+        session.close()
+
+
+def test_shot_sync_leaves_ambiguous_fallback_unlinked_and_partial():
+    session = make_session()
+    try:
+        player = seed_player(session, player_id=55)
+        session.add(Team(id=1610612738, abbreviation="BOS", name="Boston Celtics"))
+        session.commit()
+        seed_game(session, game_id="0022400155", home_team_id=1610612737, away_team_id=1610612738)
+        session.add(
+            GamePlayerStat(
+                game_id="0022400155",
+                season="2024-25",
+                player_id=player.id,
+                team_id=1610612737,
+                team_abbreviation="ATL",
+            )
+        )
+        session.add_all(
+            [
+                PlayByPlayEvent(
+                    game_id="0022400155",
+                    season="2024-25",
+                    source_event_id="evt-a",
+                    action_number=11,
+                    order_index=1,
+                    period=1,
+                    clock="11:42",
+                    team_id=1610612737,
+                    player_id=player.id,
+                    action_type="2pt",
+                    sub_type="made",
+                    description="Test Shooter makes 2-pt shot",
+                    score_home=2,
+                    score_away=0,
+                ),
+                PlayByPlayEvent(
+                    game_id="0022400155",
+                    season="2024-25",
+                    source_event_id="evt-b",
+                    action_number=12,
+                    order_index=2,
+                    period=1,
+                    clock="11:42",
+                    team_id=1610612737,
+                    player_id=player.id,
+                    action_type="2pt",
+                    sub_type="made",
+                    description="Test Shooter makes another 2-pt shot",
+                    score_home=4,
+                    score_away=0,
+                ),
+            ]
+        )
+        session.commit()
+
+        with patch("services.warehouse_service.get_shot_chart_data", return_value=[shot_payload(game_id="0022400155", shot_event_id=None)]):
+            run_next_job(
+                session,
+                season=None,
+            )  # no-op poll to keep session state clean
+            queue_player_shot_chart_sync(session, player.id, "2024-25", "Regular Season", force=True)
+            session.commit()
+            run_next_job(session)
+
+        chart = player_shot_chart(player.id, season="2024-25", season_type="Regular Season", db=session)
+
+        assert chart.completeness_status == "partial"
+        assert chart.shots[0].linkage_mode == "none"
+        assert chart.shots[0].event_order_index is None
+        assert chart.shots[0].action_number is None
+        assert chart.exact_event_linked_attempts == 0
     finally:
         session.close()
 
@@ -855,6 +929,81 @@ def test_build_game_visualization_marks_exact_and_timeline_elements():
         assert response.steps[0].elements[0].exactness == "exact"
         assert response.steps[1].elements[0].kind == "context_token"
         assert response.steps[1].elements[0].exactness == "timeline"
+    finally:
+        session.close()
+
+
+def test_game_visualization_marks_derived_shot_linkage_honestly():
+    session = make_session()
+    try:
+        home_team = Team(id=1610612737, abbreviation="ATL", name="Atlanta Hawks")
+        away_team = Team(id=1610612738, abbreviation="BOS", name="Boston Celtics")
+        shooter = Player(id=41, full_name="Derived Shooter", team_id=away_team.id, is_active=True)
+        session.add_all([home_team, away_team, shooter])
+        session.commit()
+        seed_game(session, game_id="0022400310", home_team_id=home_team.id, away_team_id=away_team.id)
+        session.add(
+            PlayByPlayEvent(
+                game_id="0022400310",
+                season="2024-25",
+                source_event_id="evt-derived",
+                action_number=21,
+                order_index=1,
+                period=3,
+                clock="5:12",
+                team_id=away_team.id,
+                player_id=shooter.id,
+                action_type="3pt",
+                action_family="jump_shot",
+                sub_type="made",
+                description="Derived Shooter makes 3-pt jump shot",
+                score_home=74,
+                score_away=77,
+            )
+        )
+        session.add(
+            PlayerShotChart(
+                player_id=shooter.id,
+                season="2024-25",
+                season_type="Regular Season",
+                shots=[
+                    dict(
+                        shot_payload(
+                            game_id="0022400310",
+                            game_date="2025-01-12",
+                            period=3,
+                            clock="5:12",
+                            shot_type="3PT Field Goal",
+                            shot_value=3,
+                            shot_event_id="evt-derived",
+                        ),
+                        event_order_index=1,
+                        action_number=21,
+                        team_id=away_team.id,
+                        opponent_team_id=home_team.id,
+                        linkage_mode="derived",
+                    )
+                ],
+                shot_count=1,
+                fetched_at=datetime(2026, 4, 5, 12, 0, 0),
+                expires_at=datetime.utcnow() + timedelta(days=1),
+            )
+        )
+        session.commit()
+
+        response = build_game_visualization(
+            session,
+            game_id="0022400310",
+            shot_event_id="evt-derived",
+            source="shot-lab",
+        )
+
+        assert response is not None
+        assert response.exact_shot_match is False
+        assert response.highlighted_event_id == "evt-derived"
+        assert response.steps[0].linkage_quality == "derived"
+        assert response.steps[0].elements[0].exactness == "inferred"
+        assert response.steps[0].elements[0].linkage_mode == "derived"
     finally:
         session.close()
 

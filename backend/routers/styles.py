@@ -687,10 +687,19 @@ def build_style_xray_report(
             },
         ),
     ]
-    compare_url = "/compare?mode=styles&team_a={0}&team_b={1}&season={2}".format(
+    compare_url = "/compare?mode=styles&team_a={0}&team_b={1}&season={2}&source_type=style-xray&source_id={0}&reason={3}".format(
         team.abbreviation,
         opponent_abbr or (nearest_neighbors[0].team_abbreviation if nearest_neighbors else team.abbreviation),
         season,
+        archetype.replace(" ", "+"),
+    )
+    compare_url = "{0}&return_to={1}".format(
+        compare_url,
+        "/insights?tab=whatif&team={0}&season={1}{2}".format(
+            team.abbreviation,
+            season,
+            "&opponent={0}".format(opponent_abbr) if opponent_abbr else "",
+        ).replace(" ", "+"),
     )
     prep_url = (
         "/pre-read?team={0}&opponent={1}&season={2}".format(team.abbreviation, opponent_abbr, season)
@@ -714,6 +723,7 @@ def build_style_xray_report(
         scenario_links=scenario_links,
         launch_links=StyleLaunchLinks(prep_url=prep_url, compare_url=compare_url),
         source_context={
+            "source_type": "style-xray",
             "team": team.abbreviation,
             "season": season,
             "opponent": opponent_abbr or "",

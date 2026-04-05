@@ -437,13 +437,21 @@ export async function postMetricReport(
 export async function getTeamComparison(
   teamA: string,
   teamB: string,
-  season: string
+  season: string,
+  options?: {
+    sourceType?: string | null;
+    sourceId?: string | null;
+    reason?: string | null;
+  }
 ): Promise<import("./types").TeamComparisonResponse> {
   const params = new URLSearchParams({
     team_a: teamA,
     team_b: teamB,
     season,
   });
+  if (options?.sourceType) params.set("source_type", options.sourceType);
+  if (options?.sourceId) params.set("source_id", options.sourceId);
+  if (options?.reason) params.set("reason", options.reason);
   return fetchApi<import("./types").TeamComparisonResponse>(
     `/api/compare/teams?${params.toString()}`
   );

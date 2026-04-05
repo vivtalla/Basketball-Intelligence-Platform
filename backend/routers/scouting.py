@@ -34,9 +34,22 @@ def _launch_context(team: str, opponent: str, season: str) -> ScoutingLaunchCont
     return ScoutingLaunchContext(
         pre_read_url="/pre-read?team={0}&opponent={1}&season={2}".format(team, opponent, season),
         scouting_url="/pre-read?team={0}&opponent={1}&season={2}&mode=scouting".format(team, opponent, season),
-        compare_url="/compare?mode=teams&team_a={0}&team_b={1}&season={2}".format(team, opponent, season),
+        compare_url="/compare?mode=teams&team_a={0}&team_b={1}&season={2}&source_type=scouting-report&source_id={0}-{1}&reason=play-type+scouting&return_to={3}".format(
+            team,
+            opponent,
+            season,
+            "/pre-read?team={0}&opponent={1}&season={2}&mode=scouting".format(team, opponent, season).replace(" ", "+"),
+        ),
         export_url="/api/scouting/clip-export",
     )
+
+
+def _normalized_tokens(value: str) -> List[str]:
+    return [
+        token
+        for token in "".join(ch.lower() if ch.isalnum() else " " for ch in value).split()
+        if len(token) >= 4
+    ]
 
 
 def _style_claims(profile) -> List[ScoutingClaim]:
@@ -142,20 +155,40 @@ def _derive_clip_anchors(
     for claim_index, claim in enumerate(claims, start=1):
         claim_events: List[tuple[WarehouseGame, PlayByPlayEvent | None]] = []
         title_lower = claim.title.lower()
+        summary_lower = claim.summary.lower()
         family_hint = None
         if "(" in claim.title and ")" in claim.title:
             family_hint = claim.title.split("(")[-1].split(")")[0].strip().lower()
+        title_tokens = set(_normalized_tokens(claim.title))
+        summary_tokens = set(_normalized_tokens(claim.summary))
         for game in recent_games:
-            matched_event = None
+            best_match: tuple[int, PlayByPlayEvent] | None = None
             for event in events_by_game.get(game.game_id, []):
                 action_family = (event.action_family or "").lower()
                 description = (event.description or "").lower()
+                action_type = (event.action_type or "").lower()
+                score = 0
                 if family_hint and family_hint in action_family:
-                    matched_event = event
-                    break
-                if any(token in description for token in title_lower.split()[:2]):
-                    matched_event = event
-                    break
+                    score += 6
+                if family_hint and family_hint in description:
+                    score += 4
+                if action_type and action_type in title_lower:
+                    score += 2
+                score += sum(2 for token in title_tokens if token in description)
+                score += sum(1 for token in summary_tokens if token in description)
+                if "turnover" in title_lower and action_type == "turnover":
+                    score += 4
+                if "rebound" in title_lower and action_type == "rebound":
+                    score += 4
+                if ("3pt" in title_lower or "three" in title_lower) and action_type == "3pt":
+                    score += 4
+                if ("2pt" in title_lower or "paint" in title_lower or "rim" in title_lower) and action_type == "2pt":
+                    score += 3
+                if score <= 0:
+                    continue
+                if best_match is None or score > best_match[0]:
+                    best_match = (score, event)
+            matched_event = best_match[1] if best_match else None
             claim_events.append((game, matched_event))
             if len(claim_events) >= 2 and matched_event is not None:
                 break
@@ -376,7 +409,7 @@ def build_play_type_scouting_report(
         "report_title": "{0} vs {1}".format(team.upper(), opponent.upper()),
         "season": season,
         "format": "browser-print",
-        "generated_from": "Sprint 25 decision/support stack",
+        "generated_from": "Sprint 39 scouting follow-through",
     }
     return PlayTypeScoutingReportResponse(
         team_abbreviation=team.upper(),

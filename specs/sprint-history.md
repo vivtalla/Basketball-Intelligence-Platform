@@ -1,9 +1,20 @@
 # Sprint History Archive
 
-Sprints 1–38. Current sprint summaries also live in `CLAUDE.md` under "Recent Sprints".
+Sprints 1–39. Current sprint summaries also live in `CLAUDE.md` under "Recent Sprints".
 
 For detailed per-sprint records, see the individual closeout files in this directory:
-`specs/sprint-09-closeout.md` through `specs/sprint-38-closeout.md`
+`specs/sprint-09-closeout.md` through `specs/sprint-39-closeout.md`
+
+---
+
+### Sprint 39 — Canonical Shot Enrichment + Product Follow-Through
+**Branch:** `master` (closeout prepared)
+
+- Canonicalized the persisted shot payload around the fields current shot-lab, team-defense, Game Explorer, and 3D consumers actually use, then routed both queue-backed and legacy bulk shot writes through one shared enrichment and validation flow
+- Tightened shot completeness semantics so `legacy` now means missing canonical context while `partial` captures non-exact or incomplete linkage, and refused to promote ambiguous timing fallback matches into exact links
+- Carried exact/derived/timeline linkage quality through shot-lab and Game Explorer behavior, including more honest 3D and event-drill-down trust signals
+- Normalized What-If scenario identifiers, improved bounded coaching framing, and added stronger source-aware follow-through between What-If, Style X-Ray, compare, scouting, and Game Explorer
+- Refreshed the backlog structure by splitting `Now` into shot/data-platform versus product-intelligence tracks and adding a standalone MVP Tracking section
 
 ---
 

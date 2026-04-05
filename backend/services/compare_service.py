@@ -132,7 +132,13 @@ def _story(label: str, summary: str, edge: str) -> TeamComparisonStory:
     return TeamComparisonStory(label=label, summary=summary, edge=edge)  # type: ignore[arg-type]
 
 
-def build_team_comparison_report(db: Session, team_a: str, team_b: str, season: str) -> TeamComparisonResponse:
+def build_team_comparison_report(
+    db: Session,
+    team_a: str,
+    team_b: str,
+    season: str,
+    source_context: Optional[Dict[str, str]] = None,
+) -> TeamComparisonResponse:
     team_a_snapshot = _build_snapshot(db, team_a, season)
     team_b_snapshot = _build_snapshot(db, team_b, season)
 
@@ -192,4 +198,5 @@ def build_team_comparison_report(db: Session, team_a: str, team_b: str, season: 
         team_b=team_b_snapshot,
         rows=rows,
         stories=stories[:5],
+        source_context=source_context,
     )

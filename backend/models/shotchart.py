@@ -40,6 +40,7 @@ class ShotCompletenessSummary(BaseModel):
     contextual_shots: int
     linked_shots: int
     exact_linked_shots: int
+    derived_linked_shots: int = 0
     completeness_pct: float
     linked_pct: float
     missing_context_fields: List[str] = []
@@ -61,7 +62,9 @@ class ShotChartResponse(BaseModel):
     available_game_dates: List[str] = []
     completeness_status: str = "missing"
     missing_context_fields: List[str] = []
+    linked_event_attempts: int = 0
     exact_event_linked_attempts: int = 0
+    derived_event_linked_attempts: int = 0
     completeness: Optional[ShotCompletenessSummary] = None
 
 
@@ -90,7 +93,9 @@ class ZoneProfileResponse(BaseModel):
     available_game_dates: List[str] = []
     completeness_status: str = "missing"
     missing_context_fields: List[str] = []
+    linked_event_attempts: int = 0
     exact_event_linked_attempts: int = 0
+    derived_event_linked_attempts: int = 0
     completeness: Optional[ShotCompletenessSummary] = None
 
 
@@ -112,7 +117,9 @@ class TeamDefenseShotChartResponse(BaseModel):
     available_game_dates: List[str] = []
     completeness_status: str = "missing"
     missing_context_fields: List[str] = []
+    linked_event_attempts: int = 0
     exact_event_linked_attempts: int = 0
+    derived_event_linked_attempts: int = 0
     completeness: Optional[ShotCompletenessSummary] = None
 
 
@@ -133,7 +140,9 @@ class TeamDefenseZoneProfileResponse(BaseModel):
     available_game_dates: List[str] = []
     completeness_status: str = "missing"
     missing_context_fields: List[str] = []
+    linked_event_attempts: int = 0
     exact_event_linked_attempts: int = 0
+    derived_event_linked_attempts: int = 0
     completeness: Optional[ShotCompletenessSummary] = None
 
 

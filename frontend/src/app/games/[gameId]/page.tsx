@@ -817,6 +817,10 @@ export default function GameDetailPage() {
                 <div className="rounded-full bg-blue-50 px-3 py-1 text-xs font-medium uppercase tracking-[0.16em] text-blue-700 dark:bg-blue-950/30 dark:text-blue-300">
                   Exact shot linkage active
                 </div>
+              ) : visualization?.highlighted_event_id && source === "shot-lab" ? (
+                <div className="rounded-full bg-amber-50 px-3 py-1 text-xs font-medium uppercase tracking-[0.16em] text-amber-700 dark:bg-amber-950/30 dark:text-amber-300">
+                  Derived shot linkage active
+                </div>
               ) : source === "shot-lab" ? (
                 <div className="rounded-full bg-amber-50 px-3 py-1 text-xs font-medium uppercase tracking-[0.16em] text-amber-700 dark:bg-amber-950/30 dark:text-amber-300">
                   Context-preserving fallback

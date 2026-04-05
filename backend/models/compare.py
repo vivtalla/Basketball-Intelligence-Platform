@@ -1,4 +1,4 @@
-from typing import List, Literal, Optional
+from typing import Dict, List, Literal, Optional
 
 from pydantic import BaseModel
 
@@ -38,3 +38,4 @@ class TeamComparisonResponse(BaseModel):
     team_b: TeamComparisonSnapshot
     rows: List[TeamComparisonRow]
     stories: List[TeamComparisonStory]
+    source_context: Optional[Dict[str, str]] = None

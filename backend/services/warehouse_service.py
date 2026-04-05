@@ -44,7 +44,7 @@ from db.models import (
     WarehouseGame,
 )
 from services.advanced_metrics import enrich_season_with_advanced
-from services.shot_lab_service import enrich_player_shot_payload, summarize_shot_completeness
+from services.shot_lab_service import enrich_and_validate_player_shot_payload, summarize_shot_completeness
 from services.sync_service import canonical_player_name, sync_player
 from services.pbp_service import (
     build_stints,
@@ -1547,7 +1547,7 @@ def _sync_player_shot_chart(
             }
 
         raw_shots = get_shot_chart_data(player_id, season, season_type)
-        raw_shots = enrich_player_shot_payload(db, player_id, raw_shots)
+        raw_shots = enrich_and_validate_player_shot_payload(db, player_id, raw_shots)
         expires_at = now + timedelta(seconds=_cache_ttl_for_season(season))
 
         if existing:

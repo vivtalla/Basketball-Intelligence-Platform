@@ -29,6 +29,13 @@ SHOT_CONTEXT_FIELDS = [
     "team_id",
     "opponent_team_id",
 ]
+SHOT_LINKAGE_FIELDS = [
+    "shot_event_id",
+    "event_order_index",
+    "action_number",
+    "linkage_mode",
+]
+VALID_LINKAGE_MODES = {"exact", "derived"}
 SUPPORTED_COMPLETENESS_SEASONS = ["2022-23", "2023-24", "2024-25", "2025-26"]
 
 
@@ -53,6 +60,7 @@ def summarize_shot_completeness(raw_shots: Sequence[dict]) -> ShotCompletenessSu
             contextual_shots=0,
             linked_shots=0,
             exact_linked_shots=0,
+            derived_linked_shots=0,
             completeness_pct=1.0,
             linked_pct=1.0,
             missing_context_fields=[],
@@ -62,6 +70,7 @@ def summarize_shot_completeness(raw_shots: Sequence[dict]) -> ShotCompletenessSu
     linked_shots = 0
     exact_linked_shots = 0
     missing_context_fields = set()
+    missing_linkage_fields = set()
 
     for shot in raw_shots:
         has_context = True
@@ -71,16 +80,29 @@ def summarize_shot_completeness(raw_shots: Sequence[dict]) -> ShotCompletenessSu
                 missing_context_fields.add(field)
         if has_context:
             contextual_shots += 1
-        if shot.get("shot_event_id") and shot.get("event_order_index") is not None:
+        linkage_mode = str(shot.get("linkage_mode") or "").lower()
+        if (
+            shot.get("shot_event_id")
+            and shot.get("event_order_index") is not None
+            and shot.get("action_number") is not None
+            and linkage_mode in VALID_LINKAGE_MODES
+        ):
             linked_shots += 1
-            if shot.get("linkage_mode") == "exact":
+            if linkage_mode == "exact":
                 exact_linked_shots += 1
+        else:
+            for field in SHOT_LINKAGE_FIELDS:
+                if shot.get(field) in (None, ""):
+                    missing_linkage_fields.add(field)
 
+    derived_linked_shots = linked_shots - exact_linked_shots
     completeness_pct = contextual_shots / float(total_shots)
     linked_pct = linked_shots / float(total_shots)
     if contextual_shots == 0:
         status = "legacy"
-    elif contextual_shots < total_shots or linked_shots < total_shots:
+    elif contextual_shots < total_shots:
+        status = "legacy"
+    elif linked_shots < total_shots or exact_linked_shots < total_shots:
         status = "partial"
     else:
         status = "ready"
@@ -91,9 +113,10 @@ def summarize_shot_completeness(raw_shots: Sequence[dict]) -> ShotCompletenessSu
         contextual_shots=contextual_shots,
         linked_shots=linked_shots,
         exact_linked_shots=exact_linked_shots,
+        derived_linked_shots=derived_linked_shots,
         completeness_pct=round(completeness_pct, 4),
         linked_pct=round(linked_pct, 4),
-        missing_context_fields=sorted(missing_context_fields),
+        missing_context_fields=sorted(missing_context_fields | missing_linkage_fields),
     )
 
 
@@ -102,7 +125,9 @@ def build_shot_completeness_fields(raw_shots: Sequence[dict]) -> dict:
     return {
         "completeness_status": summary.status,
         "missing_context_fields": summary.missing_context_fields,
+        "linked_event_attempts": summary.linked_shots,
         "exact_event_linked_attempts": summary.exact_linked_shots,
+        "derived_event_linked_attempts": summary.derived_linked_shots,
         "completeness": summary,
     }
 
@@ -113,6 +138,44 @@ def _data_status_for_row(row: Optional[PlayerShotChart], now: datetime) -> str:
     if row.expires_at and row.expires_at > now:
         return "ready"
     return "stale"
+
+
+def validate_persisted_shot_payload(raw_shots: Sequence[dict]) -> List[dict]:
+    validated: List[dict] = []
+    for original in raw_shots:
+        shot = dict(original)
+        linkage_mode = str(shot.get("linkage_mode") or "").lower()
+        if linkage_mode not in {"exact", "derived", "none"}:
+            linkage_mode = "none"
+
+        if linkage_mode == "exact" and (
+            not shot.get("shot_event_id")
+            or shot.get("event_order_index") is None
+            or shot.get("action_number") is None
+        ):
+            linkage_mode = "none"
+        elif linkage_mode == "derived" and (
+            shot.get("event_order_index") is None or shot.get("action_number") is None
+        ):
+            linkage_mode = "none"
+
+        if linkage_mode == "none":
+            shot["event_order_index"] = None
+            shot["action_number"] = None
+            if not shot.get("shot_event_id"):
+                shot["shot_event_id"] = None
+
+        shot["linkage_mode"] = linkage_mode
+        validated.append(shot)
+    return validated
+
+
+def enrich_and_validate_player_shot_payload(
+    db: Session,
+    player_id: int,
+    raw_shots: Sequence[dict],
+) -> List[dict]:
+    return validate_persisted_shot_payload(enrich_player_shot_payload(db, player_id, raw_shots))
 
 
 def get_team_defense_raw_shots(
@@ -255,6 +318,7 @@ def enrich_player_shot_payload(
             linkage_mode = "exact" if matched_event is not None else None
 
         if matched_event is None and game_id:
+            fallback_matches: List[PlayByPlayEvent] = []
             for candidate in events_by_game.get(game_id, []):
                 candidate_key = (candidate.game_id, candidate.order_index)
                 if candidate_key in used_order_indexes:
@@ -270,9 +334,10 @@ def enrich_player_shot_payload(
                     continue
                 if shot.get("shot_made") is False and (candidate.sub_type or "").lower() == "made":
                     continue
-                matched_event = candidate
+                fallback_matches.append(candidate)
+            if len(fallback_matches) == 1:
+                matched_event = fallback_matches[0]
                 linkage_mode = "derived"
-                break
 
         if matched_event is not None:
             used_order_indexes.add((matched_event.game_id, matched_event.order_index))
@@ -288,6 +353,8 @@ def enrich_player_shot_payload(
                     shot["score_margin"] = (matched_event.score_away or 0) - (matched_event.score_home or 0)
             shot["linkage_mode"] = linkage_mode or "derived"
         else:
+            shot["event_order_index"] = None
+            shot["action_number"] = None
             shot["linkage_mode"] = shot.get("linkage_mode") or "none"
         enriched.append(shot)
     return enriched

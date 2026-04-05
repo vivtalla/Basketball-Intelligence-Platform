@@ -402,6 +402,9 @@ def compare_teams(
     team_a: str = Query(...),
     team_b: str = Query(...),
     season: str = Query("2024-25"),
+    source_type: Optional[str] = Query(None),
+    source_id: Optional[str] = Query(None),
+    reason: Optional[str] = Query(None),
     db: Session = Depends(get_db),
 ):
     return build_team_comparison_report(
@@ -409,6 +412,7 @@ def compare_teams(
         team_a=team_a,
         team_b=team_b,
         season=season,
+        source_context=_build_team_source_context(source_type, source_id, team_a, team_b, reason),
     )
 
 

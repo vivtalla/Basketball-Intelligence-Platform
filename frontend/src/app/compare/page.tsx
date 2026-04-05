@@ -162,6 +162,10 @@ function ComparePageInner() {
   const season = searchParams.get("season") ?? "2024-25";
   const lineupAParam = searchParams.get("lineup_a");
   const lineupBParam = searchParams.get("lineup_b");
+  const sourceType = searchParams.get("source_type");
+  const sourceId = searchParams.get("source_id");
+  const sourceReason = searchParams.get("reason");
+  const returnTo = searchParams.get("return_to");
 
   const { data: profile1, error: profile1Error } = usePlayerProfile(p1Id);
   const { data: career1, error: career1Error } = usePlayerCareerStats(p1Id);
@@ -187,7 +191,12 @@ function ComparePageInner() {
   const { data: teamComparison, isLoading: teamComparisonLoading } = useTeamComparison(
     mode !== "players" && teamA ? teamA : null,
     mode !== "players" && teamB ? teamB : null,
-    mode !== "players" ? season : null
+    mode !== "players" ? season : null,
+    {
+      sourceType,
+      sourceId,
+      reason: sourceReason,
+    }
   );
   const { data: compareAvailability } = useCompareAvailability(
     mode === "players" ? p1Id : null,
@@ -321,6 +330,29 @@ function ComparePageInner() {
             ? "Compare pace, shot quality, turnover pressure, and glass control across two teams."
             : "Search for two players to compare their stats side by side."}
         </p>
+        <div className="mt-5 flex flex-wrap gap-3">
+          <button
+            type="button"
+            onClick={() => window.print()}
+            className="rounded-full border border-[var(--border-strong)] px-4 py-2 text-sm font-medium text-[var(--accent-strong)] transition hover:bg-[rgba(33,72,59,0.08)]"
+          >
+            Print compare view
+          </button>
+          {returnTo ? (
+            <Link
+              href={returnTo}
+              className="rounded-full border border-[var(--border)] px-4 py-2 text-sm font-medium text-[var(--muted-strong)] transition hover:bg-[rgba(255,255,255,0.72)]"
+            >
+              Return to source
+            </Link>
+          ) : null}
+        </div>
+        {sourceType ? (
+          <div className="mt-5 rounded-2xl border border-[var(--border)] bg-[rgba(255,255,255,0.72)] px-4 py-4 text-sm leading-6 text-[var(--muted-strong)]">
+            This compare view was launched from <span className="font-semibold text-[var(--foreground)]">{sourceType.replaceAll("-", " ")}</span>
+            {sourceReason ? ` with the prompt "${sourceReason.replaceAll("+", " ")}".` : "."}
+          </div>
+        ) : null}
       </div>
 
       <div className="mb-8 flex w-fit overflow-hidden rounded-xl border border-[var(--border)] text-sm">

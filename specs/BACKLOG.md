@@ -15,7 +15,7 @@ Guidelines:
 
 ---
 
-## Now
+## Now — Shot/Data Platform
 
 ### Canonical Event Completeness and Backfill
 Why it matters:
@@ -102,7 +102,7 @@ Likely shape:
 
 ---
 
-## Now (existing items)
+## Now — Product Intelligence
 
 ### Counterfactual What-If Suggestions
 Why it matters:
@@ -139,6 +139,20 @@ Likely shape:
 - strengthen inferred action-family confidence and opponent-specific scouting claims
 - add event-based clip anchors and clip-list export so reports connect more directly to film review
 - keep all action-family claims evidence-backed and explicit about inference quality
+
+---
+
+## MVP Tracking
+
+### MVP Award-Race Tracker
+Why it matters:
+CourtVue Labs is increasingly good at telling player-value and team-context stories, which makes a future MVP lens feel natural. A dedicated award-race tracker could turn existing player, trend, and matchup context into a staff-readable season narrative without pretending the product is itself the official vote.
+
+Likely shape:
+- track a living MVP board with movement over time instead of a static leaderboard snapshot
+- combine player value indicators, team success context, recent trend momentum, and evidence-backed narrative bullets
+- make the workflow transparent about what is model-driven versus editorial framing so the race view stays interpretable
+- connect award-race entries back into player pages, compare, and trend workflows rather than creating a disconnected microsite
 
 ---
 

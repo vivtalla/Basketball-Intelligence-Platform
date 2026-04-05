@@ -100,7 +100,13 @@ def test_team_comparison_report_surfaces_coach_readable_edges():
     session = make_session()
     try:
         team_a, team_b = seed_team_pair(session)
-        report = build_team_comparison_report(session, team_a.abbreviation, team_b.abbreviation, "2025-26")
+        report = build_team_comparison_report(
+            session,
+            team_a.abbreviation,
+            team_b.abbreviation,
+            "2025-26",
+            source_context={"source_type": "scouting-report", "reason": "play-type scouting"},
+        )
 
         assert report.team_a.abbreviation == "ATL"
         assert report.team_b.abbreviation == "BOS"
@@ -110,6 +116,7 @@ def test_team_comparison_report_surfaces_coach_readable_edges():
         assert any(story.label == "Stronger glass profile" for story in report.stories)
         assert any(story.label == "Faster tempo team" for story in report.stories)
         assert report.stories[0].edge in {"team_a", "team_b", "even"}
+        assert report.source_context == {"source_type": "scouting-report", "reason": "play-type scouting"}
     finally:
         session.close()
 

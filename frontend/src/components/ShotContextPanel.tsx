@@ -42,6 +42,22 @@ function buildGameExplorerHref(shot: ShotChartShot, season: string, index: numbe
   return `/games/${shot.game_id}?${params.toString()}`;
 }
 
+function linkageLabel(mode: string | null | undefined): string {
+  if (mode === "exact") return "Exact link";
+  if (mode === "derived") return "Derived link";
+  return "Timeline context";
+}
+
+function linkageTone(mode: string | null | undefined): string {
+  if (mode === "exact") {
+    return "bg-blue-100 text-blue-700";
+  }
+  if (mode === "derived") {
+    return "bg-amber-100 text-amber-700";
+  }
+  return "bg-slate-100 text-slate-700";
+}
+
 export default function ShotContextPanel({
   shots,
   season,
@@ -150,6 +166,9 @@ export default function ShotContextPanel({
                     </p>
                   </div>
                   <div className="flex items-center gap-2">
+                    <span className={`rounded-full px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.14em] ${linkageTone(shot.linkage_mode)}`}>
+                      {linkageLabel(shot.linkage_mode)}
+                    </span>
                     <span
                       className={`rounded-full px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.14em] ${
                         shot.shot_made

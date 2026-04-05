@@ -257,6 +257,14 @@ CourtVue Labs uses a hybrid sprint model: major feature sprints typically run as
 
 > Full history → `specs/sprint-history.md`
 
+### Sprint 39 — Canonical Shot Enrichment + Product Follow-Through
+**Branch:** `master` — closeout prepared
+
+- Canonicalized the persisted shot payload around the fields current shot-lab, team-defense, Game Explorer, and 3D consumers actually use, then routed both shot write paths through one shared enrichment/validation flow
+- Tightened shot completeness semantics, refused to promote ambiguous fallback matches, and carried exact/derived/timeline linkage quality through shot-lab and Game Explorer behavior
+- Normalized What-If scenario identifiers, improved bounded confidence framing, and added stronger source-aware follow-through between What-If, Style X-Ray, compare, scouting, and Game Explorer
+- Refreshed the backlog structure by splitting `Now` into shot/data-platform versus product-intelligence tracks and adding a standalone MVP Tracking section
+
 ### Sprint 38 — Platform Overhaul: Data Foundation, Shot-Lab Follow-Through, and 3D Visualizer
 **Branch:** `feature/sprint-38-platform-overhaul` — merged
 
@@ -264,22 +272,6 @@ CourtVue Labs uses a hybrid sprint model: major feature sprints typically run as
 - Added team-defense shot surfaces, shareable shot-lab snapshots, and stronger Game Explorer 3D entry points
 - Built the first 3D shot/game visualizer foundation with a procedural court, reconstructed shot arcs, event markers, and a WebGL fallback
 - Verified the sprint with backend `pytest`, frontend `npm run lint`, frontend `npm run build`, and local route/API smoke checks
-
-### Sprint 37 — Situational Shot Intelligence + 3D Foundation
-**Branch:** `feature/sprint-37-situational-shot-intelligence` — merged
-
-- Widened persisted shot payloads with situational context and added shared `period_bucket`, `result`, and `shot_value` filters on shot and zone reads
-- Added self-service shot refresh backed by the warehouse queue path and wired it into player and compare shot-lab states
-- Added the player `ShotContextPanel` plus Game Explorer deep links from recent filtered shots
-- Updated Game Explorer to honor shot-lab query params for period, event type, and search context
-
-### Sprint 36 — Shot Lab Visual Renaissance
-**Branch:** `feature/sprint-36-shot-lab-renaissance` — merged
-
-- Rebuilt the shot lab into a shared editorial-luxe visual system across player, compare, and evolution surfaces
-- Turned `ShotSprawlMap` into the hero surface with layered density fields, softer footprint treatment, and richer visual storytelling
-- Reworked the `Heat` view into a true shot-frequency heatmap with brighter hotspot cores and a more neutral atmosphere
-- Added a shared `ShotCourt` foundation for the major shot views, with further silhouette polish deferred as a follow-on
 
 ---
 

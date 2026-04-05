@@ -28,6 +28,7 @@ from db.models import Player, PlayerGameLog, PlayerShotChart, SeasonStat, SyncSt
 from services.advanced_metrics import enrich_season_with_advanced
 from services.pbp_sync_service import sync_pbp_for_season
 from services.player_identity_service import sync_player_aliases
+from services.shot_lab_service import enrich_and_validate_player_shot_payload
 
 logger = logging.getLogger(__name__)
 
@@ -567,6 +568,7 @@ def sync_shot_charts_for_season(
             # Fetch from stats.nba.com
             try:
                 raw_shots = get_shot_chart_data(player_id, season, season_type)
+                raw_shots = enrich_and_validate_player_shot_payload(db, player_id, raw_shots)
             except Exception as exc:
                 logger.warning(f"Shot chart fetch failed for player {player_id}: {exc}")
                 failed += 1

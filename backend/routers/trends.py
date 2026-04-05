@@ -266,6 +266,26 @@ def build_trend_cards_report(db: Session, team_abbr: str, season: str, window_ga
     return response
 
 
+_SCENARIO_TYPE_ALIASES = {
+    "reduce_iso_proxy": "reduce_iso_proxy",
+    "reduce_turnovers": "reduce_iso_proxy",
+    "increase_pnr_proxy": "increase_pnr_proxy",
+    "increase_pnr_handoff_proxy": "increase_pnr_proxy",
+    "protect_shot_quality": "increase_pnr_proxy",
+    "raise_3pa_rate": "raise_3pa_rate",
+    "slow_pace": "slow_pace",
+    "change_pace": "slow_pace",
+    "increase_oreb": "increase_oreb",
+    "increase_oreb_emphasis": "increase_oreb",
+    "increase_offensive_rebounding": "increase_oreb",
+}
+
+
+def _normalize_scenario_type(scenario_type: str) -> str:
+    normalized = (scenario_type or "").strip().lower()
+    return _SCENARIO_TYPE_ALIASES.get(normalized, normalized)
+
+
 def _scenario_driver_features(
     profile: Dict[str, Optional[float]],
     league_reference: Dict[str, Optional[float]],
@@ -295,13 +315,15 @@ def _scenario_driver_features(
     for metric in features:
         value = profile.get(metric)
         reference = league_reference.get(metric)
-        note = "Directional only until more samples are synced."
+        note = "Directional only until the scenario has deeper synced support."
         if value is not None and reference is not None:
-            note = (
-                "Above the league baseline."
-                if value >= reference
-                else "Below the league baseline and worth testing."
-            )
+            delta = abs(value - reference)
+            if delta >= 3.0:
+                note = "This is already far from the league baseline, so a tactical shift could move the game shape meaningfully."
+            elif value >= reference:
+                note = "This is already above the league baseline, so the recommendation is more about preserving a current edge than inventing one."
+            else:
+                note = "This sits below the league baseline and is a reasonable bounded lever to test."
         rows.append(
             WhatIfDriverFeature(
                 metric_id=metric,
@@ -327,11 +349,12 @@ def _scenario_label(scenario_type: str) -> str:
 
 def build_what_if_report(db: Session, payload: WhatIfRequest) -> WhatIfResponse:
     team = _fetch_team(db, payload.team)
+    scenario_type = _normalize_scenario_type(payload.scenario_type)
     watermark = _season_watermark(db, payload.season)
     cache_key = "what_if:{0}:{1}:{2}:{3}:{4}:{5}:{6}:{7}".format(
         team.abbreviation,
         payload.season,
-        payload.scenario_type,
+        scenario_type,
         payload.delta,
         payload.window,
         payload.opponent or "none",
@@ -352,7 +375,7 @@ def build_what_if_report(db: Session, payload: WhatIfRequest) -> WhatIfResponse:
     )
     current = {row.metric_id: row.team_value for row in profile.current_profile}
     league_reference = {row.metric_id: row.league_reference for row in profile.current_profile}
-    if payload.scenario_type not in {"reduce_iso_proxy", "increase_pnr_proxy", "raise_3pa_rate", "slow_pace", "increase_oreb"}:
+    if scenario_type not in {"reduce_iso_proxy", "increase_pnr_proxy", "raise_3pa_rate", "slow_pace", "increase_oreb"}:
         warnings = ["Unsupported scenario type '{0}'.".format(payload.scenario_type)]
         return WhatIfResponse(
             data_status="missing",
@@ -367,8 +390,8 @@ def build_what_if_report(db: Session, payload: WhatIfRequest) -> WhatIfResponse:
             ),
             team_abbreviation=team.abbreviation,
             season=payload.season,
-            scenario_type=payload.scenario_type,
-            scenario_label=_scenario_label(payload.scenario_type),
+            scenario_type=scenario_type,
+            scenario_label=_scenario_label(scenario_type),
             delta=payload.delta,
             expected_direction="neutral",
             summary="This scenario type is not supported by the current decision engine.",
@@ -400,28 +423,27 @@ def build_what_if_report(db: Session, payload: WhatIfRequest) -> WhatIfResponse:
         "increase_oreb": 0.26,
     }
     team_adjustment = 0.0
-    if payload.scenario_type == "slow_pace":
+    if scenario_type == "slow_pace":
         if (current.get("turnover_rate") or 0.0) > (league_reference.get("turnover_rate") or 0.0):
             team_adjustment += 0.08
         if (current.get("pace") or 0.0) > (league_reference.get("pace") or 0.0):
             team_adjustment += 0.05
-    elif payload.scenario_type == "raise_3pa_rate":
+    elif scenario_type == "raise_3pa_rate":
         team_adjustment += max(0.0, (league_reference.get("three_point_rate") or 0.0) - (current.get("three_point_rate") or 0.0)) * 0.5
-    elif payload.scenario_type == "increase_oreb":
+    elif scenario_type == "increase_oreb":
         team_adjustment += max(0.0, (league_reference.get("oreb_rate") or 0.0) - (current.get("oreb_rate") or 0.0)) * 0.4
-    elif payload.scenario_type == "reduce_iso_proxy":
+    elif scenario_type == "reduce_iso_proxy":
         team_adjustment += max(0.0, (current.get("turnover_rate") or 0.0) - (league_reference.get("turnover_rate") or 0.0)) * 0.25
     else:
         team_adjustment += max(0.0, (current.get("assist_rate") or 0.0) - (league_reference.get("assist_rate") or 0.0)) * 0.15
 
-    expected_change = (base_coefficients[payload.scenario_type] * payload.delta) + team_adjustment
-    if payload.scenario_type == "slow_pace" and (current.get("pace") or 0.0) < (league_reference.get("pace") or 0.0):
+    expected_change = (base_coefficients[scenario_type] * payload.delta) + team_adjustment
+    if scenario_type == "slow_pace" and (current.get("pace") or 0.0) < (league_reference.get("pace") or 0.0):
         expected_change *= -0.5
 
     lower_bound = expected_change - max(0.5, abs(expected_change) * 0.5)
     upper_bound = expected_change + max(0.5, abs(expected_change) * 0.5)
     expected_direction = "improve" if expected_change >= 0 else "decline"
-    confidence = "high" if payload.window >= 10 else "medium" if payload.window >= 5 else "low"
 
     comparable_patterns: List[WhatIfComparablePattern] = []
     for neighbor in xray.nearest_neighbors[:3]:
@@ -435,19 +457,22 @@ def build_what_if_report(db: Session, payload: WhatIfRequest) -> WhatIfResponse:
                 distance=neighbor.distance,
             )
         )
+    confidence = "high" if payload.window >= 10 and len(comparable_patterns) >= 2 else "medium" if payload.window >= 5 else "low"
 
-    driver_features = _scenario_driver_features(current, league_reference, payload.scenario_type)
+    driver_features = _scenario_driver_features(current, league_reference, scenario_type)
     warnings: List[str] = []
     if payload.window < 5:
-        warnings.append("The scenario window is small, so the confidence band stays wide.")
+        warnings.append("The scenario window is small, so the recommendation should be read as a bounded prompt rather than a stable tendency.")
     if not comparable_patterns:
-        warnings.append("Comparable-pattern support is thin for this scenario.")
+        warnings.append("Comparable-pattern support is thin for this scenario, so the confidence stays conservative.")
     directional_note = None
     if payload.opponent and not profile.opponent_comparison:
-        directional_note = "Opponent-aware framing is limited because matchup comparison rows are still sparse."
+        directional_note = "Opponent-aware framing is limited because matchup comparison rows are still sparse, so this still leans team-first."
         warnings.append(directional_note)
     elif not payload.opponent:
         directional_note = "No opponent was selected, so this stays as a team-only directional scenario."
+    else:
+        directional_note = "Opponent context is included as matchup framing, not as a causal forecast."
 
     if not comparable_patterns:
         data_status = "limited"
@@ -455,7 +480,7 @@ def build_what_if_report(db: Session, payload: WhatIfRequest) -> WhatIfResponse:
         data_status = "partial"
     else:
         data_status = "ready"
-    scenario_label = _scenario_label(payload.scenario_type)
+    scenario_label = _scenario_label(scenario_type)
     style_implication = WhatIfStyleImplication(
         archetype=xray.archetype,
         label_reason=xray.label_reason,
@@ -473,6 +498,21 @@ def build_what_if_report(db: Session, payload: WhatIfRequest) -> WhatIfResponse:
         else "/teams/{0}?tab=prep&season={1}".format(team.abbreviation, payload.season)
     )
     compare_target = payload.opponent or (xray.nearest_neighbors[0].team_abbreviation if xray.nearest_neighbors else team.abbreviation)
+    compare_url = "/compare?mode=styles&team_a={0}&team_b={1}&season={2}&source_type=what-if&source_id={3}&reason={4}".format(
+        team.abbreviation,
+        compare_target,
+        payload.season,
+        scenario_type,
+        scenario_label.replace(" ", "+"),
+    )
+    compare_url = "{0}&return_to={1}".format(
+        compare_url,
+        "/insights?tab=whatif&team={0}&season={1}{2}".format(
+            team.abbreviation,
+            payload.season,
+            "&opponent={0}".format(payload.opponent) if payload.opponent else "",
+        ).replace(" ", "+"),
+    )
     summary = "{0} suggests a {1} outcome band of {2} to {3}.".format(
         scenario_label,
         expected_direction,
@@ -493,7 +533,7 @@ def build_what_if_report(db: Session, payload: WhatIfRequest) -> WhatIfResponse:
         ),
         team_abbreviation=team.abbreviation,
         season=payload.season,
-        scenario_type=payload.scenario_type,
+        scenario_type=scenario_type,
         scenario_label=scenario_label,
         delta=payload.delta,
         expected_direction=expected_direction,
@@ -507,11 +547,7 @@ def build_what_if_report(db: Session, payload: WhatIfRequest) -> WhatIfResponse:
         style_implication=style_implication,
         launch_links=WhatIfLaunchLinks(
             prep_url=prep_url,
-            compare_url="/compare?mode=styles&team_a={0}&team_b={1}&season={2}".format(
-                team.abbreviation,
-                compare_target,
-                payload.season,
-            ),
+            compare_url=compare_url,
             style_xray_url="/insights?tab=whatif&team={0}&season={1}{2}".format(
                 team.abbreviation,
                 payload.season,
