@@ -149,6 +149,15 @@ Likely shape:
 
 ## Next
 
+### Lineup-Impact Performance and Responsiveness
+Why it matters:
+Sprint 42 proved the opponent-aware decision workflow is valuable, but local smoke testing showed the live `lineup-impact` read can still stall on deeper datasets even when correctness tests pass. That makes performance a real workflow risk for the new team decision tab.
+
+Likely shape:
+- profile the `lineup-impact` read path on modern local datasets and identify the heaviest query and serialization bottlenecks
+- reduce latency enough that the decision tab feels reliably interactive for normal coaching use, not only correct in test fixtures
+- keep any optimizations additive and trust-preserving; do not weaken opponent-aware context or confidence framing just to make the response faster
+
 ### Decision-Tool Calibration and Opponent Context
 Why it matters:
 Sprint 42 turned the team decision tab into a real opponent-aware workspace, but the guidance still needs calibration, performance tuning, and sharper follow-through before it should be treated as fully mature.
