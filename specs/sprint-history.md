@@ -1,9 +1,20 @@
 # Sprint History Archive
 
-Sprints 1–40. Current sprint summaries also live in `CLAUDE.md` under "Recent Sprints".
+Sprints 1–41. Current sprint summaries also live in `CLAUDE.md` under "Recent Sprints".
 
 For detailed per-sprint records, see the individual closeout files in this directory:
-`specs/sprint-09-closeout.md` through `specs/sprint-40-closeout.md`
+`specs/sprint-09-closeout.md` through `specs/sprint-41-closeout.md`
+
+---
+
+### Sprint 41 — Replay Adoption Across Insights
+**Branch:** `feature/sprint-41-replay-adoption-insights`
+
+- Extended the shared replay contract into the insights workspace by making trend cards and What-If emit additive replay targets, source-aware launch context, and honest `derived` versus `timeline` trust labels
+- Switched the trend cards UI onto the backend cards API so replay evidence, supporting stats, and drilldown behavior are all driven by one backend source of truth
+- Added replay evidence links to What-If and carried that replay thread into compare through additive URL/state context, so compare can reopen the attached Game Explorer evidence
+- Expanded Game Explorer source context with additive `source_surface` metadata so insight-launched sessions explain why the user landed on a sequence
+- Verified the sprint with targeted replay/scenario backend tests, full backend `pytest`, and frontend `npm run build`
 
 ---
 

@@ -4,6 +4,7 @@ import Link from "next/link";
 
 interface GameContextBannerProps {
   source?: string | null;
+  sourceSurface?: string | null;
   sourceId?: string | null;
   sourceLabel?: string | null;
   team?: string | null;
@@ -26,6 +27,7 @@ function chip(value: string) {
 
 export default function GameContextBanner({
   source,
+  sourceSurface,
   sourceId,
   sourceLabel,
   team,
@@ -37,7 +39,9 @@ export default function GameContextBanner({
   clipAnchorId,
   linkageQuality,
 }: GameContextBannerProps) {
-  if (!source && !team && !season && !reason && !sourceLabel && !clipAnchorId) {
+  const resolvedSource = sourceSurface ?? source;
+
+  if (!resolvedSource && !team && !season && !reason && !sourceLabel && !clipAnchorId) {
     return null;
   }
 
@@ -46,7 +50,7 @@ export default function GameContextBanner({
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="space-y-2">
           <div className="flex flex-wrap gap-2">
-            {source ? chip(source) : null}
+            {resolvedSource ? chip(resolvedSource) : null}
             {sourceLabel ? chip(sourceLabel) : null}
             {team ? chip(team) : null}
             {opponent ? chip(`vs ${opponent}`) : null}

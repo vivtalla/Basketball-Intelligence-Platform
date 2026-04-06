@@ -21,7 +21,7 @@ from db.models import (  # noqa: E402
 from models.trends import WhatIfRequest  # noqa: E402
 from models.scouting import ScoutingClipExportRequest  # noqa: E402
 from routers.scouting import build_play_type_scouting_report, export_scouting_clip_list  # noqa: E402
-from routers.trends import build_what_if_report  # noqa: E402
+from routers.trends import build_trend_cards_report, build_what_if_report  # noqa: E402
 from services.pre_read_snapshot_service import create_pre_read_snapshot, get_pre_read_snapshot  # noqa: E402
 from models.pre_read import PreReadSnapshotCreateRequest  # noqa: E402
 
@@ -133,6 +133,41 @@ def seed_context(session):
                     action_family="spot_up",
                     description="Bravo Wing catch and shoot three",
                 ),
+                PlayByPlayEvent(
+                    game_id=game_id,
+                    season="2025-26",
+                    order_index=3,
+                    action_number=3,
+                    period=2,
+                    team_id=atl.id,
+                    player_id=1,
+                    action_type="turnover",
+                    action_family="live_ball_turnover",
+                    description="Alpha Guard turnover in traffic",
+                ),
+                PlayByPlayEvent(
+                    game_id=game_id,
+                    season="2025-26",
+                    order_index=4,
+                    action_number=4,
+                    period=2,
+                    team_id=atl.id,
+                    player_id=2,
+                    action_type="foul",
+                    action_family="personal_foul",
+                    description="Bravo Wing commits a foul",
+                ),
+                PlayByPlayEvent(
+                    game_id=game_id,
+                    season="2025-26",
+                    order_index=5,
+                    action_number=5,
+                    period=3,
+                    team_id=atl.id,
+                    action_type="substitution",
+                    action_family="substitution",
+                    description="Atlanta substitution",
+                ),
             ]
         )
 
@@ -228,6 +263,26 @@ def test_what_if_response_keeps_opponent_specific_context_and_links():
         session.close()
 
 
+def test_trend_cards_return_replay_targets_from_recent_game_evidence():
+    session = make_session()
+    try:
+        atl, _, _ = seed_context(session)
+        response = build_trend_cards_report(session, atl.abbreviation, "2025-26", 3)
+
+        assert response.cards
+        replayable = {card.card_id: card.replay_target for card in response.cards if card.replay_target is not None}
+        assert replayable["shot-profile-drift"] is not None
+        assert replayable["turnover-pressure"] is not None
+        assert replayable["foul-trend"] is not None
+        assert replayable["rotation-drift"] is not None
+        assert replayable["shot-profile-drift"].linkage_quality == "derived"
+        assert replayable["shot-profile-drift"].focus_event_id is not None
+        assert "source_surface=insights-trends" in replayable["shot-profile-drift"].deep_link_url
+        assert "return_to=%2Finsights%3Ftab%3Dtrends" in replayable["shot-profile-drift"].deep_link_url
+    finally:
+        session.close()
+
+
 def test_what_if_accepts_legacy_aliases_and_returns_source_aware_compare_links():
     session = make_session()
     try:
@@ -246,7 +301,11 @@ def test_what_if_accepts_legacy_aliases_and_returns_source_aware_compare_links()
         assert response.scenario_type == "increase_pnr_proxy"
         assert response.scenario_label == "Protect shot quality"
         assert "source_type=what-if" in response.launch_links.compare_url
+        assert "replay_game_id=" in response.launch_links.compare_url
         assert "return_to=" in response.launch_links.compare_url
+        assert response.launch_links.replay_url is not None
+        assert response.replay_target is not None
+        assert response.replay_target.linkage_quality in {"derived", "timeline"}
         assert response.directional_note is not None
     finally:
         session.close()

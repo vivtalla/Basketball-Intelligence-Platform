@@ -48,6 +48,7 @@ import type {
   ShotLabShotValueFilter,
   TeamDefenseShotChartResponse,
   TeamDefenseZoneProfileResponse,
+  TrendCardsResponse,
   ShotLabSnapshotPayload,
   ShotLabSnapshotResponse,
   WarehouseCompletenessSummary,
@@ -93,6 +94,7 @@ import {
   getTeamAvailability,
   getUpcomingSchedule,
   getWarehouseReadinessSummary,
+  getTrendCards,
   postWhatIfScenario,
   getStyleXRay,
   getPlayTypeScoutingReport,
@@ -465,6 +467,17 @@ export function useUsageEfficiencyReport(
   );
 }
 
+export function useTrendCards(
+  team: string | null,
+  season: string | null,
+  window = 10
+) {
+  return useSWR<TrendCardsResponse>(
+    team && season ? `trend-cards-${team}-${season}-${window}` : null,
+    () => getTrendCards(team!, season!, window)
+  );
+}
+
 export function usePreReadDeck(
   team: string | null,
   opponent: string | null,
@@ -620,6 +633,7 @@ export function useGameVisualization(
     eventType?: string | null;
     query?: string | null;
     source?: string | null;
+    sourceSurface?: string | null;
     sourceId?: string | null;
     sourceLabel?: string | null;
     reason?: string | null;
@@ -634,7 +648,7 @@ export function useGameVisualization(
 ) {
   return useSWR<GameVisualizationResponse>(
     gameId
-      ? `game-visualization-${gameId}-${options?.shotEventId ?? "none"}-${options?.playerId ?? "all"}-${options?.period ?? "all"}-${options?.eventType ?? "all"}-${options?.query ?? "none"}-${options?.source ?? "none"}-${options?.sourceId ?? "none"}-${options?.claimId ?? "none"}-${options?.clipAnchorId ?? "none"}-${options?.focusEventId ?? "none"}-${options?.focusActionNumber ?? "none"}-${options?.linkageQuality ?? "none"}-${options?.focusWindow ?? "none"}`
+      ? `game-visualization-${gameId}-${options?.shotEventId ?? "none"}-${options?.playerId ?? "all"}-${options?.period ?? "all"}-${options?.eventType ?? "all"}-${options?.query ?? "none"}-${options?.source ?? "none"}-${options?.sourceSurface ?? "none"}-${options?.sourceId ?? "none"}-${options?.claimId ?? "none"}-${options?.clipAnchorId ?? "none"}-${options?.focusEventId ?? "none"}-${options?.focusActionNumber ?? "none"}-${options?.linkageQuality ?? "none"}-${options?.focusWindow ?? "none"}`
       : null,
     () => getGameVisualization(gameId!, options)
   );

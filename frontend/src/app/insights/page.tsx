@@ -6,7 +6,7 @@ import { TrajectoryTracker } from "@/components/TrajectoryTracker";
 import UsageEfficiencyDashboard from "@/components/UsageEfficiencyDashboard";
 import TrendCardsPanel from "@/components/TrendCardsPanel";
 import WhatIfPanel from "@/components/WhatIfPanel";
-import { useTeamAnalytics, useTeamIntelligence, useTeams } from "@/hooks/usePlayerStats";
+import { useTeamAnalytics, useTeams } from "@/hooks/usePlayerStats";
 
 type Mode = "trajectory" | "usage" | "trends" | "whatif";
 
@@ -31,7 +31,6 @@ function InsightsPageInner() {
       : null;
   const { data: currentAnalytics } = useTeamAnalytics(team, season);
   const { data: priorAnalytics } = useTeamAnalytics(team, priorSeason);
-  const { data: intelligence } = useTeamIntelligence(team, season);
 
   function updateParams(mutator: (params: URLSearchParams) => void) {
     const params = new URLSearchParams(searchParams.toString());
@@ -157,13 +156,7 @@ function InsightsPageInner() {
       ) : mode === "usage" ? (
         <UsageEfficiencyDashboard />
       ) : mode === "trends" ? (
-        <TrendCardsPanel
-          teamAbbreviation={team}
-          season={season}
-          currentAnalytics={currentAnalytics ?? null}
-          priorAnalytics={priorAnalytics ?? null}
-          intelligence={intelligence ?? null}
-        />
+        <TrendCardsPanel teamAbbreviation={team} season={season} />
       ) : (
         <WhatIfPanel
           teamAbbreviation={team}

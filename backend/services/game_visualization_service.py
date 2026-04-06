@@ -95,6 +95,7 @@ def _load_shot_lookup(
 
 def _build_source_context(
     source: Optional[str],
+    source_surface: Optional[str],
     source_id: Optional[str],
     source_label: Optional[str],
     reason: Optional[str],
@@ -102,9 +103,12 @@ def _build_source_context(
     clip_anchor_id: Optional[str],
     return_to: Optional[str],
     requested_linkage_quality: Optional[str],
+    target_game_id: Optional[str],
 ) -> Optional[Dict[str, str]]:
+    resolved_source_surface = source_surface or source
     context = {
         "source": source,
+        "source_surface": resolved_source_surface,
         "source_id": source_id,
         "source_label": source_label,
         "reason": reason,
@@ -112,6 +116,7 @@ def _build_source_context(
         "clip_anchor_id": clip_anchor_id,
         "return_to": return_to,
         "linkage_quality": requested_linkage_quality,
+        "target_game_id": target_game_id,
     }
     cleaned = {key: value for key, value in context.items() if value}
     return cleaned or None
@@ -239,6 +244,7 @@ def build_game_visualization(
     query: Optional[str] = None,
     shot_event_id: Optional[str] = None,
     source: Optional[str] = None,
+    source_surface: Optional[str] = None,
     source_id: Optional[str] = None,
     source_label: Optional[str] = None,
     reason: Optional[str] = None,
@@ -265,6 +271,7 @@ def build_game_visualization(
     resolved_focus_window = max(1, min(int(focus_window or 1), 4))
     source_context = _build_source_context(
         source,
+        source_surface,
         source_id,
         source_label,
         reason,
@@ -272,6 +279,7 @@ def build_game_visualization(
         clip_anchor_id,
         return_to,
         linkage_quality,
+        game_id,
     )
     if not events:
         return GameVisualizationResponse(

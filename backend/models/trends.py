@@ -8,6 +8,19 @@ class TrendSeriesPoint(BaseModel):
     value: Optional[float] = None
 
 
+class ReplayLaunchTarget(BaseModel):
+    source_surface: str
+    source_label: str
+    reason: str
+    target_game_id: str
+    target_game_date: Optional[str] = None
+    target_opponent_abbreviation: Optional[str] = None
+    focus_event_id: Optional[str] = None
+    focused_action_number: Optional[int] = None
+    linkage_quality: Literal["exact", "derived", "timeline"] = "timeline"
+    deep_link_url: str
+
+
 class TrendCard(BaseModel):
     card_id: str
     title: str
@@ -18,6 +31,7 @@ class TrendCard(BaseModel):
     series: List[TrendSeriesPoint]
     supporting_stats: Dict[str, Optional[float]]
     drilldowns: List[str]
+    replay_target: Optional[ReplayLaunchTarget] = None
 
 
 class TrendCardsResponse(BaseModel):
@@ -68,6 +82,7 @@ class WhatIfLaunchLinks(BaseModel):
     prep_url: Optional[str] = None
     compare_url: str
     style_xray_url: str
+    replay_url: Optional[str] = None
 
 
 class WhatIfContext(BaseModel):
@@ -98,4 +113,5 @@ class WhatIfResponse(BaseModel):
     comparable_patterns: List[WhatIfComparablePattern]
     style_implication: WhatIfStyleImplication
     launch_links: WhatIfLaunchLinks
+    replay_target: Optional[ReplayLaunchTarget] = None
     warnings: List[str]

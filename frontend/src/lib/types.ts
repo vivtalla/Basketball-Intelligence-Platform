@@ -1384,6 +1384,19 @@ export interface ScenarioComparablePattern {
   distance: number | null;
 }
 
+export interface ReplayLaunchTarget {
+  source_surface: string;
+  source_label: string;
+  reason: string;
+  target_game_id: string;
+  target_game_date: string | null;
+  target_opponent_abbreviation: string | null;
+  focus_event_id: string | null;
+  focused_action_number: number | null;
+  linkage_quality: "exact" | "derived" | "timeline";
+  deep_link_url: string;
+}
+
 export interface WhatIfScenarioResponse {
   data_status: "ready" | "partial" | "limited" | "missing";
   canonical_source: string;
@@ -1419,7 +1432,9 @@ export interface WhatIfScenarioResponse {
     prep_url: string | null;
     compare_url: string;
     style_xray_url: string;
+    replay_url: string | null;
   };
+  replay_target: ReplayLaunchTarget | null;
   warnings: string[];
 }
 
@@ -1437,18 +1452,20 @@ export interface TrendCard {
   card_id: string;
   title: string;
   direction: "up" | "down" | "flat";
-  magnitude: string;
+  magnitude: number | null;
   significance: "high" | "medium" | "low";
   summary: string;
   series: TrendCardPoint[];
-  supporting_stats: TrendCardStat[];
-  drilldowns: InsightDrilldown[];
+  supporting_stats: Record<string, number | null>;
+  drilldowns: string[];
+  replay_target: ReplayLaunchTarget | null;
 }
 
 export interface TrendCardsResponse {
   team_abbreviation: string;
+  team_name: string;
   season: string;
-  window: string;
+  window_games: number;
   cards: TrendCard[];
   warnings: string[];
 }

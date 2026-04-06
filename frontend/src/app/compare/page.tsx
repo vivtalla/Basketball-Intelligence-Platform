@@ -166,6 +166,13 @@ function ComparePageInner() {
   const sourceId = searchParams.get("source_id");
   const sourceReason = searchParams.get("reason");
   const returnTo = searchParams.get("return_to");
+  const replayGameId = searchParams.get("replay_game_id");
+  const replayFocusEventId = searchParams.get("replay_focus_event_id");
+  const replayFocusActionNumber = searchParams.get("replay_focus_action_number");
+  const replayLinkageQuality = searchParams.get("replay_linkage_quality");
+  const replaySourceSurface = searchParams.get("replay_source_surface");
+  const replaySourceLabel = searchParams.get("replay_source_label");
+  const replayReason = searchParams.get("replay_reason");
 
   const { data: profile1, error: profile1Error } = usePlayerProfile(p1Id);
   const { data: career1, error: career1Error } = usePlayerCareerStats(p1Id);
@@ -301,6 +308,20 @@ function ComparePageInner() {
       profile2?.data_status === "stale" ||
       career1?.data_status === "stale" ||
       career2?.data_status === "stale");
+  const replayHref = (() => {
+    if (!replayGameId) return null;
+    const params = new URLSearchParams();
+    params.set("source", replaySourceSurface ?? sourceType ?? "compare");
+    if (replaySourceSurface) params.set("source_surface", replaySourceSurface);
+    if (sourceId) params.set("source_id", sourceId);
+    if (replaySourceLabel) params.set("source_label", replaySourceLabel);
+    if (replayReason) params.set("reason", replayReason);
+    if (replayLinkageQuality) params.set("linkage_quality", replayLinkageQuality);
+    if (replayFocusEventId) params.set("focus_event_id", replayFocusEventId);
+    if (replayFocusActionNumber) params.set("focus_action_number", replayFocusActionNumber);
+    params.set("return_to", `/compare?${searchParams.toString()}`);
+    return `/games/${replayGameId}?${params.toString()}`;
+  })();
 
   return (
     <div className="mx-auto max-w-5xl">
@@ -338,6 +359,14 @@ function ComparePageInner() {
           >
             Print compare view
           </button>
+          {replayHref ? (
+            <Link
+              href={replayHref}
+              className="bip-btn-primary rounded-full px-4 py-2 text-sm font-medium"
+            >
+              Open replay evidence
+            </Link>
+          ) : null}
           {returnTo ? (
             <Link
               href={returnTo}
@@ -351,6 +380,12 @@ function ComparePageInner() {
           <div className="mt-5 rounded-2xl border border-[var(--border)] bg-[rgba(255,255,255,0.72)] px-4 py-4 text-sm leading-6 text-[var(--muted-strong)]">
             This compare view was launched from <span className="font-semibold text-[var(--foreground)]">{sourceType.replaceAll("-", " ")}</span>
             {sourceReason ? ` with the prompt "${sourceReason.replaceAll("+", " ")}".` : "."}
+          </div>
+        ) : null}
+        {replayReason ? (
+          <div className="mt-4 rounded-2xl border border-[rgba(33,72,59,0.16)] bg-[rgba(216,228,221,0.22)] px-4 py-4 text-sm leading-6 text-[var(--muted-strong)]">
+            Replay continuity is attached to this compare session: {replayReason}
+            {replayLinkageQuality ? ` The handoff stays labeled as ${replayLinkageQuality}.` : ""}
           </div>
         ) : null}
       </div>

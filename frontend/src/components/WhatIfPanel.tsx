@@ -220,10 +220,32 @@ export default function WhatIfPanel({
                     Open prep
                   </Link>
                 ) : null}
+                {scenario?.launch_links.replay_url ? (
+                  <Link
+                    href={scenario.launch_links.replay_url}
+                    className="rounded-full border border-[var(--border-strong)] px-4 py-2 text-sm font-medium text-[var(--accent-strong)] transition hover:bg-[rgba(33,72,59,0.08)]"
+                  >
+                    Open replay evidence
+                  </Link>
+                ) : null}
                 <Link href={scenario?.launch_links.compare_url ?? `/compare?mode=styles&team_a=${teamAbbreviation}&team_b=${teamAbbreviation}&season=${season}`} className="rounded-full border border-[var(--border-strong)] px-4 py-2 text-sm font-medium text-[var(--accent-strong)] transition hover:bg-[rgba(33,72,59,0.08)]">
                   Open style compare
                 </Link>
               </div>
+
+              {scenario?.replay_target ? (
+                <div className="mt-4 rounded-[1.35rem] border border-[rgba(33,72,59,0.16)] bg-[rgba(216,228,221,0.22)] p-4">
+                  <div className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--muted)]">
+                    Evidence replay
+                  </div>
+                  <div className="mt-2 text-sm font-semibold text-[var(--foreground)]">
+                    {scenario.replay_target.target_opponent_abbreviation ?? "Recent game"} · {scenario.replay_target.linkage_quality}
+                  </div>
+                  <div className="mt-1 text-sm leading-6 text-[var(--muted-strong)]">
+                    {scenario.replay_target.reason}
+                  </div>
+                </div>
+              ) : null}
             </>
           )}
         </article>

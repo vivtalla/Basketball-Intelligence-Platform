@@ -3,6 +3,7 @@ from __future__ import annotations
 import statistics
 from collections import defaultdict
 from typing import Dict, List, Optional, Tuple
+from urllib.parse import urlencode
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import func
@@ -10,8 +11,9 @@ from sqlalchemy.orm import Session
 
 from data.cache import CacheManager
 from db.database import get_db
-from db.models import GameTeamStat, Team, WarehouseGame
+from db.models import GameTeamStat, PlayByPlayEvent, Team, WarehouseGame
 from models.trends import (
+    ReplayLaunchTarget,
     TrendCard,
     TrendCardsResponse,
     TrendSeriesPoint,
@@ -104,6 +106,188 @@ def _build_series(rows: List[GameTeamStat], metric: str, title: str) -> List[Tre
     return series
 
 
+def _event_identifier(event: PlayByPlayEvent) -> str:
+    if event.source_event_id:
+        return str(event.source_event_id)
+    return str(event.id)
+
+
+def _opponent_abbreviation(team_id: int, game: WarehouseGame) -> Optional[str]:
+    if game.home_team_id == team_id:
+        return game.away_team_abbreviation
+    if game.away_team_id == team_id:
+        return game.home_team_abbreviation
+    return None
+
+
+def _event_matches_replay_rule(
+    event: PlayByPlayEvent,
+    action_types: Tuple[str, ...],
+    action_families: Tuple[str, ...],
+    description_terms: Tuple[str, ...],
+) -> bool:
+    if action_types and (event.action_type or "").lower() not in action_types:
+        return False
+    if action_families and (event.action_family or "").lower() not in action_families:
+        return False
+    if description_terms:
+        haystack = " ".join(
+            filter(
+                None,
+                [
+                    event.description or "",
+                    event.action_type or "",
+                    event.action_family or "",
+                    event.sub_type or "",
+                ],
+            )
+        ).lower()
+        if not any(term in haystack for term in description_terms):
+            return False
+    return True
+
+
+def _build_replay_target_for_recent_games(
+    db: Session,
+    team: Team,
+    season: str,
+    recent_rows: List[GameTeamStat],
+    source_surface: str,
+    source_id: str,
+    source_label: str,
+    return_to: str,
+    reason_prefix: str,
+    action_types: Tuple[str, ...] = (),
+    action_families: Tuple[str, ...] = (),
+    description_terms: Tuple[str, ...] = (),
+) -> Optional[ReplayLaunchTarget]:
+    for row in recent_rows[:5]:
+        game = db.query(WarehouseGame).filter(WarehouseGame.game_id == row.game_id).first()
+        if game is None:
+            continue
+        opponent = _opponent_abbreviation(team.id, game)
+        game_date = game.game_date.isoformat() if game.game_date else None
+        reason = "{0} review against {1} on {2}.".format(
+            reason_prefix,
+            opponent or "the recent opponent",
+            game_date or "a recent game",
+        )
+        event = (
+            db.query(PlayByPlayEvent)
+            .filter(
+                PlayByPlayEvent.game_id == game.game_id,
+                PlayByPlayEvent.team_id == team.id,
+            )
+            .order_by(PlayByPlayEvent.order_index.desc())
+            .all()
+        )
+        should_match_events = bool(action_types or action_families or description_terms)
+        matched_event = (
+            next(
+                (
+                    candidate
+                    for candidate in event
+                    if _event_matches_replay_rule(
+                        candidate,
+                        action_types=action_types,
+                        action_families=action_families,
+                        description_terms=description_terms,
+                    )
+                ),
+                None,
+            )
+            if should_match_events
+            else None
+        )
+        linkage_quality = "derived" if matched_event is not None else "timeline"
+        params = {
+            "source": source_surface,
+            "source_surface": source_surface,
+            "source_id": source_id,
+            "source_label": source_label,
+            "reason": reason,
+            "return_to": return_to,
+            "linkage_quality": linkage_quality,
+            "team": team.abbreviation,
+            "season": season,
+        }
+        focus_event_id = None
+        focused_action_number = None
+        if matched_event is not None:
+            focus_event_id = _event_identifier(matched_event)
+            focused_action_number = matched_event.action_number or matched_event.order_index
+            params["focus_event_id"] = focus_event_id
+            if focused_action_number is not None:
+                params["focus_action_number"] = str(focused_action_number)
+        deep_link_url = "/games/{0}?{1}".format(game.game_id, urlencode(params))
+        return ReplayLaunchTarget(
+            source_surface=source_surface,
+            source_label=source_label,
+            reason=reason,
+            target_game_id=game.game_id,
+            target_game_date=game_date,
+            target_opponent_abbreviation=opponent,
+            focus_event_id=focus_event_id,
+            focused_action_number=focused_action_number,
+            linkage_quality=linkage_quality,
+            deep_link_url=deep_link_url,
+        )
+    return None
+
+
+_TREND_REPLAY_RULES: Dict[str, Dict[str, Tuple[str, ...]]] = {
+    "shot-profile-drift": {
+        "action_types": ("3pt",),
+        "action_families": (),
+        "description_terms": ("three", "3-pt", "3pt"),
+    },
+    "turnover-pressure": {
+        "action_types": ("turnover",),
+        "action_families": ("live_ball_turnover", "dead_ball_turnover"),
+        "description_terms": ("turnover",),
+    },
+    "foul-trend": {
+        "action_types": ("foul",),
+        "action_families": ("shooting_foul", "take_foul", "personal_foul"),
+        "description_terms": ("foul",),
+    },
+    "rotation-drift": {
+        "action_types": ("substitution",),
+        "action_families": ("substitution",),
+        "description_terms": ("substitution", "enters", "checks in"),
+    },
+}
+
+
+_WHAT_IF_REPLAY_RULES: Dict[str, Dict[str, Tuple[str, ...]]] = {
+    "reduce_iso_proxy": {
+        "action_types": ("turnover",),
+        "action_families": ("live_ball_turnover", "dead_ball_turnover"),
+        "description_terms": ("turnover",),
+    },
+    "increase_pnr_proxy": {
+        "action_types": ("2pt", "3pt"),
+        "action_families": ("jump_shot", "rim_pressure", "spot_up"),
+        "description_terms": ("assist", "pick", "screen"),
+    },
+    "raise_3pa_rate": {
+        "action_types": ("3pt",),
+        "action_families": ("spot_up", "jump_shot"),
+        "description_terms": ("three", "3-pt", "3pt"),
+    },
+    "slow_pace": {
+        "action_types": (),
+        "action_families": (),
+        "description_terms": (),
+    },
+    "increase_oreb": {
+        "action_types": ("rebound",),
+        "action_families": ("rebound",),
+        "description_terms": ("rebound",),
+    },
+}
+
+
 def build_trend_cards_report(db: Session, team_abbr: str, season: str, window_games: int) -> TrendCardsResponse:
     team = _fetch_team(db, team_abbr)
     watermark = _season_watermark(db, season)
@@ -118,7 +302,7 @@ def build_trend_cards_report(db: Session, team_abbr: str, season: str, window_ga
     recent_rows = rows[:window_games] if window_games else rows
 
     style_report = build_team_style_profile(db=db, abbr=team.abbreviation, season=season, window=window_games)
-    rotation_report = build_team_rotation_report(db=db, abbr=team.abbreviation, season=season)
+    rotation_report = build_team_rotation_report(db=db, team=team, season=season)
     current = {row.metric_id: row.team_value for row in style_report.current_profile}
     recent = {row.metric_id: row.recent_value if row.recent_value is not None else row.team_value for row in style_report.recent_drift}
     cards: List[TrendCard] = []
@@ -247,6 +431,26 @@ def build_trend_cards_report(db: Session, team_abbr: str, season: str, window_ga
             ],
         )
     )
+
+    return_to = "/insights?tab=trends&team={0}&season={1}".format(team.abbreviation, season)
+    for card in cards:
+        replay_rule = _TREND_REPLAY_RULES.get(card.card_id)
+        if replay_rule is None:
+            continue
+        card.replay_target = _build_replay_target_for_recent_games(
+            db=db,
+            team=team,
+            season=season,
+            recent_rows=recent_rows,
+            source_surface="insights-trends",
+            source_id="{0}:{1}".format(team.abbreviation, card.card_id),
+            source_label=card.title,
+            return_to=return_to,
+            reason_prefix=card.title,
+            action_types=replay_rule.get("action_types", ()),
+            action_families=replay_rule.get("action_families", ()),
+            description_terms=replay_rule.get("description_terms", ()),
+        )
 
     warnings: List[str] = []
     if len(rows) < window_games:
@@ -411,7 +615,9 @@ def build_what_if_report(db: Session, payload: WhatIfRequest) -> WhatIfResponse:
                 prep_url="/teams/{0}?tab=prep&season={1}".format(team.abbreviation, payload.season),
                 compare_url="/compare?mode=styles&team_a={0}&team_b={0}&season={1}".format(team.abbreviation, payload.season),
                 style_xray_url="/insights?tab=whatif&team={0}&season={1}".format(team.abbreviation, payload.season),
+                replay_url=None,
             ),
+            replay_target=None,
             warnings=warnings,
         )
 
@@ -497,22 +703,49 @@ def build_what_if_report(db: Session, payload: WhatIfRequest) -> WhatIfResponse:
         if payload.opponent
         else "/teams/{0}?tab=prep&season={1}".format(team.abbreviation, payload.season)
     )
-    compare_target = payload.opponent or (xray.nearest_neighbors[0].team_abbreviation if xray.nearest_neighbors else team.abbreviation)
-    compare_url = "/compare?mode=styles&team_a={0}&team_b={1}&season={2}&source_type=what-if&source_id={3}&reason={4}".format(
+    return_to = "/insights?tab=whatif&team={0}&season={1}{2}".format(
         team.abbreviation,
-        compare_target,
         payload.season,
-        scenario_type,
-        scenario_label.replace(" ", "+"),
+        "&opponent={0}".format(payload.opponent) if payload.opponent else "",
     )
-    compare_url = "{0}&return_to={1}".format(
-        compare_url,
-        "/insights?tab=whatif&team={0}&season={1}{2}".format(
-            team.abbreviation,
-            payload.season,
-            "&opponent={0}".format(payload.opponent) if payload.opponent else "",
-        ).replace(" ", "+"),
+    replay_rule = _WHAT_IF_REPLAY_RULES.get(scenario_type, {})
+    recent_rows = _team_rows(db, team.id, payload.season)[:payload.window]
+    replay_target = _build_replay_target_for_recent_games(
+        db=db,
+        team=team,
+        season=payload.season,
+        recent_rows=recent_rows,
+        source_surface="insights-whatif",
+        source_id=scenario_type,
+        source_label=scenario_label,
+        return_to=return_to,
+        reason_prefix=scenario_label,
+        action_types=replay_rule.get("action_types", ()),
+        action_families=replay_rule.get("action_families", ()),
+        description_terms=replay_rule.get("description_terms", ()),
     )
+    compare_target = payload.opponent or (xray.nearest_neighbors[0].team_abbreviation if xray.nearest_neighbors else team.abbreviation)
+    compare_params = {
+        "mode": "styles",
+        "team_a": team.abbreviation,
+        "team_b": compare_target,
+        "season": payload.season,
+        "source_type": "what-if",
+        "source_id": scenario_type,
+        "reason": scenario_label,
+        "return_to": return_to,
+    }
+    if replay_target is not None:
+        compare_params["replay_game_id"] = replay_target.target_game_id
+        compare_params["replay_linkage_quality"] = replay_target.linkage_quality
+        compare_params["replay_source_surface"] = replay_target.source_surface
+        compare_params["replay_source_label"] = replay_target.source_label
+        compare_params["replay_reason"] = replay_target.reason
+        if replay_target.focus_event_id:
+            compare_params["replay_focus_event_id"] = replay_target.focus_event_id
+        if replay_target.focused_action_number is not None:
+            compare_params["replay_focus_action_number"] = str(replay_target.focused_action_number)
+    compare_url = "/compare?{0}".format(urlencode(compare_params))
     summary = "{0} suggests a {1} outcome band of {2} to {3}.".format(
         scenario_label,
         expected_direction,
@@ -553,7 +786,9 @@ def build_what_if_report(db: Session, payload: WhatIfRequest) -> WhatIfResponse:
                 payload.season,
                 "&opponent={0}".format(payload.opponent) if payload.opponent else "",
             ),
+            replay_url=replay_target.deep_link_url if replay_target is not None else None,
         ),
+        replay_target=replay_target,
         warnings=warnings,
     )
     CacheManager.set(cache_key, response.model_dump(), 900)

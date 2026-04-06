@@ -184,6 +184,7 @@ export default function GameDetailPage() {
   const searchParams = useSearchParams();
   const gameId = params.gameId ?? null;
   const source = searchParams.get("source");
+  const sourceSurface = searchParams.get("source_surface");
   const sourceId = searchParams.get("source_id");
   const sourceLabel = searchParams.get("source_label");
   const team = searchParams.get("team");
@@ -239,6 +240,7 @@ export default function GameDetailPage() {
     eventType: visualizationEventType,
     query: visualizationQuery,
     source,
+    sourceSurface,
     sourceId,
     sourceLabel,
     reason,
@@ -470,6 +472,7 @@ export default function GameDetailPage() {
 
       <GameContextBanner
         source={source}
+        sourceSurface={visualization?.source_context?.source_surface ?? sourceSurface}
         sourceId={sourceId}
         sourceLabel={visualization?.source_context?.source_label ?? sourceLabel}
         team={team}

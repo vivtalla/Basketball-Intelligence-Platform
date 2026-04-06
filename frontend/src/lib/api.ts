@@ -660,12 +660,12 @@ export async function postWhatIfScenario(
 export async function getTrendCards(
   team: string,
   season: string,
-  window = "4w"
+  window = 10
 ): Promise<import("./types").TrendCardsResponse> {
   const params = new URLSearchParams({
     team,
     season,
-    window,
+    window: String(window),
   });
   return fetchApi<import("./types").TrendCardsResponse>(
     `/api/trends/cards?${params.toString()}`
@@ -1063,6 +1063,7 @@ export async function getGameVisualization(
     eventType?: string | null;
     query?: string | null;
     source?: string | null;
+    sourceSurface?: string | null;
     sourceId?: string | null;
     sourceLabel?: string | null;
     reason?: string | null;
@@ -1082,6 +1083,7 @@ export async function getGameVisualization(
   if (options?.eventType) params.set("event_type", options.eventType);
   if (options?.query) params.set("query", options.query);
   if (options?.source) params.set("source", options.source);
+  if (options?.sourceSurface) params.set("source_surface", options.sourceSurface);
   if (options?.sourceId) params.set("source_id", options.sourceId);
   if (options?.sourceLabel) params.set("source_label", options.sourceLabel);
   if (options?.reason) params.set("reason", options.reason);

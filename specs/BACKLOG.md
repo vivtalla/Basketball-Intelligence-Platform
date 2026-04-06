@@ -66,10 +66,10 @@ Likely shape:
 
 ### Replay Workflow Expansion
 Why it matters:
-Sprint 40 made Game Explorer event-centered and turned the first 3D/scouting replay loop into a real workflow. The next gains come from broadening where that replay contract appears and making the sequence view feel even more analytical.
+Sprints 40 and 41 turned replay into a real workflow across Game Explorer, scouting, shot lab, trend cards, and What-If. The next gains come from broadening the remaining surfaces and making sequence review feel even more analytical.
 
 Likely shape:
-- extend focused replay handoffs into more source surfaces such as trend cards, What-If, prep queue, and compare stories
+- extend focused replay handoffs into the remaining high-context surfaces such as prep queue, focus levers, and richer compare stories
 - deepen the 3D scene choreography beyond the current short sequence view without losing the exact/derived/timeline trust model
 - keep sharpening sequence summaries, labels, and analyst controls so replay feels like a coaching tool rather than only a visual drill-down
 
@@ -97,11 +97,11 @@ Likely shape:
 
 ### Counterfactual What-If Suggestions
 Why it matters:
-The first directional scenario layer is live, but it still needs stronger calibration and better coaching trust signals before it feels like a dependable decision workflow.
+The directional scenario layer now includes replay evidence and source-aware compare continuity, but it still needs stronger calibration and richer matchup trust signals before it feels like a dependable coaching workflow.
 
 Likely shape:
 - improve the current bounded scenario engine with clearer confidence framing, stronger comparable-pattern outputs, and opponent-aware variants where support is strong
-- connect recommendations directly into compare, trend cards, and Game Explorer follow-through
+- sharpen the replay-evidence selection logic so scenario follow-through feels more matchup-specific and less generic when support exists
 - keep every scenario directional, bounded, and fully explainable
 
 ### Play-Style X-Ray
@@ -160,21 +160,12 @@ Likely shape:
 
 ### Trend Cards Follow-Ons
 Why it matters:
-The weekly card format is now live, and the next gain comes from making it more exportable and more useful for lineup and game-review workflows.
+The weekly card format is now backend-driven and replay-aware, and the next gain comes from making it more exportable and more useful for lineup and game-review workflows.
 
 Likely shape:
 - add lineup-level weekly cards where sample support is strong
 - improve export/share formatting for staff review
-- connect meaningful card changes directly into follow-through games and compare launches
-
-### Replay Adoption Across Workflows
-Why it matters:
-Event-centered replay is now live in shot lab and scouting, and the next value comes from spreading that same handoff quality to the rest of the platform’s coaching and review surfaces.
-
-Likely shape:
-- add source-aware replay launches from trend cards, What-If, prep queue, and other high-context surfaces
-- preserve exact versus inferred trust signals consistently across all replay entry points
-- keep the workflow URL/state-first until a stronger case for saved replay artifacts appears
+- deepen how card-level evidence gets summarized so replay launches and compare launches feel more specific than “recent game context”
 
 ### Focus Levers Follow-Ons
 Why it matters:
