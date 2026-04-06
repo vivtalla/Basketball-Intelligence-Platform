@@ -58,6 +58,9 @@ export default function TeamPrepQueuePanel({ queue }: TeamPrepQueuePanelProps) {
           source_view: "prep-queue-card",
           context: {
             prep_urgency: item.prep_urgency,
+            urgency_rationale: item.urgency_rationale ?? "",
+            first_adjustment_label: item.first_adjustment_label ?? "",
+            recommended_factor: item.first_adjustment_factor_id ?? item.best_edge_factor_id ?? "",
           },
         });
         setSavedGameId(item.game_id);
@@ -130,6 +133,11 @@ export default function TeamPrepQueuePanel({ queue }: TeamPrepQueuePanelProps) {
                   <p className="mt-3 max-w-2xl text-sm leading-6 text-[var(--muted-strong)]">
                     {item.prep_headline}
                   </p>
+                  {item.urgency_rationale ? (
+                    <p className="mt-2 text-xs font-semibold uppercase tracking-[0.14em] text-[var(--muted)]">
+                      Why now: {item.urgency_rationale}
+                    </p>
+                  ) : null}
                 </div>
                 <div className="rounded-2xl border border-[var(--border)] bg-[rgba(255,255,255,0.68)] px-4 py-3 text-right">
                   <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[var(--muted)]">
@@ -174,6 +182,11 @@ export default function TeamPrepQueuePanel({ queue }: TeamPrepQueuePanelProps) {
                   <div className="mt-1 text-sm leading-6 text-[var(--muted-strong)]">
                     {item.best_edge_summary ?? "This matchup needs more local data before a clean edge call shows up."}
                   </div>
+                  {item.best_edge_rationale ? (
+                    <div className="mt-2 text-xs leading-5 text-[var(--muted)]">
+                      {item.best_edge_rationale}
+                    </div>
+                  ) : null}
                 </div>
                 <div className="rounded-2xl border border-[var(--border)] bg-[rgba(255,255,255,0.72)] p-4">
                   <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[var(--muted)]">
@@ -185,6 +198,11 @@ export default function TeamPrepQueuePanel({ queue }: TeamPrepQueuePanelProps) {
                   <div className="mt-1 text-sm leading-6 text-[var(--muted-strong)]">
                     {item.first_adjustment_summary ?? "Adjustment guidance will appear once more team-game stats are available."}
                   </div>
+                  {item.first_adjustment_rationale ? (
+                    <div className="mt-2 text-xs leading-5 text-[var(--muted)]">
+                      {item.first_adjustment_rationale}
+                    </div>
+                  ) : null}
                 </div>
               </div>
 

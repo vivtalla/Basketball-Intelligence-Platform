@@ -173,6 +173,21 @@ function PreReadPageInner() {
         </section>
       ) : null}
 
+      {data?.prep_context ? (
+        <section className="rounded-[1.5rem] border border-[var(--border)] bg-[rgba(255,255,255,0.72)] p-5 text-sm leading-6 text-[var(--muted-strong)]">
+          <div className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--muted)]">Prep context</div>
+          <div className="mt-2 font-semibold text-[var(--foreground)]">
+            {data.prep_context.first_adjustment_label ?? data.prep_context.best_edge_label ?? data.prep_context.headline ?? "Prep context loaded"}
+          </div>
+          {data.prep_context.urgency_rationale ? (
+            <p className="mt-2">{data.prep_context.urgency_rationale}</p>
+          ) : null}
+          {data.prep_context.first_adjustment_rationale ? (
+            <p className="mt-2">{data.prep_context.first_adjustment_rationale}</p>
+          ) : null}
+        </section>
+      ) : null}
+
       {data?.warnings?.length ? (
         <section className="rounded-[1.5rem] border border-[var(--border)] bg-[var(--surface)] p-5 text-sm leading-6 text-[var(--muted-strong)]">
           <div className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--muted)]">Readiness</div>
@@ -222,7 +237,7 @@ function PreReadPageInner() {
                 </p>
               ) : null}
               <div className="mt-4 flex flex-wrap gap-3">
-                <Link href={`/teams/${activeTeam}?tab=decision`} className="bip-btn-primary rounded-full px-4 py-2 text-sm font-medium">
+                <Link href={data.launch_links.follow_through_url} className="bip-btn-primary rounded-full px-4 py-2 text-sm font-medium">
                   Open team decision tools
                 </Link>
                 <Link href={`/teams/${activeTeam}?tab=roster`} className="rounded-full border border-[var(--border-strong)] px-4 py-2 text-sm font-medium text-[var(--accent-strong)] transition hover:bg-[rgba(33,72,59,0.08)]">

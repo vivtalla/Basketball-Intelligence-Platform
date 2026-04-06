@@ -58,6 +58,10 @@ import type {
   WarehouseSeasonHealth,
   IngestionJobResponse,
   StandingsHistoryEntry,
+  LineupImpactResponse,
+  PlayTypeEVResponse,
+  MatchupFlagsResponse,
+  FollowThroughResponse,
 } from "@/lib/types";
 import {
   getPlayerProfile,
@@ -113,6 +117,10 @@ import {
   getWarehouseJobs,
   getGameSummary,
   getStandingsHistory,
+  getLineupImpactReport,
+  getPlayTypeEVReport,
+  getMatchupFlagsReport,
+  postFollowThroughGames,
 } from "@/lib/api";
 
 const DEFAULT_SHOT_LAB_FILTERS: ShotLabFilters = {
@@ -448,11 +456,73 @@ export function useTeamComparison(
 
 export function useTeamFocusLevers(
   teamAbbreviation: string | null,
-  season: string | null
+  season: string | null,
+  opponent?: string | null
 ) {
   return useSWR<TeamFocusLeversReport>(
-    teamAbbreviation && season ? `team-focus-levers-${teamAbbreviation}-${season}` : null,
-    () => getTeamFocusLevers(teamAbbreviation!, season!)
+    teamAbbreviation && season ? `team-focus-levers-${teamAbbreviation}-${season}-${opponent ?? "none"}` : null,
+    () => getTeamFocusLevers(teamAbbreviation!, season!, opponent ?? undefined)
+  );
+}
+
+export function useLineupImpactReport(
+  team: string | null,
+  season: string | null,
+  opponent?: string | null,
+  window = 10,
+  minPossessions = 25
+) {
+  return useSWR<LineupImpactResponse>(
+    team && season
+      ? `lineup-impact-${team}-${season}-${opponent ?? "none"}-${window}-${minPossessions}`
+      : null,
+    () => getLineupImpactReport(team!, season!, opponent ?? undefined, window, minPossessions)
+  );
+}
+
+export function usePlayTypeEVReport(
+  team: string | null,
+  season: string | null,
+  opponent?: string | null,
+  window = 10
+) {
+  return useSWR<PlayTypeEVResponse>(
+    team && season ? `play-type-ev-${team}-${season}-${opponent ?? "none"}-${window}` : null,
+    () => getPlayTypeEVReport(team!, season!, opponent ?? undefined, window)
+  );
+}
+
+export function useMatchupFlagsReport(
+  team: string | null,
+  opponent: string | null,
+  season: string | null
+) {
+  return useSWR<MatchupFlagsResponse>(
+    team && opponent && season ? `matchup-flags-${team}-${opponent}-${season}` : null,
+    () => getMatchupFlagsReport(team!, opponent!, season!)
+  );
+}
+
+export function useFollowThroughReport(
+  payload:
+    | {
+        source_type: string;
+        source_id: string;
+        team: string;
+        opponent?: string;
+        player_ids?: number[];
+        lineup_key?: string;
+        season: string;
+        window?: number;
+        context?: Record<string, string>;
+      }
+    | null
+) {
+  return useSWR<FollowThroughResponse>(
+    payload
+      ? `follow-through-${payload.source_type}-${payload.source_id}-${payload.team}-${payload.opponent ?? "none"}-${payload.season}-${payload.window ?? 10}-${(payload.player_ids ?? []).join("-")}-${payload.lineup_key ?? "none"}-${payload.context?.reason ?? "none"}`
+      : null,
+    () => postFollowThroughGames(payload!)
   );
 }
 

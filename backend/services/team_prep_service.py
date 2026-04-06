@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from datetime import date, datetime
 from typing import List, Optional, Tuple
+from urllib.parse import urlencode
 
 from fastapi import HTTPException
 from sqlalchemy import or_
@@ -107,31 +108,91 @@ def _conference_rank(db: Session, standing: Optional[TeamStanding], season: str)
     return None
 
 
-def _build_links(team_abbreviation: str, opponent_abbreviation: str, season: str) -> Tuple[str, str, str, str, str]:
-    pre_read_url = "/pre-read?team={0}&opponent={1}&season={2}".format(
-        team_abbreviation,
-        opponent_abbreviation,
-        season,
+def _story_factor_id(label: Optional[str]) -> Optional[str]:
+    mapping = {
+        "Wins turnover battle": "turnovers",
+        "More efficient shooting team": "shooting",
+        "Stronger glass profile": "rebounding",
+    }
+    return mapping.get(label or "")
+
+
+def _edge_rationale(summary: Optional[str], factor_id: Optional[str], opponent_abbreviation: str) -> Optional[str]:
+    if not summary:
+        return None
+    if factor_id == "shooting":
+        return "{0} Keep the game tilted toward your cleaner shot diet so {1} does not flatten the quality gap.".format(summary, opponent_abbreviation)
+    if factor_id == "turnovers":
+        return "{0} If the ball stays clean early, {1} loses one of the easiest ways to erase margin.".format(summary, opponent_abbreviation)
+    if factor_id == "rebounding":
+        return "{0} The miss-margin should stay in your favor if the first hit lands on time.".format(summary)
+    return summary
+
+
+def _build_links(
+    team_abbreviation: str,
+    opponent_abbreviation: str,
+    season: str,
+    game_id: str,
+    source_label: str,
+    reason: str,
+    factor_id: Optional[str] = None,
+) -> Tuple[str, str, str, str, str]:
+    return_to = "/teams/{0}?tab=prep&season={1}".format(team_abbreviation, season)
+    shared_context = {
+        "team": team_abbreviation,
+        "opponent": opponent_abbreviation,
+        "season": season,
+        "source_view": "team-prep",
+        "source_label": source_label,
+        "reason": reason,
+        "prep_game_id": game_id,
+        "return_to": return_to,
+    }
+    if factor_id:
+        shared_context["recommended_factor"] = factor_id
+
+    pre_read_url = "/pre-read?{0}".format(urlencode(shared_context))
+    scouting_url = "/pre-read?{0}".format(urlencode({**shared_context, "mode": "scouting"}))
+    compare_url = "/compare?{0}".format(
+        urlencode(
+            {
+                "mode": "teams",
+                "team_a": team_abbreviation,
+                "team_b": opponent_abbreviation,
+                "season": season,
+                "source_type": "prep-queue",
+                "source_id": "{0}:{1}:{2}".format(team_abbreviation, opponent_abbreviation, game_id),
+                "reason": reason,
+                "return_to": return_to,
+            }
+        )
     )
-    scouting_url = "/pre-read?team={0}&opponent={1}&season={2}&mode=scouting".format(
+    follow_through_url = "/teams/{0}?{1}".format(
         team_abbreviation,
-        opponent_abbreviation,
-        season,
+        urlencode(
+            {
+                "tab": "decision",
+                "season": season,
+                "opponent": opponent_abbreviation,
+                "source_surface": "team-prep",
+                "source_label": source_label,
+                "reason": reason,
+            }
+        ),
     )
-    compare_url = "/compare?mode=teams&team_a={0}&team_b={1}&season={2}".format(
-        team_abbreviation,
-        opponent_abbreviation,
-        season,
-    )
-    follow_through_url = "/teams/{0}?tab=decision&season={1}&opponent={2}".format(
-        team_abbreviation,
-        season,
-        opponent_abbreviation,
-    )
-    game_review_url = "/games?team={0}&season={1}&opponent={2}".format(
-        team_abbreviation,
-        season,
-        opponent_abbreviation,
+    game_review_url = "/games?{0}".format(
+        urlencode(
+            {
+                "team": team_abbreviation,
+                "season": season,
+                "opponent": opponent_abbreviation,
+                "source_surface": "team-prep",
+                "source_label": source_label,
+                "reason": reason,
+                "return_to": return_to,
+            }
+        )
     )
     return pre_read_url, scouting_url, compare_url, follow_through_url, game_review_url
 
@@ -242,6 +303,8 @@ def build_team_prep_queue(
 
         best_edge_label = None
         best_edge_summary = None
+        best_edge_rationale = None
+        best_edge_factor_id = None
         try:
             comparison = build_team_comparison_report(db=db, team_a=team.abbreviation, team_b=opponent_abbreviation, season=season)
             edge_story = next((story for story in comparison.stories if story.edge == "team_a"), None)
@@ -250,11 +313,15 @@ def build_team_prep_queue(
             if edge_story is not None:
                 best_edge_label = edge_story.label
                 best_edge_summary = edge_story.summary
+                best_edge_factor_id = _story_factor_id(edge_story.label)
+                best_edge_rationale = _edge_rationale(edge_story.summary, best_edge_factor_id, opponent_abbreviation)
         except HTTPException:
             best_edge_summary = "Matchup edge needs more local team-game coverage before it can be trusted."
 
         first_adjustment_label = None
         first_adjustment_summary = None
+        first_adjustment_rationale = None
+        first_adjustment_factor_id = None
         try:
             focus_report = build_team_focus_levers_report(
                 db=db,
@@ -265,6 +332,8 @@ def build_team_prep_queue(
             if focus_report.focus_levers:
                 first_adjustment_label = focus_report.focus_levers[0].title
                 first_adjustment_summary = focus_report.focus_levers[0].summary
+                first_adjustment_rationale = focus_report.focus_levers[0].rationale or focus_report.focus_levers[0].projected_impact
+                first_adjustment_factor_id = focus_report.focus_levers[0].factor_id
         except HTTPException:
             first_adjustment_summary = "Adjustment guidance will appear once more team game stats are available."
 
@@ -282,10 +351,16 @@ def build_team_prep_queue(
             first_adjustment_label.lower() if first_adjustment_label else None,
         ]
         prep_headline = " | ".join(part for part in headline_parts if part)
+        source_label = "Prep vs {0}".format(opponent_abbreviation)
+        decision_reason = first_adjustment_label or best_edge_label or "prep follow-through"
         pre_read_url, scouting_url, compare_url, follow_through_url, game_review_url = _build_links(
-            team.abbreviation,
-            opponent_abbreviation,
-            season,
+            team_abbreviation=team.abbreviation,
+            opponent_abbreviation=opponent_abbreviation,
+            season=season,
+            game_id=row.game_id,
+            source_label=source_label,
+            reason=decision_reason,
+            factor_id=first_adjustment_factor_id or best_edge_factor_id,
         )
         latest_snapshot = _latest_snapshot_for_matchup(db, team.abbreviation, opponent_abbreviation, season)
         latest_snapshot_share_url = None
@@ -300,6 +375,7 @@ def build_team_prep_queue(
                 status=row.status,
                 prep_urgency=urgency,
                 prep_headline=urgency_reason if prep_headline == "" else "{0} | {1}".format(urgency_reason, prep_headline),
+                urgency_rationale=urgency_reason,
                 opponent_abbreviation=opponent_abbreviation,
                 opponent_name=opponent_name,
                 is_home=is_home,
@@ -316,8 +392,12 @@ def build_team_prep_queue(
                 schedule_pressure=_schedule_pressure(team_rest),
                 best_edge_label=best_edge_label,
                 best_edge_summary=best_edge_summary,
+                best_edge_rationale=best_edge_rationale,
+                best_edge_factor_id=best_edge_factor_id,
                 first_adjustment_label=first_adjustment_label,
                 first_adjustment_summary=first_adjustment_summary,
+                first_adjustment_rationale=first_adjustment_rationale,
+                first_adjustment_factor_id=first_adjustment_factor_id,
                 pre_read_url=pre_read_url,
                 scouting_url=scouting_url,
                 compare_url=compare_url,

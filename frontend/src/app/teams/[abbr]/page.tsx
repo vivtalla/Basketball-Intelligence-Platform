@@ -4,7 +4,19 @@ import Image from "next/image";
 import Link from "next/link";
 import { useMemo, useState } from "react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
-import { useTeamAvailability, useTeamPrepQueue, useTeamRoster, useTeamAnalytics, useTeamFocusLevers, useTeamIntelligence, useTeamRotationReport } from "@/hooks/usePlayerStats";
+import {
+  useTeamAvailability,
+  useTeamPrepQueue,
+  useTeamRoster,
+  useTeamAnalytics,
+  useTeamFocusLevers,
+  useTeamIntelligence,
+  useTeamRotationReport,
+  useLineupImpactReport,
+  usePlayTypeEVReport,
+  useMatchupFlagsReport,
+  useFollowThroughReport,
+} from "@/hooks/usePlayerStats";
 import AvailabilitySummaryCard from "@/components/AvailabilitySummaryCard";
 import TeamAnalyticsPanel from "@/components/TeamAnalyticsPanel";
 import TeamDefenseShotLab from "@/components/TeamDefenseShotLab";
@@ -13,7 +25,7 @@ import TeamPrepQueuePanel from "@/components/TeamPrepQueuePanel";
 import TeamRotationIntelligencePanel from "@/components/TeamRotationIntelligencePanel";
 import TeamLineupsPanel from "@/components/TeamLineupsPanel";
 import TeamDecisionToolsPanel from "@/components/TeamDecisionToolsPanel";
-import type { TeamRosterPlayer } from "@/lib/types";
+import type { TeamPrepQueueItem, TeamRosterPlayer } from "@/lib/types";
 
 const DEFAULT_SEASON = "2024-25";
 
@@ -35,6 +47,11 @@ export default function TeamDetailPage() {
   const searchParams = useSearchParams();
   const teamAbbreviation = params.abbr?.toUpperCase() ?? null;
   const activeTabParam = searchParams.get("tab");
+  const seasonParam = searchParams.get("season")?.toUpperCase() ?? null;
+  const opponentParam = searchParams.get("opponent")?.toUpperCase() ?? null;
+  const sourceSurfaceParam = searchParams.get("source_surface");
+  const sourceLabelParam = searchParams.get("source_label");
+  const reasonParam = searchParams.get("reason");
   const [selectedTab, setSelectedTab] = useState<Tab>("intelligence");
   const [selectedSeason, setSelectedSeason] = useState<string>("");
   const activeTab =
@@ -55,6 +72,7 @@ export default function TeamDetailPage() {
   }, [roster]);
   const effectiveSeason =
     (selectedSeason && availableSeasons.includes(selectedSeason) ? selectedSeason : null) ??
+    (seasonParam && availableSeasons.includes(seasonParam) ? seasonParam : null) ??
     availableSeasons[0] ??
     DEFAULT_SEASON;
 
@@ -71,13 +89,9 @@ export default function TeamDetailPage() {
     isLoading: prepLoading,
     error: prepError,
   } = useTeamPrepQueue(
-    activeTab === "prep" ? teamAbbreviation : null,
-    activeTab === "prep" ? effectiveSeason : null,
+    activeTab === "prep" || activeTab === "decision" ? teamAbbreviation : null,
+    activeTab === "prep" || activeTab === "decision" ? effectiveSeason : null,
     10
-  );
-  const { data: focusLevers } = useTeamFocusLevers(
-    activeTab === "intelligence" || activeTab === "decision" ? teamAbbreviation : null,
-    effectiveSeason
   );
   const {
     data: rotationReport,
@@ -107,6 +121,90 @@ export default function TeamDetailPage() {
       : null;
   const { data: priorAnalytics } = useTeamAnalytics(teamAbbreviation, priorSeason);
   const currentPath = teamAbbreviation ? `/teams/${teamAbbreviation}` : "/teams";
+
+  const opponentOptions = useMemo(() => {
+    const seen = new Set<string>();
+    const options: { value: string; label: string }[] = [];
+    (prepQueue?.items ?? []).forEach((item) => {
+      if (!item.opponent_abbreviation || seen.has(item.opponent_abbreviation)) return;
+      seen.add(item.opponent_abbreviation);
+      options.push({
+        value: item.opponent_abbreviation,
+        label: `${item.opponent_abbreviation} · ${item.opponent_name ?? "Upcoming opponent"}`,
+      });
+    });
+    (intelligence?.recent_games ?? []).forEach((game) => {
+      if (!game.opponent_abbreviation || seen.has(game.opponent_abbreviation)) return;
+      seen.add(game.opponent_abbreviation);
+      options.push({
+        value: game.opponent_abbreviation,
+        label: `${game.opponent_abbreviation} · recent opponent`,
+      });
+    });
+    return options;
+  }, [intelligence?.recent_games, prepQueue?.items]);
+
+  const selectedOpponent =
+    opponentParam && opponentOptions.some((option) => option.value === opponentParam)
+      ? opponentParam
+      : opponentOptions[0]?.value ?? opponentParam ?? null;
+
+  const { data: focusLevers } = useTeamFocusLevers(
+    activeTab === "intelligence" || activeTab === "decision" ? teamAbbreviation : null,
+    effectiveSeason,
+    activeTab === "decision" ? selectedOpponent : null
+  );
+
+  const selectedPrepItem = useMemo<TeamPrepQueueItem | null>(
+    () =>
+      (prepQueue?.items ?? []).find((item) => item.opponent_abbreviation === selectedOpponent) ?? null,
+    [prepQueue?.items, selectedOpponent]
+  );
+
+  const { data: lineupImpact } = useLineupImpactReport(
+    activeTab === "decision" ? teamAbbreviation : null,
+    activeTab === "decision" ? effectiveSeason : null,
+    activeTab === "decision" ? selectedOpponent : null,
+    10,
+    25
+  );
+  const { data: playTypeEV } = usePlayTypeEVReport(
+    activeTab === "decision" ? teamAbbreviation : null,
+    activeTab === "decision" ? effectiveSeason : null,
+    activeTab === "decision" ? selectedOpponent : null,
+    10
+  );
+  const { data: matchupFlags } = useMatchupFlagsReport(
+    activeTab === "decision" ? teamAbbreviation : null,
+    activeTab === "decision" ? selectedOpponent : null,
+    activeTab === "decision" ? effectiveSeason : null
+  );
+  const decisionReason =
+    reasonParam ??
+    selectedPrepItem?.first_adjustment_label ??
+    focusLevers?.focus_levers?.[0]?.title ??
+    "opponent-aware follow-through";
+  const { data: followThrough } = useFollowThroughReport(
+    activeTab === "decision" && teamAbbreviation
+      ? {
+          source_type: "decision",
+          source_id: `${teamAbbreviation}:${selectedOpponent ?? "none"}:${selectedPrepItem?.game_id ?? "decision"}`,
+          team: teamAbbreviation,
+          opponent: selectedOpponent ?? undefined,
+          player_ids: lineupImpact?.recommended_rotation?.[0]?.player_ids ?? [],
+          lineup_key: lineupImpact?.recommended_rotation?.[0]?.lineup_key ?? undefined,
+          season: effectiveSeason,
+          window: 8,
+          context: {
+            source_surface: sourceSurfaceParam ?? "team-decision",
+            source_label: sourceLabelParam ?? `Decision vs ${selectedOpponent ?? teamAbbreviation}`,
+            reason: decisionReason,
+            return_to: `${currentPath}?tab=decision&season=${effectiveSeason}${selectedOpponent ? `&opponent=${selectedOpponent}` : ""}`,
+            linkage_quality: "timeline",
+          },
+        }
+      : null
+  );
 
   const sortedPlayers = useMemo(
     () =>
@@ -288,7 +386,13 @@ export default function TeamDetailPage() {
               </div>
               <select
                 value={effectiveSeason}
-                onChange={(e) => setSelectedSeason(e.target.value)}
+                onChange={(e) => {
+                  const nextSeason = e.target.value;
+                  setSelectedSeason(nextSeason);
+                  const params = new URLSearchParams(searchParams.toString());
+                  params.set("season", nextSeason);
+                  router.replace(`${currentPath}?${params.toString()}`);
+                }}
                 className="bip-input rounded-xl px-3 py-2 text-sm"
               >
                 {availableSeasons.length > 0 ? (
@@ -318,6 +422,7 @@ export default function TeamDetailPage() {
                 onClick={() => {
                   const params = new URLSearchParams(searchParams.toString());
                   params.set("tab", "intelligence");
+                  params.set("season", effectiveSeason);
                   router.replace(`${currentPath}?${params.toString()}`);
                 }}
                 className="bip-btn-primary inline-flex rounded-full px-4 py-2 text-sm font-medium"
@@ -383,6 +488,10 @@ export default function TeamDetailPage() {
               setSelectedTab(tab);
               const params = new URLSearchParams(searchParams.toString());
               params.set("tab", tab);
+              params.set("season", effectiveSeason);
+              if (selectedOpponent) {
+                params.set("opponent", selectedOpponent);
+              }
               router.replace(`${currentPath}?${params.toString()}`);
             }}
             className={`px-5 py-2 capitalize transition-colors ${
@@ -401,11 +510,24 @@ export default function TeamDetailPage() {
           <TeamDecisionToolsPanel
             teamAbbreviation={teamAbbreviation ?? roster.abbreviation}
             season={effectiveSeason}
+            selectedOpponent={selectedOpponent}
+            opponentOptions={opponentOptions}
+            onSelectOpponent={(nextOpponent) => {
+              const params = new URLSearchParams(searchParams.toString());
+              params.set("tab", "decision");
+              params.set("season", effectiveSeason);
+              params.set("opponent", nextOpponent);
+              router.replace(`${currentPath}?${params.toString()}`);
+            }}
             intelligence={intelligence}
             currentAnalytics={currentAnalytics ?? null}
             priorAnalytics={priorAnalytics ?? null}
             focusLevers={focusLevers ?? null}
-            rotationReport={rotationReport ?? null}
+            prepItem={selectedPrepItem}
+            lineupImpact={lineupImpact ?? null}
+            playTypeEV={playTypeEV ?? null}
+            matchupFlags={matchupFlags ?? null}
+            followThrough={followThrough ?? null}
           />
         </section>
       )}

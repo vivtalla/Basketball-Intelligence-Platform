@@ -69,7 +69,7 @@ Why it matters:
 Sprints 40 and 41 turned replay into a real workflow across Game Explorer, scouting, shot lab, trend cards, and What-If. The next gains come from broadening the remaining surfaces and making sequence review feel even more analytical.
 
 Likely shape:
-- extend focused replay handoffs into the remaining high-context surfaces such as prep queue, focus levers, and richer compare stories
+- extend focused replay handoffs deeper into the newly shipped prep and decision workflow, especially when a selected lever can be tied to a strong recent-game sequence
 - deepen the 3D scene choreography beyond the current short sequence view without losing the exact/derived/timeline trust model
 - keep sharpening sequence summaries, labels, and analyst controls so replay feels like a coaching tool rather than only a visual drill-down
 
@@ -84,12 +84,12 @@ Likely shape:
 
 ### Team Prep Queue Follow-Ons
 Why it matters:
-Sprint 32 gave teams a strong upcoming-opponent queue, but staff workflows will want sharper urgency calibration and a way to preserve the exact prep state for later review.
+Sprint 42 made the prep queue substantially more opponent-aware, but the workflow can still get more direct and more archival-ready without losing its current lightweight feel.
 
 Likely shape:
+- add direct replay targets for prep cards when a recommended lever has credible recent-game evidence
 - save prep snapshots by team/opponent/date instead of relying only on live query-state share links
-- calibrate prep urgency and first-action summaries with stronger opponent-aware logic
-- connect prep cards more directly into follow-through film, compare, and game-review workflows
+- continue tuning urgency and first-action summaries for local performance and edge-case matchups
 
 ---
 
@@ -115,11 +115,11 @@ Likely shape:
 
 ### Comparison Sandbox Follow-Ons
 Why it matters:
-The sandbox is stronger after Sprint 25, but it still needs better printing, sharing, and follow-through to become a true staff workflow.
+The sandbox is stronger after Sprint 25 and Sprint 42, but it still needs better printing, sharing, and story-specific follow-through to become a true staff workflow.
 
 Likely shape:
 - improve printable and shareable compare outputs for teams, lineups, and styles
-- preserve source context more deeply when compare launches from decision tools, scouting, or scenarios
+- surface prep-selected levers and decision rationale more explicitly when compare launches from prep tools, scouting, or scenarios
 - deepen story labels with matchup-aware and trend-aware framing instead of season-only summaries
 
 ### Play-Type Scouting and Clip Workflow
@@ -151,11 +151,11 @@ Likely shape:
 
 ### Decision-Tool Calibration and Opponent Context
 Why it matters:
-The new lineup-impact and matchup-flag layer is useful, but it should keep getting sharper before the product relies on it as a primary coaching surface.
+Sprint 42 turned the team decision tab into a real opponent-aware workspace, but the guidance still needs calibration, performance tuning, and sharper follow-through before it should be treated as fully mature.
 
 Likely shape:
 - improve minute-redistribution logic, uncertainty wording, and opponent-style adjustments
-- connect lineup suggestions more directly into rotation review and game-prep workflows
+- connect lineup suggestions more directly into replay and rotation review workflows
 - expand matchup exploit flags without losing explainability
 
 ### Trend Cards Follow-Ons
@@ -169,12 +169,12 @@ Likely shape:
 
 ### Focus Levers Follow-Ons
 Why it matters:
-The four-factor coach panel is now useful, but it should evolve from team-only heuristics into sharper opponent-aware decision support.
+Sprint 42 made focus levers opponent-aware and workflow-connected, but the panel should still get more precise and more replay-aware over time.
 
 Likely shape:
-- add matchup-aware framing against a specific opponent
-- improve impact labels from simple heuristics toward margin and win-probability context
-- connect focus levers directly into pre-read and game-review workflows
+- improve impact labels from margin/possession heuristics toward cleaner confidence and game-swing framing
+- add direct lever-to-replay follow-through when evidence is strong enough
+- keep sharpening how focus levers align with matchup flags, compare, and decision tools so one coaching story survives across surfaces
 
 ### Usage vs Efficiency Follow-Ons
 Why it matters:

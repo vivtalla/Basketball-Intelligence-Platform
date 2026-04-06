@@ -1,7 +1,8 @@
 from __future__ import annotations
 
 from datetime import datetime
-from typing import List
+from typing import List, Optional
+from urllib.parse import urlencode
 
 from fastapi import HTTPException
 from sqlalchemy.orm import Session
@@ -21,13 +22,51 @@ from services.team_focus_service import build_team_focus_levers_report
 from services.team_prep_service import build_team_prep_queue
 
 
-def _build_launch_links(team: str, opponent: str, season: str) -> WorkflowLaunchLinks:
+def _build_launch_links(
+    team: str,
+    opponent: str,
+    season: str,
+    prep_item: Optional[PreReadPrepContext] = None,
+) -> WorkflowLaunchLinks:
+    return_to = "/pre-read?team={0}&opponent={1}&season={2}".format(team, opponent, season)
+    compare_reason = (
+        prep_item.first_adjustment_label
+        if prep_item and prep_item.first_adjustment_label
+        else prep_item.best_edge_label
+        if prep_item and prep_item.best_edge_label
+        else "pregame matchup review"
+    )
     return WorkflowLaunchLinks(
         pre_read_url="/pre-read?team={0}&opponent={1}&season={2}".format(team, opponent, season),
         scouting_url="/pre-read?team={0}&opponent={1}&season={2}&mode=scouting".format(team, opponent, season),
-        compare_url="/compare?mode=teams&team_a={0}&team_b={1}&season={2}".format(team, opponent, season),
-        prep_url="/teams/{0}?tab=prep&season={1}".format(team, season),
-        follow_through_url="/teams/{0}?tab=decision&season={1}&opponent={2}".format(team, season, opponent),
+        compare_url="/compare?{0}".format(
+            urlencode(
+                {
+                    "mode": "teams",
+                    "team_a": team,
+                    "team_b": opponent,
+                    "season": season,
+                    "source_type": "pre-read",
+                    "source_id": "{0}:{1}:{2}".format(team, opponent, season),
+                    "reason": compare_reason,
+                    "return_to": return_to,
+                }
+            )
+        ),
+        prep_url="/teams/{0}?tab=prep&season={1}&opponent={2}".format(team, season, opponent),
+        follow_through_url="/teams/{0}?{1}".format(
+            team,
+            urlencode(
+                {
+                    "tab": "decision",
+                    "season": season,
+                    "opponent": opponent,
+                    "source_surface": "pre-read",
+                    "source_label": "Pre-read vs {0}".format(opponent),
+                    "reason": compare_reason,
+                }
+            ),
+        ),
         game_review_url="/games?team={0}&season={1}&opponent={2}".format(team, season, opponent),
     )
 
@@ -132,6 +171,11 @@ def build_pre_read_deck(
             prep_item=prep_item,
             urgency=prep_item.prep_urgency,
             headline=prep_item.prep_headline,
+            urgency_rationale=prep_item.urgency_rationale,
+            best_edge_label=prep_item.best_edge_label,
+            best_edge_rationale=prep_item.best_edge_rationale,
+            first_adjustment_label=prep_item.first_adjustment_label,
+            first_adjustment_rationale=prep_item.first_adjustment_rationale,
         )
 
     if focus_report is None and comparison is None:
@@ -154,7 +198,7 @@ def build_pre_read_deck(
         team_availability=team_availability,
         opponent_availability=opponent_availability,
         slides=slides,
-        launch_links=_build_launch_links(team.upper(), opponent.upper(), season),
+        launch_links=_build_launch_links(team.upper(), opponent.upper(), season, prep_context),
         prep_context=prep_context,
         snapshot=snapshot_ref,
         warnings=warnings,

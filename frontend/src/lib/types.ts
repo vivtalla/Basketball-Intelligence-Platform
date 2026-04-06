@@ -598,6 +598,7 @@ export interface TeamPrepQueueItem {
   status: string;
   prep_urgency: "high" | "medium" | "standard" | string;
   prep_headline: string;
+  urgency_rationale: string | null;
   opponent_abbreviation: string | null;
   opponent_name: string | null;
   is_home: boolean;
@@ -614,8 +615,12 @@ export interface TeamPrepQueueItem {
   schedule_pressure: string;
   best_edge_label: string | null;
   best_edge_summary: string | null;
+  best_edge_rationale: string | null;
+  best_edge_factor_id: "shooting" | "turnovers" | "rebounding" | "free_throws" | null;
   first_adjustment_label: string | null;
   first_adjustment_summary: string | null;
+  first_adjustment_rationale: string | null;
+  first_adjustment_factor_id: "shooting" | "turnovers" | "rebounding" | "free_throws" | null;
   pre_read_url: string;
   scouting_url: string;
   compare_url: string;
@@ -1074,6 +1079,10 @@ export interface TeamFocusLever {
   summary: string;
   impact_label: string;
   factor_id: "shooting" | "turnovers" | "rebounding" | "free_throws";
+  rationale: string | null;
+  coaching_prompt: string | null;
+  projected_impact: string | null;
+  opponent_context: string | null;
 }
 
 export interface TeamFocusLeversReport {
@@ -1146,6 +1155,11 @@ export interface PreReadPrepContext {
   prep_item: TeamPrepQueueItem | null;
   urgency: string | null;
   headline: string | null;
+  urgency_rationale: string | null;
+  best_edge_label: string | null;
+  best_edge_rationale: string | null;
+  first_adjustment_label: string | null;
+  first_adjustment_rationale: string | null;
 }
 
 export interface PreReadDeckResponse {
@@ -1186,48 +1200,55 @@ export interface FollowThroughGame {
   game_id: string;
   game_date: string | null;
   opponent_abbreviation: string | null;
+  result: string | null;
   why_this_game: string;
   relevance_score: number;
-  supporting_metrics: FollowThroughSupportingMetric[];
+  supporting_metrics: string[];
   deep_link_url: string;
 }
 
 export interface FollowThroughResponse {
   source_type: string;
   source_id: string;
+  team_abbreviation: string;
+  opponent_abbreviation: string | null;
+  season: string;
+  window: number;
   games: FollowThroughGame[];
+  warnings: string[];
+}
+
+export interface LineupImpactFilters {
+  season: string;
+  opponent_abbreviation: string | null;
+  window_games: number;
+  min_possessions: number;
 }
 
 export interface LineupImpactRow {
   lineup_key: string;
+  player_ids: number[];
   player_names: string[];
   minutes: number | null;
   possessions: number | null;
   observed_net_rating: number | null;
   shrunk_net_rating: number | null;
-  expected_points_delta_per_game: number | null;
-  expected_points_delta_per_100: number | null;
-  recommended_minute_delta: number | null;
-  confidence: ConfidenceSummary;
-  top_drivers: string[];
-  drilldowns: InsightDrilldown[];
-}
-
-export interface LineupImpactRotationSummary {
-  current_rotation_note: string;
-  recommended_rotation_note: string;
+  expected_points_per_100: number | null;
+  expected_points_per_game: number | null;
+  minute_delta: number | null;
+  confidence: "high" | "medium" | "low";
+  evidence: string[];
 }
 
 export interface LineupImpactResponse {
-  team: string;
-  opponent: string | null;
+  team_abbreviation: string;
   season: string;
-  filters: Record<string, string | number | null>;
-  current_rotation: LineupImpactRotationSummary;
-  recommended_rotation: LineupImpactRotationSummary;
+  filters: LineupImpactFilters;
+  current_rotation: LineupImpactRow[];
+  recommended_rotation: LineupImpactRow[];
   lineup_rows: LineupImpactRow[];
   impact_summary: string;
-  confidence: ConfidenceSummary;
+  confidence: "high" | "medium" | "low";
   warnings: string[];
 }
 
@@ -1238,30 +1259,34 @@ export interface PlayTypeEvidence {
 
 export interface PlayTypeActionRow {
   action_family: string;
-  usage_rate: number | null;
-  efficiency_value: number | null;
-  turnover_drag: number | null;
-  foul_pressure_bonus: number | null;
-  second_chance_bonus: number | null;
-  contextual_percentile: number | null;
-  confidence: ConfidenceSummary;
-  proxy_note: string;
-  evidence: PlayTypeEvidence[];
+  label: string;
+  usage_share: number | null;
+  points_per_possession: number | null;
+  turnover_rate: number | null;
+  foul_rate: number | null;
+  offensive_rebound_rate: number | null;
+  ev_score: number | null;
+  league_percentile: number | null;
+  note: string;
 }
 
 export interface PlayTypeFlag {
   action_family: string;
-  title: string;
-  summary: string;
+  label: string;
+  reason: string;
   severity: "high" | "medium" | "low";
-  confidence: ConfidenceSummary;
+  confidence: "high" | "medium" | "low";
+  evidence: string[];
 }
 
 export interface PlayTypeEVResponse {
-  team: string;
-  opponent: string | null;
+  team_abbreviation: string;
   season: string;
-  window: number;
+  filters: {
+    season: string;
+    opponent_abbreviation: string | null;
+    window_games: number;
+  };
   action_rows: PlayTypeActionRow[];
   overused_flags: PlayTypeFlag[];
   underused_flags: PlayTypeFlag[];
@@ -1269,9 +1294,12 @@ export interface PlayTypeEVResponse {
 }
 
 export interface MatchupFlagEvidence {
+  metric_id: string;
   label: string;
-  value: number | string | null;
-  context?: string | null;
+  team_value: number | null;
+  opponent_value: number | null;
+  league_reference: number | null;
+  note: string;
 }
 
 export interface MatchupFlag {
@@ -1279,14 +1307,14 @@ export interface MatchupFlag {
   title: string;
   summary: string;
   severity: "high" | "medium" | "low";
-  confidence: ConfidenceSummary;
+  confidence: "high" | "medium" | "low";
   evidence: MatchupFlagEvidence[];
-  drilldowns: InsightDrilldown[];
+  drilldowns: string[];
 }
 
 export interface MatchupFlagsResponse {
-  team: string;
-  opponent: string;
+  team_abbreviation: string;
+  opponent_abbreviation: string;
   season: string;
   flags: MatchupFlag[];
   warnings: string[];
@@ -1474,7 +1502,11 @@ export interface ScoutingClaim {
   claim_id: string;
   title: string;
   summary: string;
-  evidence: MatchupFlagEvidence[];
+  evidence: {
+    label: string;
+    value: number | string | null;
+    context?: string | null;
+  }[];
   drilldowns: InsightDrilldown[];
   clip_anchor_ids: string[];
 }

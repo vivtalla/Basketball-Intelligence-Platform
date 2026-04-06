@@ -459,10 +459,13 @@ export async function getTeamComparison(
 
 export async function getTeamFocusLevers(
   teamAbbreviation: string,
-  season: string
+  season: string,
+  opponent?: string | null
 ): Promise<import("./types").TeamFocusLeversReport> {
+  const params = new URLSearchParams({ season });
+  if (opponent) params.set("opponent", opponent);
   return fetchApi<import("./types").TeamFocusLeversReport>(
-    `/api/teams/${encodeURIComponent(teamAbbreviation)}/focus-levers?season=${encodeURIComponent(season)}`
+    `/api/teams/${encodeURIComponent(teamAbbreviation)}/focus-levers?${params.toString()}`
   );
 }
 

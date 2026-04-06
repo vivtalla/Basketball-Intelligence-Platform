@@ -257,19 +257,19 @@ CourtVue Labs uses a hybrid sprint model: major feature sprints typically run as
 
 > Full history → `specs/sprint-history.md`
 
+### Sprint 42 — Opponent-Aware Prep and Decision Workflow
+
+- Upgraded prep cards with opponent-aware urgency, best-edge, and first-adjustment rationale so the queue now feels like a coaching prompt instead of only a routing layer
+- Rebuilt the team decision tab onto backend lineup-impact, matchup-flags, play-type pressure, and follow-through reports so opponent changes meaningfully alter the workspace
+- Extended focus levers and pre-read so the same coaching story survives from prep queue into deck, compare, and replay follow-through
+- Verified the sprint with targeted prep/decision/coaching backend tests, full backend `pytest`, frontend `npm run build`, and local prep/decision route smoke checks
+
 ### Sprint 41 — Replay Adoption Across Insights
 
 - Extended the shared replay contract into the insights workspace by making trend cards and What-If emit additive replay targets, source-aware launch context, and honest `derived` versus `timeline` trust labels
 - Switched the trend cards UI onto the backend cards API so replay evidence, supporting stats, and drilldowns now come from one backend source of truth
 - Added replay evidence links to What-If and carried that replay thread into compare through additive URL/state context
 - Verified the sprint with targeted replay/scenario backend tests, full backend `pytest`, and frontend `npm run build`
-
-### Sprint 40 — Event-Centered Replay and Scouting Workflow
-
-- Turned Game Explorer into an event-centered replay workflow with focused event targets, highlighted action numbers, short surrounding sequences, and source-aware replay context
-- Expanded the 3D visualizer into a sequence-aware analytical replay surface with lead-in, focus, and follow-through navigation while keeping exact, derived, and timeline trust labels explicit
-- Upgraded scouting clip anchors into event-backed replay candidates with richer event metadata, anchor-quality labeling, and export-ready claim context
-- Verified the sprint with full backend `pytest`, targeted replay/scouting backend tests, and frontend `npm run build`
 
 ---
 

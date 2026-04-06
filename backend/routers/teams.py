@@ -274,6 +274,7 @@ def team_rotation_report(
 def team_focus_levers(
     abbr: str,
     season: str = Query("2024-25"),
+    opponent: Optional[str] = Query(None),
     db: Session = Depends(get_db),
 ):
-    return build_team_focus_levers_report(db=db, abbr=abbr, season=season)
+    return build_team_focus_levers_report(db=db, abbr=abbr, season=season, opponent_abbr=opponent)

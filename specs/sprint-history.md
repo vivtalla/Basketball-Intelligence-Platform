@@ -1,9 +1,20 @@
 # Sprint History Archive
 
-Sprints 1–41. Current sprint summaries also live in `CLAUDE.md` under "Recent Sprints".
+Sprints 1–42. Current sprint summaries also live in `CLAUDE.md` under "Recent Sprints".
 
 For detailed per-sprint records, see the individual closeout files in this directory:
-`specs/sprint-09-closeout.md` through `specs/sprint-41-closeout.md`
+`specs/sprint-09-closeout.md` through `specs/sprint-42-closeout.md`
+
+---
+
+### Sprint 42 — Opponent-Aware Prep and Decision Workflow
+**Branch:** `feature/sprint-42-opponent-aware-prep-decision`
+
+- Upgraded prep cards with opponent-aware urgency, best-edge, and first-adjustment rationale so the queue now answers “why now?” and “what is the first action?” more directly
+- Extended focus levers with coaching prompts, projected impact framing, and opponent context so prep, pre-read, and decision tools now share one coaching story
+- Rebuilt the team `decision` tab onto backend lineup-impact, matchup-flags, play-type pressure, and follow-through reports so opponent changes meaningfully alter the workflow
+- Preserved prep-to-pre-read, prep-to-compare, and prep-to-replay continuity through additive URL/state context instead of introducing a new persistence layer
+- Verified the sprint with targeted prep/decision/coaching backend tests, full backend `pytest`, frontend `npm run build`, and local prep/decision route smoke checks
 
 ---
 

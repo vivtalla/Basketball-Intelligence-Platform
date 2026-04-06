@@ -294,10 +294,19 @@ def test_prep_queue_orders_games_and_surfaces_context():
         assert first.probable_count == 1
         assert first.prep_urgency == "medium"
         assert first.prep_headline is not None
+        assert first.urgency_rationale is not None
         assert first.best_edge_summary is not None
+        assert first.best_edge_rationale is not None
+        assert first.best_edge_factor_id in {"shooting", "turnovers", "rebounding", None}
         assert first.first_adjustment_summary is not None
+        assert first.first_adjustment_rationale is not None
+        assert first.first_adjustment_factor_id in {"shooting", "turnovers", "rebounding", "free_throws"}
         assert "team=ATL" in first.pre_read_url
+        assert "source_view=team-prep" in first.pre_read_url
         assert "mode=scouting" in first.scouting_url
+        assert "source_type=prep-queue" in first.compare_url
+        assert "return_to=%2Fteams%2FATL%3Ftab%3Dprep" in first.compare_url
         assert "team_a=ATL" in first.compare_url
+        assert "opponent=BOS" in first.follow_through_url
     finally:
         session.close()

@@ -4,6 +4,7 @@ import math
 import statistics
 from collections import defaultdict
 from typing import Dict, List, Optional, Tuple
+from urllib.parse import urlencode
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import func
@@ -806,7 +807,7 @@ def build_follow_through_report(db: Session, payload: FollowThroughRequest) -> F
         if payload.player_ids:
             matched = sum(1 for player_id in payload.player_ids if game.game_id in player_games.get(player_id, set()))
             player_overlap = matched / float(len(payload.player_ids))
-        source_bonus = 0.15 if payload.source_type in {"matchup_flag", "decision", "scouting"} else 0.10 if payload.source_type == "trend_card" else 0.05
+        source_bonus = 0.15 if payload.source_type in {"matchup_flag", "decision", "scouting", "prep-queue"} else 0.10 if payload.source_type == "trend_card" else 0.05
         if opponent_match > 0:
             source_bonus += 0.10
         if game.home_score is not None and game.away_score is not None:
@@ -830,12 +831,24 @@ def build_follow_through_report(db: Session, payload: FollowThroughRequest) -> F
             why_parts.append("recent game with a relevant style frame")
         if team_pace is not None:
             supporting_metrics.append("team pace {0}".format(_safe_round(team_pace, 1)))
-        deep_link_url = "/games/{0}?source={1}&source_id={2}&team={3}&season={4}".format(
+        deep_link_params = {
+            "source": payload.source_type,
+            "source_id": payload.source_id,
+            "team": team.abbreviation,
+            "season": payload.season,
+            "linkage_quality": payload.context.get("linkage_quality", "timeline"),
+        }
+        if payload.context.get("source_surface"):
+            deep_link_params["source_surface"] = payload.context["source_surface"]
+        if payload.context.get("source_label"):
+            deep_link_params["source_label"] = payload.context["source_label"]
+        if payload.context.get("reason"):
+            deep_link_params["reason"] = payload.context["reason"]
+        if payload.context.get("return_to"):
+            deep_link_params["return_to"] = payload.context["return_to"]
+        deep_link_url = "/games/{0}?{1}".format(
             game.game_id,
-            payload.source_type,
-            payload.source_id,
-            team.abbreviation,
-            payload.season,
+            urlencode(deep_link_params),
         )
         candidate_rows.append(
             FollowThroughGame(

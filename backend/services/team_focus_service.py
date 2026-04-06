@@ -29,17 +29,63 @@ def _factor_note(label: str, gap: Optional[float], higher_better: bool) -> str:
 
 def _impact_label(factor_id: str, gap: Optional[float], higher_better: bool) -> str:
     if gap is None:
-        return "monitor"
+        return "monitor only"
     direction_good = gap >= 0 if higher_better else gap <= 0
     if direction_good:
-        return "protect current edge"
+        if factor_id == "shooting":
+            return "protect 2-4 scoring points"
+        if factor_id == "turnovers":
+            return "protect 1-2 possessions"
+        if factor_id == "rebounding":
+            return "protect 2-3 second chances"
+        return "protect foul-pressure edge"
     if factor_id == "shooting":
-        return "lift scoring efficiency"
+        return "swing 2-4 scoring points"
     if factor_id == "turnovers":
-        return "recover possessions"
+        return "recover 1-3 possessions"
     if factor_id == "rebounding":
-        return "win second balls"
-    return "manufacture easier points"
+        return "win 2-3 second chances"
+    return "create 2-4 foul-line points"
+
+
+def _projected_impact(row: TeamFactorRow) -> str:
+    gap = abs(row.margin_signal or 0.0)
+    if row.margin_signal is None:
+        return "Directional only until the local team-game sample gets deeper."
+    if row.factor_id == "shooting":
+        if gap >= 0.03:
+            return "Large enough to swing roughly 3-5 points if the shot diet holds."
+        if gap >= 0.015:
+            return "Worth roughly 2-3 points if the shot quality moves the right way."
+        return "Probably a 1-2 point lever rather than a full identity change."
+    if row.factor_id == "turnovers":
+        if gap >= 2.0:
+            return "Big enough to swing about 3-4 possessions."
+        if gap >= 1.0:
+            return "Likely worth about 2 possessions."
+        return "Closer to a one-possession clean-up lever."
+    if row.factor_id == "rebounding":
+        if gap >= 3.0:
+            return "Big enough to swing 3 or more second-chance opportunities."
+        if gap >= 1.5:
+            return "Likely worth 2 extra possession finishes."
+        return "Mostly a one-board margin lever."
+    if gap >= 0.06:
+        return "Could be worth 4-6 foul-line points if the pressure is real."
+    if gap >= 0.03:
+        return "Likely worth 2-4 foul-line points."
+    return "More of a light whistle-pressure nudge than a full scheme change."
+
+
+def _coaching_prompt(row: TeamFactorRow, opponent_abbr: Optional[str]) -> str:
+    opponent_phrase = " against {0}".format(opponent_abbr) if opponent_abbr else ""
+    if row.factor_id == "shooting":
+        return "Open with cleaner rim pressure and catch-and-shoot creation{0} before settling for contested pull-ups.".format(opponent_phrase)
+    if row.factor_id == "turnovers":
+        return "Simplify the first pass and second-side action{0} so the possession count stays in your favor.".format(opponent_phrase)
+    if row.factor_id == "rebounding":
+        return "Put an early body on the glass{0} so misses end with one stop instead of a scramble.".format(opponent_phrase)
+    return "Force the paint touch first{0} and make the whistle prove it can ignore repeated pressure.".format(opponent_phrase)
 
 
 def _avg(rows: List[GameTeamStat], attr: str) -> Optional[float]:
@@ -132,19 +178,15 @@ def _build_levers(factor_rows: List[TeamFactorRow], opponent_abbr: Optional[str]
         if row.factor_id == "shooting":
             title = "Sharpen shot quality"
             summary = "Your scoring efficiency is lagging the league baseline, so cleaner rim and catch-and-shoot possessions should be the first lever."
-            higher_better = True
         elif row.factor_id == "turnovers":
             title = "Trim live-ball waste"
             summary = "Turnovers are leaking too many possessions, so simplifying advantage creation should stabilize the offense."
-            higher_better = False
         elif row.factor_id == "rebounding":
             title = "Win the glass earlier"
             summary = "The rebounding base is softening your margin for error, so ending possessions cleanly needs more emphasis."
-            higher_better = True
         else:
             title = "Pressure the rim"
             summary = "The free-throw profile needs more force, so push for more paint touches before settling."
-            higher_better = True
 
         opponent_phrase = _opponent_phrase(row, opponent_abbr)
         if opponent_phrase:
@@ -154,8 +196,15 @@ def _build_levers(factor_rows: List[TeamFactorRow], opponent_abbr: Optional[str]
             TeamFocusLever(
                 title=title,
                 summary=summary,
-                impact_label=_impact_label(row.factor_id, row.margin_signal, higher_better),
+                impact_label=_impact_label(row.factor_id, row.margin_signal, row.factor_id != "turnovers"),
                 factor_id=row.factor_id,
+                rationale="{0}{1}".format(
+                    row.note,
+                    " {0}".format(opponent_phrase) if opponent_phrase else "",
+                ),
+                coaching_prompt=_coaching_prompt(row, opponent_abbr),
+                projected_impact=_projected_impact(row),
+                opponent_context=opponent_phrase,
             )
         )
 

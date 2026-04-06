@@ -9,6 +9,8 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from db.database import Base  # noqa: E402
 from db.models import GameTeamStat, Team, WarehouseGame  # noqa: E402
+from models.decision import FollowThroughRequest  # noqa: E402
+from routers.decision import build_follow_through_report  # noqa: E402
 from services.compare_service import build_team_comparison_report  # noqa: E402
 from services.pre_read_service import build_pre_read_deck  # noqa: E402
 from services.team_focus_service import build_team_focus_levers_report  # noqa: E402
@@ -132,14 +134,10 @@ def test_team_focus_levers_report_prioritizes_four_factor_pressure_points():
         assert len(report.focus_levers) == 3
         assert {row.factor_id for row in report.factor_rows} == {"shooting", "turnovers", "rebounding", "free_throws"}
         assert report.focus_levers[0].factor_id in {"shooting", "turnovers", "rebounding", "free_throws"}
-        assert report.focus_levers[0].impact_label in {
-            "protect current edge",
-            "lift scoring efficiency",
-            "recover possessions",
-            "win second balls",
-            "manufacture easier points",
-            "monitor",
-        }
+        assert report.focus_levers[0].impact_label is not None
+        assert report.focus_levers[0].rationale is not None
+        assert report.focus_levers[0].coaching_prompt is not None
+        assert report.focus_levers[0].projected_impact is not None
     finally:
         session.close()
 
@@ -157,5 +155,37 @@ def test_pre_read_deck_composes_focus_levers_and_matchup_edges():
         assert deck.focus_levers
         assert deck.matchup_advantages
         assert any("focus levers" in bullet.lower() for bullet in deck.slides[0].bullets)
+        assert "return_to=" in deck.launch_links.compare_url
+        assert "opponent=BOS" in deck.launch_links.follow_through_url
+        assert "opponent=BOS" in deck.launch_links.prep_url
+    finally:
+        session.close()
+
+
+def test_follow_through_report_preserves_source_context_in_game_links():
+    session = make_session()
+    try:
+        team_a, team_b = seed_team_pair(session)
+        report = build_follow_through_report(
+            session,
+            FollowThroughRequest(
+                source_type="decision",
+                source_id="ATL:BOS:decision",
+                team=team_a.abbreviation,
+                opponent=team_b.abbreviation,
+                season="2025-26",
+                context={
+                    "source_surface": "team-decision",
+                    "source_label": "Decision vs BOS",
+                    "reason": "Trim live-ball waste",
+                    "return_to": "/teams/ATL?tab=decision&season=2025-26&opponent=BOS",
+                },
+            ),
+        )
+
+        assert report.games
+        assert "source_surface=team-decision" in report.games[0].deep_link_url
+        assert "reason=Trim+live-ball+waste" in report.games[0].deep_link_url
+        assert "return_to=%2Fteams%2FATL%3Ftab%3Ddecision" in report.games[0].deep_link_url
     finally:
         session.close()

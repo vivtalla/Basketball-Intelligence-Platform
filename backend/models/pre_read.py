@@ -45,6 +45,11 @@ class PreReadPrepContext(BaseModel):
     prep_item: Optional[TeamPrepQueueItem] = None
     urgency: Optional[str] = None
     headline: Optional[str] = None
+    urgency_rationale: Optional[str] = None
+    best_edge_label: Optional[str] = None
+    best_edge_rationale: Optional[str] = None
+    first_adjustment_label: Optional[str] = None
+    first_adjustment_rationale: Optional[str] = None
 
 
 class PreReadDeckResponse(BaseModel):

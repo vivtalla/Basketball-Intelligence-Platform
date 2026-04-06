@@ -177,6 +177,7 @@ class TeamPrepQueueItem(BaseModel):
     status: str
     prep_urgency: str
     prep_headline: str
+    urgency_rationale: Optional[str] = None
     opponent_abbreviation: Optional[str] = None
     opponent_name: Optional[str] = None
     is_home: bool
@@ -193,8 +194,12 @@ class TeamPrepQueueItem(BaseModel):
     schedule_pressure: str
     best_edge_label: Optional[str] = None
     best_edge_summary: Optional[str] = None
+    best_edge_rationale: Optional[str] = None
+    best_edge_factor_id: Optional[str] = None
     first_adjustment_label: Optional[str] = None
     first_adjustment_summary: Optional[str] = None
+    first_adjustment_rationale: Optional[str] = None
+    first_adjustment_factor_id: Optional[str] = None
     pre_read_url: str
     scouting_url: str
     compare_url: str
@@ -230,6 +235,10 @@ class TeamFocusLever(BaseModel):
     summary: str
     impact_label: str
     factor_id: str
+    rationale: Optional[str] = None
+    coaching_prompt: Optional[str] = None
+    projected_impact: Optional[str] = None
+    opponent_context: Optional[str] = None
 
 
 class TeamFocusLeversReport(BaseModel):
