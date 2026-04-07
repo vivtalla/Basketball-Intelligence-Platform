@@ -4,7 +4,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { useLeaderboard } from "@/hooks/usePlayerStats";
 
-const SEASON = "2024-25";
+const SEASON = "2025-26";
 const LIMIT = 5;
 
 interface LeaderColumnProps {

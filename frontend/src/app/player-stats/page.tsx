@@ -11,15 +11,27 @@ import {
   useLineups,
   useCareerLeaderboard,
 } from "@/hooks/usePlayerStats";
+import type { LeaderboardEntry } from "@/lib/types";
 import { getAvailableSeasons, syncSeasonPbp, getLeaderboardTeams } from "@/lib/api";
 
 // ─── Stat definitions ────────────────────────────────────────────────────────
 
 const STAT_GROUPS = [
   {
-    label: "Scoring",
+    label: "Core Per Game",
     options: [
       { key: "pts_pg", label: "Points Per Game", fmt: "1f", tooltip: "Average points scored per game." },
+      { key: "reb_pg", label: "Rebounds Per Game", fmt: "1f", tooltip: "Average rebounds per game." },
+      { key: "ast_pg", label: "Assists Per Game", fmt: "1f", tooltip: "Average assists per game." },
+      { key: "stl_pg", label: "Steals Per Game", fmt: "1f", tooltip: "Average steals per game." },
+      { key: "blk_pg", label: "Blocks Per Game", fmt: "1f", tooltip: "Average blocks per game." },
+      { key: "tov_pg", label: "Turnovers Per Game", fmt: "1f", tooltip: "Average turnovers per game." },
+      { key: "min_pg", label: "Minutes Per Game", fmt: "1f", tooltip: "Average minutes played per game." },
+    ],
+  },
+  {
+    label: "Scoring",
+    options: [
       { key: "fg_pct", label: "Field Goal %", fmt: "pct", tooltip: "Percentage of field goal attempts made." },
       { key: "fg3_pct", label: "3-Point %", fmt: "pct", tooltip: "Percentage of three-point attempts made." },
       { key: "ft_pct", label: "Free Throw %", fmt: "pct", tooltip: "Percentage of free throw attempts made." },
@@ -28,13 +40,24 @@ const STAT_GROUPS = [
     ],
   },
   {
-    label: "Production",
+    label: "Volume Totals",
     options: [
-      { key: "reb_pg", label: "Rebounds Per Game", fmt: "1f", tooltip: "Average rebounds per game." },
-      { key: "ast_pg", label: "Assists Per Game", fmt: "1f", tooltip: "Average assists per game." },
-      { key: "stl_pg", label: "Steals Per Game", fmt: "1f", tooltip: "Average steals per game." },
-      { key: "blk_pg", label: "Blocks Per Game", fmt: "1f", tooltip: "Average blocks per game." },
-      { key: "min_pg", label: "Minutes Per Game", fmt: "1f", tooltip: "Average minutes played per game." },
+      { key: "pts", label: "Points", fmt: "int", tooltip: "Total points scored this season." },
+      { key: "reb", label: "Rebounds", fmt: "int", tooltip: "Total rebounds this season." },
+      { key: "ast", label: "Assists", fmt: "int", tooltip: "Total assists this season." },
+      { key: "stl", label: "Steals", fmt: "int", tooltip: "Total steals this season." },
+      { key: "blk", label: "Blocks", fmt: "int", tooltip: "Total blocks this season." },
+      { key: "tov", label: "Turnovers", fmt: "int", tooltip: "Total turnovers this season." },
+      { key: "fgm", label: "Field Goals Made", fmt: "int", tooltip: "Total field goals made this season." },
+      { key: "fga", label: "Field Goals Attempted", fmt: "int", tooltip: "Total field goal attempts this season." },
+      { key: "fg3m", label: "3s Made", fmt: "int", tooltip: "Total three-pointers made this season." },
+      { key: "fg3a", label: "3s Attempted", fmt: "int", tooltip: "Total three-point attempts this season." },
+      { key: "ftm", label: "Free Throws Made", fmt: "int", tooltip: "Total free throws made this season." },
+      { key: "fta", label: "Free Throws Attempted", fmt: "int", tooltip: "Total free throw attempts this season." },
+      { key: "oreb", label: "Offensive Rebounds", fmt: "int", tooltip: "Total offensive rebounds this season." },
+      { key: "dreb", label: "Defensive Rebounds", fmt: "int", tooltip: "Total defensive rebounds this season." },
+      { key: "pf", label: "Personal Fouls", fmt: "int", tooltip: "Total personal fouls this season." },
+      { key: "min_total", label: "Total Minutes", fmt: "1f", tooltip: "Total minutes played this season." },
     ],
   },
   {
@@ -76,6 +99,7 @@ const STAT_GROUPS = [
 ];
 
 const ALL_OPTIONS = STAT_GROUPS.flatMap((g) => g.options);
+const GROUP_BY_STAT = new Map(ALL_OPTIONS.map((option) => [option.key, STAT_GROUPS.find((group) => group.options.some((candidate) => candidate.key === option.key))?.label ?? "Scoring"]));
 
 // Stats eligible for career aggregation (rate stats that average meaningfully across seasons)
 const CAREER_STAT_KEYS = new Set([
@@ -85,23 +109,12 @@ const CAREER_STAT_KEYS = new Set([
 
 const CAREER_OPTIONS = ALL_OPTIONS.filter((o) => CAREER_STAT_KEYS.has(o.key));
 
-// Context columns always shown alongside the primary stat
-const CONTEXT_COLS = [
-  { key: "pts_pg", label: "Pts", fmt: "1f" },
-  { key: "reb_pg", label: "Reb", fmt: "1f" },
-  { key: "ast_pg", label: "Ast", fmt: "1f" },
-  { key: "ts_pct", label: "TS%", fmt: "pct" },
-  { key: "per", label: "PER", fmt: "1f" },
-  { key: "bpm", label: "BPM", fmt: "1f" },
-] as const;
-
-type ContextKey = typeof CONTEXT_COLS[number]["key"];
-
 function getStatMeta(key: string) {
   return ALL_OPTIONS.find((o) => o.key === key) ?? { key, label: key, fmt: "1f", tooltip: "" };
 }
 
 function formatStat(value: number, fmt: string): string {
+  if (fmt === "int") return Math.round(value).toLocaleString();
   if (fmt === "pct") return `${(value * 100).toFixed(1)}%`;
   if (fmt === "2f") return value.toFixed(2);
   return value.toFixed(1);
@@ -127,8 +140,11 @@ function toDisplayValue(key: string, storedValue: number): number {
   return isPct(key) ? storedValue * 100 : storedValue;
 }
 
-function getContextValue(entry: { pts_pg: number | null; reb_pg: number | null; ast_pg: number | null; ts_pct: number | null; per: number | null; bpm: number | null }, key: ContextKey): number | null {
-  return entry[key];
+function getEntryMetricValue(entry: LeaderboardEntry, key: string): number | null {
+  const direct = entry.metric_values?.[key];
+  if (direct != null) return direct;
+  const fallback = (entry as unknown as Record<string, number | null | undefined>)[key];
+  return fallback ?? null;
 }
 
 // ─── Filter types ─────────────────────────────────────────────────────────────
@@ -170,6 +186,7 @@ function PlayerStatsPageContent() {
   const [lineupMinMinutes, setLineupMinMinutes] = useState(15);
   const [isSyncingSeason, setIsSyncingSeason] = useState(false);
   const [seasonSyncMessage, setSeasonSyncMessage] = useState<string | null>(null);
+  const [activeMetricGroup, setActiveMetricGroup] = useState(STAT_GROUPS[0].label);
 
   // Filter state — up to MAX_FILTERS conditions
   const [filters, setFilters] = useState<FilterCondition[]>([]);
@@ -209,6 +226,13 @@ function PlayerStatsPageContent() {
     if (teamFilter) params.set("team", teamFilter);
     router.replace(`?${params.toString()}`, { scroll: false });
   }, [mode, stat, careerStat, season, seasonType, teamFilter]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    const nextGroup = GROUP_BY_STAT.get(stat);
+    if (nextGroup) {
+      setActiveMetricGroup(nextGroup);
+    }
+  }, [stat]);
 
   // ── Primary leaderboard — fetch larger set when filters are active
   const primaryLimit = filters.length > 0 ? 200 : 25;
@@ -308,11 +332,10 @@ function PlayerStatsPageContent() {
   }
 
   const statLabel = getStatMeta(stat).label;
-  const statFmt = getStatMeta(stat).fmt;
   const careerStatMeta = getStatMeta(careerStat);
+  const activeMetricOptions = STAT_GROUPS.find((group) => group.label === activeMetricGroup)?.options ?? STAT_GROUPS[0].options;
 
-  // Context columns to display (exclude the one that is already the primary sort stat)
-  const visibleContextCols = CONTEXT_COLS.filter((c) => c.key !== stat);
+  const tableMetricCols = activeMetricOptions;
 
   return (
     <div className="max-w-5xl mx-auto">
@@ -328,7 +351,7 @@ function PlayerStatsPageContent() {
       <div className="mb-6">
         <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100 mb-2">Player Stats</h1>
         <p className="text-gray-500 dark:text-gray-400">
-          Scan player, on/off, lineup, and career leaderboards from one dedicated stats workspace.
+          Scan player, on/off, lineup, and career leaderboards from one dedicated stats workspace, with the full metric library surfaced directly on the page.
         </p>
       </div>
 
@@ -353,16 +376,31 @@ function PlayerStatsPageContent() {
       <div className="flex flex-wrap items-center gap-3 mb-3">
         {mode === "players" && (
           <select
+            value={activeMetricGroup}
+            onChange={(e) => {
+              const nextGroup = e.target.value;
+              setActiveMetricGroup(nextGroup);
+              const nextOptions = STAT_GROUPS.find((group) => group.label === nextGroup)?.options ?? [];
+              if (!nextOptions.some((option) => option.key === stat) && nextOptions[0]) {
+                setStat(nextOptions[0].key);
+              }
+            }}
+            className="text-sm border border-gray-200 dark:border-gray-600 rounded-lg px-3 py-2 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
+          >
+            {STAT_GROUPS.map((group) => (
+              <option key={group.label} value={group.label}>{group.label}</option>
+            ))}
+          </select>
+        )}
+
+        {mode === "players" && (
+          <select
             value={stat}
             onChange={(e) => setStat(e.target.value)}
             className="text-sm border border-gray-200 dark:border-gray-600 rounded-lg px-3 py-2 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
           >
-            {STAT_GROUPS.map((group) => (
-              <optgroup key={group.label} label={group.label}>
-                {group.options.map((opt) => (
-                  <option key={opt.key} value={opt.key}>{opt.label}</option>
-                ))}
-              </optgroup>
+            {activeMetricOptions.map((opt) => (
+              <option key={opt.key} value={opt.key}>{opt.label}</option>
             ))}
           </select>
         )}
@@ -600,8 +638,14 @@ function PlayerStatsPageContent() {
         </p>
       )}
 
+      {mode === "players" && (
+        <div className="mb-3 rounded-xl border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700 dark:border-blue-900/60 dark:bg-blue-950/20 dark:text-blue-300">
+          Showing <span className="font-semibold">{activeMetricGroup}</span> metrics in the table. Rankings are sorted by <span className="font-semibold">{statLabel}</span>.
+        </div>
+      )}
+
       {/* ── Table ── */}
-      <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 overflow-hidden">
+      <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 overflow-x-auto">
 
         {/* Players mode */}
         {mode === "players" && (
@@ -612,21 +656,17 @@ function PlayerStatsPageContent() {
                 <th className="text-left text-xs font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500 px-4 py-3">Player</th>
                 <th className="text-left text-xs font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500 px-4 py-3 hidden sm:table-cell">Team</th>
                 <th className="text-right text-xs font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500 px-4 py-3 hidden sm:table-cell">GP</th>
-                {/* Primary sort stat */}
-                <th
-                  title={getStatMeta(stat).tooltip}
-                  className="text-right text-xs font-semibold uppercase tracking-wider text-blue-500 dark:text-blue-400 px-4 py-3 bg-blue-50/50 dark:bg-blue-950/20"
-                >
-                  {statLabel}
-                </th>
-                {/* Context columns */}
-                {visibleContextCols.map((c) => (
+                {tableMetricCols.map((option) => (
                   <th
-                    key={c.key}
-                    title={getStatMeta(c.key).tooltip}
-                    className="text-right text-xs font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500 px-4 py-3 hidden lg:table-cell"
+                    key={option.key}
+                    title={option.tooltip}
+                    className={`text-right text-xs font-semibold uppercase tracking-wider px-4 py-3 ${
+                      option.key === stat
+                        ? "bg-blue-50/50 text-blue-500 dark:bg-blue-950/20 dark:text-blue-400"
+                        : "text-gray-400 dark:text-gray-500"
+                    }`}
                   >
-                    {c.label}
+                    {option.label}
                   </th>
                 ))}
                 {/* Extra columns for active filter stats */}
@@ -655,7 +695,7 @@ function PlayerStatsPageContent() {
 
               {!isLoading && filteredEntries.length === 0 && (
                 <tr>
-                  <td colSpan={5 + visibleContextCols.length + filters.length} className="text-center py-12 text-gray-400 dark:text-gray-500 text-sm">
+                  <td colSpan={4 + tableMetricCols.length + filters.length} className="text-center py-12 text-gray-400 dark:text-gray-500 text-sm">
                     {filters.length > 0
                       ? "No players match all filter conditions. Try relaxing a threshold."
                       : "No data available for this combination."}
@@ -698,18 +738,18 @@ function PlayerStatsPageContent() {
                       <td className="px-4 py-3 text-sm text-gray-500 dark:text-gray-400 text-right hidden sm:table-cell">
                         {entry.gp}
                       </td>
-                      <td className="px-4 py-3 text-right font-semibold text-blue-600 dark:text-blue-400 tabular-nums bg-blue-50/50 dark:bg-blue-950/20">
-                        {formatStat(entry.stat_value, statFmt)}
-                      </td>
-                      {/* Context columns */}
-                      {visibleContextCols.map((c) => {
-                        const v = getContextValue(entry, c.key);
+                      {tableMetricCols.map((option) => {
+                        const v = option.key === stat ? entry.stat_value : getEntryMetricValue(entry, option.key);
                         return (
                           <td
-                            key={c.key}
-                            className="px-4 py-3 text-right text-sm tabular-nums text-gray-500 dark:text-gray-400 hidden lg:table-cell"
+                            key={option.key}
+                            className={`px-4 py-3 text-right text-sm tabular-nums ${
+                              option.key === stat
+                                ? "font-semibold text-blue-600 bg-blue-50/50 dark:bg-blue-950/20 dark:text-blue-400"
+                                : "text-gray-900 dark:text-gray-100"
+                            }`}
                           >
-                            {v != null ? formatStat(v, c.fmt) : "—"}
+                            {v != null ? formatStat(v, option.fmt) : "—"}
                           </td>
                         );
                       })}

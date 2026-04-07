@@ -154,6 +154,7 @@ export interface LeaderboardEntry {
   ts_pct: number | null;
   per: number | null;
   bpm: number | null;
+  metric_values: Record<string, number | null>;
 }
 
 export interface LeaderboardResponse {
@@ -499,6 +500,8 @@ export interface TeamAnalytics {
   abbreviation: string;
   name: string;
   season: string;
+  canonical_source?: string | null;
+  last_synced_at?: string | null;
   gp: number;
   w: number;
   l: number;

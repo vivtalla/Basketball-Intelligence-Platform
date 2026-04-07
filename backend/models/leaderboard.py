@@ -20,6 +20,7 @@ class LeaderboardEntry(BaseModel):
     ts_pct: Optional[float] = None
     per: Optional[float] = None
     bpm: Optional[float] = None
+    metric_values: Dict[str, Optional[float]] = {}
 
 
 class LeaderboardResponse(BaseModel):

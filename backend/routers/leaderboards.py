@@ -22,6 +22,9 @@ from services.sync_service import canonical_player_name
 router = APIRouter()
 
 SORTABLE_STATS = {
+    "pts", "reb", "ast", "stl", "blk", "tov",
+    "fgm", "fga", "fg3m", "fg3a", "ftm", "fta",
+    "oreb", "dreb", "pf", "min_total",
     "pts_pg", "reb_pg", "ast_pg", "stl_pg", "blk_pg", "tov_pg",
     "fg_pct", "fg3_pct", "ft_pct", "min_pg",
     "ts_pct", "efg_pct", "usg_pct", "per", "bpm", "ws", "vorp",
@@ -29,6 +32,8 @@ SORTABLE_STATS = {
     "obpm", "dbpm", "ftr", "par3", "ast_tov", "oreb_pct",
     "epm", "rapm", "lebron", "raptor", "pipm",
 }
+
+LEADERBOARD_METRIC_FIELDS = tuple(sorted(SORTABLE_STATS))
 
 CAREER_SORTABLE_STATS = {
     "pts_pg", "reb_pg", "ast_pg", "stl_pg", "blk_pg",
@@ -141,6 +146,11 @@ def leaderboard(
             ts_pct=stat_row.ts_pct,
             per=stat_row.per,
             bpm=stat_row.bpm,
+            metric_values={
+                key: (float(value) if value is not None else None)
+                for key in LEADERBOARD_METRIC_FIELDS
+                for value in [getattr(stat_row, key, None)]
+            },
         )
         for rank, (stat_row, player) in enumerate(rows, start=1)
     ]

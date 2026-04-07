@@ -1,6 +1,6 @@
 # CourtVue Labs — Data Architecture
 
-**Last updated: 2026-04-02 (Sprint 30 DB-first pass).**
+**Last updated: 2026-04-06 (manual QA data-foundation pass).**
 
 This document is the canonical reference for the platform's data architecture: where data comes from, what gets stored, what is derived, what each product surface reads, and where the system is going.
 
@@ -14,7 +14,7 @@ This document is the canonical reference for the platform's data architecture: w
 | NBA CDN Box Score | `cdn.nba.com/static/json/liveData/boxscore/boxscore_{game_id}.json` | None | Per-game team + player box scores |
 | NBA CDN Play-by-Play | `cdn.nba.com/static/json/liveData/playbyplay/playbyplay_{game_id}.json` | None | Per-game PBP event stream |
 | NBA CDN Injuries | `cdn.nba.com/static/json/liveData/injuries/injuries.json` | None | Current league-wide injury report |
-| nba_api (stats.nba.com) | Python library | None | Queued/admin enrichment only: player bio, career stats, game logs, shot charts |
+| nba_api (stats.nba.com) | Python library | None | Official player bio, career stats, current-season player dashboards, team dashboards, game logs, shot charts |
 | External CSV | Manual import | Manual | EPM, RAPTOR, PIPM, LEBRON, RAPM |
 
 All CDN endpoints are rate-limited via `nba_client.py` (0.6s delay, PostgreSQL-backed distributed lock).
@@ -54,10 +54,12 @@ CDN fetch → RawSchedulePayload / RawGamePayload (raw JSON archive)
 Predates the warehouse. Still used to bootstrap player profiles and season stats when the warehouse hasn't yet materialized aggregates.
 
 ```
-nba_api.stats → Player, Team (player bio + roster)
-CDN box scores → SeasonStat (aggregated season totals + advanced metrics)
+stats.nba.com → Player, Team (player bio + roster)
+stats.nba.com → SeasonStat (official current-season player Base + Advanced dashboards)
+stats.nba.com → TeamSeasonStat (official current-season team Base + Advanced dashboards)
 stats.nba.com → PlayerGameLog (per-game player lines, queued/admin refresh)
 stats.nba.com → PlayerShotChart (queued/admin refresh)
+CDN box scores / warehouse → SeasonStat (historical or derived aggregate compatibility)
 ```
 
 **Orchestration:** `bulk_sync_service.py`, `pbp_sync_service.py`, `sync_service.py`
@@ -130,6 +132,7 @@ Requires a manually downloaded CSV. Not automated. RAPTOR is available free; EPM
 | `player_injuries` | `PlayerInjury` | Current + historical injury status per player. Daily refresh from CDN. |
 | `player_shot_charts` | `PlayerShotChart` | Persisted shot chart data (JSONB). Eliminates live API calls. |
 | `team_standings` | `TeamStanding` | Materialized standings per team per season. Eliminates per-request computation. |
+| `team_season_stats` | `TeamSeasonStat` | Persisted official team season Base + Advanced dashboards. Canonical team analytics source. |
 
 #### Operational Tables
 
@@ -160,7 +163,7 @@ Key-value TTL cache for raw nba_api responses. Not a primary datastore. Lives in
 | Lineup stats | warehouse-backed | `lineup_stats` | Derived from PBP stints. |
 | Clutch stats | warehouse-backed | `season_stats` clutch columns | PBP-derived, written by warehouse materialization. |
 | PBP coverage | warehouse-backed | `warehouse_games`, `play_by_play_events`, `game_player_stats` | Coverage checks via `has_parsed_pbp` flag. |
-| Team analytics | mixed: warehouse-backed + persisted legacy-backed | `season_stats`, `player_game_logs`, `team_standings` | DB-first. Current record context still leans on persisted game-log compatibility. |
+| Team analytics | official persisted | `team_season_stats`, `teams` | DB-first. Reads from persisted official team dashboards rather than reconstructed player totals. |
 | Team intelligence | still non-canonical | `game_logs`, `play_by_play`, `season_stats`, `player_on_off`, `lineup_stats` | Needs a future pass to finish moving legacy `game_logs` / `play_by_play` reads onto warehouse equivalents. |
 | Team style profile | warehouse-backed | `game_team_stats`, `play_by_play_events`, `warehouse_games` | Fully warehouse-safe. |
 | Scouting / decision | warehouse-backed | `game_player_stats`, `game_team_stats`, `play_by_play_events`, `lineup_stats` | Fully warehouse-safe. |
@@ -199,7 +202,7 @@ Key-value TTL cache for raw nba_api responses. Not a primary datastore. Lives in
 | Deprecate `play_by_play` (legacy) | Future | Route all reads to `play_by_play_events` |
 | Deprecate `game_logs` (legacy) | Future | Route all reads to `warehouse_games` |
 | Migrate gamelog reads from `player_game_logs` | Future | Route to `game_player_stats` |
-| Alembic migration management | Future | Replace `ensure_schema.py` pattern |
+| Alembic migration management | Sprint 43 | Canonical migration workflow; startup schema mutation retired |
 
 ---
 
@@ -214,6 +217,10 @@ Key-value TTL cache for raw nba_api responses. Not a primary datastore. Lives in
 | Player profile readiness dashboard | Integrated (Sprint 30) | `players` + `source_runs` | Coverage view now exposes ready / stale / missing counts |
 | Career readiness dashboard | Integrated (Sprint 30) | `season_stats` | Coverage view now exposes ready / stale / missing counts |
 | Game-log readiness dashboard | Integrated (Sprint 30) | `player_game_logs` | Coverage view now exposes ready / stale / missing counts |
+| Team season dashboard sync | Integrated (manual QA pass) | stats.nba.com `LeagueDashTeamStats` | Persisted to `team_season_stats` and used by `/api/teams/{abbr}/analytics` |
+| Team/player split dashboards | High | stats.nba.com split dashboards | Not yet persisted as first-class canonical tables |
+| Play type / tracking / hustle dashboards | High | stats.nba.com play-type and tracking families | Needed for a truly comprehensive official-data foundation |
+| Team opponent dashboards | Medium | stats.nba.com team dashboard variants | Useful for prep/decision context, not yet canonical |
 | Roster transactions | Medium | nba_api.LeagueGameFinder or ESPN | Trade deadline context, roster moves |
 | Draft data | Low | nba_api or separate CSV | Out of scope for current product |
 | Referee data | Low | PBP event attributes | Very limited product value |
@@ -242,8 +249,5 @@ The warehouse pipeline is already designed for this transition: job queue is DB-
 
 ## 8. Schema Management
 
-**Current:** `backend/db/ensure_schema.py` — `Base.metadata.create_all()` + manual `ensure_column_exists()` calls per new column.
-**Limitation:** No rollback support, no migration history, no diff detection.
-**Target:** Alembic (deferred — high value but requires dedicated sprint, no data risk in current approach for additive changes only).
-
-**Rule:** All schema changes are additive only. Never drop columns or tables without explicit data migration. Always add `ensure_column_exists()` for new columns on existing tables.
+**Current:** Alembic is the canonical schema workflow. `backend/db/ensure_schema.py` remains only as a compatibility wrapper and must not be used as a normal runtime schema-mutation path.
+**Rule:** All repo-tracked schema changes must land as audited Alembic revisions. Runtime startup must not silently mutate schema.

@@ -20,6 +20,7 @@ def test_upgrade_database_creates_fresh_schema_from_migrations():
             tables = set(inspector.get_table_names())
             assert "players" in tables
             assert "season_stats" in tables
+            assert "team_season_stats" in tables
             assert "team_standings" in tables
             assert "shot_lab_snapshots" in tables
             assert "alembic_version" in tables
@@ -82,7 +83,11 @@ def test_upgrade_database_stamps_legacy_sqlite_schema_and_applies_drift_columns(
                 alembic_revision = connection.execute(text("SELECT version_num FROM alembic_version")).scalar_one()
                 snapshot_date = connection.execute(text("SELECT snapshot_date FROM team_standings")).scalar_one()
 
-            assert alembic_revision == "0002_legacy_schema_drift"
+            team_season_columns = {column["name"] for column in inspector.get_columns("team_season_stats")}
+            assert "off_rating" in team_season_columns
+            assert "tov_pct" in team_season_columns
+
+            assert alembic_revision == "0003_team_season_stats"
             assert snapshot_date == "2025-12-01"
         finally:
             engine.dispose()

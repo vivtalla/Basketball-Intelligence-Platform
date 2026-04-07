@@ -2,13 +2,11 @@ from __future__ import annotations
 
 from typing import List, Optional
 
-from sqlalchemy import func
-
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 
 from db.database import get_db
-from db.models import Player, PlayerGameLog, SeasonStat, Team
+from db.models import Player, SeasonStat, Team, TeamSeasonStat
 from models.team import (
     TeamAvailabilityResponse,
     TeamAnalytics,
@@ -117,7 +115,7 @@ def team_analytics(
     season: str = Query("2024-25"),
     db: Session = Depends(get_db),
 ):
-    """Return team-level analytics computed from synced player season stats."""
+    """Return persisted official team analytics for a season."""
     abbr_upper = abbr.upper()
     team = db.query(Team).filter(Team.abbreviation == abbr_upper).first()
     if not team:
@@ -126,112 +124,62 @@ def team_analytics(
             detail=f"Team '{abbr}' not found.",
         )
 
-    player_rows = (
-        db.query(SeasonStat)
+    team_row = (
+        db.query(TeamSeasonStat)
         .filter(
-            SeasonStat.team_abbreviation == abbr_upper,
-            SeasonStat.season == season,
-            SeasonStat.is_playoff == False,  # noqa: E712
-            SeasonStat.gp >= 1,
+            TeamSeasonStat.team_id == team.id,
+            TeamSeasonStat.season == season,
+            TeamSeasonStat.is_playoff == False,  # noqa: E712
         )
-        .all()
+        .first()
     )
 
-    if not player_rows:
+    if not team_row:
         raise HTTPException(
             status_code=404,
-            detail=f"No stats found for {abbr_upper} in {season}.",
+            detail=f"No official team analytics found for {abbr_upper} in {season}.",
         )
-
-    # Team GP = the most games played by any player on this team
-    team_gp = max((r.gp or 0) for r in player_rows)
-    if team_gp == 0:
-        raise HTTPException(status_code=404, detail="No games found.")
-
-    # Sum raw counting stats from season totals
-    total_pts  = sum(r.pts  or 0 for r in player_rows)
-    total_reb  = sum(r.reb  or 0 for r in player_rows)
-    total_ast  = sum(r.ast  or 0 for r in player_rows)
-    total_stl  = sum(r.stl  or 0 for r in player_rows)
-    total_blk  = sum(r.blk  or 0 for r in player_rows)
-    total_tov  = sum(r.tov  or 0 for r in player_rows)
-    total_fgm  = sum(r.fgm  or 0 for r in player_rows)
-    total_fga  = sum(r.fga  or 0 for r in player_rows)
-    total_fg3m = sum(r.fg3m or 0 for r in player_rows)
-    total_fg3a = sum(r.fg3a or 0 for r in player_rows)
-    total_ftm  = sum(r.ftm  or 0 for r in player_rows)
-    total_fta  = sum(r.fta  or 0 for r in player_rows)
-
-    def _safe_div(n: float, d: float) -> Optional[float]:
-        return round(n / d, 3) if d else None
-
-    fg_pct  = _safe_div(total_fgm,  total_fga)
-    fg3_pct = _safe_div(total_fg3m, total_fg3a)
-    ft_pct  = _safe_div(total_ftm,  total_fta)
-
-    # GP-weighted average for per-game and efficiency fields
-    def _wavg(attr: str) -> Optional[float]:
-        pairs = [(getattr(r, attr), r.gp or 0) for r in player_rows if getattr(r, attr) is not None]
-        total_w = sum(w for _, w in pairs)
-        if not pairs or total_w == 0:
-            return None
-        return sum(v * w for v, w in pairs) / total_w
-
-    # W/L from player game logs (distinct games for this team)
-    wl_rows = (
-        db.query(PlayerGameLog.game_id, PlayerGameLog.wl)
-        .filter(
-            PlayerGameLog.season == season,
-            PlayerGameLog.season_type == "Regular Season",
-            PlayerGameLog.matchup.like(f"{abbr_upper} %"),
-            PlayerGameLog.wl.in_(["W", "L"]),
-        )
-        .distinct()
-        .all()
-    )
-    wins   = sum(1 for r in wl_rows if r.wl == "W")
-    losses = sum(1 for r in wl_rows if r.wl == "L")
-    gp_wl  = wins + losses
-    w_pct  = wins / gp_wl if gp_wl else 0.0
 
     return TeamAnalytics(
         team_id=team.id,
         abbreviation=abbr_upper,
         name=team.name or "",
         season=season,
-        gp=team_gp,
-        w=wins,
-        l=losses,
-        w_pct=round(w_pct, 3),
-        pts_pg=round(total_pts / team_gp, 1) if team_gp else None,
-        reb_pg=round(total_reb / team_gp, 1) if team_gp else None,
-        ast_pg=round(total_ast / team_gp, 1) if team_gp else None,
-        stl_pg=round(total_stl / team_gp, 1) if team_gp else None,
-        blk_pg=round(total_blk / team_gp, 1) if team_gp else None,
-        tov_pg=round(total_tov / team_gp, 1) if team_gp else None,
-        fg_pct=fg_pct,
-        fg3_pct=fg3_pct,
-        ft_pct=ft_pct,
-        plus_minus_pg=None,
-        off_rating=_wavg("off_rating"),
-        def_rating=_wavg("def_rating"),
-        net_rating=_wavg("net_rating"),
-        pace=_wavg("pace"),
-        efg_pct=_wavg("efg_pct"),
-        ts_pct=_wavg("ts_pct"),
-        pie=_wavg("pie"),
-        oreb_pct=_wavg("oreb_pct"),
-        dreb_pct=None,
-        tov_pct=None,
-        ast_pct=None,
-        off_rating_rank=None,
-        def_rating_rank=None,
-        net_rating_rank=None,
-        pace_rank=None,
-        efg_pct_rank=None,
-        ts_pct_rank=None,
-        oreb_pct_rank=None,
-        tov_pct_rank=None,
+        canonical_source=team_row.source,
+        last_synced_at=team_row.updated_at.isoformat() if team_row.updated_at else None,
+        gp=team_row.gp or 0,
+        w=team_row.w or 0,
+        l=team_row.l or 0,
+        w_pct=round(team_row.w_pct or 0.0, 3),
+        pts_pg=team_row.pts_pg,
+        reb_pg=team_row.reb_pg,
+        ast_pg=team_row.ast_pg,
+        stl_pg=team_row.stl_pg,
+        blk_pg=team_row.blk_pg,
+        tov_pg=team_row.tov_pg,
+        fg_pct=team_row.fg_pct,
+        fg3_pct=team_row.fg3_pct,
+        ft_pct=team_row.ft_pct,
+        plus_minus_pg=team_row.plus_minus_pg,
+        off_rating=team_row.off_rating,
+        def_rating=team_row.def_rating,
+        net_rating=team_row.net_rating,
+        pace=team_row.pace,
+        efg_pct=team_row.efg_pct,
+        ts_pct=team_row.ts_pct,
+        pie=team_row.pie,
+        oreb_pct=team_row.oreb_pct,
+        dreb_pct=team_row.dreb_pct,
+        tov_pct=team_row.tov_pct,
+        ast_pct=team_row.ast_pct,
+        off_rating_rank=team_row.off_rating_rank,
+        def_rating_rank=team_row.def_rating_rank,
+        net_rating_rank=team_row.net_rating_rank,
+        pace_rank=team_row.pace_rank,
+        efg_pct_rank=team_row.efg_pct_rank,
+        ts_pct_rank=team_row.ts_pct_rank,
+        oreb_pct_rank=team_row.oreb_pct_rank,
+        tov_pct_rank=team_row.tov_pct_rank,
     )
 
 

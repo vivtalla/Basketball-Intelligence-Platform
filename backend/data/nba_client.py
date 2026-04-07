@@ -28,6 +28,7 @@ from nba_api.stats.endpoints import (
 )
 from nba_api.live.nba.endpoints import boxscore as live_boxscore
 from nba_api.stats.static import players as static_players
+from nba_api.stats.static import teams as static_teams
 
 from config import NBA_API_DELAY, NBA_API_TIMEOUT
 from data.cache import CacheManager
@@ -103,6 +104,11 @@ OFFICIAL_STATUS_TOKEN_SEQUENCES = (
     ("Out", ("Out",)),
 )
 OFFICIAL_NAME_SUFFIXES = {"JR", "SR", "II", "III", "IV", "V"}
+_STATIC_TEAMS_BY_ID = {int(team["id"]): team for team in static_teams.get_teams()}
+_STATIC_TEAMS_BY_FULL_NAME = {
+    str(team.get("full_name", "")).strip().lower(): team
+    for team in static_teams.get_teams()
+}
 
 
 def _canonical_name(name: str) -> str:
@@ -110,6 +116,27 @@ def _canonical_name(name: str) -> str:
         return ""
     normalized = unicodedata.normalize("NFKD", name).encode("ascii", "ignore").decode("ascii")
     return " ".join(normalized.lower().replace(".", "").split())
+
+
+def _resolve_dashboard_team_identity(row: dict) -> tuple[str, str]:
+    team_id = row.get("TEAM_ID")
+    team_name = str(row.get("TEAM_NAME", "")).strip()
+    abbreviation = str(row.get("TEAM_ABBREVIATION", "")).strip().upper()
+    if abbreviation:
+        return abbreviation, team_name
+
+    static_team = None
+    if team_id is not None:
+        try:
+            static_team = _STATIC_TEAMS_BY_ID.get(int(team_id))
+        except (TypeError, ValueError):
+            static_team = None
+    if static_team is None and team_name:
+        static_team = _STATIC_TEAMS_BY_FULL_NAME.get(team_name.lower())
+
+    if static_team:
+        return str(static_team.get("abbreviation", "")).upper(), str(static_team.get("full_name", team_name))
+    return abbreviation, team_name
 
 
 def _rate_limit():
@@ -1292,13 +1319,15 @@ def get_team_stats(season: str) -> dict[str, dict]:
     result: dict[str, dict] = {}
     for row in base_rows:
         team_id = row["TEAM_ID"]
-        abbr = str(row.get("TEAM_ABBREVIATION", "")).upper()
+        abbr, team_name = _resolve_dashboard_team_identity(row)
         adv = adv_by_id.get(team_id, {})
+        if not abbr:
+            continue
         gp = int(row.get("GP") or 0)
         result[abbr] = {
             "team_id": team_id,
             "abbreviation": abbr,
-            "name": str(row.get("TEAM_NAME", "")),
+            "name": team_name,
             "season": season,
             "gp": gp,
             "w": int(row.get("W") or 0),

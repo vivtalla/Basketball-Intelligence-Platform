@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import logging
 from datetime import date, datetime
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Sequence
 
 from sqlalchemy.orm import Session
 
@@ -13,9 +13,10 @@ from data.nba_client import (
     get_league_dash_player_stats,
     get_player_advanced_stats_from_league,
     get_player_info,
+    get_team_stats,
     search_players,
 )
-from db.models import Player, PlayerInjury, SeasonStat, Team
+from db.models import Player, PlayerInjury, SeasonStat, Team, TeamSeasonStat
 from services.advanced_metrics import enrich_season_with_advanced
 from services.player_identity_service import (
     build_player_resolution_indexes,
@@ -87,6 +88,84 @@ def _transform_season_row(row: dict) -> dict:
         "oreb": row.get("OREB", 0),
         "dreb": row.get("DREB", 0),
         "pf": row.get("PF", 0),
+    }
+
+
+def _base_league_dash_to_season_row(row: dict, season: str) -> dict:
+    gp = row.get("GP", 0) or 1
+    min_total = float(row.get("MIN", 0) or 0.0)
+    return {
+        "season": season,
+        "team_abbreviation": row.get("TEAM_ABBREVIATION", ""),
+        "gp": row.get("GP", 0),
+        "gs": row.get("GS", 0),
+        "age": row.get("AGE"),
+        "min_total": round(min_total, 1),
+        "min_pg": round(min_total / gp, 1),
+        "pts": row.get("PTS", 0),
+        "pts_pg": round(float(row.get("PTS", 0) or 0.0) / gp, 1),
+        "reb": row.get("REB", 0),
+        "reb_pg": round(float(row.get("REB", 0) or 0.0) / gp, 1),
+        "ast": row.get("AST", 0),
+        "ast_pg": round(float(row.get("AST", 0) or 0.0) / gp, 1),
+        "stl": row.get("STL", 0),
+        "stl_pg": round(float(row.get("STL", 0) or 0.0) / gp, 1),
+        "blk": row.get("BLK", 0),
+        "blk_pg": round(float(row.get("BLK", 0) or 0.0) / gp, 1),
+        "tov": row.get("TOV", 0),
+        "tov_pg": round(float(row.get("TOV", 0) or 0.0) / gp, 1),
+        "fgm": row.get("FGM", 0),
+        "fga": row.get("FGA", 0),
+        "fg_pct": row.get("FG_PCT", 0) or 0,
+        "fg3m": row.get("FG3M", 0),
+        "fg3a": row.get("FG3A", 0),
+        "fg3_pct": row.get("FG3_PCT", 0) or 0,
+        "ftm": row.get("FTM", 0),
+        "fta": row.get("FTA", 0),
+        "ft_pct": row.get("FT_PCT", 0) or 0,
+        "oreb": row.get("OREB", 0),
+        "dreb": row.get("DREB", 0),
+        "pf": row.get("PF", 0),
+    }
+
+
+def _official_team_stats_to_row_payload(team_stats: dict, season: str) -> dict:
+    return {
+        "season": season,
+        "gp": team_stats.get("gp", 0),
+        "w": team_stats.get("w", 0),
+        "l": team_stats.get("l", 0),
+        "w_pct": team_stats.get("w_pct", 0.0),
+        "pts_pg": team_stats.get("pts_pg"),
+        "ast_pg": team_stats.get("ast_pg"),
+        "reb_pg": team_stats.get("reb_pg"),
+        "tov_pg": team_stats.get("tov_pg"),
+        "blk_pg": team_stats.get("blk_pg"),
+        "stl_pg": team_stats.get("stl_pg"),
+        "fg_pct": team_stats.get("fg_pct"),
+        "fg3_pct": team_stats.get("fg3_pct"),
+        "ft_pct": team_stats.get("ft_pct"),
+        "plus_minus_pg": team_stats.get("plus_minus_pg"),
+        "off_rating": team_stats.get("off_rating"),
+        "def_rating": team_stats.get("def_rating"),
+        "net_rating": team_stats.get("net_rating"),
+        "pace": team_stats.get("pace"),
+        "efg_pct": team_stats.get("efg_pct"),
+        "ts_pct": team_stats.get("ts_pct"),
+        "pie": team_stats.get("pie"),
+        "oreb_pct": team_stats.get("oreb_pct"),
+        "dreb_pct": team_stats.get("dreb_pct"),
+        "tov_pct": team_stats.get("tov_pct"),
+        "ast_pct": team_stats.get("ast_pct"),
+        "off_rating_rank": team_stats.get("off_rating_rank"),
+        "def_rating_rank": team_stats.get("def_rating_rank"),
+        "net_rating_rank": team_stats.get("net_rating_rank"),
+        "pace_rank": team_stats.get("pace_rank"),
+        "efg_pct_rank": team_stats.get("efg_pct_rank"),
+        "ts_pct_rank": team_stats.get("ts_pct_rank"),
+        "oreb_pct_rank": team_stats.get("oreb_pct_rank"),
+        "tov_pct_rank": team_stats.get("tov_pct_rank"),
+        "source": "stats.nba.com/team-dashboard",
     }
 
 
@@ -187,6 +266,202 @@ def sync_player(db: Session, player_id: int) -> Player:
     db.commit()
     logger.info(f"Sync complete for player {player_id}")
     return player
+
+
+def sync_official_season_stats(
+    db: Session,
+    season: str,
+    player_ids: Optional[Sequence[int]] = None,
+) -> dict:
+    logger.info("Syncing official season stats for %s", season)
+    official_base_rows = get_league_dash_player_stats(season, measure_type="Base")
+    official_advanced_rows = get_league_dash_player_stats(season, measure_type="Advanced")
+
+    player_filter = {int(player_id) for player_id in player_ids} if player_ids else None
+    advanced_by_player = {
+        int(row.get("PLAYER_ID")): row
+        for row in official_advanced_rows
+        if row.get("PLAYER_ID") is not None
+    }
+    base_rows = [
+        row for row in official_base_rows
+        if row.get("PLAYER_ID") is not None and (player_filter is None or int(row["PLAYER_ID"]) in player_filter)
+    ]
+
+    existing_rows = db.query(SeasonStat).filter(
+        SeasonStat.season == season,
+        SeasonStat.is_playoff == False,  # noqa: E712
+    ).all()
+    existing_by_key = {(row.player_id, row.team_abbreviation): row for row in existing_rows}
+
+    player_ids_in_scope = {int(row["PLAYER_ID"]) for row in base_rows}
+    existing_players = db.query(Player).filter(Player.id.in_(player_ids_in_scope)).all() if player_ids_in_scope else []
+    player_lookup = {player.id: player for player in existing_players}
+
+    team_ids_in_scope = {int(row["TEAM_ID"]) for row in base_rows if row.get("TEAM_ID")}
+    existing_teams = db.query(Team).filter(Team.id.in_(team_ids_in_scope)).all() if team_ids_in_scope else []
+    team_lookup = {team.id: team for team in existing_teams}
+
+    current_team_by_player = {int(row["PLAYER_ID"]): row.get("TEAM_ABBREVIATION", "") for row in base_rows}
+    deleted = 0
+    for existing in existing_rows:
+        if existing.player_id not in current_team_by_player:
+            continue
+        official_team = current_team_by_player[existing.player_id]
+        if existing.team_abbreviation != official_team:
+            db.delete(existing)
+            existing_by_key.pop((existing.player_id, existing.team_abbreviation), None)
+            deleted += 1
+
+    updated = 0
+    created_players = 0
+    created_teams = 0
+
+    for row in base_rows:
+        player_id = int(row["PLAYER_ID"])
+        team_id = int(row["TEAM_ID"]) if row.get("TEAM_ID") else None
+        team_abbreviation = row.get("TEAM_ABBREVIATION", "")
+        player_name = (row.get("PLAYER_NAME") or "").strip()
+
+        if team_id and team_id not in team_lookup:
+            team = Team(id=team_id, abbreviation=team_abbreviation, name=team_abbreviation)
+            db.add(team)
+            db.flush()
+            team_lookup[team_id] = team
+            created_teams += 1
+        elif team_id and team_abbreviation:
+            team = team_lookup[team_id]
+            team.abbreviation = team_abbreviation
+
+        player = player_lookup.get(player_id)
+        if not player:
+            player = Player(
+                id=player_id,
+                full_name=player_name,
+                team_id=team_id,
+                is_active=True,
+                headshot_url=f"https://cdn.nba.com/headshots/nba/latest/1040x760/{player_id}.png",
+            )
+            db.add(player)
+            db.flush()
+            player_lookup[player_id] = player
+            created_players += 1
+        else:
+            if player_name:
+                player.full_name = canonical_player_name(player_name, player.first_name or "", player.last_name or "")
+            if team_id:
+                player.team_id = team_id
+            player.is_active = True
+            if not player.headshot_url:
+                player.headshot_url = f"https://cdn.nba.com/headshots/nba/latest/1040x760/{player_id}.png"
+
+        season_data = _base_league_dash_to_season_row(row, season)
+        season_data = enrich_season_with_advanced(season_data, advanced_by_player.get(player_id))
+        stat_row = existing_by_key.get((player_id, team_abbreviation))
+        if not stat_row:
+            stat_row = SeasonStat(
+                player_id=player_id,
+                season=season,
+                team_abbreviation=team_abbreviation,
+                is_playoff=False,
+            )
+            db.add(stat_row)
+            existing_by_key[(player_id, team_abbreviation)] = stat_row
+
+        for key, value in season_data.items():
+            if hasattr(stat_row, key):
+                setattr(stat_row, key, value)
+        updated += 1
+
+    db.commit()
+    logger.info(
+        "Official season stat sync complete for %s: updated=%s deleted=%s players=%s teams=%s",
+        season,
+        updated,
+        deleted,
+        created_players,
+        created_teams,
+    )
+    return {
+        "status": "ok",
+        "season": season,
+        "players_synced": updated,
+        "stale_rows_deleted": deleted,
+        "players_created": created_players,
+        "teams_created": created_teams,
+    }
+
+
+def sync_official_team_season_stats(
+    db: Session,
+    season: str,
+    team_ids: Optional[Sequence[int]] = None,
+) -> dict:
+    logger.info("Syncing official team season stats for %s", season)
+    official_rows_by_abbr = get_team_stats(season)
+    team_filter = {int(team_id) for team_id in team_ids} if team_ids else None
+
+    if team_filter is not None:
+        official_rows_by_abbr = {
+            abbr: row
+            for abbr, row in official_rows_by_abbr.items()
+            if row.get("team_id") is not None and int(row["team_id"]) in team_filter
+        }
+
+    persisted_rows = db.query(TeamSeasonStat).filter(
+        TeamSeasonStat.season == season,
+        TeamSeasonStat.is_playoff == False,  # noqa: E712
+    ).all()
+    persisted_by_team = {row.team_id: row for row in persisted_rows}
+
+    created_teams = 0
+    updated_rows = 0
+    created_rows = 0
+
+    for abbr, team_stats in official_rows_by_abbr.items():
+        team_id = int(team_stats["team_id"])
+        team = db.query(Team).filter(Team.id == team_id).first()
+        if not team:
+            team = Team(
+                id=team_id,
+                abbreviation=abbr,
+                name=team_stats.get("name") or abbr,
+            )
+            db.add(team)
+            db.flush()
+            created_teams += 1
+        else:
+            team.abbreviation = abbr
+            if team_stats.get("name"):
+                team.name = team_stats["name"]
+
+        row = persisted_by_team.get(team_id)
+        if not row:
+            row = TeamSeasonStat(team_id=team_id, season=season, is_playoff=False)
+            db.add(row)
+            persisted_by_team[team_id] = row
+            created_rows += 1
+
+        payload = _official_team_stats_to_row_payload(team_stats, season)
+        for key, value in payload.items():
+            setattr(row, key, value)
+        updated_rows += 1
+
+    db.commit()
+    logger.info(
+        "Official team season sync complete for %s: rows=%s teams=%s created=%s",
+        season,
+        updated_rows,
+        created_teams,
+        created_rows,
+    )
+    return {
+        "status": "ok",
+        "season": season,
+        "teams_synced": updated_rows,
+        "team_rows_created": created_rows,
+        "teams_created": created_teams,
+    }
 
 
 def _upsert_season_stat(db: Session, player_id: int, data: dict, is_playoff: bool):

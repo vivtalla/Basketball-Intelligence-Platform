@@ -7,7 +7,7 @@ from collections import defaultdict
 from datetime import date, datetime, timedelta
 from typing import Any, Dict, Iterable, List, Optional, Set, Tuple
 
-from sqlalchemy import func, text
+from sqlalchemy import func, or_, text
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
@@ -846,6 +846,7 @@ def materialize_game_stats(db: Session, game_id: str) -> dict:
 
 
 def materialize_season_aggregates(db: Session, season: str) -> dict:
+    today = date.today()
     grouped_rows = (
         db.query(
             GamePlayerStat.player_id,
@@ -869,7 +870,10 @@ def materialize_season_aggregates(db: Session, season: str) -> dict:
             func.sum(GamePlayerStat.dreb),
             func.sum(GamePlayerStat.pf),
         )
-        .filter(GamePlayerStat.season == season)
+        .filter(
+            GamePlayerStat.season == season,
+            or_(GamePlayerStat.game_date.is_(None), GamePlayerStat.game_date <= today),
+        )
         .group_by(GamePlayerStat.player_id, GamePlayerStat.team_abbreviation)
         .all()
     )

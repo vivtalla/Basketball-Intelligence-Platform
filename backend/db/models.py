@@ -634,6 +634,58 @@ class TeamStanding(Base):
     team = relationship("Team")
 
 
+class TeamSeasonStat(Base):
+    """Official persisted team season stats from the NBA team dashboard."""
+    __tablename__ = "team_season_stats"
+    __table_args__ = (
+        UniqueConstraint("team_id", "season", "is_playoff", name="uq_team_season_playoff"),
+        Index("ix_team_season_stats_season", "season"),
+        Index("ix_team_season_stats_team_season", "team_id", "season"),
+    )
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    team_id = Column(Integer, ForeignKey("teams.id"), nullable=False)
+    season = Column(String(10), nullable=False)
+    is_playoff = Column(Boolean, nullable=False, default=False)
+    source = Column(String(50), nullable=False, default="stats.nba.com/team-dashboard")
+    gp = Column(Integer, default=0)
+    w = Column(Integer, default=0)
+    l = Column(Integer, default=0)
+    w_pct = Column(Float, default=0)
+    pts_pg = Column(Float)
+    ast_pg = Column(Float)
+    reb_pg = Column(Float)
+    tov_pg = Column(Float)
+    blk_pg = Column(Float)
+    stl_pg = Column(Float)
+    fg_pct = Column(Float)
+    fg3_pct = Column(Float)
+    ft_pct = Column(Float)
+    plus_minus_pg = Column(Float)
+    off_rating = Column(Float)
+    def_rating = Column(Float)
+    net_rating = Column(Float)
+    pace = Column(Float)
+    efg_pct = Column(Float)
+    ts_pct = Column(Float)
+    pie = Column(Float)
+    oreb_pct = Column(Float)
+    dreb_pct = Column(Float)
+    tov_pct = Column(Float)
+    ast_pct = Column(Float)
+    off_rating_rank = Column(Integer)
+    def_rating_rank = Column(Integer)
+    net_rating_rank = Column(Integer)
+    pace_rank = Column(Integer)
+    efg_pct_rank = Column(Integer)
+    ts_pct_rank = Column(Integer)
+    oreb_pct_rank = Column(Integer)
+    tov_pct_rank = Column(Integer)
+    updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
+
+    team = relationship("Team")
+
+
 class PreReadSnapshot(Base):
     __tablename__ = "pre_read_snapshots"
     __table_args__ = (

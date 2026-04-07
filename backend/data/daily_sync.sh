@@ -2,7 +2,18 @@
 set -e
 cd "$(dirname "$0")/.."
 
-SEASON="${1:-2024-25}"
+if [ -n "$1" ]; then
+  SEASON="$1"
+else
+  SEASON="$(python - <<'PYEOF'
+from datetime import datetime
+
+now = datetime.utcnow()
+start_year = now.year if now.month >= 8 else now.year - 1
+print(f"{start_year}-{str((start_year + 1) % 100).zfill(2)}")
+PYEOF
+)"
+fi
 export SEASON
 LOG=/var/log/bip_sync.log
 
@@ -53,6 +64,21 @@ db = SessionLocal()
 try:
     result = materialize_standings(season=season, db=db)
     print("materialize_standings:", result)
+finally:
+    db.close()
+PYEOF
+
+# 5. Refresh official player and team season dashboards
+python - <<'PYEOF' >> "$LOG" 2>&1
+import sys, os
+sys.path.insert(0, os.getcwd())
+from db.database import SessionLocal
+from services.sync_service import sync_official_season_stats, sync_official_team_season_stats
+season = os.environ.get("SEASON", "2024-25")
+db = SessionLocal()
+try:
+    print("sync_official_season_stats:", sync_official_season_stats(db, season=season))
+    print("sync_official_team_season_stats:", sync_official_team_season_stats(db, season=season))
 finally:
     db.close()
 PYEOF

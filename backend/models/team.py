@@ -42,6 +42,8 @@ class TeamAnalytics(BaseModel):
     abbreviation: str
     name: str
     season: str
+    canonical_source: Optional[str] = None
+    last_synced_at: Optional[str] = None
     gp: int
     w: int
     l: int
