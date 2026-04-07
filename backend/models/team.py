@@ -151,6 +151,7 @@ class TeamIntelligenceResponse(BaseModel):
     season: str
     data_status: str
     canonical_source: str
+    runtime_policy: Optional[str] = None
     last_synced_at: Optional[str] = None
     conference: Optional[str] = None
     playoff_rank: Optional[int] = None
@@ -216,6 +217,7 @@ class TeamPrepQueueResponse(BaseModel):
     season: str
     data_status: str
     canonical_source: str
+    runtime_policy: Optional[str] = None
     generated_at: Optional[str] = None
     items: List[TeamPrepQueueItem]
 

@@ -20,13 +20,7 @@ from db.models import (
     WarehouseGame,
 )
 from models.team import TeamImpactLeader, TeamIntelligenceResponse, TeamPbpCoverage, TeamRecentGame
-
-
-def _is_modern_warehouse_season(season: str) -> bool:
-    try:
-        return int(season[:4]) >= 2024
-    except (TypeError, ValueError):
-        return False
+from services.runtime_data_policy import canonical_source_for_season, is_modern_warehouse_season, runtime_policy_for_season
 
 
 def _serialize_lineup(row: LineupStats, db: Session) -> dict:
@@ -247,6 +241,48 @@ def _current_streak_modern(team: Team, games: List[WarehouseGame]) -> Optional[s
     return "{0}{1}".format(streak_result, streak_length)
 
 
+def _build_totals_legacy(team: Team, games: List[GameLog]) -> Tuple[int, int, int, int]:
+    total_wins = 0
+    total_losses = 0
+    total_team_points = 0
+    total_opp_points = 0
+    for game in games:
+        is_home = game.home_team_id == team.id
+        team_score = game.home_score if is_home else game.away_score
+        opponent_score = game.away_score if is_home else game.home_score
+        if team_score is None or opponent_score is None:
+            continue
+        total_team_points += team_score
+        total_opp_points += opponent_score
+        if team_score > opponent_score:
+            total_wins += 1
+        else:
+            total_losses += 1
+    return total_wins, total_losses, total_team_points, total_opp_points
+
+
+def _current_streak_legacy(team: Team, games: List[GameLog]) -> Optional[str]:
+    streak_result: Optional[str] = None
+    streak_length = 0
+    for game in games:
+        is_home = game.home_team_id == team.id
+        team_score = game.home_score if is_home else game.away_score
+        opponent_score = game.away_score if is_home else game.home_score
+        if team_score is None or opponent_score is None:
+            continue
+        result = "W" if team_score > opponent_score else "L"
+        if streak_result is None:
+            streak_result = result
+            streak_length = 1
+        elif result == streak_result:
+            streak_length += 1
+        else:
+            break
+    if streak_result is None or streak_length == 0:
+        return None
+    return "{0}{1}".format(streak_result, streak_length)
+
+
 def _latest_standing(db: Session, team_id: int, season: str) -> Optional[TeamStanding]:
     return (
         db.query(TeamStanding)
@@ -296,7 +332,7 @@ def build_team_intelligence(db: Session, abbr: str, season: str) -> TeamIntellig
         .all()
     )
     player_ids = [player.id for player in roster_players]
-    modern = _is_modern_warehouse_season(season)
+    modern = is_modern_warehouse_season(season)
 
     if modern:
         team_games = _team_games_modern(db, team, season)
@@ -327,9 +363,9 @@ def build_team_intelligence(db: Session, abbr: str, season: str) -> TeamIntellig
                 or 0
             )
         recent_games, recent_wins, recent_count, recent_margin_total = _build_recent_games_legacy(db, team, team_games)
-        total_wins, total_losses, total_team_points, total_opp_points = _build_totals_modern(team, team_games)  # type: ignore[arg-type]
-        current_streak = _current_streak_modern(team, team_games)  # type: ignore[arg-type]
-        canonical_source = "legacy-plus-derived"
+        total_wins, total_losses, total_team_points, total_opp_points = _build_totals_legacy(team, team_games)
+        current_streak = _current_streak_legacy(team, team_games)
+        canonical_source = canonical_source_for_season(season)
 
     season_rows = (
         db.query(SeasonStat)
@@ -449,6 +485,7 @@ def build_team_intelligence(db: Session, abbr: str, season: str) -> TeamIntellig
         season=season,
         data_status=data_status,
         canonical_source=canonical_source,
+        runtime_policy=runtime_policy_for_season(season),
         last_synced_at=last_synced_at,
         conference=standing.conference if standing else None,
         playoff_rank=_conference_rank(db, standing, season),

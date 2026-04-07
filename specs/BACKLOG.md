@@ -36,14 +36,23 @@ Likely shape:
 - add a targeted roster-refresh path to `sync_player_aliases` for two-way and recently moved players
 - keep stub-player creation gated until roster truth is more authoritative
 
-### Final DB-First Cleanup for Non-Core Reads
+### Migration Adoption and Operational Discipline
 Why it matters:
-Sprint 30 made the main player/profile/career/gamelog/standings surfaces DB-first, and Sprint 32 moved the modern team-intelligence workflow onto warehouse-backed reads, but a few secondary routes still lean on `sync_player_if_needed`. That leaves a smaller but still real upstream dependency gap.
+Sprint 43 moved the backend onto Alembic-backed migrations and removed runtime schema mutation from app startup, but the repo still needs a final discipline pass so future schema work never slips back toward ad hoc helpers or drift.
 
 Likely shape:
-- remove remaining request-time live fetches from advanced/trend-report style routes
-- standardize readiness metadata on any remaining legacy reads
-- keep `nba_api` only in queued/admin enrichment and explicit recovery workflows
+- document and standardize the exact local/dev/prod migration workflow across README, runbooks, and any setup scripts that still assume `ensure_schema.py`
+- remove any remaining legacy documentation or ops habits that imply startup-time DDL is acceptable
+- add one or two small operational guardrails so future schema work follows migrations by default
+
+### Legacy Compatibility Retirement
+Why it matters:
+Sprint 43 isolated modern warehouse-first runtime paths from historical compatibility mode more clearly, but legacy reads are still present for some older-season workflows. The next cleanup should be narrower and more deliberate instead of letting compatibility stay fuzzy.
+
+Likely shape:
+- audit which historical product surfaces still depend on legacy tables and decide which ones truly matter
+- keep compatibility explicit where it is still needed, but retire dead branches and stale source labels where it is not
+- continue surfacing honest readiness/runtime-policy metadata instead of mixing compatibility logic into modern paths
 
 ### Shot Lab Refinement and Precision Follow-Ons
 Why it matters:
@@ -149,18 +158,9 @@ Likely shape:
 
 ## Next
 
-### Lineup-Impact Performance and Responsiveness
-Why it matters:
-Sprint 42 proved the opponent-aware decision workflow is valuable, but local smoke testing showed the live `lineup-impact` read can still stall on deeper datasets even when correctness tests pass. That makes performance a real workflow risk for the new team decision tab.
-
-Likely shape:
-- profile the `lineup-impact` read path on modern local datasets and identify the heaviest query and serialization bottlenecks
-- reduce latency enough that the decision tab feels reliably interactive for normal coaching use, not only correct in test fixtures
-- keep any optimizations additive and trust-preserving; do not weaken opponent-aware context or confidence framing just to make the response faster
-
 ### Decision-Tool Calibration and Opponent Context
 Why it matters:
-Sprint 42 turned the team decision tab into a real opponent-aware workspace, but the guidance still needs calibration, performance tuning, and sharper follow-through before it should be treated as fully mature.
+Sprint 42 turned the team decision tab into a real opponent-aware workspace, and Sprint 43 cleaned up the architecture and removed the live timeout regressions. The next gains are now about calibration and workflow sharpness rather than emergency responsiveness.
 
 Likely shape:
 - improve minute-redistribution logic, uncertainty wording, and opponent-style adjustments

@@ -5,9 +5,6 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from config import CORS_ORIGINS
 from data.cache import CacheManager
-from db.database import engine
-from db.ensure_schema import apply_schema_updates
-from db.models import Base
 from routers import (
     advanced,
     compare,
@@ -71,8 +68,6 @@ app.include_router(injuries.router, prefix="/api/injuries", tags=["injuries"])
 
 @app.on_event("startup")
 def startup():
-    Base.metadata.create_all(bind=engine)
-    apply_schema_updates()
     CacheManager.initialize()
 
 

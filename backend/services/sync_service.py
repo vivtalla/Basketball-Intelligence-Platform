@@ -167,8 +167,13 @@ def sync_player(db: Session, player_id: int) -> Player:
             advanced_data = get_player_advanced_stats_from_league(
                 player_id, league_advanced_cache[season_id]
             )
-        except Exception:
-            pass
+        except Exception as exc:
+            logger.debug(
+                "Advanced stats unavailable during player sync for %s in %s: %s",
+                player_id,
+                season_id,
+                exc,
+            )
 
         season_data = enrich_season_with_advanced(season_data, advanced_data)
         _upsert_season_stat(db, player_id, season_data, is_playoff=False)
@@ -314,7 +319,7 @@ def sync_injuries(db: Session, season: str) -> Dict[str, int]:
                     return_date = datetime.strptime(return_str, fmt).date()
                     break
                 except ValueError:
-                    pass
+                    continue
 
         existing = (
             db.query(PlayerInjury)

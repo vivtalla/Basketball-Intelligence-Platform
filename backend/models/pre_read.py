@@ -58,6 +58,7 @@ class PreReadDeckResponse(BaseModel):
     opponent_abbreviation: str
     data_status: str = "ready"
     canonical_source: str = "warehouse-plus-derived"
+    runtime_policy: Optional[str] = None
     generated_at: Optional[str] = None
     focus_levers: List[TeamFocusLever]
     matchup_advantages: List[str]

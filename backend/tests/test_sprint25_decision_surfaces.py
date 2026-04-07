@@ -10,8 +10,8 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from db.database import Base  # noqa: E402
 from db.models import GameTeamStat, Team, WarehouseGame  # noqa: E402
 from models.decision import FollowThroughRequest  # noqa: E402
-from routers.decision import build_follow_through_report  # noqa: E402
 from services.compare_service import build_team_comparison_report  # noqa: E402
+from services.decision_support_service import build_follow_through_report  # noqa: E402
 from services.pre_read_service import build_pre_read_deck  # noqa: E402
 from services.team_focus_service import build_team_focus_levers_report  # noqa: E402
 

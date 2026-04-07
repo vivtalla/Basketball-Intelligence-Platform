@@ -1,9 +1,21 @@
 # Sprint History Archive
 
-Sprints 1–42. Current sprint summaries also live in `CLAUDE.md` under "Recent Sprints".
+Sprints 1–43. Current sprint summaries also live in `CLAUDE.md` under "Recent Sprints".
 
 For detailed per-sprint records, see the individual closeout files in this directory:
-`specs/sprint-09-closeout.md` through `specs/sprint-42-closeout.md`
+`specs/sprint-09-closeout.md` through `specs/sprint-43-closeout.md`
+
+---
+
+### Sprint 43 — Foundation Hardening and Architecture Audit
+**Branch:** `feature/sprint-43-foundation-hardening`
+
+- Replaced startup-time schema mutation with an Alembic-backed migration workflow and added audited baseline plus legacy-drift revisions for the current backend schema
+- Removed runtime reliance on `ensure_schema.py` by turning it into a compatibility wrapper and moving the app startup path off serving-time DDL
+- Removed the remaining request-time player bootstrap from the advanced PBP sync flow so DB-first/runtime discipline is clearer
+- Collapsed lineup-impact, play-type EV, matchup-flags, and follow-through logic behind one canonical decision-support service, then reduced the decision router to transport-only handlers
+- Added a durable Sprint 43 architecture audit note and explicit `runtime_policy` metadata so warehouse-first versus legacy-compatibility behavior is documented in both code and specs
+- Verified the sprint with targeted migration/decision/prep tests, full backend `pytest`, `python -m compileall backend`, frontend `npm run lint`, and frontend `npm run build`
 
 ---
 

@@ -1,6 +1,8 @@
 """Service for fetching and transforming player stats."""
 from __future__ import annotations
 
+import logging
+
 from data.cache import CacheManager
 from data.nba_client import (
     get_career_stats,
@@ -9,6 +11,8 @@ from data.nba_client import (
 )
 from config import CACHE_TTL_CAREER_STATS, CACHE_TTL_LEAGUE_DASH
 from services.advanced_metrics import enrich_season_with_advanced
+
+logger = logging.getLogger(__name__)
 
 
 def _transform_season_row(row: dict) -> dict:
@@ -84,8 +88,13 @@ def get_player_career_stats(player_id: int, player_name: str = "") -> dict:
             advanced_data = get_player_advanced_stats_from_league(
                 player_id, league_stats
             )
-        except Exception:
-            pass  # Advanced stats unavailable for this season
+        except Exception as exc:
+            logger.debug(
+                "Advanced stats unavailable for player %s in %s: %s",
+                player_id,
+                season_id,
+                exc,
+            )
 
         season_data = enrich_season_with_advanced(season_data, advanced_data)
         seasons.append(season_data)

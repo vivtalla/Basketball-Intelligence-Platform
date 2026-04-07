@@ -1,6 +1,6 @@
 # Agent Coordination
 
-Last updated: 2026-04-06 by Codex (Sprint 43 kickoff reset)
+Last updated: 2026-04-06 by Codex (Sprint 43 closed; Sprint 44 kickoff)
 
 > Both agents read this file before touching code at the start of every session.
 > The canonical source of truth is the clean `master` checkout at `/Users/viv/Documents/Basketball Intelligence Platform`.
@@ -14,7 +14,7 @@ Last updated: 2026-04-06 by Codex (Sprint 43 kickoff reset)
 
 | Field | Value |
 |-------|-------|
-| Sprint | 43 |
+| Sprint | 44 |
 | Goal | TBD |
 | Started | 2026-04-06 |
 | Target merge | TBD |
@@ -39,12 +39,12 @@ If repo state, sprint numbering, or shipped features appear to disagree across l
 
 ### Claude
 - Branch: `TBD`
-- Scope: available for Sprint 43 planning / review / optimization roles across any stream
+- Scope: available for Sprint 44 planning / review / optimization roles across any stream
 - Status: Available
 
 ### Codex
 - Branch: `TBD`
-- Scope: Sprint 43 kickoff, integration, and engineering lead across the next three streams
+- Scope: Sprint 44 kickoff, integration, and engineering lead across the next streams
 - Status: Available
 
 ---
@@ -78,9 +78,9 @@ Specs or review notes written by one stream for another. Check this before start
 
 ## Merge Order
 
-1. TBD
-2. TBD
-3. TBD
+1. Team 1 — TBD
+2. Team 2 — TBD
+3. Team 3 — TBD
 4. Final integration / verification / merge to `master`
 
 ---
@@ -164,6 +164,7 @@ Specs or review notes written by one stream for another. Check this before start
 
 *Free-form, dated, newest first. Use this for coordination and repo-state exceptions.*
 
+2026-04-06 (Codex): Sprint 43 closed on `feature/sprint-43-foundation-hardening`. Shipped Alembic-backed schema management, removed startup-time schema mutation and the remaining request-time sync seam, consolidated decision intelligence behind `decision_support_service.py`, clarified warehouse-first vs `legacy-compatibility` runtime policy, and closed the live decision follow-through timeout with lighter service-owned style snapshots. Verification covered targeted migration/decision/prep backend tests, full backend `pytest`, `python -m compileall backend`, frontend `npm run lint`, frontend `npm run build`, and local decision/follow-through HTTP smoke checks. See `specs/sprint-43-closeout.md` and `specs/sprint-43-architecture-audit.md` before Sprint 44 kickoff.
 2026-04-06 (Codex): Sprint 42 closeout prepared on `feature/sprint-42-opponent-aware-prep-decision`. Shipped opponent-aware prep rationale, richer focus levers, a backend-driven team decision workspace, and stronger prep/pre-read/compare/replay continuity. Verification covered targeted prep/decision/coaching backend tests, full backend `pytest`, frontend `npm run build`, and local prep/decision route smoke checks. See `specs/sprint-42-closeout.md` before Sprint 43 kickoff.
 2026-04-05 (Codex): Sprint 41 closeout prepared on `feature/sprint-41-replay-adoption-insights`. Shipped replay adoption across insights by making trend cards and What-If emit source-aware replay targets, switching the trend cards UI onto the backend cards API, and preserving replay continuity into compare and Game Explorer. Verification covered targeted replay/scenario backend tests, full backend `pytest`, and frontend `npm run build`. See `specs/sprint-41-closeout.md` before Sprint 42 kickoff.
 2026-04-05 (Codex): Sprint 40 closeout prepared on `feature/sprint-40-event-replay-scouting`. Shipped event-centered Game Explorer replay, sequence-aware 3D drill-down, source-aware replay handoffs from shot lab and scouting, and richer scouting clip anchors with event-backed export context. Verification covered full backend `pytest`, targeted replay/scouting backend tests, and frontend `npm run build`. See `specs/sprint-40-closeout.md` before Sprint 41 kickoff.

@@ -17,6 +17,7 @@ from models.pre_read import (
     WorkflowLaunchLinks,
 )
 from services.compare_service import build_team_comparison_report
+from services.runtime_data_policy import canonical_source_for_season, runtime_policy_for_season
 from services.team_availability_service import build_team_availability
 from services.team_focus_service import build_team_focus_levers_report
 from services.team_prep_service import build_team_prep_queue
@@ -190,7 +191,8 @@ def build_pre_read_deck(
         team_abbreviation=team.upper(),
         opponent_abbreviation=opponent.upper(),
         data_status=data_status,
-        canonical_source="warehouse-plus-derived",
+        canonical_source=canonical_source_for_season(season),
+        runtime_policy=runtime_policy_for_season(season),
         generated_at=datetime.utcnow().isoformat(),
         focus_levers=focus_report.focus_levers if focus_report else [],
         matchup_advantages=matchup_advantages,

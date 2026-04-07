@@ -17,9 +17,9 @@ from models.scouting import (
     ScoutingLaunchContext,
     ScoutingSection,
 )
-from routers.decision import build_matchup_flags_report, build_play_type_ev_report
 from routers.styles import build_team_style_profile
 from services.compare_service import build_team_comparison_report
+from services.decision_support_service import build_matchup_flags_report, build_play_type_ev_report
 from services.team_focus_service import build_team_focus_levers_report
 from services.team_rotation_service import build_team_rotation_report
 

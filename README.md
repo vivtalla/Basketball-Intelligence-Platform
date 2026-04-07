@@ -102,8 +102,8 @@ source venv/bin/activate
 # Install dependencies
 pip install -r requirements.txt
 
-# Set up the database (creates all tables)
-python -m db.ensure_schema
+# Set up or upgrade the database schema
+python -m db.migrations
 
 # Start the API server
 uvicorn main:app --reload
@@ -175,7 +175,8 @@ backend/
   services/             → Business logic (PBP processing, on/off computation, metrics)
   db/
     models.py           → ORM models (Player, SeasonStat, PlayerGameLog, PlayByPlay, PlayerOnOff, LineupStats, ...)
-    ensure_schema.py    → Schema management utility
+    ensure_schema.py    → Compatibility wrapper for the migration workflow
+    migrations.py       → Programmatic migration entry point
   data/
     nba_client.py       → NBA API wrapper with rate limiting and caching
     cache.py            → SQLite CacheManager
@@ -200,7 +201,7 @@ frontend/
 
 **External metrics are labeled.** RAPTOR, EPM, PIPM, LEBRON, and RAPM are imported from public sources. They're displayed with their provenance and never mixed with platform-computed metrics without clear distinction.
 
-**No Alembic.** Schema changes use `ensure_schema.py` — a lightweight `Base.metadata.create_all` + `ALTER TABLE` helper. Simple enough for the current scale.
+**Schema changes are migration-driven.** Use Alembic-backed migrations via `python -m db.migrations`. `ensure_schema.py` remains as a compatibility wrapper for older local workflows, but app startup no longer mutates the database schema automatically.
 
 ---
 

@@ -251,6 +251,7 @@ def test_team_intelligence_modern_season_uses_warehouse_and_standings():
         response = build_team_intelligence(session, atl.abbreviation, "2025-26")
 
         assert response.canonical_source == "warehouse"
+        assert response.runtime_policy == "warehouse-first"
         assert response.data_status == "partial"
         assert response.conference == "East"
         assert response.playoff_rank == 1
@@ -268,7 +269,8 @@ def test_team_intelligence_historical_season_degrades_to_limited():
         atl = seed_historical_context(session)
         response = build_team_intelligence(session, atl.abbreviation, "2023-24")
 
-        assert response.canonical_source == "legacy-plus-derived"
+        assert response.canonical_source == "legacy-compatibility"
+        assert response.runtime_policy == "legacy-compatibility"
         assert response.data_status == "limited"
         assert response.pbp_coverage.synced_games == 1
         assert response.recent_games[0].game_id == "9000000001"
@@ -283,6 +285,7 @@ def test_prep_queue_orders_games_and_surfaces_context():
         response = build_team_prep_queue(session, atl.abbreviation, "2025-26", days=7, today=date.today())
 
         assert response.canonical_source == "warehouse"
+        assert response.runtime_policy == "warehouse-first"
         assert response.data_status == "ready"
         assert [item.game_id for item in response.items] == ["0022690001", "0022690002"]
 

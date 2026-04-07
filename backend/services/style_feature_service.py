@@ -34,6 +34,20 @@ STYLE_FEATURES = [
     "ftr",
 ]
 
+STYLE_COMPARISON_META: Dict[str, Tuple[str, bool, str]] = {
+    "off_rating": ("Offensive Rating", True, "number"),
+    "def_rating": ("Defensive Rating", False, "number"),
+    "net_rating": ("Net Rating", True, "signed"),
+    "pace": ("Pace", True, "number"),
+    "ts_pct": ("True Shooting%", True, "percent"),
+    "efg_pct": ("Effective FG%", True, "percent"),
+    "three_point_rate": ("3PA Rate", True, "percent"),
+    "ftr": ("Free Throw Rate", True, "percent"),
+    "oreb_rate": ("Offensive Rebound Rate", True, "percent"),
+    "turnover_rate": ("Turnover Rate", False, "percent"),
+    "assist_rate": ("Assist Rate", True, "percent"),
+}
+
 
 def _team_query(db: Session, team_abbr: str) -> Team:
     team = db.query(Team).filter(Team.abbreviation == team_abbr.upper()).first()
@@ -166,6 +180,14 @@ def _recent_drift(recent_profile: Dict[str, Optional[float]], season_profile: Di
     return drift
 
 
+def _comparison_edge(team_value: Optional[float], opponent_value: Optional[float], higher_better: bool) -> str:
+    if team_value is None or opponent_value is None or abs(team_value - opponent_value) < 1e-9:
+        return "even"
+    if higher_better:
+        return "entity_a" if team_value > opponent_value else "entity_b"
+    return "entity_a" if team_value < opponent_value else "entity_b"
+
+
 def _scenario_bins(profile: Dict[str, Optional[float]], league_rows: Sequence[Dict[str, Optional[float]]]) -> List[Dict[str, Any]]:
     pace = profile.get("pace") or 0.0
     ts = profile.get("ts_pct") or 0.0
@@ -280,6 +302,44 @@ def build_team_style_profile(
         "supporting_games": len(rows),
         "pace_percentile": percentile_rank(season_profile.get("pace"), pace_values),
     }
+
+
+def build_style_metric_snapshot(
+    db: Session,
+    team_abbr: str,
+    season: str,
+    window_games: int = 10,
+) -> Dict[str, Optional[float]]:
+    profile = build_team_style_profile(db, team_abbr, season, window_games=window_games)
+    snapshot: Dict[str, Optional[float]] = {}
+    for metric_id in STYLE_COMPARISON_META.keys():
+        snapshot[metric_id] = profile["current_profile"].get(metric_id)
+    return snapshot
+
+
+def build_style_matchup_snapshot(
+    db: Session,
+    team_abbr: str,
+    opponent_abbr: str,
+    season: str,
+    window_games: int = 10,
+) -> Dict[str, Dict[str, Any]]:
+    team_metrics = build_style_metric_snapshot(db, team_abbr, season, window_games=window_games)
+    opponent_metrics = build_style_metric_snapshot(db, opponent_abbr, season, window_games=window_games)
+    rows: Dict[str, Dict[str, Any]] = {}
+    for metric_id, (label, higher_better, value_format) in STYLE_COMPARISON_META.items():
+        team_value = team_metrics.get(metric_id)
+        opponent_value = opponent_metrics.get(metric_id)
+        rows[metric_id] = {
+            "stat_id": metric_id,
+            "label": label,
+            "entity_a_value": safe_round(team_value, 2),
+            "entity_b_value": safe_round(opponent_value, 2),
+            "higher_better": higher_better,
+            "format": value_format,
+            "edge": _comparison_edge(team_value, opponent_value, higher_better),
+        }
+    return rows
 
 
 def build_style_vector_lookup(

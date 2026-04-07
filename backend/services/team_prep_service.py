@@ -11,15 +11,9 @@ from sqlalchemy.orm import Session
 from db.models import PreReadSnapshot, Team, TeamStanding, WarehouseGame
 from models.team import TeamPrepQueueItem, TeamPrepQueueResponse
 from services.compare_service import build_team_comparison_report
+from services.runtime_data_policy import canonical_source_for_season, is_modern_warehouse_season, runtime_policy_for_season
 from services.team_availability_service import build_team_availability
 from services.team_focus_service import build_team_focus_levers_report
-
-
-def _is_modern_warehouse_season(season: str) -> bool:
-    try:
-        return int(season[:4]) >= 2024
-    except (TypeError, ValueError):
-        return False
 
 
 def _team_schedule_rows(db: Session, team_id: int, season: str) -> List[WarehouseGame]:
@@ -264,14 +258,15 @@ def build_team_prep_queue(
 
     today = today or date.today()
     schedule_rows = _team_schedule_rows(db, team.id, season)
-    if not _is_modern_warehouse_season(season):
+    if not is_modern_warehouse_season(season):
         return TeamPrepQueueResponse(
             team_id=team.id,
             abbreviation=team.abbreviation,
             name=team.name,
             season=season,
             data_status="limited",
-            canonical_source="legacy-plus-derived",
+            canonical_source=canonical_source_for_season(season),
+            runtime_policy=runtime_policy_for_season(season),
             generated_at=datetime.utcnow().isoformat(),
             items=[],
         )
@@ -420,7 +415,8 @@ def build_team_prep_queue(
         name=team.name,
         season=season,
         data_status=data_status,
-        canonical_source="warehouse",
+        canonical_source=canonical_source_for_season(season),
+        runtime_policy=runtime_policy_for_season(season),
         generated_at=datetime.utcnow().isoformat(),
         items=items,
     )

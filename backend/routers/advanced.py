@@ -26,7 +26,6 @@ from models.stats import (
     PbpCoverageTeamRow,
 )
 from services.pbp_sync_service import sync_pbp_for_player, sync_pbp_for_season
-from services.sync_service import sync_player_if_needed
 
 router = APIRouter()
 
@@ -256,10 +255,9 @@ def sync_season_pbp(season: str, force_refresh: bool = False):
 
 
 @router.post("/{player_id}/sync-pbp")
-def sync_player_pbp(player_id: int, season: str, db: Session = Depends(get_db), force_refresh: bool = False):
+def sync_player_pbp(player_id: int, season: str, force_refresh: bool = False):
     """Fetch or reuse player-season play-by-play and rebuild player-level derived stats."""
     try:
-        sync_player_if_needed(db, player_id)
         return sync_pbp_for_player(player_id, season, force_refresh=force_refresh)
     except Exception as exc:
         raise HTTPException(status_code=500, detail=f"PBP player sync failed: {exc}")

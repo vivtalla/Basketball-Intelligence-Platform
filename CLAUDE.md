@@ -10,7 +10,7 @@ CourtVue Labs is a full-stack NBA analytics platform for player evaluation, team
 - **Backend**: FastAPI (Python), async endpoints, Pydantic v2 for validation
 - **Database**: PostgreSQL (primary via SQLAlchemy 2.0), SQLite (`cache.db` — NBA API response cache only)
 - **Data Sources**: `nba_api` (NBA.com Stats API), CSV imports for external metrics (LEBRON, RAPTOR, PIPM, EPM, RAPM)
-- **Schema Management**: `db/ensure_schema.py` (no Alembic — project uses `Base.metadata.create_all` + manual `ALTER TABLE` helpers)
+- **Schema Management**: Alembic migrations (`backend/alembic/`) with `db/ensure_schema.py` retained only as a compatibility wrapper
 
 ---
 
@@ -26,7 +26,8 @@ backend/
   db/
     database.py             → SQLAlchemy engine & session factory (get_db dependency)
     models.py               → ORM models — see table below
-    ensure_schema.py        → Schema creation: run `python -m db.ensure_schema` to apply
+    ensure_schema.py        → Compatibility wrapper for the Alembic migration path
+    migrations.py           → Programmatic migration entry point (`python -m db.migrations`)
   data/
     nba_client.py           → NBA API wrapper (rate limiting, CacheManager, _cache_ttl_for_season)
     cache.py                → SQLite CacheManager (get/set/delete)
@@ -76,11 +77,11 @@ npm run lint                                 # ESLint
 ### Schema Updates
 
 ```bash
-# Run from backend/ — creates new tables, adds missing columns
-python -m db.ensure_schema
+# Run from backend/ — canonical schema upgrade path
+python -m db.migrations
 ```
 
-> **Note:** No Alembic. New ORM models are picked up by `Base.metadata.create_all()`. New columns on existing tables require an `ensure_column_exists()` call in `apply_schema_updates()`.
+> **Note:** Schema evolution is migration-driven. `python -m db.ensure_schema` still works as a compatibility alias, but new schema work should land as Alembic revisions.
 
 ### Data Import
 
@@ -173,7 +174,7 @@ POST /api/advanced/sync-season   body: {"season": "2024-25"}
 - **The salary cap changes every season.** Never hardcode cap numbers.
 - **External metrics are proprietary.** RAPTOR, EPM, LEBRON, etc. are imported. Always attribute source.
 - **SQLite `cache.db` is for NBA API response caching only** — PostgreSQL is the primary datastore.
-- **No Alembic.** Schema changes go through `ensure_schema.py`. New tables: add model + run `python -m db.ensure_schema`. New columns on existing tables: add `ensure_column_exists()` call.
+- **Schema changes are migration-driven.** Use Alembic revisions and `python -m db.migrations`; do not rely on app-startup DDL.
 - **Python 3.8.** No union type syntax (`X | Y`), no `list[X]` subscripting at runtime in type hints.
 
 ---
@@ -256,6 +257,14 @@ CourtVue Labs uses a hybrid sprint model: major feature sprints typically run as
 ## Recent Sprints
 
 > Full history → `specs/sprint-history.md`
+
+### Sprint 43 — Foundation Hardening and Architecture Audit
+
+- Replaced startup-time schema mutation with Alembic-backed migrations and turned `ensure_schema.py` into a compatibility wrapper instead of the real schema system
+- Removed the remaining request-time player bootstrap from the advanced PBP sync flow so modern runtime behavior stays DB-first and explicit
+- Collapsed the decision stack behind one canonical service layer and reduced the decision router to transport-only handlers
+- Added explicit `runtime_policy` metadata plus a durable Sprint 43 architecture audit note documenting findings, remediations, and remaining debt
+- Verified with targeted migration/decision/prep backend tests, full backend `pytest`, `python -m compileall backend`, and frontend `npm run lint` / `npm run build`
 
 ### Sprint 42 — Opponent-Aware Prep and Decision Workflow
 
