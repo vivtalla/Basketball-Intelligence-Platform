@@ -35,6 +35,44 @@ SORTABLE_STATS = {
 
 LEADERBOARD_METRIC_FIELDS = tuple(sorted(SORTABLE_STATS))
 
+# Pct fields that can be derived from raw counts when the stored column is NULL.
+_DERIVED_PCTS = {
+    "fg_pct":  ("fgm",  "fga",  None),
+    "fg3_pct": ("fg3m", "fg3a", None),
+    "ft_pct":  ("ftm",  "fta",  None),
+    # efg = (fgm + 0.5 * fg3m) / fga  — handled separately
+}
+
+
+def _metric_value(stat_row: "SeasonStat", key: str) -> Optional[float]:  # type: ignore[name-defined]
+    value = getattr(stat_row, key, None)
+    if value is not None:
+        return float(value)
+    # Derive shooting pcts from raw counts when the stored column is NULL
+    if key in _DERIVED_PCTS:
+        made_attr, att_attr, _ = _DERIVED_PCTS[key]
+        att = getattr(stat_row, att_attr, None) or 0
+        if not att:
+            return None
+        made = getattr(stat_row, made_attr, None) or 0
+        return round(made / att, 3)
+    if key == "efg_pct":
+        fga = getattr(stat_row, "fga", None) or 0
+        if not fga:
+            return None
+        fgm = getattr(stat_row, "fgm", None) or 0
+        fg3m = getattr(stat_row, "fg3m", None) or 0
+        return round((fgm + 0.5 * fg3m) / fga, 3)
+    if key == "ts_pct":
+        # TS% = PTS / (2 * (FGA + 0.44 * FTA))
+        pts = getattr(stat_row, "pts", None) or 0
+        fga = getattr(stat_row, "fga", None) or 0
+        fta = getattr(stat_row, "fta", None) or 0
+        denom = 2 * (fga + 0.44 * fta)
+        return round(pts / denom, 3) if denom else None
+    return None
+
+
 CAREER_SORTABLE_STATS = {
     "pts_pg", "reb_pg", "ast_pg", "stl_pg", "blk_pg",
     "bpm", "ws", "vorp", "per", "ts_pct",
@@ -147,9 +185,8 @@ def leaderboard(
             per=stat_row.per,
             bpm=stat_row.bpm,
             metric_values={
-                key: (float(value) if value is not None else None)
+                key: _metric_value(stat_row, key)
                 for key in LEADERBOARD_METRIC_FIELDS
-                for value in [getattr(stat_row, key, None)]
             },
         )
         for rank, (stat_row, player) in enumerate(rows, start=1)

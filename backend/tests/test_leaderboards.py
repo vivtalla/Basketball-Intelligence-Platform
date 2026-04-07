@@ -6,6 +6,8 @@ from sqlalchemy.orm import sessionmaker
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
+from sqlalchemy import text  # noqa: E402
+
 from db.database import Base  # noqa: E402
 from db.models import Player, SeasonStat, Team  # noqa: E402
 from routers.leaderboards import leaderboard  # noqa: E402
@@ -57,5 +59,48 @@ def test_leaderboard_supports_total_box_score_stats():
         assert len(response.entries) == 2
         assert response.entries[0].player_name == "Alpha Scorer"
         assert response.entries[0].stat_value == 1800.0
+    finally:
+        session.close()
+
+
+def test_leaderboard_derives_shooting_pcts_from_raw_counts_when_stored_column_is_null():
+    """Rows synced before efg_pct was computed should still show the derived value."""
+    session = make_session()
+    try:
+        team = Team(id=1610612747, abbreviation="LAL", name="Los Angeles Lakers")
+        player = Player(id=3, full_name="Big Man", first_name="Big", last_name="Man", team_id=team.id, is_active=True)
+        session.add_all([team, player])
+        session.flush()
+
+        stat = SeasonStat(
+            player_id=player.id,
+            season="2025-26",
+            team_abbreviation="LAL",
+            is_playoff=False,
+            gp=65,
+            fgm=400, fga=600,
+            fg3m=0, fg3a=0,
+            ftm=150, fta=200,
+            pts_pg=14.5,
+        )
+        session.add(stat)
+        session.flush()
+
+        # efg_pct has no Column default so it is genuinely NULL after insert.
+        # Force fg_pct / ft_pct to NULL as well to test derivation for both paths.
+        session.execute(
+            text("UPDATE season_stats SET efg_pct = NULL, fg_pct = NULL, ft_pct = NULL WHERE player_id = 3")
+        )
+        session.commit()
+        session.expire_all()
+
+        response = leaderboard(season="2025-26", stat="pts_pg", season_type="Regular Season", limit=25, min_gp=15, team=None, db=session)
+        assert len(response.entries) == 1
+        mv = response.entries[0].metric_values
+
+        assert mv.get("fg_pct") == round(400 / 600, 3)
+        assert mv.get("ft_pct") == round(150 / 200, 3)
+        assert mv.get("efg_pct") == round(400 / 600, 3)   # no 3s: efg = fgm/fga
+        assert mv.get("fg3_pct") == 0.0                   # stored 0 (default=0, no 3PA)
     finally:
         session.close()
