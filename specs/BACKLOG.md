@@ -212,14 +212,14 @@ Likely shape:
 - improve metric-to-compare and metric-to-player handoff
 - explore whether saved state should stay URL-based or evolve toward richer reusable workspaces
 
-### Player Stats Workspace Polish
+### Player Stats Saved Views and Workflow Follow-Ons
 Why it matters:
-The platform now has stronger editorial surfaces elsewhere, so Player Stats should feel like a first-class workspace too.
+Sprint 44 substantially upgraded the Player Stats workspace with better hierarchy, spotlighting, mobile scan-ability, and URL-backed workspace state. The next gains are no longer basic polish; they are workflow and reuse improvements.
 
 Likely shape:
-- improve layout, hierarchy, and legibility
-- tighten labels and full-name consistency across high-traffic surfaces
-- make the workspace feel more analytical and less table-first
+- add named saved views or presets on top of the current URL-backed state model
+- improve export or copy-ready sharing so filters and board context are easier to hand off in staff workflows
+- keep refining dense-table ergonomics only where real workflow friction remains, instead of reopening general visual polish
 
 ---
 

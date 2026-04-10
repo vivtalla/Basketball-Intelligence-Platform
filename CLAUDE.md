@@ -258,6 +258,14 @@ CourtVue Labs uses a hybrid sprint model: major feature sprints typically run as
 
 > Full history → `specs/sprint-history.md`
 
+### Sprint 44 — Official Data Canonicalization and Player Stats Overhaul
+
+- Added canonical persisted official team-season dashboards plus daily sync coverage for both official player and team season rows
+- Shifted team analytics onto the persisted team-season source of truth and documented the official-domain map in `specs/official-data-source-matrix.md`
+- Expanded leaderboard payloads across the full sortable stat library, then fixed shooting percentages to derive from raw counts when stored percent columns are missing
+- Turned `Player Stats` into a stronger workspace with metric groups, quick metric switching, spotlight cards, mobile row context, richer empty/loading states, and URL-backed filter plus table-preference sharing
+- Verified with targeted official-data / leaderboard backend tests and frontend `npm run lint` / `npm run build`
+
 ### Sprint 43 — Foundation Hardening and Architecture Audit
 
 - Replaced startup-time schema mutation with Alembic-backed migrations and turned `ensure_schema.py` into a compatibility wrapper instead of the real schema system
@@ -265,13 +273,6 @@ CourtVue Labs uses a hybrid sprint model: major feature sprints typically run as
 - Collapsed the decision stack behind one canonical service layer and reduced the decision router to transport-only handlers
 - Added explicit `runtime_policy` metadata plus a durable Sprint 43 architecture audit note documenting findings, remediations, and remaining debt
 - Verified with targeted migration/decision/prep backend tests, full backend `pytest`, `python -m compileall backend`, and frontend `npm run lint` / `npm run build`
-
-### Sprint 42 — Opponent-Aware Prep and Decision Workflow
-
-- Upgraded prep cards with opponent-aware urgency, best-edge, and first-adjustment rationale so the queue now feels like a coaching prompt instead of only a routing layer
-- Rebuilt the team decision tab onto backend lineup-impact, matchup-flags, play-type pressure, and follow-through reports so opponent changes meaningfully alter the workspace
-- Extended focus levers and pre-read so the same coaching story survives from prep queue into deck, compare, and replay follow-through
-- Verified the sprint with targeted prep/decision/coaching backend tests, full backend `pytest`, frontend `npm run build`, and local prep/decision route smoke checks
 
 ### Sprint 41 — Replay Adoption Across Insights
 

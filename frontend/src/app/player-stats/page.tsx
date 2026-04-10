@@ -164,33 +164,88 @@ const MAX_FILTERS = 3;
 
 type BoardMode = "players" | "onoff" | "lineups" | "career";
 
+const MODE_META: Record<BoardMode, { label: string; eyebrow: string; description: string }> = {
+  players: {
+    label: "Player Stats",
+    eyebrow: "League-wide leaderboard",
+    description: "Sort across the full metric library, stack filters, and scan the current season from one analyst-friendly table.",
+  },
+  onoff: {
+    label: "On/Off Impact",
+    eyebrow: "Play-by-play impact board",
+    description: "Track which players move team net rating most strongly when they are on versus off the floor.",
+  },
+  lineups: {
+    label: "Top Lineups",
+    eyebrow: "Five-man performance board",
+    description: "Review the best-performing lineup groups by minutes, possessions, and possession-based efficiency.",
+  },
+  career: {
+    label: "Career Leaders",
+    eyebrow: "Multi-season context",
+    description: "Compare long-run career production across the seasons currently persisted in the database.",
+  },
+};
+
+function summarizeScope(parts: Array<string | null | undefined | false>): string {
+  return parts.filter(Boolean).join(" • ");
+}
+
+function parseFiltersParam(raw: string | null): FilterCondition[] {
+  if (!raw) return [];
+  return raw
+    .split(";")
+    .map((part) => {
+      const [stat, operator, value] = part.split(",");
+      const parsedValue = Number(value);
+      if (!stat || (operator !== "gte" && operator !== "lte") || Number.isNaN(parsedValue)) {
+        return null;
+      }
+      return { stat, operator, value: parsedValue } as FilterCondition;
+    })
+    .filter((item): item is FilterCondition => item !== null)
+    .slice(0, MAX_FILTERS);
+}
+
+function serializeFiltersParam(filters: FilterCondition[]): string {
+  return filters.map((filter) => `${filter.stat},${filter.operator},${filter.value}`).join(";");
+}
+
+function parsePositiveIntParam(raw: string | null, fallback: number): number {
+  const parsed = Number(raw);
+  return Number.isFinite(parsed) && parsed >= 0 ? parsed : fallback;
+}
+
 // ─── Inner component (uses useSearchParams) ───────────────────────────────────
 
 function PlayerStatsPageContent() {
   const uid = useId();
   const router = useRouter();
   const searchParams = useSearchParams();
+  const initialSeasonParam = searchParams.get("season");
 
   // Initialize state from URL params
   const [mode, setMode] = useState<BoardMode>((searchParams.get("mode") as BoardMode) || "players");
   const [stat, setStat] = useState(searchParams.get("stat") || "pts_pg");
   const [careerStat, setCareerStat] = useState(searchParams.get("careerStat") || "pts_pg");
-  const [season, setSeason] = useState(searchParams.get("season") || "");
+  const [season, setSeason] = useState(initialSeasonParam || "");
   const [seasonType, setSeasonType] = useState<"Regular Season" | "Playoffs">(
     (searchParams.get("seasonType") as "Regular Season" | "Playoffs") || "Regular Season"
   );
   const [teamFilter, setTeamFilter] = useState(searchParams.get("team") || "");
   const [seasons, setSeasons] = useState<string[]>([]);
   const [teams, setTeams] = useState<string[]>([]);
-  const [onOffMinMinutes, setOnOffMinMinutes] = useState(200);
-  const [lineupMinMinutes, setLineupMinMinutes] = useState(15);
+  const [onOffMinMinutes, setOnOffMinMinutes] = useState(parsePositiveIntParam(searchParams.get("onMin"), 200));
+  const [lineupMinMinutes, setLineupMinMinutes] = useState(parsePositiveIntParam(searchParams.get("lineupMin"), 15));
   const [isSyncingSeason, setIsSyncingSeason] = useState(false);
   const [seasonSyncMessage, setSeasonSyncMessage] = useState<string | null>(null);
   const [activeMetricGroup, setActiveMetricGroup] = useState(STAT_GROUPS[0].label);
+  const [compactRows, setCompactRows] = useState(searchParams.get("density") === "compact");
+  const [pinKeyColumns, setPinKeyColumns] = useState(searchParams.get("pin") !== "0");
 
   // Filter state — up to MAX_FILTERS conditions
-  const [filters, setFilters] = useState<FilterCondition[]>([]);
-  const [showFilterPanel, setShowFilterPanel] = useState(false);
+  const [filters, setFilters] = useState<FilterCondition[]>(() => parseFiltersParam(searchParams.get("filters")));
+  const [showFilterPanel, setShowFilterPanel] = useState(searchParams.get("panel") === "1");
 
   // New-filter form state
   const [newStat, setNewStat] = useState("ts_pct");
@@ -201,10 +256,10 @@ function PlayerStatsPageContent() {
     getAvailableSeasons()
       .then((s) => {
         setSeasons(s);
-        if (s.length > 0 && !searchParams.get("season")) setSeason(s[0]);
+        if (s.length > 0 && !initialSeasonParam) setSeason(s[0]);
       })
       .catch(() => {});
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [initialSeasonParam]);
 
   // Fetch team list when season changes
   useEffect(() => {
@@ -224,8 +279,28 @@ function PlayerStatsPageContent() {
     params.set("season", season);
     params.set("seasonType", seasonType);
     if (teamFilter) params.set("team", teamFilter);
+    if (filters.length > 0) params.set("filters", serializeFiltersParam(filters));
+    if (showFilterPanel) params.set("panel", "1");
+    if (compactRows) params.set("density", "compact");
+    if (!pinKeyColumns) params.set("pin", "0");
+    if (onOffMinMinutes !== 200) params.set("onMin", String(onOffMinMinutes));
+    if (lineupMinMinutes !== 15) params.set("lineupMin", String(lineupMinMinutes));
     router.replace(`?${params.toString()}`, { scroll: false });
-  }, [mode, stat, careerStat, season, seasonType, teamFilter]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [
+    mode,
+    stat,
+    careerStat,
+    season,
+    seasonType,
+    teamFilter,
+    filters,
+    showFilterPanel,
+    compactRows,
+    pinKeyColumns,
+    onOffMinMinutes,
+    lineupMinMinutes,
+    router,
+  ]);
 
   useEffect(() => {
     const nextGroup = GROUP_BY_STAT.get(stat);
@@ -334,11 +409,90 @@ function PlayerStatsPageContent() {
   const statLabel = getStatMeta(stat).label;
   const careerStatMeta = getStatMeta(careerStat);
   const activeMetricOptions = STAT_GROUPS.find((group) => group.label === activeMetricGroup)?.options ?? STAT_GROUPS[0].options;
+  const modeMeta = MODE_META[mode];
 
   const tableMetricCols = activeMetricOptions;
+  const playerResultsCount = filteredEntries.length;
+  const playerSourceCount = playersBoard.data?.entries.length ?? 0;
+  const onOffCount = onOffBoard.data?.players.length ?? 0;
+  const lineupCount = lineupsBoard.data?.lineups.length ?? 0;
+  const careerCount = careerBoard.data?.entries.length ?? 0;
+
+  const summaryCards =
+    mode === "players"
+      ? [
+          { label: "Board", value: statLabel, detail: activeMetricGroup },
+          { label: "Scope", value: summarizeScope([season || "Loading season", seasonType, teamFilter || "All Teams"]), detail: `${playerSourceCount} loaded` },
+          { label: "Results", value: `${playerResultsCount}`, detail: filters.length > 0 ? `from top ${playerSourceCount}` : "ranked rows" },
+          { label: "Filters", value: filters.length ? `${filters.length} active` : "None", detail: filters.length ? "All conditions must match" : "Optional narrow-downs" },
+        ]
+      : mode === "career"
+      ? [
+          { label: "Board", value: careerStatMeta.label, detail: "Career average sort" },
+          { label: "Coverage", value: `${careerCount}`, detail: "ranked careers" },
+          { label: "Season rule", value: "15+ GP", detail: "per included season" },
+          { label: "Lens", value: "All saved seasons", detail: "database-backed only" },
+        ]
+      : mode === "onoff"
+      ? [
+          { label: "Season", value: season || "Loading season", detail: `${onOffCount} player rows` },
+          { label: "Threshold", value: `${onOffMinMinutes} min`, detail: "minimum on-court sample" },
+          { label: "Sort", value: "On/Off Net", detail: "highest impact first" },
+          { label: "Source", value: "Local PBP", detail: "derived possession data" },
+        ]
+      : [
+          { label: "Season", value: season || "Loading season", detail: `${lineupCount} lineups` },
+          { label: "Threshold", value: `${lineupMinMinutes} min`, detail: "minimum lineup sample" },
+          { label: "Sort", value: "Net Rating", detail: "possession-based ranks" },
+          { label: "Source", value: "Local PBP", detail: "five-man stint data" },
+        ];
+
+  const spotlightCards =
+    mode === "players"
+      ? filteredEntries.slice(0, 3).map((entry, index) => ({
+          key: `player-${entry.player_id}`,
+          label: index === 0 ? `Top ${statLabel}` : `Rank ${index + 1}`,
+          title: entry.player_name,
+          value: formatStat(entry.stat_value, getStatMeta(stat).fmt),
+          detail: summarizeScope([entry.team_abbreviation, `${entry.gp} GP`]),
+        }))
+      : mode === "career"
+      ? (careerBoard.data?.entries ?? []).slice(0, 3).map((entry, index) => ({
+          key: `career-${entry.player_id}`,
+          label: index === 0 ? `Career leader` : `Rank ${index + 1}`,
+          title: entry.player_name,
+          value: formatStat(entry.stat_value, careerStatMeta.fmt),
+          detail: `${entry.seasons_played} seasons • ${entry.career_gp} GP`,
+        }))
+      : mode === "onoff"
+      ? (onOffBoard.data?.players ?? []).slice(0, 3).map((entry, index) => ({
+          key: `onoff-${entry.player_id}`,
+          label: index === 0 ? "Best on/off swing" : `Rank ${index + 1}`,
+          title: entry.player_name,
+          value: formatSigned(entry.on_off_net),
+          detail: `${entry.on_minutes?.toFixed(1) ?? "-"} on-court min`,
+        }))
+      : (lineupsBoard.data?.lineups ?? []).slice(0, 3).map((lineup, index) => ({
+          key: `lineup-${lineup.lineup_key}`,
+          label: index === 0 ? "Best lineup" : `Rank ${index + 1}`,
+          title: lineup.player_names.join(" • "),
+          value: formatSigned(lineup.net_rating),
+          detail: `${lineup.minutes?.toFixed(1) ?? "-"} min • ${lineup.possessions ?? 0} poss`,
+        }));
+  const stickyRankClass = pinKeyColumns ? "sticky left-0 z-10 bg-white dark:bg-gray-800" : "";
+  const stickyPlayerClass = pinKeyColumns ? "sticky left-10 z-10 bg-white dark:bg-gray-800" : "";
+  const rowPaddingClass = compactRows ? "py-2" : "py-3";
+  const loadingMessage =
+    mode === "players"
+      ? "Loading leaderboard rows and filter context..."
+      : mode === "career"
+      ? "Loading saved career leaderboard..."
+      : mode === "onoff"
+      ? "Loading play-by-play impact board..."
+      : "Loading lineup performance board...";
 
   return (
-    <div className="max-w-5xl mx-auto">
+    <div className="max-w-6xl mx-auto">
       <div className="mb-6">
         <Link
           href="/"
@@ -348,11 +502,39 @@ function PlayerStatsPageContent() {
         </Link>
       </div>
 
-      <div className="mb-6">
-        <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100 mb-2">Player Stats</h1>
-        <p className="text-gray-500 dark:text-gray-400">
-          Scan player, on/off, lineup, and career leaderboards from one dedicated stats workspace, with the full metric library surfaced directly on the page.
-        </p>
+      <div className="mb-6 rounded-[28px] border border-slate-200/80 bg-[linear-gradient(135deg,rgba(255,255,255,0.98),rgba(239,246,255,0.92),rgba(240,249,255,0.88))] p-5 shadow-sm dark:border-slate-700 dark:bg-[linear-gradient(135deg,rgba(15,23,42,0.95),rgba(30,41,59,0.96),rgba(15,23,42,0.92))] sm:p-7">
+        <div className="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
+          <div className="max-w-3xl">
+            <p className="mb-2 text-[11px] font-semibold uppercase tracking-[0.24em] text-sky-600 dark:text-sky-300">
+              {modeMeta.eyebrow}
+            </p>
+            <h1 className="text-3xl font-bold tracking-tight text-slate-900 dark:text-slate-50 sm:text-4xl">
+              {modeMeta.label}
+            </h1>
+            <p className="mt-3 max-w-2xl text-sm leading-6 text-slate-600 dark:text-slate-300 sm:text-base">
+              {modeMeta.description}
+            </p>
+          </div>
+
+          <div className="grid w-full gap-3 sm:grid-cols-2 lg:w-[420px]">
+            {summaryCards.map((card) => (
+              <div
+                key={card.label}
+                className="rounded-2xl border border-white/70 bg-white/80 px-4 py-3 backdrop-blur dark:border-slate-700/80 dark:bg-slate-900/50"
+              >
+                <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">
+                  {card.label}
+                </p>
+                <p className="mt-1 text-sm font-semibold text-slate-900 dark:text-slate-100 sm:text-base">
+                  {card.value}
+                </p>
+                <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+                  {card.detail}
+                </p>
+              </div>
+            ))}
+          </div>
+        </div>
       </div>
 
       {/* ── Mode tabs ── */}
@@ -373,147 +555,235 @@ function PlayerStatsPageContent() {
       </div>
 
       {/* ── Controls row ── */}
-      <div className="flex flex-wrap items-center gap-3 mb-3">
-        {mode === "players" && (
-          <select
-            value={activeMetricGroup}
-            onChange={(e) => {
-              const nextGroup = e.target.value;
-              setActiveMetricGroup(nextGroup);
-              const nextOptions = STAT_GROUPS.find((group) => group.label === nextGroup)?.options ?? [];
-              if (!nextOptions.some((option) => option.key === stat) && nextOptions[0]) {
-                setStat(nextOptions[0].key);
-              }
-            }}
-            className="text-sm border border-gray-200 dark:border-gray-600 rounded-lg px-3 py-2 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
-          >
-            {STAT_GROUPS.map((group) => (
-              <option key={group.label} value={group.label}>{group.label}</option>
-            ))}
-          </select>
-        )}
-
-        {mode === "players" && (
-          <select
-            value={stat}
-            onChange={(e) => setStat(e.target.value)}
-            className="text-sm border border-gray-200 dark:border-gray-600 rounded-lg px-3 py-2 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
-          >
-            {activeMetricOptions.map((opt) => (
-              <option key={opt.key} value={opt.key}>{opt.label}</option>
-            ))}
-          </select>
-        )}
-
-        {mode === "career" && (
-          <select
-            value={careerStat}
-            onChange={(e) => setCareerStat(e.target.value)}
-            className="text-sm border border-gray-200 dark:border-gray-600 rounded-lg px-3 py-2 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
-          >
-            {CAREER_OPTIONS.map((opt) => (
-              <option key={opt.key} value={opt.key}>{opt.label}</option>
-            ))}
-          </select>
-        )}
-
-        {mode !== "career" && (
-          <select
-            value={season}
-            onChange={(e) => { setSeason(e.target.value); setTeamFilter(""); }}
-            disabled={seasons.length === 0}
-            className="text-sm border border-gray-200 dark:border-gray-600 rounded-lg px-3 py-2 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50"
-          >
-            {seasons.map((s) => (
-              <option key={s} value={s}>{s}</option>
-            ))}
-          </select>
-        )}
-
-        {mode === "players" && (
-          <div className="flex rounded-lg overflow-hidden border border-gray-200 dark:border-gray-600 text-sm">
-            {(["Regular Season", "Playoffs"] as const).map((type) => (
-              <button
-                key={type}
-                onClick={() => setSeasonType(type)}
-                className={`px-4 py-2 transition-colors ${
-                  seasonType === type
-                    ? "bip-toggle-active"
-                    : "bip-toggle"
-                }`}
-              >
-                {type}
-              </button>
-            ))}
-          </div>
-        )}
-
-        {/* Team filter — only in players mode */}
-        {mode === "players" && teams.length > 0 && (
-          <select
-            value={teamFilter}
-            onChange={(e) => setTeamFilter(e.target.value)}
-            className="text-sm border border-gray-200 dark:border-gray-600 rounded-lg px-3 py-2 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
-          >
-            <option value="">All Teams</option>
-            {teams.map((t) => (
-              <option key={t} value={t}>{t}</option>
-            ))}
-          </select>
-        )}
-
-        {mode === "onoff" && (
-          <label className="text-sm text-gray-600 dark:text-gray-300">
-            Min on-court minutes:
-            <input
-              type="number" min={0} step={10} value={onOffMinMinutes}
-              onChange={(e) => setOnOffMinMinutes(Number(e.target.value) || 0)}
-              className="ml-2 w-24 border border-gray-200 dark:border-gray-600 rounded-lg px-2 py-1.5 bg-white dark:bg-gray-800"
-            />
-          </label>
-        )}
-
-        {mode === "lineups" && (
-          <label className="text-sm text-gray-600 dark:text-gray-300">
-            Min lineup minutes:
-            <input
-              type="number" min={0} step={5} value={lineupMinMinutes}
-              onChange={(e) => setLineupMinMinutes(Number(e.target.value) || 0)}
-              className="ml-2 w-24 border border-gray-200 dark:border-gray-600 rounded-lg px-2 py-1.5 bg-white dark:bg-gray-800"
-            />
-          </label>
-        )}
-
-        {mode !== "players" && mode !== "career" && season && (
-          <button
-            onClick={handleSeasonSync}
-            disabled={isSyncingSeason}
-            className="rounded-lg bg-blue-600 px-3 py-2 text-sm font-medium text-white transition-colors hover:bg-blue-700 disabled:cursor-wait disabled:opacity-60"
-          >
-            {isSyncingSeason ? "Syncing Season PBP..." : "Sync Season PBP"}
-          </button>
-        )}
-
-        {/* Filter toggle — only in players mode */}
-        {mode === "players" && (
-          <button
-            onClick={() => setShowFilterPanel((v) => !v)}
-            className={`relative flex items-center gap-1.5 rounded-lg border px-3 py-2 text-sm transition-colors ${
-              showFilterPanel || filters.length > 0
-                ? "border-blue-400 bg-blue-50 dark:bg-blue-950/40 text-blue-600 dark:text-blue-300"
-                : "border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300"
-            }`}
-          >
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4">
-              <path fillRule="evenodd" d="M2.628 1.601C5.028 1.206 7.49 1 10 1s4.973.206 7.372.601a.75.75 0 0 1 .628.74v2.288a2.25 2.25 0 0 1-.659 1.59l-4.682 4.683a2.25 2.25 0 0 0-.659 1.59v3.037c0 .684-.31 1.33-.844 1.757l-1.937 1.55A.75.75 0 0 1 8 18.25v-5.757a2.25 2.25 0 0 0-.659-1.591L2.659 6.22A2.25 2.25 0 0 1 2 4.629V2.34a.75.75 0 0 1 .628-.74Z" clipRule="evenodd" />
-            </svg>
-            Filters
-            {filters.length > 0 && (
-              <span className="inline-flex items-center justify-center w-4 h-4 rounded-full bg-blue-500 text-white text-[10px] font-bold">
-                {filters.length}
+      <div className="mb-3 rounded-[24px] border border-slate-200 bg-white/90 p-4 shadow-sm dark:border-slate-700 dark:bg-slate-900/70">
+        <div className="flex flex-wrap items-end gap-3">
+          {mode === "players" && (
+            <label className="space-y-1.5">
+              <span className="block text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">
+                Metric Group
               </span>
-            )}
-          </button>
+              <select
+                value={activeMetricGroup}
+                onChange={(e) => {
+                  const nextGroup = e.target.value;
+                  setActiveMetricGroup(nextGroup);
+                  const nextOptions = STAT_GROUPS.find((group) => group.label === nextGroup)?.options ?? [];
+                  if (!nextOptions.some((option) => option.key === stat) && nextOptions[0]) {
+                    setStat(nextOptions[0].key);
+                  }
+                }}
+                className="text-sm border border-gray-200 dark:border-gray-600 rounded-lg px-3 py-2 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                {STAT_GROUPS.map((group) => (
+                  <option key={group.label} value={group.label}>{group.label}</option>
+                ))}
+              </select>
+            </label>
+          )}
+
+          {mode === "players" && (
+            <label className="space-y-1.5">
+              <span className="block text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">
+                Primary Sort
+              </span>
+              <select
+                value={stat}
+                onChange={(e) => setStat(e.target.value)}
+                className="text-sm border border-gray-200 dark:border-gray-600 rounded-lg px-3 py-2 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                {activeMetricOptions.map((opt) => (
+                  <option key={opt.key} value={opt.key}>{opt.label}</option>
+                ))}
+              </select>
+            </label>
+          )}
+
+          {mode === "career" && (
+            <label className="space-y-1.5">
+              <span className="block text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">
+                Career Sort
+              </span>
+              <select
+                value={careerStat}
+                onChange={(e) => setCareerStat(e.target.value)}
+                className="text-sm border border-gray-200 dark:border-gray-600 rounded-lg px-3 py-2 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                {CAREER_OPTIONS.map((opt) => (
+                  <option key={opt.key} value={opt.key}>{opt.label}</option>
+                ))}
+              </select>
+            </label>
+          )}
+
+          {mode !== "career" && (
+            <label className="space-y-1.5">
+              <span className="block text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">
+                Season
+              </span>
+              <select
+                value={season}
+                onChange={(e) => { setSeason(e.target.value); setTeamFilter(""); }}
+                disabled={seasons.length === 0}
+                className="text-sm border border-gray-200 dark:border-gray-600 rounded-lg px-3 py-2 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50"
+              >
+                {seasons.map((s) => (
+                  <option key={s} value={s}>{s}</option>
+                ))}
+              </select>
+            </label>
+          )}
+
+          {mode === "players" && (
+            <div className="space-y-1.5">
+              <span className="block text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">
+                Season Type
+              </span>
+              <div className="flex rounded-lg overflow-hidden border border-gray-200 dark:border-gray-600 text-sm">
+                {(["Regular Season", "Playoffs"] as const).map((type) => (
+                  <button
+                    key={type}
+                    onClick={() => setSeasonType(type)}
+                    className={`px-4 py-2 transition-colors ${
+                      seasonType === type
+                        ? "bip-toggle-active"
+                        : "bip-toggle"
+                    }`}
+                  >
+                    {type}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {mode === "players" && teams.length > 0 && (
+            <label className="space-y-1.5">
+              <span className="block text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">
+                Team
+              </span>
+              <select
+                value={teamFilter}
+                onChange={(e) => setTeamFilter(e.target.value)}
+                className="text-sm border border-gray-200 dark:border-gray-600 rounded-lg px-3 py-2 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                <option value="">All Teams</option>
+                {teams.map((t) => (
+                  <option key={t} value={t}>{t}</option>
+                ))}
+              </select>
+            </label>
+          )}
+
+          {mode === "onoff" && (
+            <label className="space-y-1.5">
+              <span className="block text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">
+                Min On-Court Minutes
+              </span>
+              <input
+                type="number" min={0} step={10} value={onOffMinMinutes}
+                onChange={(e) => setOnOffMinMinutes(Number(e.target.value) || 0)}
+                className="w-32 border border-gray-200 dark:border-gray-600 rounded-lg px-3 py-2 text-sm bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
+              />
+            </label>
+          )}
+
+          {mode === "lineups" && (
+            <label className="space-y-1.5">
+              <span className="block text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">
+                Min Lineup Minutes
+              </span>
+              <input
+                type="number" min={0} step={5} value={lineupMinMinutes}
+                onChange={(e) => setLineupMinMinutes(Number(e.target.value) || 0)}
+                className="w-32 border border-gray-200 dark:border-gray-600 rounded-lg px-3 py-2 text-sm bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
+              />
+            </label>
+          )}
+
+          {mode !== "players" && mode !== "career" && season && (
+            <button
+              onClick={handleSeasonSync}
+              disabled={isSyncingSeason}
+              className="rounded-lg bg-blue-600 px-3 py-2 text-sm font-medium text-white transition-colors hover:bg-blue-700 disabled:cursor-wait disabled:opacity-60"
+            >
+              {isSyncingSeason ? "Syncing Season PBP..." : "Sync Season PBP"}
+            </button>
+          )}
+
+          {mode === "players" && (
+            <button
+              onClick={() => setShowFilterPanel((v) => !v)}
+              className={`relative flex items-center gap-1.5 rounded-lg border px-3 py-2 text-sm transition-colors ${
+                showFilterPanel || filters.length > 0
+                  ? "border-blue-400 bg-blue-50 dark:bg-blue-950/40 text-blue-600 dark:text-blue-300"
+                  : "border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300"
+              }`}
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4">
+                <path fillRule="evenodd" d="M2.628 1.601C5.028 1.206 7.49 1 10 1s4.973.206 7.372.601a.75.75 0 0 1 .628.74v2.288a2.25 2.25 0 0 1-.659 1.59l-4.682 4.683a2.25 2.25 0 0 0-.659 1.59v3.037c0 .684-.31 1.33-.844 1.757l-1.937 1.55A.75.75 0 0 1 8 18.25v-5.757a2.25 2.25 0 0 0-.659-1.591L2.659 6.22A2.25 2.25 0 0 1 2 4.629V2.34a.75.75 0 0 1 .628-.74Z" clipRule="evenodd" />
+              </svg>
+              Filters
+              {filters.length > 0 && (
+                <span className="inline-flex items-center justify-center w-4 h-4 rounded-full bg-blue-500 text-white text-[10px] font-bold">
+                  {filters.length}
+                </span>
+              )}
+            </button>
+          )}
+        </div>
+
+        {mode === "players" && (
+          <div className="mt-4 border-t border-slate-200 pt-4 dark:border-slate-700">
+            <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
+              <div>
+                <p className="mb-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">
+                  Quick Metric Switch
+                </p>
+                <div className="flex gap-2 overflow-x-auto pb-1">
+                  {activeMetricOptions.map((option) => (
+                    <button
+                      key={option.key}
+                      type="button"
+                      title={option.tooltip}
+                      onClick={() => setStat(option.key)}
+                      className={`whitespace-nowrap rounded-full border px-3 py-1.5 text-sm transition-colors ${
+                        option.key === stat
+                          ? "border-blue-500 bg-blue-600 text-white"
+                          : "border-slate-200 bg-slate-50 text-slate-700 hover:border-blue-300 hover:text-blue-600 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200 dark:hover:border-blue-500 dark:hover:text-blue-300"
+                      }`}
+                    >
+                      {option.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  onClick={() => setCompactRows((value) => !value)}
+                  className={`rounded-full border px-3 py-1.5 text-sm transition-colors ${
+                    compactRows
+                      ? "border-amber-400 bg-amber-50 text-amber-700 dark:border-amber-500 dark:bg-amber-950/30 dark:text-amber-300"
+                      : "border-slate-200 bg-slate-50 text-slate-700 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200"
+                  }`}
+                >
+                  {compactRows ? "Compact Rows On" : "Comfort Rows"}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setPinKeyColumns((value) => !value)}
+                  className={`rounded-full border px-3 py-1.5 text-sm transition-colors ${
+                    pinKeyColumns
+                      ? "border-emerald-400 bg-emerald-50 text-emerald-700 dark:border-emerald-500 dark:bg-emerald-950/30 dark:text-emerald-300"
+                      : "border-slate-200 bg-slate-50 text-slate-700 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200"
+                  }`}
+                >
+                  {pinKeyColumns ? "Pinned Player Column" : "Unpinned Columns"}
+                </button>
+              </div>
+            </div>
+          </div>
         )}
       </div>
 
@@ -640,20 +910,50 @@ function PlayerStatsPageContent() {
 
       {mode === "players" && (
         <div className="mb-3 rounded-xl border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700 dark:border-blue-900/60 dark:bg-blue-950/20 dark:text-blue-300">
-          Showing <span className="font-semibold">{activeMetricGroup}</span> metrics in the table. Rankings are sorted by <span className="font-semibold">{statLabel}</span>.
+          Showing <span className="font-semibold">{activeMetricGroup}</span> metrics in the table. Rankings are sorted by <span className="font-semibold">{statLabel}</span>, mobile rows surface team plus games played inline, and the URL now preserves filters, density, pinned columns, and thresholds for sharing.
+        </div>
+      )}
+
+      {isLoading && (
+        <div className="mb-4 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-600 dark:border-slate-700 dark:bg-slate-900/80 dark:text-slate-300">
+          {loadingMessage}
+        </div>
+      )}
+
+      {!isLoading && spotlightCards.length > 0 && (
+        <div className="mb-4 grid gap-3 md:grid-cols-3">
+          {spotlightCards.map((card) => (
+            <div
+              key={card.key}
+              className="rounded-2xl border border-slate-200 bg-white px-4 py-4 shadow-sm dark:border-slate-700 dark:bg-slate-900/80"
+            >
+              <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">
+                {card.label}
+              </p>
+              <p className="mt-2 line-clamp-2 text-sm font-semibold text-slate-900 dark:text-slate-100">
+                {card.title}
+              </p>
+              <p className="mt-3 text-2xl font-bold tracking-tight text-blue-600 dark:text-blue-400">
+                {card.value}
+              </p>
+              <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+                {card.detail}
+              </p>
+            </div>
+          ))}
         </div>
       )}
 
       {/* ── Table ── */}
-      <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 overflow-x-auto">
+      <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 overflow-x-auto shadow-sm">
 
         {/* Players mode */}
         {mode === "players" && (
           <table className="w-full">
             <thead>
               <tr className="border-b border-gray-200 dark:border-gray-700">
-                <th className="text-left text-xs font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500 px-4 py-3 w-10">#</th>
-                <th className="text-left text-xs font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500 px-4 py-3">Player</th>
+                <th className={`${stickyRankClass} text-left text-xs font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500 px-4 py-3 w-10`}>#</th>
+                <th className={`${stickyPlayerClass} text-left text-xs font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500 px-4 py-3`}>Player</th>
                 <th className="text-left text-xs font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500 px-4 py-3 hidden sm:table-cell">Team</th>
                 <th className="text-right text-xs font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500 px-4 py-3 hidden sm:table-cell">GP</th>
                 {tableMetricCols.map((option) => (
@@ -685,20 +985,27 @@ function PlayerStatsPageContent() {
               {isLoading &&
                 Array.from({ length: 10 }).map((_, i) => (
                   <tr key={i} className="border-b border-gray-100 dark:border-gray-700/50 animate-pulse">
-                    <td className="px-4 py-3"><div className="h-4 w-4 bg-gray-200 dark:bg-gray-700 rounded" /></td>
-                    <td className="px-4 py-3"><div className="h-4 w-40 bg-gray-200 dark:bg-gray-700 rounded" /></td>
-                    <td className="px-4 py-3 hidden sm:table-cell"><div className="h-4 w-10 bg-gray-200 dark:bg-gray-700 rounded" /></td>
-                    <td className="px-4 py-3 hidden sm:table-cell"><div className="h-4 w-8 bg-gray-200 dark:bg-gray-700 rounded ml-auto" /></td>
-                    <td className="px-4 py-3"><div className="h-4 w-12 bg-gray-200 dark:bg-gray-700 rounded ml-auto" /></td>
+                    <td className={`px-4 ${rowPaddingClass}`}><div className="h-4 w-4 bg-gray-200 dark:bg-gray-700 rounded" /></td>
+                    <td className={`px-4 ${rowPaddingClass}`}><div className="h-4 w-40 bg-gray-200 dark:bg-gray-700 rounded" /></td>
+                    <td className={`px-4 ${rowPaddingClass} hidden sm:table-cell`}><div className="h-4 w-10 bg-gray-200 dark:bg-gray-700 rounded" /></td>
+                    <td className={`px-4 ${rowPaddingClass} hidden sm:table-cell`}><div className="h-4 w-8 bg-gray-200 dark:bg-gray-700 rounded ml-auto" /></td>
+                    <td className={`px-4 ${rowPaddingClass}`}><div className="h-4 w-12 bg-gray-200 dark:bg-gray-700 rounded ml-auto" /></td>
                   </tr>
                 ))}
 
               {!isLoading && filteredEntries.length === 0 && (
                 <tr>
                   <td colSpan={4 + tableMetricCols.length + filters.length} className="text-center py-12 text-gray-400 dark:text-gray-500 text-sm">
-                    {filters.length > 0
-                      ? "No players match all filter conditions. Try relaxing a threshold."
-                      : "No data available for this combination."}
+                    <div className="mx-auto max-w-md space-y-2">
+                      <p className="text-sm font-semibold text-gray-700 dark:text-gray-200">
+                        {filters.length > 0 ? "No players match the full filter stack." : "No player rows are available for this selection yet."}
+                      </p>
+                      <p>
+                        {filters.length > 0
+                          ? "Try widening a threshold, removing a filter chip, or switching to a broader metric group."
+                          : "Change season, season type, or team scope to explore another slice of the leaderboard."}
+                      </p>
+                    </div>
                   </td>
                 </tr>
               )}
@@ -711,10 +1018,12 @@ function PlayerStatsPageContent() {
                       key={entry.player_id}
                       className="border-b border-gray-100 dark:border-gray-700/50 last:border-0 hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors"
                     >
-                      <td className="px-4 py-3 text-sm text-gray-400 dark:text-gray-500 font-mono">
-                        {filters.length > 0 ? displayIdx + 1 : entry.rank}
+                      <td className={`${stickyRankClass} px-4 ${rowPaddingClass} text-sm text-gray-400 dark:text-gray-500 font-mono`}>
+                        <span className="inline-flex min-w-7 items-center justify-center rounded-full bg-slate-100 px-2 py-1 text-[11px] font-semibold text-slate-500 dark:bg-slate-700/60 dark:text-slate-300">
+                          {filters.length > 0 ? displayIdx + 1 : entry.rank}
+                        </span>
                       </td>
-                      <td className="px-4 py-3">
+                      <td className={`${stickyPlayerClass} px-4 ${rowPaddingClass}`}>
                         <Link href={`/players/${entry.player_id}`} className="flex items-center gap-3 group">
                           <div className="relative w-8 h-8 rounded-full overflow-hidden bg-gray-100 dark:bg-gray-700 shrink-0">
                             {entry.headshot_url ? (
@@ -727,15 +1036,20 @@ function PlayerStatsPageContent() {
                               />
                             ) : null}
                           </div>
-                          <span className="font-medium text-gray-900 dark:text-gray-100 group-hover:text-blue-500 dark:group-hover:text-blue-400 transition-colors">
-                            {entry.player_name}
-                          </span>
+                          <div className="min-w-0">
+                            <span className="block truncate font-medium text-gray-900 dark:text-gray-100 group-hover:text-blue-500 dark:group-hover:text-blue-400 transition-colors">
+                              {entry.player_name}
+                            </span>
+                            <span className="mt-0.5 block text-xs text-gray-400 dark:text-gray-500 sm:hidden">
+                              {entry.team_abbreviation} • {entry.gp} GP
+                            </span>
+                          </div>
                         </Link>
                       </td>
-                      <td className="px-4 py-3 text-sm text-gray-500 dark:text-gray-400 hidden sm:table-cell">
+                      <td className={`px-4 ${rowPaddingClass} text-sm text-gray-500 dark:text-gray-400 hidden sm:table-cell`}>
                         {entry.team_abbreviation}
                       </td>
-                      <td className="px-4 py-3 text-sm text-gray-500 dark:text-gray-400 text-right hidden sm:table-cell">
+                      <td className={`px-4 ${rowPaddingClass} text-sm text-gray-500 dark:text-gray-400 text-right hidden sm:table-cell`}>
                         {entry.gp}
                       </td>
                       {tableMetricCols.map((option) => {
@@ -743,7 +1057,7 @@ function PlayerStatsPageContent() {
                         return (
                           <td
                             key={option.key}
-                            className={`px-4 py-3 text-right text-sm tabular-nums ${
+                            className={`px-4 ${rowPaddingClass} text-right text-sm tabular-nums ${
                               option.key === stat
                                 ? "font-semibold text-blue-600 bg-blue-50/50 dark:bg-blue-950/20 dark:text-blue-400"
                                 : "text-gray-900 dark:text-gray-100"
@@ -761,7 +1075,7 @@ function PlayerStatsPageContent() {
                         return (
                           <td
                             key={`${uid}-td-${i}`}
-                            className={`px-4 py-3 text-right text-sm tabular-nums hidden md:table-cell font-medium ${
+                            className={`px-4 ${rowPaddingClass} text-right text-sm tabular-nums hidden md:table-cell font-medium ${
                               passes
                                 ? "text-amber-600 dark:text-amber-400"
                                 : "text-gray-400 dark:text-gray-500"
@@ -808,7 +1122,10 @@ function PlayerStatsPageContent() {
               {!isLoading && (careerBoard.data?.entries.length ?? 0) === 0 && (
                 <tr>
                   <td colSpan={5} className="text-center py-12 text-gray-400 dark:text-gray-500 text-sm">
-                    No career data is available for this selection yet.
+                    <div className="mx-auto max-w-md space-y-2">
+                      <p className="text-sm font-semibold text-gray-700 dark:text-gray-200">No saved career leaderboard is available yet.</p>
+                      <p>Career leaders only appear once qualifying seasons are persisted in the local database.</p>
+                    </div>
                   </td>
                 </tr>
               )}
@@ -876,7 +1193,14 @@ function PlayerStatsPageContent() {
                 </tr>
               ))}
               {!isLoading && onOffBoard.data?.players.length === 0 && (
-                <tr><td colSpan={6} className="text-center py-12 text-gray-400 dark:text-gray-500 text-sm">No on/off data is available for this season yet. Local play-by-play coverage may still be catching up.</td></tr>
+                <tr>
+                  <td colSpan={6} className="text-center py-12 text-gray-400 dark:text-gray-500 text-sm">
+                    <div className="mx-auto max-w-md space-y-2">
+                      <p className="text-sm font-semibold text-gray-700 dark:text-gray-200">No on/off rows are ready for this season.</p>
+                      <p>Local play-by-play coverage may still be catching up. Run the season sync if you expect this board to be populated already.</p>
+                    </div>
+                  </td>
+                </tr>
               )}
               {!isLoading && onOffBoard.data?.players.map((entry, idx) => (
                 <tr key={entry.player_id} className="border-b border-gray-100 dark:border-gray-700/50 last:border-0 hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors">
@@ -921,7 +1245,14 @@ function PlayerStatsPageContent() {
                 </tr>
               ))}
               {!isLoading && lineupsBoard.data?.lineups.length === 0 && (
-                <tr><td colSpan={6} className="text-center py-12 text-gray-400 dark:text-gray-500 text-sm">No lineup data is available for this season yet. Local play-by-play coverage may still be catching up.</td></tr>
+                <tr>
+                  <td colSpan={6} className="text-center py-12 text-gray-400 dark:text-gray-500 text-sm">
+                    <div className="mx-auto max-w-md space-y-2">
+                      <p className="text-sm font-semibold text-gray-700 dark:text-gray-200">No lineup rows are ready for this season.</p>
+                      <p>Lineup ratings depend on the local play-by-play pipeline and the current minimum-minute threshold.</p>
+                    </div>
+                  </td>
+                </tr>
               )}
               {!isLoading && lineupsBoard.data?.lineups.map((lineup, idx) => (
                 <tr key={lineup.lineup_key} className="border-b border-gray-100 dark:border-gray-700/50 last:border-0 hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors">

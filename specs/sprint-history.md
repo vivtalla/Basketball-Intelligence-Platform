@@ -1,9 +1,20 @@
 # Sprint History Archive
 
-Sprints 1–43. Current sprint summaries also live in `CLAUDE.md` under "Recent Sprints".
+Sprints 1–44. Current sprint summaries also live in `CLAUDE.md` under "Recent Sprints".
 
 For detailed per-sprint records, see the individual closeout files in this directory:
-`specs/sprint-09-closeout.md` through `specs/sprint-43-closeout.md`
+`specs/sprint-09-closeout.md` through `specs/sprint-44-closeout.md`
+
+---
+
+### Sprint 44 — Official Data Canonicalization and Player Stats Overhaul
+**Branch:** `master` (direct)
+
+- Added canonical persisted official team-season dashboards via `team_season_stats`, Alembic migration `0003`, and daily-sync support for both official player and team season rows
+- Shifted team analytics reads onto the persisted official team-season layer and documented the official-domain ownership model in `specs/official-data-source-matrix.md`
+- Expanded leaderboard payloads to expose the full sortable stat library through `metric_values`, then fixed shooting percentages to derive from raw counts when stored percent columns are missing
+- Rebuilt the `Player Stats` workspace around metric groups, quick metric switching, spotlight cards, stronger mobile scan-ability, richer loading/empty states, and URL-backed state sharing for filters plus table preferences
+- Verified the sprint with targeted official-data and leaderboard backend tests plus frontend `npm run lint` and `npm run build`
 
 ---
 
