@@ -7,9 +7,10 @@ from sqlalchemy.orm import sessionmaker
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from db.database import Base  # noqa: E402
-from db.models import Player, SeasonStat, Team, TeamSeasonStat  # noqa: E402
-from routers.teams import team_analytics  # noqa: E402
-from services.sync_service import sync_official_team_season_stats  # noqa: E402
+from db.models import Player, SeasonStat, Team, TeamSeasonStat, TeamSplitStat  # noqa: E402
+from fastapi import HTTPException  # noqa: E402
+from routers.teams import team_analytics, team_splits  # noqa: E402
+from services.sync_service import sync_official_team_general_splits, sync_official_team_season_stats  # noqa: E402
 
 
 def make_session():
@@ -169,5 +170,152 @@ def test_team_analytics_reads_persisted_official_team_stats_not_player_aggregati
         assert response.off_rating == 120.1
         assert response.tov_pct == 12.2
         assert response.last_synced_at is not None
+    finally:
+        session.close()
+
+
+def test_sync_official_team_general_splits_upserts_and_filters_rows(monkeypatch):
+    session = make_session()
+    try:
+        session.add_all(
+            [
+                Team(id=1610612738, abbreviation="BOS", name="Boston Celtics"),
+                Team(id=1610612747, abbreviation="LAL", name="Los Angeles Lakers"),
+            ]
+        )
+        session.add(
+            TeamSplitStat(
+                team_id=1610612738,
+                season="2025-26",
+                is_playoff=False,
+                split_family="LocationTeamDashboard",
+                split_value="Road",
+                label="Road",
+                gp=12,
+            )
+        )
+        session.commit()
+
+        def fake_get_team_general_splits(season: str, team_id: int):
+            assert season == "2025-26"
+            if team_id == 1610612738:
+                return [
+                    {
+                        "team_id": team_id,
+                        "season": season,
+                        "is_playoff": False,
+                        "split_family": "LocationTeamDashboard",
+                        "split_value": "Home",
+                        "label": "Home",
+                        "gp": 40,
+                        "w": 31,
+                        "l": 9,
+                        "w_pct": 0.775,
+                        "min": 1920.0,
+                        "pts": 4850.0,
+                        "reb": 1800.0,
+                        "ast": 1120.0,
+                        "tov": 480.0,
+                        "stl": 330.0,
+                        "blk": 220.0,
+                        "fg_pct": 0.501,
+                        "fg3_pct": 0.392,
+                        "ft_pct": 0.82,
+                        "plus_minus": 510.0,
+                    }
+                ]
+            return [
+                {
+                    "team_id": team_id,
+                    "season": season,
+                    "split_family": "LocationTeamDashboard",
+                    "split_value": "Home",
+                    "label": "Home",
+                    "gp": 40,
+                }
+            ]
+
+        monkeypatch.setattr("services.sync_service.get_team_general_splits", fake_get_team_general_splits)
+
+        result = sync_official_team_general_splits(session, "2025-26", team_ids=[1610612738])
+
+        rows = session.query(TeamSplitStat).filter_by(team_id=1610612738, season="2025-26").all()
+        assert result["status"] == "ok"
+        assert result["teams_synced"] == 1
+        assert result["split_rows_synced"] == 1
+        assert result["split_rows_created"] == 1
+        assert result["split_rows_deleted"] == 1
+        assert len(rows) == 1
+        assert rows[0].split_family == "LocationTeamDashboard"
+        assert rows[0].split_value == "Home"
+        assert rows[0].pts == 4850.0
+        assert rows[0].source == "stats.nba.com/team-general-splits"
+        assert session.query(TeamSplitStat).filter_by(team_id=1610612747).count() == 0
+    finally:
+        session.close()
+
+
+def test_team_splits_reads_persisted_official_split_rows():
+    session = make_session()
+    try:
+        team = Team(id=1610612738, abbreviation="BOS", name="Boston Celtics")
+        session.add(team)
+        session.add_all(
+            [
+                TeamSplitStat(
+                    team_id=team.id,
+                    season="2025-26",
+                    is_playoff=False,
+                    split_family="LocationTeamDashboard",
+                    split_value="Home",
+                    label="Home",
+                    gp=40,
+                    w=31,
+                    l=9,
+                    w_pct=0.775,
+                    pts=4850.0,
+                    plus_minus=510.0,
+                ),
+                TeamSplitStat(
+                    team_id=team.id,
+                    season="2025-26",
+                    is_playoff=False,
+                    split_family="WinsLossesTeamDashboard",
+                    split_value="Wins",
+                    label="Wins",
+                    gp=55,
+                    w=55,
+                    l=0,
+                    w_pct=1.0,
+                ),
+            ]
+        )
+        session.commit()
+
+        response = team_splits("BOS", season="2025-26", db=session)
+
+        assert response.team_id == team.id
+        assert response.abbreviation == "BOS"
+        assert response.canonical_source == "stats.nba.com/team-general-splits"
+        assert response.last_synced_at is not None
+        assert len(response.splits) == 2
+        assert response.splits[0].split_family == "LocationTeamDashboard"
+        assert response.splits[0].pts == 4850.0
+    finally:
+        session.close()
+
+
+def test_team_splits_raises_404_for_missing_persisted_rows():
+    session = make_session()
+    try:
+        session.add(Team(id=1610612738, abbreviation="BOS", name="Boston Celtics"))
+        session.commit()
+
+        try:
+            team_splits("BOS", season="2025-26", db=session)
+            assert False, "Expected missing split rows to raise HTTPException"
+        except HTTPException as exc:
+            assert exc.status_code == 404
+            assert "No official team splits" in exc.detail
     finally:
         session.close()

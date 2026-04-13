@@ -52,6 +52,8 @@ frontend/
 | `Team` | `teams` | NBA team metadata |
 | `Player` | `players` | Player profiles (NBA person_id as PK) |
 | `SeasonStat` | `season_stats` | Season averages + advanced metrics per player/season/team |
+| `TeamSeasonStat` | `team_season_stats` | Canonical official team dashboard season stats |
+| `TeamSplitStat` | `team_split_stats` | Canonical official team general split stats |
 | `PlayerGameLog` | `player_game_logs` | Per-game stats, persisted to avoid repeat API calls |
 | `GameLog` | `game_logs` | Game metadata (date, teams, score) — PBP parent |
 | `PlayByPlay` | `play_by_play` | Individual PBP events |
@@ -258,6 +260,14 @@ CourtVue Labs uses a hybrid sprint model: major feature sprints typically run as
 
 > Full history → `specs/sprint-history.md`
 
+### Sprint 45 — Canonical Team General Splits
+
+- Added canonical persisted official `TeamDashboardByGeneralSplits` rows through `team_split_stats` and Alembic revision `0004_team_split_stats`
+- Added `get_team_general_splits()` normalization plus `sync_official_team_general_splits()` with daily-sync coverage after official team season stats
+- Added persisted-only `GET /api/teams/{abbr}/splits?season=2025-26` with `TeamSplitsResponse` / `TeamSplitRow` response models and honest 404 behavior for missing data
+- Updated the official data source matrix and backlog so team general splits are now shipped while team shooting splits remain a follow-on
+- Verified with targeted parsing/sync/API/migration tests, the wider official-data backend suite, full backend `pytest`, compileall, and `git diff --check`
+
 ### Sprint 44 — Official Data Canonicalization and Player Stats Overhaul
 
 - Added canonical persisted official team-season dashboards plus daily sync coverage for both official player and team season rows
@@ -265,21 +275,6 @@ CourtVue Labs uses a hybrid sprint model: major feature sprints typically run as
 - Expanded leaderboard payloads across the full sortable stat library, then fixed shooting percentages to derive from raw counts when stored percent columns are missing
 - Turned `Player Stats` into a stronger workspace with metric groups, quick metric switching, spotlight cards, mobile row context, richer empty/loading states, and URL-backed filter plus table-preference sharing
 - Verified with targeted official-data / leaderboard backend tests and frontend `npm run lint` / `npm run build`
-
-### Sprint 43 — Foundation Hardening and Architecture Audit
-
-- Replaced startup-time schema mutation with Alembic-backed migrations and turned `ensure_schema.py` into a compatibility wrapper instead of the real schema system
-- Removed the remaining request-time player bootstrap from the advanced PBP sync flow so modern runtime behavior stays DB-first and explicit
-- Collapsed the decision stack behind one canonical service layer and reduced the decision router to transport-only handlers
-- Added explicit `runtime_policy` metadata plus a durable Sprint 43 architecture audit note documenting findings, remediations, and remaining debt
-- Verified with targeted migration/decision/prep backend tests, full backend `pytest`, `python -m compileall backend`, and frontend `npm run lint` / `npm run build`
-
-### Sprint 41 — Replay Adoption Across Insights
-
-- Extended the shared replay contract into the insights workspace by making trend cards and What-If emit additive replay targets, source-aware launch context, and honest `derived` versus `timeline` trust labels
-- Switched the trend cards UI onto the backend cards API so replay evidence, supporting stats, and drilldowns now come from one backend source of truth
-- Added replay evidence links to What-If and carried that replay thread into compare through additive URL/state context
-- Verified the sprint with targeted replay/scenario backend tests, full backend `pytest`, and frontend `npm run build`
 
 ---
 

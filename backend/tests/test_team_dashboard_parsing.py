@@ -110,3 +110,80 @@ def test_get_team_stats_recovers_abbreviation_when_dashboard_omits_it(monkeypatc
     assert result["ATL"]["pts_pg"] == 118.4
     assert result["BOS"]["off_rating"] == 121.5
     assert result["BOS"]["tov_pct"] == 11.9
+
+
+def test_get_team_general_splits_normalizes_supported_general_dashboards(monkeypatch):
+    rows_by_dataset = {
+        "LocationTeamDashboard": [
+            {
+                "TEAM_GAME_LOCATION": "Home",
+                "GP": 40,
+                "W": 30,
+                "L": 10,
+                "W_PCT": 0.75,
+                "MIN": 1920,
+                "PTS": 4800,
+                "REB": 1800,
+                "AST": 1100,
+                "TOV": 500,
+                "STL": 320,
+                "BLK": 210,
+                "FG_PCT": 0.49,
+                "FG3_PCT": 0.38,
+                "FT_PCT": 0.81,
+                "PLUS_MINUS": 420,
+            }
+        ],
+        "WinsLossesTeamDashboard": [
+            {
+                "GAME_RESULT": "Wins",
+                "GP": 55,
+                "W": 55,
+                "L": 0,
+                "W_PCT": 1.0,
+                "MIN": 2640,
+                "PTS": 6600,
+                "REB": 2400,
+                "AST": 1500,
+                "TOV": 650,
+                "STL": 430,
+                "BLK": 300,
+                "FG_PCT": 0.51,
+                "FG3_PCT": 0.4,
+                "FT_PCT": 0.83,
+                "PLUS_MINUS": 800,
+            }
+        ],
+        "DaysRestTeamDashboard": [{"TEAM_DAYS_REST_RANGE": "1 Days Rest", "GP": 20, "W": 12, "L": 8}],
+        "MonthTeamDashboard": [{"SEASON_MONTH_NAME": "January", "GP": 14, "W": 9, "L": 5}],
+        "PrePostAllStarTeamDashboard": [{"SEASON_SEGMENT": "Post All-Star", "GP": 23, "W": 17, "L": 6}],
+        "OverallTeamDashboard": [{"SEASON_YEAR": "2025-26", "GP": 82, "W": 60, "L": 22}],
+    }
+
+    class FakeDash:
+        def __init__(self, team_id: int, season: str, per_mode_detailed: str, season_type_all_star: str, timeout: int):
+            self.team_id = team_id
+            self.season = season
+            self.per_mode_detailed = per_mode_detailed
+            self.season_type_all_star = season_type_all_star
+
+        def get_normalized_dict(self):
+            return rows_by_dataset
+
+    monkeypatch.setattr(nba_client, "_rate_limit", lambda: None)
+    monkeypatch.setattr(nba_client.teamdashboardbygeneralsplits, "TeamDashboardByGeneralSplits", FakeDash)
+
+    result = nba_client.get_team_general_splits("2025-26", 1610612738)
+
+    assert [row["split_family"] for row in result] == [
+        "LocationTeamDashboard",
+        "WinsLossesTeamDashboard",
+        "DaysRestTeamDashboard",
+        "MonthTeamDashboard",
+        "PrePostAllStarTeamDashboard",
+    ]
+    assert result[0]["team_id"] == 1610612738
+    assert result[0]["split_value"] == "Home"
+    assert result[0]["pts"] == 4800.0
+    assert result[1]["label"] == "Wins"
+    assert result[1]["plus_minus"] == 800.0

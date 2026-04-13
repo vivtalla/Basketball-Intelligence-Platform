@@ -100,6 +100,15 @@ Likely shape:
 - save prep snapshots by team/opponent/date instead of relying only on live query-state share links
 - continue tuning urgency and first-action summaries for local performance and edge-case matchups
 
+### Team Shooting Split Dashboards
+Why it matters:
+Sprint 45 targets official team general splits first because they are the closest extension of the Sprint 44 team-season dashboard foundation. The shooting split dashboards remain a high-value follow-on for style and shot-profile context.
+
+Likely shape:
+- persist official team shooting split families such as shot area, shot type, and shot-distance buckets
+- keep the read path DB-first and refreshed by explicit jobs rather than request-time official API calls
+- connect the strongest shot-profile splits into prep, compare, and team-defense workflows once the canonical table shape is stable
+
 ---
 
 ## Now — Product Intelligence

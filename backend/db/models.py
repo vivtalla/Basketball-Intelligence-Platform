@@ -686,6 +686,51 @@ class TeamSeasonStat(Base):
     team = relationship("Team")
 
 
+class TeamSplitStat(Base):
+    """Official persisted team general split stats from the NBA team dashboard."""
+    __tablename__ = "team_split_stats"
+    __table_args__ = (
+        UniqueConstraint(
+            "team_id",
+            "season",
+            "is_playoff",
+            "split_family",
+            "split_value",
+            name="uq_team_split_stat",
+        ),
+        Index("ix_team_split_stats_season", "season"),
+        Index("ix_team_split_stats_team_season", "team_id", "season"),
+        Index("ix_team_split_stats_family", "split_family"),
+    )
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    team_id = Column(Integer, ForeignKey("teams.id"), nullable=False)
+    season = Column(String(10), nullable=False)
+    is_playoff = Column(Boolean, nullable=False, default=False)
+    split_family = Column(String(50), nullable=False)
+    split_value = Column(String(80), nullable=False)
+    label = Column(String(120), nullable=False)
+    source = Column(String(60), nullable=False, default="stats.nba.com/team-general-splits")
+    gp = Column(Integer, default=0)
+    w = Column(Integer, default=0)
+    l = Column(Integer, default=0)
+    w_pct = Column(Float, default=0)
+    min = Column(Float)
+    pts = Column(Float)
+    reb = Column(Float)
+    ast = Column(Float)
+    tov = Column(Float)
+    stl = Column(Float)
+    blk = Column(Float)
+    fg_pct = Column(Float)
+    fg3_pct = Column(Float)
+    ft_pct = Column(Float)
+    plus_minus = Column(Float)
+    updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
+
+    team = relationship("Team")
+
+
 class PreReadSnapshot(Base):
     __tablename__ = "pre_read_snapshots"
     __table_args__ = (

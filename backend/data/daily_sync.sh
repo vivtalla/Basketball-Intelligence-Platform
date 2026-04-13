@@ -73,12 +73,13 @@ python - <<'PYEOF' >> "$LOG" 2>&1
 import sys, os
 sys.path.insert(0, os.getcwd())
 from db.database import SessionLocal
-from services.sync_service import sync_official_season_stats, sync_official_team_season_stats
+from services.sync_service import sync_official_season_stats, sync_official_team_general_splits, sync_official_team_season_stats
 season = os.environ.get("SEASON", "2024-25")
 db = SessionLocal()
 try:
     print("sync_official_season_stats:", sync_official_season_stats(db, season=season))
     print("sync_official_team_season_stats:", sync_official_team_season_stats(db, season=season))
+    print("sync_official_team_general_splits:", sync_official_team_general_splits(db, season=season))
 finally:
     db.close()
 PYEOF
