@@ -1,9 +1,21 @@
 # Sprint History Archive
 
-Sprints 1–44. Current sprint summaries also live in `CLAUDE.md` under "Recent Sprints".
+Sprints 1–45. Current sprint summaries also live in `CLAUDE.md` under "Recent Sprints".
 
 For detailed per-sprint records, see the individual closeout files in this directory:
-`specs/sprint-09-closeout.md` through `specs/sprint-44-closeout.md`
+`specs/sprint-09-closeout.md` through `specs/sprint-45-closeout.md`
+
+---
+
+### Sprint 45 — Canonical Team General Splits
+**Branch:** `feature/sprint-45-team-general-splits` — closeout pending merge
+
+- Added canonical persisted official `TeamDashboardByGeneralSplits` rows through `team_split_stats` and Alembic migration `0004_team_split_stats`
+- Normalized supported team general split families for location, wins/losses, days rest, month, and pre/post All-Star rows
+- Added `sync_official_team_general_splits()` and daily-sync coverage after official team season stats, with stale cleanup limited to teams that returned fresh official payloads
+- Added persisted-only `GET /api/teams/{abbr}/splits?season=2025-26` plus `TeamSplitsResponse` / `TeamSplitRow` response models
+- Updated official-data and backlog docs so team general splits moved from gap to shipped, while team shooting splits remain the next split-dashboard follow-on
+- Verified with targeted parsing/sync/API/migration tests, the wider official-data backend suite, full backend `pytest`, compileall, and `git diff --check`
 
 ---
 

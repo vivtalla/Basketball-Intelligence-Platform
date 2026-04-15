@@ -1,6 +1,6 @@
 # Official Data Source Matrix
 
-**Last updated:** 2026-04-06
+**Last updated:** 2026-04-12
 
 This note captures the current official-data foundation for CourtVue Labs: which NBA domains we ingest, where they persist, what product surfaces depend on them, and which official domains are still missing.
 
@@ -16,6 +16,7 @@ The goal is not “pull every endpoint blindly.” The goal is one canonical per
 | Player career seasons | `PlayerCareerStats` + league advanced overlay | `season_stats` | `sync_service.py` | player profile, career charts, similarity | Canonical |
 | Current-season player base + advanced | `LeagueDashPlayerStats` Base + Advanced | `season_stats` | `sync_service.py` | leaderboards, stats, insights, compare | Canonical |
 | Team season base + advanced | `LeagueDashTeamStats` Base + Advanced | `team_season_stats` | `sync_service.py` | team analytics, style compare, insights support | Canonical |
+| Team general splits | `TeamDashboardByGeneralSplits` | `team_split_stats` | `sync_service.py` | prep, compare, opponent context | Canonical |
 | Player game logs | `PlayerGameLog` | `player_game_logs` | `sync_service.py` | player logs, compare compatibility | Persisted compatibility |
 | Shot charts | `ShotChartDetail` | `player_shot_charts` | `warehouse_service.py` / queue | shot lab, team-defense shot views | Canonical |
 | Schedule | NBA CDN schedule | `games`, `raw_schedule_payloads` | `warehouse_service.py` | prep queue, schedule context, game explorer | Canonical |
@@ -45,9 +46,9 @@ These are the main official NBA domains still missing as first-class persisted l
 
 | Domain family | Why it matters | Recommended persisted shape | Priority |
 |---------------|----------------|-----------------------------|----------|
-| Team split dashboards | prep, compare, opponent context | `team_split_stats` | High |
 | Player split dashboards | richer player context, scouting, trend cards | `player_split_stats` | High |
 | Play type | scouting and style interpretation | `play_type_stats` | High |
+| Team shooting split dashboards | shot profile and style interpretation | `team_shooting_split_stats` or a split-family extension | High |
 | Tracking / hustle / passing / defense dashboards | deeper style and matchup reads | domain-specific tables or a normalized dashboard family | High |
 | Team opponent dashboards | opponent-aware decision framing | `team_opponent_stats` | Medium |
 | Transactions / roster movement | availability and context continuity | dedicated transaction table | Medium |

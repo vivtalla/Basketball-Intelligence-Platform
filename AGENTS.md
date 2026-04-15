@@ -1,6 +1,6 @@
 # Agent Coordination
 
-Last updated: 2026-04-10 by Codex (Sprint 44 closed; Sprint 45 kickoff)
+Last updated: 2026-04-12 by Codex (Sprint 45 closeout prepared; Sprint 46 kickoff)
 
 > Both agents read this file before touching code at the start of every session.
 > The canonical source of truth is the clean `master` checkout at `/Users/viv/Documents/Basketball Intelligence Platform`.
@@ -14,9 +14,9 @@ Last updated: 2026-04-10 by Codex (Sprint 44 closed; Sprint 45 kickoff)
 
 | Field | Value |
 |-------|-------|
-| Sprint | 45 |
+| Sprint | 46 |
 | Goal | TBD |
-| Started | 2026-04-10 |
+| Started | 2026-04-12 |
 | Target merge | TBD |
 | Sprint shape | TBD |
 | Branch | `TBD` |
@@ -39,12 +39,12 @@ If repo state, sprint numbering, or shipped features appear to disagree across l
 
 ### Claude
 - Branch: `TBD`
-- Scope: available for Sprint 45 planning / review / optimization roles across any stream
+- Scope: available for Sprint 46 planning / review / optimization roles across any stream
 - Status: Available
 
 ### Codex
 - Branch: `TBD`
-- Scope: Sprint 45 kickoff, integration, and engineering lead across the next streams
+- Scope: Sprint 46 kickoff, integration, and engineering lead across the next streams
 - Status: Available
 
 ---
@@ -164,6 +164,8 @@ Specs or review notes written by one stream for another. Check this before start
 
 *Free-form, dated, newest first. Use this for coordination and repo-state exceptions.*
 
+2026-04-12 (Codex): Sprint 45 branch closeout prepared on `feature/sprint-45-team-general-splits`. Shipped canonical `TeamDashboardByGeneralSplits` persistence through `team_split_stats`, daily-sync refresh, thin persisted `GET /api/teams/{abbr}/splits`, parsing/sync/API/migration tests, and official-data/backlog docs. No UI work shipped; team shooting splits, player splits, play-type, and richer prep/compare consumers remain follow-ons. See `specs/sprint-45-closeout.md` before Sprint 46 kickoff.
+2026-04-12 (Codex): Sprint 45 active on `feature/sprint-45-team-general-splits`. Scope is backend-first canonical official TeamDashboardByGeneralSplits persistence: `team_split_stats`, daily refresh, thin team splits read API, targeted tests, and official-data docs. No major UI work planned; shooting splits and play-type remain follow-ons.
 2026-04-10 (Codex): Sprint 44 closed on `master`. Shipped canonical persisted official team season dashboards, daily-sync official player/team season refresh, a source-of-truth official-data matrix, leaderboard metric-library expansion plus NULL shooting-percent derivation, and a substantially stronger Player Stats workspace with grouped metrics, spotlight cards, denser table controls, richer empty/loading states, and URL-backed workspace state. Verification covered targeted backend official-data/leaderboard tests plus frontend `npm run lint` and `npm run build`. See `specs/sprint-44-closeout.md` before Sprint 45 kickoff.
 2026-04-06 (Codex): Sprint 43 closed on `feature/sprint-43-foundation-hardening`. Shipped Alembic-backed schema management, removed startup-time schema mutation and the remaining request-time sync seam, consolidated decision intelligence behind `decision_support_service.py`, clarified warehouse-first vs `legacy-compatibility` runtime policy, and closed the live decision follow-through timeout with lighter service-owned style snapshots. Verification covered targeted migration/decision/prep backend tests, full backend `pytest`, `python -m compileall backend`, frontend `npm run lint`, frontend `npm run build`, and local decision/follow-through HTTP smoke checks. See `specs/sprint-43-closeout.md` and `specs/sprint-43-architecture-audit.md` before Sprint 44 kickoff.
 2026-04-06 (Codex): Sprint 42 closeout prepared on `feature/sprint-42-opponent-aware-prep-decision`. Shipped opponent-aware prep rationale, richer focus levers, a backend-driven team decision workspace, and stronger prep/pre-read/compare/replay continuity. Verification covered targeted prep/decision/coaching backend tests, full backend `pytest`, frontend `npm run build`, and local prep/decision route smoke checks. See `specs/sprint-42-closeout.md` before Sprint 43 kickoff.

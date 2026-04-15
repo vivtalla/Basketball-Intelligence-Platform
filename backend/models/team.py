@@ -79,6 +79,36 @@ class TeamAnalytics(BaseModel):
     tov_pct_rank: Optional[int] = None
 
 
+class TeamSplitRow(BaseModel):
+    split_family: str
+    split_value: str
+    label: str
+    gp: int = 0
+    w: int = 0
+    l: int = 0
+    w_pct: float = 0.0
+    min: Optional[float] = None
+    pts: Optional[float] = None
+    reb: Optional[float] = None
+    ast: Optional[float] = None
+    tov: Optional[float] = None
+    stl: Optional[float] = None
+    blk: Optional[float] = None
+    fg_pct: Optional[float] = None
+    fg3_pct: Optional[float] = None
+    ft_pct: Optional[float] = None
+    plus_minus: Optional[float] = None
+
+
+class TeamSplitsResponse(BaseModel):
+    team_id: int
+    abbreviation: str
+    season: str
+    canonical_source: Optional[str] = None
+    last_synced_at: Optional[str] = None
+    splits: List[TeamSplitRow]
+
+
 class TeamRecentGame(BaseModel):
     game_id: str
     game_date: Optional[str] = None

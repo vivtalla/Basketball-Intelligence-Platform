@@ -6,7 +6,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 
 from db.database import get_db
-from db.models import Player, SeasonStat, Team, TeamSeasonStat
+from db.models import Player, SeasonStat, Team, TeamSeasonStat, TeamSplitStat
 from models.team import (
     TeamAvailabilityResponse,
     TeamAnalytics,
@@ -16,6 +16,8 @@ from models.team import (
     TeamRotationReport,
     TeamRosterPlayer,
     TeamRosterResponse,
+    TeamSplitRow,
+    TeamSplitsResponse,
     TeamSummary,
 )
 from services.team_availability_service import build_team_availability
@@ -180,6 +182,67 @@ def team_analytics(
         ts_pct_rank=team_row.ts_pct_rank,
         oreb_pct_rank=team_row.oreb_pct_rank,
         tov_pct_rank=team_row.tov_pct_rank,
+    )
+
+
+@router.get("/{abbr}/splits", response_model=TeamSplitsResponse)
+def team_splits(
+    abbr: str,
+    season: str = Query("2025-26"),
+    db: Session = Depends(get_db),
+):
+    """Return persisted official team general splits for a season."""
+    abbr_upper = abbr.upper()
+    team = db.query(Team).filter(Team.abbreviation == abbr_upper).first()
+    if not team:
+        raise HTTPException(status_code=404, detail=f"Team '{abbr}' not found.")
+
+    rows = (
+        db.query(TeamSplitStat)
+        .filter(
+            TeamSplitStat.team_id == team.id,
+            TeamSplitStat.season == season,
+            TeamSplitStat.is_playoff == False,  # noqa: E712
+        )
+        .order_by(TeamSplitStat.split_family, TeamSplitStat.split_value)
+        .all()
+    )
+    if not rows:
+        raise HTTPException(
+            status_code=404,
+            detail=f"No official team splits found for {abbr_upper} in {season}.",
+        )
+
+    latest = max((row.updated_at for row in rows if row.updated_at), default=None)
+    return TeamSplitsResponse(
+        team_id=team.id,
+        abbreviation=abbr_upper,
+        season=season,
+        canonical_source=rows[0].source,
+        last_synced_at=latest.isoformat() if latest else None,
+        splits=[
+            TeamSplitRow(
+                split_family=row.split_family,
+                split_value=row.split_value,
+                label=row.label,
+                gp=row.gp or 0,
+                w=row.w or 0,
+                l=row.l or 0,
+                w_pct=round(row.w_pct or 0.0, 3),
+                min=row.min,
+                pts=row.pts,
+                reb=row.reb,
+                ast=row.ast,
+                tov=row.tov,
+                stl=row.stl,
+                blk=row.blk,
+                fg_pct=row.fg_pct,
+                fg3_pct=row.fg3_pct,
+                ft_pct=row.ft_pct,
+                plus_minus=row.plus_minus,
+            )
+            for row in rows
+        ],
     )
 
 

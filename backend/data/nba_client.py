@@ -25,6 +25,7 @@ from nba_api.stats.endpoints import (
     playbyplayv3,
     playercareerstats,
     shotchartdetail,
+    teamdashboardbygeneralsplits,
 )
 from nba_api.live.nba.endpoints import boxscore as live_boxscore
 from nba_api.stats.static import players as static_players
@@ -1367,6 +1368,90 @@ def get_team_stats(season: str) -> dict[str, dict]:
             "tov_pct_rank": int(adv["TM_TOV_PCT_RANK"]) if adv.get("TM_TOV_PCT_RANK") is not None else None,
         }
     return result
+
+
+TEAM_GENERAL_SPLIT_DATASETS = (
+    "LocationTeamDashboard",
+    "WinsLossesTeamDashboard",
+    "DaysRestTeamDashboard",
+    "MonthTeamDashboard",
+    "PrePostAllStarTeamDashboard",
+)
+
+TEAM_GENERAL_SPLIT_LABEL_FIELDS = {
+    "LocationTeamDashboard": "TEAM_GAME_LOCATION",
+    "WinsLossesTeamDashboard": "GAME_RESULT",
+    "DaysRestTeamDashboard": "TEAM_DAYS_REST_RANGE",
+    "MonthTeamDashboard": "SEASON_MONTH_NAME",
+    "PrePostAllStarTeamDashboard": "SEASON_SEGMENT",
+}
+
+
+def _safe_float(value) -> Optional[float]:
+    try:
+        return float(value) if value is not None else None
+    except (TypeError, ValueError):
+        return None
+
+
+def _safe_int(value) -> int:
+    try:
+        return int(value or 0)
+    except (TypeError, ValueError):
+        return 0
+
+
+def _team_general_split_row(dataset_name: str, row: dict, season: str, team_id: int) -> Optional[dict]:
+    label_field = TEAM_GENERAL_SPLIT_LABEL_FIELDS.get(dataset_name)
+    raw_label = row.get(label_field) if label_field else None
+    label = str(raw_label or row.get("GROUP_VALUE") or "").strip()
+    if not label:
+        return None
+
+    return {
+        "team_id": int(team_id),
+        "season": season,
+        "is_playoff": False,
+        "split_family": dataset_name,
+        "split_value": label,
+        "label": label,
+        "gp": _safe_int(row.get("GP")),
+        "w": _safe_int(row.get("W")),
+        "l": _safe_int(row.get("L")),
+        "w_pct": _safe_float(row.get("W_PCT")) or 0.0,
+        "min": _safe_float(row.get("MIN")),
+        "pts": _safe_float(row.get("PTS")),
+        "reb": _safe_float(row.get("REB")),
+        "ast": _safe_float(row.get("AST")),
+        "tov": _safe_float(row.get("TOV")),
+        "stl": _safe_float(row.get("STL")),
+        "blk": _safe_float(row.get("BLK")),
+        "fg_pct": _safe_float(row.get("FG_PCT")),
+        "fg3_pct": _safe_float(row.get("FG3_PCT")),
+        "ft_pct": _safe_float(row.get("FT_PCT")),
+        "plus_minus": _safe_float(row.get("PLUS_MINUS")),
+        "source": "stats.nba.com/team-general-splits",
+    }
+
+
+def get_team_general_splits(season: str, team_id: int) -> list[dict]:
+    """Fetch official team general splits for one team and season."""
+    _rate_limit()
+    dash = teamdashboardbygeneralsplits.TeamDashboardByGeneralSplits(
+        team_id=team_id,
+        season=season,
+        per_mode_detailed="Totals",
+        season_type_all_star="Regular Season",
+        timeout=NBA_API_TIMEOUT,
+    )
+    data = dash.get_normalized_dict()
+    splits: list[dict] = []
+    for dataset_name in TEAM_GENERAL_SPLIT_DATASETS:
+        for row in data.get(dataset_name, []):
+            normalized = _team_general_split_row(dataset_name, row, season, team_id)
+            if normalized:
+                splits.append(normalized)
+    return splits
 
 
 def get_standings_data(season: str) -> list[dict]:
