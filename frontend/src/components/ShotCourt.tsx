@@ -22,6 +22,23 @@ const PALETTE = {
   },
 } as const;
 
+const COURT = {
+  hoopX: 250,
+  hoopY: 420,
+  baselineY: 476,
+  leftEdge: 0,
+  rightEdge: 500,
+  cornerThreeLeftX: 30,
+  cornerThreeRightX: 470,
+  threeRadius: 237.5,
+} as const;
+
+const threeArcDy = Math.sqrt(
+  COURT.threeRadius ** 2 - (COURT.hoopX - COURT.cornerThreeLeftX) ** 2
+);
+const threeArcY = COURT.hoopY - threeArcDy;
+const threeArcPath = `M ${COURT.cornerThreeLeftX},${threeArcY.toFixed(1)} A ${COURT.threeRadius},${COURT.threeRadius} 0 0 1 ${COURT.cornerThreeRightX},${threeArcY.toFixed(1)}`;
+
 export default function ShotCourt({
   tone = "light",
   className,
@@ -59,22 +76,22 @@ export default function ShotCourt({
       <line x1="324" y1="376" x2="330" y2="376" stroke={palette.ghost} />
 
       {/* Baseline */}
-      <line x1="30" y1="480" x2="470" y2="480" stroke={palette.ghost} strokeWidth="1.8" />
+      <line x1={COURT.leftEdge} y1={COURT.baselineY} x2={COURT.rightEdge} y2={COURT.baselineY} stroke={palette.ghost} strokeWidth="1.8" />
 
       {/* Three-point line glow pass */}
-      <line x1="30" y1="480" x2="30" y2="341" stroke={palette.glow} strokeWidth="4.8" opacity="0.36" />
-      <line x1="470" y1="480" x2="470" y2="341" stroke={palette.glow} strokeWidth="4.8" opacity="0.36" />
+      <line x1={COURT.cornerThreeLeftX} y1={COURT.baselineY} x2={COURT.cornerThreeLeftX} y2={threeArcY} stroke={palette.glow} strokeWidth="4.8" opacity="0.36" />
+      <line x1={COURT.cornerThreeRightX} y1={COURT.baselineY} x2={COURT.cornerThreeRightX} y2={threeArcY} stroke={palette.glow} strokeWidth="4.8" opacity="0.36" />
       <path
-        d="M 30,341 A 237.5,237.5 0 0 0 470,341"
+        d={threeArcPath}
         stroke={palette.glow}
         strokeWidth="4.8"
         opacity="0.34"
       />
 
-      <line x1="30" y1="480" x2="30" y2="341" stroke={palette.strong} strokeWidth="3" />
-      <line x1="470" y1="480" x2="470" y2="341" stroke={palette.strong} strokeWidth="3" />
+      <line x1={COURT.cornerThreeLeftX} y1={COURT.baselineY} x2={COURT.cornerThreeLeftX} y2={threeArcY} stroke={palette.strong} strokeWidth="3" />
+      <line x1={COURT.cornerThreeRightX} y1={COURT.baselineY} x2={COURT.cornerThreeRightX} y2={threeArcY} stroke={palette.strong} strokeWidth="3" />
       <path
-        d="M 30,341 A 237.5,237.5 0 0 0 470,341"
+        d={threeArcPath}
         stroke={palette.strong}
         strokeWidth="3"
       />

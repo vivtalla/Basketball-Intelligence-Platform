@@ -13,11 +13,11 @@ import type {
 import { LEAGUE_AVG_FG, ZONE_POINTS, ZONE_ORDER, heatColor } from "@/lib/shotchart-constants";
 import { clampShotLabCustomRange, resolveShotLabRange } from "@/lib/shotlab";
 import ChartStatusBadge from "./ChartStatusBadge";
-import ZoneAnnotationCourt from "./ZoneAnnotationCourt";
 import ShotCourt from "./ShotCourt";
 import ShotValueMap from "./ShotValueMap";
 import ShotSprawlMap from "./ShotSprawlMap";
 import ShotDistanceProfile from "./ShotDistanceProfile";
+import ShotActionSignature from "./ShotActionSignature";
 import ShotLabControls from "./ShotLabControls";
 import ShotContextPanel from "./ShotContextPanel";
 import ShotSnapshotButton from "./ShotSnapshotButton";
@@ -933,11 +933,10 @@ export default function ShotChart({
         </div>{/* end hidden wrapper for scatter/heat/hex */}
       </div>
 
-      {/* Zone annotation court — primary zone view */}
+      {/* Action fingerprint — complementary non-court view */}
       {activeShotChart && activeShotChart.shots.length > 0 && (
         <div className="mt-6 border-t border-[rgba(25,52,42,0.08)] pt-5">
-          <p className="bip-kicker mb-3">Zone Efficiency</p>
-          <ZoneAnnotationCourt shots={activeShotChart.shots} compact />
+          <ShotActionSignature shots={activeShotChart.shots} />
         </div>
       )}
 

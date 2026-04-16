@@ -100,6 +100,53 @@ const STAT_GROUPS = [
 
 const ALL_OPTIONS = STAT_GROUPS.flatMap((g) => g.options);
 const GROUP_BY_STAT = new Map(ALL_OPTIONS.map((option) => [option.key, STAT_GROUPS.find((group) => group.options.some((candidate) => candidate.key === option.key))?.label ?? "Scoring"]));
+const GROUP_START_KEYS = new Set(
+  STAT_GROUPS.map((group) => group.options[0]?.key).filter((key): key is string => Boolean(key))
+);
+const GROUP_ACCENTS: Record<string, { bg: string; border: string; text: string; activeBg: string; activeText: string }> = {
+  "Core Per Game": {
+    bg: "rgba(33, 72, 59, 0.09)",
+    border: "rgba(33, 72, 59, 0.30)",
+    text: "#21483b",
+    activeBg: "rgba(33, 72, 59, 0.16)",
+    activeText: "#17382d",
+  },
+  Scoring: {
+    bg: "rgba(127, 51, 43, 0.08)",
+    border: "rgba(127, 51, 43, 0.24)",
+    text: "#7f332b",
+    activeBg: "rgba(127, 51, 43, 0.14)",
+    activeText: "#7f332b",
+  },
+  "Volume Totals": {
+    bg: "rgba(180, 137, 61, 0.12)",
+    border: "rgba(180, 137, 61, 0.32)",
+    text: "#6c4b16",
+    activeBg: "rgba(180, 137, 61, 0.20)",
+    activeText: "#4f3810",
+  },
+  "Shot Profile": {
+    bg: "rgba(40, 80, 55, 0.09)",
+    border: "rgba(40, 80, 55, 0.28)",
+    text: "#285037",
+    activeBg: "rgba(40, 80, 55, 0.17)",
+    activeText: "#21483b",
+  },
+  Advanced: {
+    bg: "rgba(53, 41, 33, 0.07)",
+    border: "rgba(53, 41, 33, 0.20)",
+    text: "#4a3a2d",
+    activeBg: "rgba(53, 41, 33, 0.13)",
+    activeText: "#201a16",
+  },
+  External: {
+    bg: "rgba(111, 101, 90, 0.09)",
+    border: "rgba(111, 101, 90, 0.24)",
+    text: "#5d5147",
+    activeBg: "rgba(111, 101, 90, 0.16)",
+    activeText: "#2b2521",
+  },
+};
 
 // Stats eligible for career aggregation (rate stats that average meaningfully across seasons)
 const CAREER_STAT_KEYS = new Set([
@@ -111,6 +158,10 @@ const CAREER_OPTIONS = ALL_OPTIONS.filter((o) => CAREER_STAT_KEYS.has(o.key));
 
 function getStatMeta(key: string) {
   return ALL_OPTIONS.find((o) => o.key === key) ?? { key, label: key, fmt: "1f", tooltip: "" };
+}
+
+function getGroupAccent(label: string) {
+  return GROUP_ACCENTS[label] ?? GROUP_ACCENTS["Core Per Game"];
 }
 
 function formatStat(value: number, fmt: string): string {
@@ -239,9 +290,6 @@ function PlayerStatsPageContent() {
   const [lineupMinMinutes, setLineupMinMinutes] = useState(parsePositiveIntParam(searchParams.get("lineupMin"), 15));
   const [isSyncingSeason, setIsSyncingSeason] = useState(false);
   const [seasonSyncMessage, setSeasonSyncMessage] = useState<string | null>(null);
-  const [activeMetricGroup, setActiveMetricGroup] = useState(STAT_GROUPS[0].label);
-  const [compactRows, setCompactRows] = useState(searchParams.get("density") === "compact");
-  const [pinKeyColumns, setPinKeyColumns] = useState(searchParams.get("pin") !== "0");
 
   // Filter state — up to MAX_FILTERS conditions
   const [filters, setFilters] = useState<FilterCondition[]>(() => parseFiltersParam(searchParams.get("filters")));
@@ -281,8 +329,6 @@ function PlayerStatsPageContent() {
     if (teamFilter) params.set("team", teamFilter);
     if (filters.length > 0) params.set("filters", serializeFiltersParam(filters));
     if (showFilterPanel) params.set("panel", "1");
-    if (compactRows) params.set("density", "compact");
-    if (!pinKeyColumns) params.set("pin", "0");
     if (onOffMinMinutes !== 200) params.set("onMin", String(onOffMinMinutes));
     if (lineupMinMinutes !== 15) params.set("lineupMin", String(lineupMinMinutes));
     router.replace(`?${params.toString()}`, { scroll: false });
@@ -295,19 +341,10 @@ function PlayerStatsPageContent() {
     teamFilter,
     filters,
     showFilterPanel,
-    compactRows,
-    pinKeyColumns,
     onOffMinMinutes,
     lineupMinMinutes,
     router,
   ]);
-
-  useEffect(() => {
-    const nextGroup = GROUP_BY_STAT.get(stat);
-    if (nextGroup) {
-      setActiveMetricGroup(nextGroup);
-    }
-  }, [stat]);
 
   // ── Primary leaderboard — fetch larger set when filters are active
   const primaryLimit = filters.length > 0 ? 200 : 25;
@@ -408,10 +445,11 @@ function PlayerStatsPageContent() {
 
   const statLabel = getStatMeta(stat).label;
   const careerStatMeta = getStatMeta(careerStat);
-  const activeMetricOptions = STAT_GROUPS.find((group) => group.label === activeMetricGroup)?.options ?? STAT_GROUPS[0].options;
+  const activeMetricGroup = GROUP_BY_STAT.get(stat) ?? STAT_GROUPS[0].label;
   const modeMeta = MODE_META[mode];
 
-  const tableMetricCols = activeMetricOptions;
+  const tableMetricGroups = STAT_GROUPS;
+  const tableMetricCols = ALL_OPTIONS;
   const playerResultsCount = filteredEntries.length;
   const playerSourceCount = playersBoard.data?.entries.length ?? 0;
   const onOffCount = onOffBoard.data?.players.length ?? 0;
@@ -479,9 +517,9 @@ function PlayerStatsPageContent() {
           value: formatSigned(lineup.net_rating),
           detail: `${lineup.minutes?.toFixed(1) ?? "-"} min • ${lineup.possessions ?? 0} poss`,
         }));
-  const stickyRankClass = pinKeyColumns ? "sticky left-0 z-10 bg-white dark:bg-gray-800" : "";
-  const stickyPlayerClass = pinKeyColumns ? "sticky left-10 z-10 bg-white dark:bg-gray-800" : "";
-  const rowPaddingClass = compactRows ? "py-2" : "py-3";
+  const stickyRankClass = "sticky left-0 z-10 bg-white dark:bg-gray-800";
+  const stickyPlayerClass = "sticky left-10 z-10 bg-white dark:bg-gray-800";
+  const rowPaddingClass = "py-3";
   const loadingMessage =
     mode === "players"
       ? "Loading leaderboard rows and filter context..."
@@ -492,107 +530,97 @@ function PlayerStatsPageContent() {
       : "Loading lineup performance board...";
 
   return (
-    <div className="max-w-6xl mx-auto">
-      <div className="mb-6">
+    <div className="relative left-1/2 w-screen -translate-x-1/2 px-4 sm:px-6 lg:px-8">
+      <div className="pointer-events-none absolute inset-x-0 top-0 -z-10 h-[420px] bg-[linear-gradient(180deg,rgba(255,250,242,0.92),rgba(244,236,222,0)),linear-gradient(90deg,rgba(180,137,61,0.13)_1px,transparent_1px),linear-gradient(180deg,rgba(53,41,33,0.07)_1px,transparent_1px)] bg-[size:100%_100%,84px_84px,84px_84px]" />
+
+      <div className="mb-4">
         <Link
           href="/"
-          className="inline-flex items-center gap-1 text-sm text-gray-500 hover:text-blue-500 dark:text-gray-400 dark:hover:text-blue-400 transition-colors"
+          className="inline-flex items-center gap-1 rounded-md border border-[rgba(53,41,33,0.14)] bg-[rgba(255,251,246,0.86)] px-3 py-1.5 text-sm font-medium text-[var(--muted)] shadow-sm hover:border-[rgba(33,72,59,0.32)] hover:text-[var(--accent)]"
         >
           ← Back to Home
         </Link>
       </div>
 
-      <div className="mb-6 rounded-[28px] border border-slate-200/80 bg-[linear-gradient(135deg,rgba(255,255,255,0.98),rgba(239,246,255,0.92),rgba(240,249,255,0.88))] p-5 shadow-sm dark:border-slate-700 dark:bg-[linear-gradient(135deg,rgba(15,23,42,0.95),rgba(30,41,59,0.96),rgba(15,23,42,0.92))] sm:p-7">
-        <div className="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
-          <div className="max-w-3xl">
-            <p className="mb-2 text-[11px] font-semibold uppercase tracking-[0.24em] text-sky-600 dark:text-sky-300">
-              {modeMeta.eyebrow}
-            </p>
-            <h1 className="text-3xl font-bold tracking-tight text-slate-900 dark:text-slate-50 sm:text-4xl">
-              {modeMeta.label}
-            </h1>
-            <p className="mt-3 max-w-2xl text-sm leading-6 text-slate-600 dark:text-slate-300 sm:text-base">
-              {modeMeta.description}
-            </p>
+      <section className="mb-4 overflow-hidden rounded-lg border border-[rgba(53,41,33,0.16)] bg-[rgba(255,248,237,0.94)] shadow-[0_20px_62px_rgba(46,32,19,0.13)] backdrop-blur">
+        <div className="relative border-b border-[rgba(53,41,33,0.14)] bg-[linear-gradient(115deg,rgba(252,244,230,0.98),rgba(234,219,183,0.82)_52%,rgba(216,228,221,0.72))] px-4 py-4 sm:px-5">
+          <div className="pointer-events-none absolute inset-y-0 right-0 hidden w-80 opacity-60 lg:block">
+            <div className="absolute right-8 top-1/2 h-40 w-40 -translate-y-1/2 rounded-full border border-[rgba(33,72,59,0.24)]" />
+            <div className="absolute right-0 top-1/2 h-px w-80 -translate-y-1/2 bg-[rgba(33,72,59,0.18)]" />
+            <div className="absolute right-24 top-1/2 h-24 w-28 -translate-y-1/2 border border-[rgba(33,72,59,0.18)]" />
           </div>
-
-          <div className="grid w-full gap-3 sm:grid-cols-2 lg:w-[420px]">
-            {summaryCards.map((card) => (
-              <div
-                key={card.label}
-                className="rounded-2xl border border-white/70 bg-white/80 px-4 py-3 backdrop-blur dark:border-slate-700/80 dark:bg-slate-900/50"
-              >
-                <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">
-                  {card.label}
-                </p>
-                <p className="mt-1 text-sm font-semibold text-slate-900 dark:text-slate-100 sm:text-base">
-                  {card.value}
-                </p>
-                <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
-                  {card.detail}
-                </p>
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+            <div className="max-w-3xl">
+              <p className="text-[11px] font-bold uppercase tracking-[0.2em] text-[var(--accent)]">
+                {modeMeta.eyebrow}
+              </p>
+              <div className="mt-2 flex flex-wrap items-baseline gap-x-4 gap-y-1">
+                <h1 className="bip-display text-4xl font-bold tracking-tight text-[var(--foreground)] sm:text-5xl">
+                  {modeMeta.label}
+                </h1>
+                {mode === "players" && (
+                  <span className="rounded-md border border-[rgba(33,72,59,0.16)] bg-[rgba(255,251,246,0.76)] px-2 py-1 font-mono text-sm font-semibold text-[var(--accent)]">
+                    sorted by {statLabel}
+                  </span>
+                )}
               </div>
-            ))}
+              <p className="mt-2 max-w-2xl text-sm font-medium leading-6 text-[var(--muted)]">
+                {modeMeta.description}
+              </p>
+            </div>
+
+            <div className="relative z-10 grid grid-cols-3 overflow-hidden rounded-md border border-[rgba(53,41,33,0.14)] bg-[rgba(255,251,246,0.88)] text-sm shadow-sm">
+              {summaryCards.slice(1, 4).map((card) => (
+                <div key={card.label} className="min-w-28 border-l border-[rgba(53,41,33,0.12)] px-3 py-2 first:border-l-0">
+                  <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-[var(--muted)]">
+                    {card.label}
+                  </p>
+                  <p className="mt-1 whitespace-nowrap font-bold text-[var(--foreground)]">
+                    {card.value}
+                  </p>
+                </div>
+              ))}
+            </div>
           </div>
         </div>
-      </div>
 
-      {/* ── Mode tabs ── */}
-      <div className="flex flex-wrap gap-2 mb-4">
-        {(["players", "onoff", "lineups", "career"] as BoardMode[]).map((m) => (
-          <button
-            key={m}
-            onClick={() => setMode(m)}
-            className={`px-3 py-1.5 rounded-lg text-sm transition-colors ${
-              mode === m
-                ? "bip-toggle-active"
-                : "bip-toggle"
-            }`}
-          >
-            {m === "players" ? "Player Stats" : m === "onoff" ? "On/Off Impact" : m === "lineups" ? "Top Lineups" : "Career Leaders"}
-          </button>
-        ))}
-      </div>
+        {/* ── Mode tabs ── */}
+        <div className="flex flex-wrap gap-1 bg-[rgba(43,37,33,0.92)] px-3 py-2">
+          {(["players", "onoff", "lineups", "career"] as BoardMode[]).map((m) => (
+            <button
+              key={m}
+              onClick={() => setMode(m)}
+              className={`rounded-md px-3 py-1.5 text-sm transition-colors ${
+                mode === m
+                  ? "bg-[var(--signal-soft)] text-[var(--signal-ink)] shadow-sm"
+                  : "border border-[rgba(234,219,183,0.24)] bg-[rgba(234,219,183,0.12)] text-[#eadbb7] hover:border-[rgba(234,219,183,0.42)] hover:bg-[rgba(234,219,183,0.20)] hover:text-[#fff7ec]"
+              }`}
+            >
+              {m === "players" ? "Player Stats" : m === "onoff" ? "On/Off Impact" : m === "lineups" ? "Top Lineups" : "Career Leaders"}
+            </button>
+          ))}
+        </div>
+      </section>
 
       {/* ── Controls row ── */}
-      <div className="mb-3 rounded-[24px] border border-slate-200 bg-white/90 p-4 shadow-sm dark:border-slate-700 dark:bg-slate-900/70">
+      <div className="sticky top-[73px] z-30 mb-4 rounded-lg border border-[rgba(53,41,33,0.14)] bg-[rgba(255,251,246,0.94)] p-3 shadow-[0_14px_42px_rgba(46,32,19,0.10)] backdrop-blur">
         <div className="flex flex-wrap items-end gap-3">
           {mode === "players" && (
             <label className="space-y-1.5">
-              <span className="block text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">
-                Metric Group
-              </span>
-              <select
-                value={activeMetricGroup}
-                onChange={(e) => {
-                  const nextGroup = e.target.value;
-                  setActiveMetricGroup(nextGroup);
-                  const nextOptions = STAT_GROUPS.find((group) => group.label === nextGroup)?.options ?? [];
-                  if (!nextOptions.some((option) => option.key === stat) && nextOptions[0]) {
-                    setStat(nextOptions[0].key);
-                  }
-                }}
-                className="text-sm border border-gray-200 dark:border-gray-600 rounded-lg px-3 py-2 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
-              >
-                {STAT_GROUPS.map((group) => (
-                  <option key={group.label} value={group.label}>{group.label}</option>
-                ))}
-              </select>
-            </label>
-          )}
-
-          {mode === "players" && (
-            <label className="space-y-1.5">
-              <span className="block text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">
+              <span className="block text-[11px] font-bold uppercase tracking-[0.18em] text-[var(--surface-ink)]">
                 Primary Sort
               </span>
               <select
                 value={stat}
                 onChange={(e) => setStat(e.target.value)}
-                className="text-sm border border-gray-200 dark:border-gray-600 rounded-lg px-3 py-2 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="rounded-md border border-[rgba(53,41,33,0.16)] bg-white px-3 py-2 text-sm font-medium text-[var(--foreground)] shadow-sm focus:outline-none focus:ring-2 focus:ring-[rgba(33,72,59,0.22)]"
               >
-                {activeMetricOptions.map((opt) => (
-                  <option key={opt.key} value={opt.key}>{opt.label}</option>
+                {STAT_GROUPS.map((group) => (
+                  <optgroup key={group.label} label={group.label}>
+                    {group.options.map((opt) => (
+                      <option key={opt.key} value={opt.key}>{opt.label}</option>
+                    ))}
+                  </optgroup>
                 ))}
               </select>
             </label>
@@ -600,13 +628,13 @@ function PlayerStatsPageContent() {
 
           {mode === "career" && (
             <label className="space-y-1.5">
-              <span className="block text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">
+              <span className="block text-[11px] font-bold uppercase tracking-[0.18em] text-[var(--surface-ink)]">
                 Career Sort
               </span>
               <select
                 value={careerStat}
                 onChange={(e) => setCareerStat(e.target.value)}
-                className="text-sm border border-gray-200 dark:border-gray-600 rounded-lg px-3 py-2 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="rounded-md border border-[rgba(53,41,33,0.16)] bg-white px-3 py-2 text-sm font-medium text-[var(--foreground)] shadow-sm focus:outline-none focus:ring-2 focus:ring-[rgba(33,72,59,0.22)]"
               >
                 {CAREER_OPTIONS.map((opt) => (
                   <option key={opt.key} value={opt.key}>{opt.label}</option>
@@ -617,14 +645,14 @@ function PlayerStatsPageContent() {
 
           {mode !== "career" && (
             <label className="space-y-1.5">
-              <span className="block text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">
+              <span className="block text-[11px] font-bold uppercase tracking-[0.18em] text-[var(--surface-ink)]">
                 Season
               </span>
               <select
                 value={season}
                 onChange={(e) => { setSeason(e.target.value); setTeamFilter(""); }}
                 disabled={seasons.length === 0}
-                className="text-sm border border-gray-200 dark:border-gray-600 rounded-lg px-3 py-2 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50"
+                className="rounded-md border border-[rgba(53,41,33,0.16)] bg-white px-3 py-2 text-sm font-medium text-[var(--foreground)] shadow-sm focus:outline-none focus:ring-2 focus:ring-[rgba(33,72,59,0.22)] disabled:opacity-50"
               >
                 {seasons.map((s) => (
                   <option key={s} value={s}>{s}</option>
@@ -635,18 +663,18 @@ function PlayerStatsPageContent() {
 
           {mode === "players" && (
             <div className="space-y-1.5">
-              <span className="block text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">
+              <span className="block text-[11px] font-bold uppercase tracking-[0.18em] text-[var(--surface-ink)]">
                 Season Type
               </span>
-              <div className="flex rounded-lg overflow-hidden border border-gray-200 dark:border-gray-600 text-sm">
+              <div className="flex overflow-hidden rounded-md border border-[rgba(53,41,33,0.16)] text-sm shadow-sm">
                 {(["Regular Season", "Playoffs"] as const).map((type) => (
                   <button
                     key={type}
                     onClick={() => setSeasonType(type)}
                     className={`px-4 py-2 transition-colors ${
                       seasonType === type
-                        ? "bip-toggle-active"
-                        : "bip-toggle"
+                        ? "bg-[var(--accent)] text-white"
+                        : "bg-white text-[var(--muted)] hover:bg-[#fff7ec] hover:text-[var(--foreground)]"
                     }`}
                   >
                     {type}
@@ -658,13 +686,13 @@ function PlayerStatsPageContent() {
 
           {mode === "players" && teams.length > 0 && (
             <label className="space-y-1.5">
-              <span className="block text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">
+              <span className="block text-[11px] font-bold uppercase tracking-[0.18em] text-[var(--surface-ink)]">
                 Team
               </span>
               <select
                 value={teamFilter}
                 onChange={(e) => setTeamFilter(e.target.value)}
-                className="text-sm border border-gray-200 dark:border-gray-600 rounded-lg px-3 py-2 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="rounded-md border border-[rgba(53,41,33,0.16)] bg-white px-3 py-2 text-sm font-medium text-[var(--foreground)] shadow-sm focus:outline-none focus:ring-2 focus:ring-[rgba(33,72,59,0.22)]"
               >
                 <option value="">All Teams</option>
                 {teams.map((t) => (
@@ -676,26 +704,26 @@ function PlayerStatsPageContent() {
 
           {mode === "onoff" && (
             <label className="space-y-1.5">
-              <span className="block text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">
+              <span className="block text-[11px] font-bold uppercase tracking-[0.18em] text-[var(--surface-ink)]">
                 Min On-Court Minutes
               </span>
               <input
                 type="number" min={0} step={10} value={onOffMinMinutes}
                 onChange={(e) => setOnOffMinMinutes(Number(e.target.value) || 0)}
-                className="w-32 border border-gray-200 dark:border-gray-600 rounded-lg px-3 py-2 text-sm bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
+                className="w-32 rounded-md border border-[rgba(53,41,33,0.16)] bg-white px-3 py-2 text-sm font-medium text-[var(--foreground)] shadow-sm focus:outline-none focus:ring-2 focus:ring-[rgba(33,72,59,0.22)]"
               />
             </label>
           )}
 
           {mode === "lineups" && (
             <label className="space-y-1.5">
-              <span className="block text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">
+              <span className="block text-[11px] font-bold uppercase tracking-[0.18em] text-[var(--surface-ink)]">
                 Min Lineup Minutes
               </span>
               <input
                 type="number" min={0} step={5} value={lineupMinMinutes}
                 onChange={(e) => setLineupMinMinutes(Number(e.target.value) || 0)}
-                className="w-32 border border-gray-200 dark:border-gray-600 rounded-lg px-3 py-2 text-sm bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
+                className="w-32 rounded-md border border-[rgba(53,41,33,0.16)] bg-white px-3 py-2 text-sm font-medium text-[var(--foreground)] shadow-sm focus:outline-none focus:ring-2 focus:ring-[rgba(33,72,59,0.22)]"
               />
             </label>
           )}
@@ -704,7 +732,7 @@ function PlayerStatsPageContent() {
             <button
               onClick={handleSeasonSync}
               disabled={isSyncingSeason}
-              className="rounded-lg bg-blue-600 px-3 py-2 text-sm font-medium text-white transition-colors hover:bg-blue-700 disabled:cursor-wait disabled:opacity-60"
+              className="rounded-md bg-[var(--accent)] px-3 py-2 text-sm font-semibold text-white transition-colors hover:bg-[var(--accent-strong)] disabled:cursor-wait disabled:opacity-60"
             >
               {isSyncingSeason ? "Syncing Season PBP..." : "Sync Season PBP"}
             </button>
@@ -713,10 +741,10 @@ function PlayerStatsPageContent() {
           {mode === "players" && (
             <button
               onClick={() => setShowFilterPanel((v) => !v)}
-              className={`relative flex items-center gap-1.5 rounded-lg border px-3 py-2 text-sm transition-colors ${
+              className={`relative flex items-center gap-1.5 rounded-md border px-3 py-2 text-sm shadow-sm transition-colors ${
                 showFilterPanel || filters.length > 0
-                  ? "border-blue-400 bg-blue-50 dark:bg-blue-950/40 text-blue-600 dark:text-blue-300"
-                  : "border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300"
+                  ? "border-[rgba(33,72,59,0.34)] bg-[var(--accent-soft)] text-[var(--accent)]"
+                  : "border-[rgba(53,41,33,0.16)] bg-white text-[var(--muted)] hover:border-[rgba(33,72,59,0.28)] hover:text-[var(--accent)]"
               }`}
             >
               <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4">
@@ -724,7 +752,7 @@ function PlayerStatsPageContent() {
               </svg>
               Filters
               {filters.length > 0 && (
-                <span className="inline-flex items-center justify-center w-4 h-4 rounded-full bg-blue-500 text-white text-[10px] font-bold">
+                <span className="inline-flex h-4 w-4 items-center justify-center rounded-full bg-[var(--accent)] text-[10px] font-bold text-white">
                   {filters.length}
                 </span>
               )}
@@ -732,66 +760,13 @@ function PlayerStatsPageContent() {
           )}
         </div>
 
-        {mode === "players" && (
-          <div className="mt-4 border-t border-slate-200 pt-4 dark:border-slate-700">
-            <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
-              <div>
-                <p className="mb-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">
-                  Quick Metric Switch
-                </p>
-                <div className="flex gap-2 overflow-x-auto pb-1">
-                  {activeMetricOptions.map((option) => (
-                    <button
-                      key={option.key}
-                      type="button"
-                      title={option.tooltip}
-                      onClick={() => setStat(option.key)}
-                      className={`whitespace-nowrap rounded-full border px-3 py-1.5 text-sm transition-colors ${
-                        option.key === stat
-                          ? "border-blue-500 bg-blue-600 text-white"
-                          : "border-slate-200 bg-slate-50 text-slate-700 hover:border-blue-300 hover:text-blue-600 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200 dark:hover:border-blue-500 dark:hover:text-blue-300"
-                      }`}
-                    >
-                      {option.label}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              <div className="flex flex-wrap gap-2">
-                <button
-                  type="button"
-                  onClick={() => setCompactRows((value) => !value)}
-                  className={`rounded-full border px-3 py-1.5 text-sm transition-colors ${
-                    compactRows
-                      ? "border-amber-400 bg-amber-50 text-amber-700 dark:border-amber-500 dark:bg-amber-950/30 dark:text-amber-300"
-                      : "border-slate-200 bg-slate-50 text-slate-700 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200"
-                  }`}
-                >
-                  {compactRows ? "Compact Rows On" : "Comfort Rows"}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setPinKeyColumns((value) => !value)}
-                  className={`rounded-full border px-3 py-1.5 text-sm transition-colors ${
-                    pinKeyColumns
-                      ? "border-emerald-400 bg-emerald-50 text-emerald-700 dark:border-emerald-500 dark:bg-emerald-950/30 dark:text-emerald-300"
-                      : "border-slate-200 bg-slate-50 text-slate-700 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200"
-                  }`}
-                >
-                  {pinKeyColumns ? "Pinned Player Column" : "Unpinned Columns"}
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
       </div>
 
       {/* ── Filter panel ── */}
       {mode === "players" && showFilterPanel && (
-        <div className="mb-4 rounded-2xl border border-blue-200 dark:border-blue-900/60 bg-blue-50 dark:bg-blue-950/20 p-4 space-y-3">
+        <div className="mb-4 space-y-3 rounded-lg border border-[rgba(33,72,59,0.18)] bg-[rgba(216,228,221,0.72)] p-4 shadow-sm">
           <div className="flex items-center justify-between">
-            <p className="text-xs font-semibold uppercase tracking-wider text-blue-600 dark:text-blue-400">
+            <p className="text-xs font-bold uppercase tracking-wider text-[var(--accent)]">
               Add Conditions — results must match ALL filters
             </p>
             {filters.length > 0 && (
@@ -813,16 +788,16 @@ function PlayerStatsPageContent() {
                 return (
                   <div
                     key={`${uid}-chip-${i}`}
-                    className="flex items-center gap-1.5 rounded-full bg-blue-100 dark:bg-blue-900/50 border border-blue-300 dark:border-blue-700 px-3 py-1 text-sm text-blue-800 dark:text-blue-200"
+                    className="flex items-center gap-1.5 rounded-md border border-[rgba(33,72,59,0.20)] bg-white px-3 py-1 text-sm font-medium text-[var(--accent)] shadow-sm"
                   >
                     <span className="font-medium">{meta.label}</span>
-                    <span className="text-blue-500 dark:text-blue-400">{f.operator === "gte" ? "≥" : "≤"}</span>
+                    <span className="text-[var(--accent)]">{f.operator === "gte" ? "≥" : "≤"}</span>
                     <span className="tabular-nums">
                       {isPct(f.stat) ? `${displayVal.toFixed(1)}%` : displayVal.toFixed(1)}
                     </span>
                     <button
                       onClick={() => removeFilter(i)}
-                      className="ml-0.5 text-blue-400 hover:text-red-500 dark:hover:text-red-400 transition-colors"
+                      className="ml-0.5 text-[var(--accent)] transition-colors hover:text-red-500"
                     >
                       ×
                     </button>
@@ -838,7 +813,7 @@ function PlayerStatsPageContent() {
               <select
                 value={newStat}
                 onChange={(e) => setNewStat(e.target.value)}
-                className="text-sm border border-blue-200 dark:border-blue-800 rounded-lg px-2 py-1.5 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="rounded-md border border-[rgba(33,72,59,0.18)] bg-white px-2 py-1.5 text-sm font-medium text-[var(--foreground)] focus:outline-none focus:ring-2 focus:ring-[rgba(33,72,59,0.22)]"
               >
                 {STAT_GROUPS.map((group) => (
                   <optgroup key={group.label} label={group.label}>
@@ -851,15 +826,15 @@ function PlayerStatsPageContent() {
                 ))}
               </select>
 
-              <div className="flex rounded-lg overflow-hidden border border-blue-200 dark:border-blue-800 text-sm">
+              <div className="flex overflow-hidden rounded-md border border-[rgba(33,72,59,0.18)] text-sm">
                 {(["gte", "lte"] as Operator[]).map((op) => (
                   <button
                     key={op}
                     onClick={() => setNewOp(op)}
                     className={`px-3 py-1.5 transition-colors ${
                       newOp === op
-                        ? "bip-toggle-active"
-                        : "bip-toggle"
+                        ? "bg-[var(--accent)] text-white"
+                        : "bg-white text-[var(--muted)] hover:bg-[#fff7ec]"
                     }`}
                   >
                     {op === "gte" ? "≥" : "≤"}
@@ -873,18 +848,18 @@ function PlayerStatsPageContent() {
                 value={newVal}
                 onChange={(e) => setNewVal(e.target.value)}
                 onKeyDown={(e) => e.key === "Enter" && addFilter()}
-                className="w-32 text-sm border border-blue-200 dark:border-blue-800 rounded-lg px-2 py-1.5 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-32 rounded-md border border-[rgba(33,72,59,0.18)] bg-white px-2 py-1.5 text-sm font-medium text-[var(--foreground)] focus:outline-none focus:ring-2 focus:ring-[rgba(33,72,59,0.22)]"
               />
 
               <button
                 onClick={addFilter}
                 disabled={!newVal || isNaN(parseFloat(newVal))}
-                className="rounded-lg bg-blue-500 px-4 py-1.5 text-sm font-medium text-white hover:bg-blue-600 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                className="rounded-md bg-[var(--accent)] px-4 py-1.5 text-sm font-semibold text-white transition-colors hover:bg-[var(--accent-strong)] disabled:cursor-not-allowed disabled:opacity-40"
               >
                 Add
               </button>
 
-              <span className="text-xs text-blue-500 dark:text-blue-400">
+              <span className="text-xs font-medium text-[var(--accent)]">
                 {MAX_FILTERS - filters.length} slot{MAX_FILTERS - filters.length !== 1 ? "s" : ""} remaining
               </span>
             </div>
@@ -893,7 +868,7 @@ function PlayerStatsPageContent() {
       )}
 
       {seasonSyncMessage && (
-        <div className="mb-4 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 px-4 py-3 text-sm text-gray-600 dark:text-gray-300">
+        <div className="mb-4 rounded-lg border border-slate-200 bg-white px-4 py-3 text-sm text-slate-600 shadow-sm dark:border-slate-700 dark:bg-gray-800 dark:text-gray-300">
           {seasonSyncMessage}
         </div>
       )}
@@ -909,76 +884,132 @@ function PlayerStatsPageContent() {
       )}
 
       {mode === "players" && (
-        <div className="mb-3 rounded-xl border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700 dark:border-blue-900/60 dark:bg-blue-950/20 dark:text-blue-300">
-          Showing <span className="font-semibold">{activeMetricGroup}</span> metrics in the table. Rankings are sorted by <span className="font-semibold">{statLabel}</span>, mobile rows surface team plus games played inline, and the URL now preserves filters, density, pinned columns, and thresholds for sharing.
+        <div className="mb-3 flex flex-wrap items-center justify-between gap-2 rounded-lg border border-slate-200 bg-white/85 px-4 py-2 text-sm text-slate-600 shadow-sm dark:border-slate-700 dark:bg-slate-950/80 dark:text-slate-300">
+          <span>
+            Sorted by <span className="font-semibold text-slate-950 dark:text-white">{statLabel}</span>
+          </span>
+          <span className="font-mono text-xs uppercase tracking-[0.16em]" style={{ color: getGroupAccent(activeMetricGroup).text }}>
+            {activeMetricGroup}
+          </span>
         </div>
       )}
 
       {isLoading && (
-        <div className="mb-4 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-600 dark:border-slate-700 dark:bg-slate-900/80 dark:text-slate-300">
+        <div className="mb-4 rounded-lg border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-600 shadow-sm dark:border-slate-700 dark:bg-slate-900/80 dark:text-slate-300">
           {loadingMessage}
         </div>
       )}
 
       {!isLoading && spotlightCards.length > 0 && (
-        <div className="mb-4 grid gap-3 md:grid-cols-3">
+        <div className="mb-4 overflow-hidden rounded-lg border border-[rgba(53,41,33,0.16)] bg-[linear-gradient(115deg,rgba(255,248,237,0.98),rgba(234,219,183,0.72))] text-[var(--foreground)] shadow-[0_20px_55px_rgba(46,32,19,0.12)]">
+          <div className="flex flex-wrap items-center justify-between gap-2 border-b border-[rgba(53,41,33,0.12)] px-4 py-2">
+            <p className="text-[11px] font-bold uppercase tracking-[0.2em] text-[var(--accent)]">
+              Top of board
+            </p>
+            <p className="text-xs font-medium text-[var(--muted)]">
+              {mode === "players" ? statLabel : modeMeta.label}
+            </p>
+          </div>
+          <div className="grid divide-y divide-[rgba(53,41,33,0.12)] md:grid-cols-3 md:divide-x md:divide-y-0">
           {spotlightCards.map((card) => (
             <div
               key={card.key}
-              className="rounded-2xl border border-slate-200 bg-white px-4 py-4 shadow-sm dark:border-slate-700 dark:bg-slate-900/80"
+              className="px-4 py-4"
             >
-              <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">
+              <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-[var(--muted)]">
                 {card.label}
               </p>
-              <p className="mt-2 line-clamp-2 text-sm font-semibold text-slate-900 dark:text-slate-100">
+              <p className="mt-2 line-clamp-2 text-sm font-bold text-[var(--foreground)]">
                 {card.title}
               </p>
-              <p className="mt-3 text-2xl font-bold tracking-tight text-blue-600 dark:text-blue-400">
+              <p className="mt-3 text-3xl font-bold tracking-tight text-[var(--accent)]">
                 {card.value}
               </p>
-              <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+              <p className="mt-1 text-xs font-medium text-[var(--muted)]">
                 {card.detail}
               </p>
             </div>
           ))}
+          </div>
         </div>
       )}
 
       {/* ── Table ── */}
-      <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 overflow-x-auto shadow-sm">
+      <div className="overflow-x-auto rounded-lg border border-slate-200 bg-white shadow-[0_22px_70px_rgba(15,23,42,0.12)] dark:border-slate-700 dark:bg-gray-800">
 
         {/* Players mode */}
         {mode === "players" && (
-          <table className="w-full">
+          <table className="w-full min-w-[5200px]">
             <thead>
               <tr className="border-b border-gray-200 dark:border-gray-700">
-                <th className={`${stickyRankClass} text-left text-xs font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500 px-4 py-3 w-10`}>#</th>
-                <th className={`${stickyPlayerClass} text-left text-xs font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500 px-4 py-3`}>Player</th>
-                <th className="text-left text-xs font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500 px-4 py-3 hidden sm:table-cell">Team</th>
-                <th className="text-right text-xs font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500 px-4 py-3 hidden sm:table-cell">GP</th>
-                {tableMetricCols.map((option) => (
-                  <th
-                    key={option.key}
-                    title={option.tooltip}
-                    className={`text-right text-xs font-semibold uppercase tracking-wider px-4 py-3 ${
-                      option.key === stat
-                        ? "bg-blue-50/50 text-blue-500 dark:bg-blue-950/20 dark:text-blue-400"
-                        : "text-gray-400 dark:text-gray-500"
-                    }`}
-                  >
-                    {option.label}
-                  </th>
-                ))}
+                <th rowSpan={2} className={`${stickyRankClass} text-left text-xs font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500 px-4 py-3 w-10`}>#</th>
+                <th rowSpan={2} className={`${stickyPlayerClass} text-left text-xs font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500 px-4 py-3 min-w-60`}>Player</th>
+                <th rowSpan={2} className="text-left text-xs font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500 px-3 py-3">Team</th>
+                <th rowSpan={2} className="text-right text-xs font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500 px-3 py-3">GP</th>
+                {tableMetricGroups.map((group) => {
+                  const accent = getGroupAccent(group.label);
+                  return (
+                    <th
+                      key={group.label}
+                      colSpan={group.options.length}
+                      className="border-l px-3 py-2 text-center text-[11px] font-semibold uppercase tracking-[0.18em]"
+                      style={{
+                        background: accent.bg,
+                        borderColor: accent.border,
+                        color: accent.text,
+                      }}
+                    >
+                      {group.label}
+                    </th>
+                  );
+                })}
                 {/* Extra columns for active filter stats */}
                 {filters.map((f, i) => (
                   <th
                     key={`${uid}-th-${i}`}
+                    rowSpan={2}
                     title={getStatMeta(f.stat).tooltip}
-                    className="text-right text-xs font-semibold uppercase tracking-wider text-amber-500 dark:text-amber-400 px-4 py-3 hidden md:table-cell"
+                    className="text-right text-xs font-semibold uppercase tracking-wider text-amber-500 dark:text-amber-400 px-4 py-3"
                   >
                     {getStatMeta(f.stat).label}
                   </th>
                 ))}
+              </tr>
+              <tr className="border-b border-gray-200 dark:border-gray-700">
+                {tableMetricCols.map((option) => {
+                  const groupLabel = GROUP_BY_STAT.get(option.key) ?? STAT_GROUPS[0].label;
+                  const accent = getGroupAccent(groupLabel);
+                  return (
+                    <th
+                      key={option.key}
+                      className={`px-2 py-2 text-right text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 ${
+                        GROUP_START_KEYS.has(option.key) ? "border-l border-gray-200 dark:border-gray-700" : ""
+                      }`}
+                      style={{
+                        background: option.key === stat ? accent.activeBg : undefined,
+                        color: option.key === stat ? accent.activeText : undefined,
+                      }}
+                    >
+                      <button
+                        type="button"
+                        onClick={() => setStat(option.key)}
+                        className={`group relative inline-flex w-full min-w-24 items-center justify-end gap-1 rounded-md px-2 py-1.5 text-right transition-colors hover:bg-white/70 hover:text-[var(--accent)] focus:outline-none focus:ring-2 focus:ring-[rgba(33,72,59,0.22)] ${
+                          option.key === stat ? "font-bold" : ""
+                        }`}
+                        aria-label={`Sort player stats by ${option.label}`}
+                      >
+                        <span>{option.label}</span>
+                        <span className={`text-[10px] ${option.key === stat ? "opacity-100" : "opacity-35"}`}>
+                          ↓
+                        </span>
+                        <span className="pointer-events-none absolute right-0 top-full z-30 mt-2 hidden w-64 rounded-md border border-[rgba(53,41,33,0.16)] bg-[rgba(255,251,246,0.98)] px-3 py-2 text-left text-xs font-medium normal-case leading-5 tracking-normal text-[var(--surface-ink)] shadow-[0_16px_38px_rgba(46,32,19,0.16)] group-hover:block group-focus-visible:block">
+                          <span className="block font-bold text-[var(--accent)]">{option.label}</span>
+                          <span className="mt-1 block">{option.tooltip}</span>
+                        </span>
+                      </button>
+                    </th>
+                  );
+                })}
               </tr>
             </thead>
             <tbody>
@@ -987,8 +1018,8 @@ function PlayerStatsPageContent() {
                   <tr key={i} className="border-b border-gray-100 dark:border-gray-700/50 animate-pulse">
                     <td className={`px-4 ${rowPaddingClass}`}><div className="h-4 w-4 bg-gray-200 dark:bg-gray-700 rounded" /></td>
                     <td className={`px-4 ${rowPaddingClass}`}><div className="h-4 w-40 bg-gray-200 dark:bg-gray-700 rounded" /></td>
-                    <td className={`px-4 ${rowPaddingClass} hidden sm:table-cell`}><div className="h-4 w-10 bg-gray-200 dark:bg-gray-700 rounded" /></td>
-                    <td className={`px-4 ${rowPaddingClass} hidden sm:table-cell`}><div className="h-4 w-8 bg-gray-200 dark:bg-gray-700 rounded ml-auto" /></td>
+                    <td className={`px-4 ${rowPaddingClass}`}><div className="h-4 w-10 bg-gray-200 dark:bg-gray-700 rounded" /></td>
+                    <td className={`px-4 ${rowPaddingClass}`}><div className="h-4 w-8 bg-gray-200 dark:bg-gray-700 rounded ml-auto" /></td>
                     <td className={`px-4 ${rowPaddingClass}`}><div className="h-4 w-12 bg-gray-200 dark:bg-gray-700 rounded ml-auto" /></td>
                   </tr>
                 ))}
@@ -1031,37 +1062,42 @@ function PlayerStatsPageContent() {
                                 src={entry.headshot_url}
                                 alt={entry.player_name}
                                 fill
+                                sizes="32px"
                                 className="object-cover object-top"
                                 onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
                               />
                             ) : null}
                           </div>
                           <div className="min-w-0">
-                            <span className="block truncate font-medium text-gray-900 dark:text-gray-100 group-hover:text-blue-500 dark:group-hover:text-blue-400 transition-colors">
+                            <span className="block truncate font-medium text-gray-900 transition-colors group-hover:text-teal-700 dark:text-gray-100 dark:group-hover:text-teal-300">
                               {entry.player_name}
-                            </span>
-                            <span className="mt-0.5 block text-xs text-gray-400 dark:text-gray-500 sm:hidden">
-                              {entry.team_abbreviation} • {entry.gp} GP
                             </span>
                           </div>
                         </Link>
                       </td>
-                      <td className={`px-4 ${rowPaddingClass} text-sm text-gray-500 dark:text-gray-400 hidden sm:table-cell`}>
+                      <td className={`px-3 ${rowPaddingClass} text-sm text-gray-500 dark:text-gray-400`}>
                         {entry.team_abbreviation}
                       </td>
-                      <td className={`px-4 ${rowPaddingClass} text-sm text-gray-500 dark:text-gray-400 text-right hidden sm:table-cell`}>
+                      <td className={`px-3 ${rowPaddingClass} text-sm text-gray-500 dark:text-gray-400 text-right`}>
                         {entry.gp}
                       </td>
                       {tableMetricCols.map((option) => {
                         const v = option.key === stat ? entry.stat_value : getEntryMetricValue(entry, option.key);
+                        const accent = getGroupAccent(GROUP_BY_STAT.get(option.key) ?? STAT_GROUPS[0].label);
                         return (
                           <td
                             key={option.key}
-                            className={`px-4 ${rowPaddingClass} text-right text-sm tabular-nums ${
+                            className={`px-3 ${rowPaddingClass} text-right text-sm tabular-nums ${
+                              GROUP_START_KEYS.has(option.key) ? "border-l border-gray-100 dark:border-gray-700/70" : ""
+                            } ${
                               option.key === stat
-                                ? "font-semibold text-blue-600 bg-blue-50/50 dark:bg-blue-950/20 dark:text-blue-400"
+                                ? "font-semibold"
                                 : "text-gray-900 dark:text-gray-100"
                             }`}
+                            style={{
+                              background: option.key === stat ? accent.activeBg : undefined,
+                              color: option.key === stat ? accent.activeText : undefined,
+                            }}
                           >
                             {v != null ? formatStat(v, option.fmt) : "—"}
                           </td>
@@ -1075,7 +1111,7 @@ function PlayerStatsPageContent() {
                         return (
                           <td
                             key={`${uid}-td-${i}`}
-                            className={`px-4 ${rowPaddingClass} text-right text-sm tabular-nums hidden md:table-cell font-medium ${
+                            className={`px-4 ${rowPaddingClass} text-right text-sm tabular-nums font-medium ${
                               passes
                                 ? "text-amber-600 dark:text-amber-400"
                                 : "text-gray-400 dark:text-gray-500"
@@ -1103,7 +1139,7 @@ function PlayerStatsPageContent() {
                 <th className="text-right text-xs font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500 px-4 py-3 hidden sm:table-cell">GP</th>
                 <th
                   title={careerStatMeta.tooltip}
-                  className="text-right text-xs font-semibold uppercase tracking-wider text-blue-500 dark:text-blue-400 px-4 py-3 bg-blue-50/50 dark:bg-blue-950/20"
+                  className="bg-[rgba(216,228,221,0.72)] px-4 py-3 text-right text-xs font-bold uppercase tracking-wider text-[var(--accent)]"
                 >
                   {careerStatMeta.label} (Career Avg)
                 </th>
@@ -1143,12 +1179,13 @@ function PlayerStatsPageContent() {
                             src={entry.headshot_url}
                             alt={entry.player_name}
                             fill
+                            sizes="32px"
                             className="object-cover object-top"
                             onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
                           />
                         ) : null}
                       </div>
-                      <span className="font-medium text-gray-900 dark:text-gray-100 group-hover:text-blue-500 dark:group-hover:text-blue-400 transition-colors">
+                      <span className="font-medium text-gray-900 transition-colors group-hover:text-teal-700 dark:text-gray-100 dark:group-hover:text-teal-300">
                         {entry.player_name}
                       </span>
                     </Link>
@@ -1159,7 +1196,7 @@ function PlayerStatsPageContent() {
                   <td className="px-4 py-3 text-right text-sm text-gray-500 dark:text-gray-400 hidden sm:table-cell tabular-nums">
                     {entry.career_gp}
                   </td>
-                  <td className="px-4 py-3 text-right font-semibold text-blue-600 dark:text-blue-400 tabular-nums bg-blue-50/50 dark:bg-blue-950/20">
+                  <td className="bg-[rgba(216,228,221,0.62)] px-4 py-3 text-right font-bold tabular-nums text-[var(--accent-strong)]">
                     {formatStat(entry.stat_value, careerStatMeta.fmt)}
                   </td>
                 </tr>
@@ -1178,7 +1215,7 @@ function PlayerStatsPageContent() {
                 <th className="text-right text-xs font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500 px-4 py-3 hidden sm:table-cell">On Min</th>
                 <th className="text-right text-xs font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500 px-4 py-3 hidden sm:table-cell">On Net</th>
                 <th className="text-right text-xs font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500 px-4 py-3 hidden sm:table-cell">Off Net</th>
-                <th className="text-right text-xs font-semibold uppercase tracking-wider text-blue-500 dark:text-blue-400 px-4 py-3">On/Off</th>
+                <th className="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wider text-teal-700 dark:text-teal-300">On/Off</th>
               </tr>
             </thead>
             <tbody>
@@ -1206,14 +1243,14 @@ function PlayerStatsPageContent() {
                 <tr key={entry.player_id} className="border-b border-gray-100 dark:border-gray-700/50 last:border-0 hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors">
                   <td className="px-4 py-3 text-sm text-gray-400 dark:text-gray-500 font-mono">{idx + 1}</td>
                   <td className="px-4 py-3">
-                    <Link href={`/players/${entry.player_id}`} className="font-medium text-gray-900 dark:text-gray-100 hover:text-blue-500 dark:hover:text-blue-400 transition-colors">
+                    <Link href={`/players/${entry.player_id}`} className="font-medium text-gray-900 transition-colors hover:text-teal-700 dark:text-gray-100 dark:hover:text-teal-300">
                       {entry.player_name}
                     </Link>
                   </td>
                   <td className="px-4 py-3 text-right text-sm text-gray-500 dark:text-gray-400 hidden sm:table-cell tabular-nums">{entry.on_minutes?.toFixed(1) ?? "-"}</td>
                   <td className="px-4 py-3 text-right text-sm text-gray-500 dark:text-gray-400 hidden sm:table-cell tabular-nums">{formatSigned(entry.on_net_rating)}</td>
                   <td className="px-4 py-3 text-right text-sm text-gray-500 dark:text-gray-400 hidden sm:table-cell tabular-nums">{formatSigned(entry.off_net_rating)}</td>
-                  <td className="px-4 py-3 text-right font-semibold text-blue-600 dark:text-blue-400 tabular-nums">{formatSigned(entry.on_off_net)}</td>
+                  <td className="px-4 py-3 text-right font-semibold tabular-nums text-teal-700 dark:text-teal-300">{formatSigned(entry.on_off_net)}</td>
                 </tr>
               ))}
             </tbody>
@@ -1230,7 +1267,7 @@ function PlayerStatsPageContent() {
                 <th className="text-right text-xs font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500 px-4 py-3 hidden sm:table-cell">Min</th>
                 <th className="text-right text-xs font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500 px-4 py-3 hidden sm:table-cell">ORTG</th>
                 <th className="text-right text-xs font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500 px-4 py-3 hidden sm:table-cell">DRTG</th>
-                <th className="text-right text-xs font-semibold uppercase tracking-wider text-blue-500 dark:text-blue-400 px-4 py-3">NET</th>
+                <th className="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wider text-teal-700 dark:text-teal-300">NET</th>
               </tr>
             </thead>
             <tbody>
@@ -1264,7 +1301,7 @@ function PlayerStatsPageContent() {
                   <td className="px-4 py-3 text-right text-sm text-gray-500 dark:text-gray-400 hidden sm:table-cell tabular-nums">{lineup.minutes?.toFixed(1) ?? "-"}</td>
                   <td className="px-4 py-3 text-right text-sm text-gray-500 dark:text-gray-400 hidden sm:table-cell tabular-nums">{lineup.ortg?.toFixed(1) ?? "-"}</td>
                   <td className="px-4 py-3 text-right text-sm text-gray-500 dark:text-gray-400 hidden sm:table-cell tabular-nums">{lineup.drtg?.toFixed(1) ?? "-"}</td>
-                  <td className="px-4 py-3 text-right font-semibold text-blue-600 dark:text-blue-400 tabular-nums">{formatSigned(lineup.net_rating)}</td>
+                  <td className="px-4 py-3 text-right font-semibold tabular-nums text-teal-700 dark:text-teal-300">{formatSigned(lineup.net_rating)}</td>
                 </tr>
               ))}
             </tbody>

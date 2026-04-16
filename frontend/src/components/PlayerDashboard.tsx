@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { usePlayerProfile, usePlayerCareerStats, usePlayerZoneProfile } from "@/hooks/usePlayerStats";
+import { usePlayerProfile, usePlayerCareerStats, usePlayerPercentiles, usePlayerZoneProfile } from "@/hooks/usePlayerStats";
 import PlayerHeader from "./PlayerHeader";
 import StatTable from "./StatTable";
 import RadarChart from "./RadarChart";
@@ -40,6 +40,14 @@ export default function PlayerDashboard({ playerId }: PlayerDashboardProps) {
   const { data: zoneData, isLoading: zoneLoading } = usePlayerZoneProfile(
     playerId,
     latestRegularSeason
+  );
+  const percentileSeason =
+    mode === "regular"
+      ? selectedSeasonStr || latestRegularSeason
+      : null;
+  const { data: radarPercentiles, isLoading: radarPercentilesLoading } = usePlayerPercentiles(
+    playerId,
+    percentileSeason
   );
 
   if (profileError || statsError) {
@@ -180,7 +188,11 @@ export default function PlayerDashboard({ playerId }: PlayerDashboardProps) {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {selectedSeasonData && (
           <div className="lg:col-span-1">
-            <RadarChart stats={selectedSeasonData} />
+            <RadarChart
+              stats={selectedSeasonData}
+              percentiles={radarPercentiles}
+              isPercentileLoading={radarPercentilesLoading}
+            />
           </div>
         )}
         <div className="lg:col-span-2">
