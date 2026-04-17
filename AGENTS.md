@@ -1,6 +1,6 @@
 # Agent Coordination
 
-Last updated: 2026-04-12 by Codex (Sprint 45 closeout prepared; Sprint 46 kickoff)
+Last updated: 2026-04-16 by Codex (standings live-QA closeout saved; Sprint 46 still TBD)
 
 > Both agents read this file before touching code at the start of every session.
 > The canonical source of truth is the clean `master` checkout at `/Users/viv/Documents/Basketball Intelligence Platform`.
@@ -71,6 +71,7 @@ Specs or review notes written by one stream for another. Check this before start
 | Spec file | From | To | Status |
 |-----------|------|----|--------|
 | `specs/data-architecture.md` | Sprint 26 | Next sprint | Reference — read before touching data layer |
+| `specs/standings-live-qa-closeout-2026-04-16.md` | Codex live QA | Next standings/UI pass | Reference — current-season standings source-of-truth, expanded grouped stats, sortable headers, and trend mini-graph notes |
 | `specs/sprint-31-closeout.md` | Sprint 31 | Next sprint | Reference — visual renaissance follow-ons and viz seeds |
 | `specs/sprint-32-closeout.md` | Sprint 32 | Next sprint | Reference — warehouse team-prep follow-ons and DB-first team intelligence notes |
 
@@ -164,6 +165,7 @@ Specs or review notes written by one stream for another. Check this before start
 
 *Free-form, dated, newest first. Use this for coordination and repo-state exceptions.*
 
+2026-04-16 (Codex): Non-sprint live-QA standings pass completed on `master`. Shipped `2025-26` standings restoration by preferring official `team_season_stats` for totals/advanced metrics, preserving `team_standings` as snapshot fallback, enriching L10/home-away/streak/opponent PPG/recent trend from warehouse final-game rows, and rebuilding the standings page with side-by-side grouped stat views, sortable metric headers, hover definitions, corrected playoff/play-in separators, compact team abbreviations, and last-10 margin mini-graphs. Verification covered targeted `tests/test_standings_route.py`, frontend `npm run lint`, frontend `npm run build`, and local standings API/page smoke checks. See `specs/standings-live-qa-closeout-2026-04-16.md` before the next standings/UI pass.
 2026-04-12 (Codex): Sprint 45 branch closeout prepared on `feature/sprint-45-team-general-splits`. Shipped canonical `TeamDashboardByGeneralSplits` persistence through `team_split_stats`, daily-sync refresh, thin persisted `GET /api/teams/{abbr}/splits`, parsing/sync/API/migration tests, and official-data/backlog docs. No UI work shipped; team shooting splits, player splits, play-type, and richer prep/compare consumers remain follow-ons. See `specs/sprint-45-closeout.md` before Sprint 46 kickoff.
 2026-04-12 (Codex): Sprint 45 active on `feature/sprint-45-team-general-splits`. Scope is backend-first canonical official TeamDashboardByGeneralSplits persistence: `team_split_stats`, daily refresh, thin team splits read API, targeted tests, and official-data docs. No major UI work planned; shooting splits and play-type remain follow-ons.
 2026-04-10 (Codex): Sprint 44 closed on `master`. Shipped canonical persisted official team season dashboards, daily-sync official player/team season refresh, a source-of-truth official-data matrix, leaderboard metric-library expansion plus NULL shooting-percent derivation, and a substantially stronger Player Stats workspace with grouped metrics, spotlight cards, denser table controls, richer empty/loading states, and URL-backed workspace state. Verification covered targeted backend official-data/leaderboard tests plus frontend `npm run lint` and `npm run build`. See `specs/sprint-44-closeout.md` before Sprint 45 kickoff.

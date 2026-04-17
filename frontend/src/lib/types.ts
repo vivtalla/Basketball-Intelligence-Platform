@@ -488,10 +488,51 @@ export interface StandingsEntry {
   l10: string;
   home_record: string;
   road_record: string;
+  gp: number | null;
   pts_pg: number | null;
   opp_pts_pg: number | null;
   diff_pts_pg: number | null;
+  reb_pg: number | null;
+  ast_pg: number | null;
+  tov_pg: number | null;
+  stl_pg: number | null;
+  blk_pg: number | null;
+  fg_pct: number | null;
+  fg3_pct: number | null;
+  ft_pct: number | null;
+  plus_minus_pg: number | null;
+  off_rating: number | null;
+  def_rating: number | null;
+  net_rating: number | null;
+  pace: number | null;
+  efg_pct: number | null;
+  ts_pct: number | null;
+  pie: number | null;
+  oreb_pct: number | null;
+  dreb_pct: number | null;
+  tov_pct: number | null;
+  ast_pct: number | null;
+  off_rating_rank: number | null;
+  def_rating_rank: number | null;
+  net_rating_rank: number | null;
+  pace_rank: number | null;
+  efg_pct_rank: number | null;
+  ts_pct_rank: number | null;
+  oreb_pct_rank: number | null;
+  tov_pct_rank: number | null;
   current_streak: string;
+  recent_trend: {
+    games: {
+      date: string;
+      won: boolean;
+      margin: number;
+      is_home: boolean;
+      opponent_abbreviation: string | null;
+    }[];
+    last_10_record: string;
+    avg_margin: number;
+    direction: string;
+  } | null;
   clinch_indicator: string | null;
 }
 
