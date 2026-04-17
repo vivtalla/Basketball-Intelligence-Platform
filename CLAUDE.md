@@ -260,6 +260,14 @@ CourtVue Labs uses a hybrid sprint model: major feature sprints typically run as
 
 > Full history → `specs/sprint-history.md`
 
+### Sprint 47 — Team General Splits UI Wiring
+
+- Added `TeamSplitRow` and `TeamSplitsResponse` TypeScript interfaces and `getTeamSplits()` API client
+- Added `useTeamSplits()` SWR hook and new `TeamSplitsPanel` component with family toggle (Location, W/L, Days Rest, Month, Pre/Post All-Star), stat table, and honest empty state
+- Added "Splits" tab to the team page between Analytics and Lineups; hook pre-allocated and tab-gated per existing patterns
+- Added situational split signals to `TeamPrepQueuePanel`: per-card Home/Away W% and +/- using already-fetched splits data
+- Verified with frontend `npm run lint` and `npm run build`
+
 ### Sprint 46 — CourtVue Ask Workspace
 
 - Added DB-first query endpoints for CourtVue Ask: `POST /api/query/ask`, `GET /api/query/examples`, and `GET /api/query/metrics`
@@ -268,14 +276,6 @@ CourtVue Labs uses a hybrid sprint model: major feature sprints typically run as
 - Added the `/ask` workspace with URL-backed questions, example chips, answer cards, sortable/explainable result tables, source context, suggestions, and links into existing workflows
 - Verified with full backend `pytest`, frontend `npm run lint`, and frontend `npm run build`
 
-### Sprint 45 — Canonical Team General Splits
-
-- Added canonical persisted official `TeamDashboardByGeneralSplits` rows through `team_split_stats` and Alembic revision `0004_team_split_stats`
-- Added `get_team_general_splits()` normalization plus `sync_official_team_general_splits()` with daily-sync coverage after official team season stats
-- Added persisted-only `GET /api/teams/{abbr}/splits?season=2025-26` with `TeamSplitsResponse` / `TeamSplitRow` response models and honest 404 behavior for missing data
-- Updated the official data source matrix and backlog so team general splits are now shipped while team shooting splits remain a follow-on
-- Verified with targeted parsing/sync/API/migration tests, the wider official-data backend suite, full backend `pytest`, compileall, and `git diff --check`
-
 ---
 
 ## Active Branches
@@ -283,7 +283,7 @@ CourtVue Labs uses a hybrid sprint model: major feature sprints typically run as
 | Branch | Owner | Status |
 |--------|-------|--------|
 | `master` | — | Stable |
-| `feature/sprint-46-ask-workspace` | Codex | Closeout prepared |
+| `feature/sprint-47-team-splits-ui` | Claude | Merged to master |
 
 Sprint branches are created at kickoff and listed in `AGENTS.md`.
 
@@ -312,6 +312,7 @@ Sprint branches are created at kickoff and listed in `AGENTS.md`.
 | `ShotSeasonEvolution` | `components/` | Career filmstrip of mini zone-heatmap courts + FG% timeline (Sprint 34) |
 | `CompareShotLab` | `components/` | Shared-filter compare shot workspace with side-by-side advanced shot views (Sprint 35) |
 | `ShotSnapshotButton` | `components/` | Shared snapshot save action for shot-lab surfaces |
+| `TeamSplitsPanel` | `components/` | Official team general splits by family (Location, W/L, Days Rest, Month, Pre/Post All-Star) with stat table and toggle (Sprint 47) |
 | `TeamDefenseShotLab` | `components/` | Opponent shot lab for team-defense surfaces |
 | `ProceduralHalfCourt` | `components/three/` | Procedural NBA court geometry for 3D visualizers |
 | `ShotLab3DScene` | `components/three/` | React Three Fiber shot-lab 3D scene scaffold |
