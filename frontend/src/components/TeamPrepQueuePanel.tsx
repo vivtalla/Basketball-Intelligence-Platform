@@ -1,10 +1,11 @@
 import Link from "next/link";
 import { useState, useTransition } from "react";
 import { createPreReadSnapshot } from "@/lib/api";
-import type { TeamPrepQueueResponse } from "@/lib/types";
+import type { TeamPrepQueueResponse, TeamSplitsResponse } from "@/lib/types";
 
 interface TeamPrepQueuePanelProps {
   queue: TeamPrepQueueResponse;
+  splits?: TeamSplitsResponse | null;
 }
 
 function restLabel(days: number | null | undefined) {
@@ -32,7 +33,22 @@ function urgencyTone(value: string) {
   return "bg-[rgba(47,109,74,0.12)] text-[var(--success-ink)]";
 }
 
-export default function TeamPrepQueuePanel({ queue }: TeamPrepQueuePanelProps) {
+function fmtPct(value: number | null | undefined): string {
+  if (value == null) return "—";
+  return (value * 100).toFixed(1) + "%";
+}
+
+function fmtPlusMinus(value: number | null | undefined): string {
+  if (value == null) return "—";
+  return (value >= 0 ? "+" : "") + value.toFixed(1);
+}
+
+function plusMinusTone(value: number | null | undefined): string {
+  if (value == null) return "text-[var(--muted)]";
+  return value > 0 ? "text-[var(--success-ink)]" : value < 0 ? "text-[var(--danger-ink)]" : "text-[var(--muted)]";
+}
+
+export default function TeamPrepQueuePanel({ queue, splits }: TeamPrepQueuePanelProps) {
   const [copiedGameId, setCopiedGameId] = useState<string | null>(null);
   const [savedGameId, setSavedGameId] = useState<string | null>(null);
   const [isSaving, startSaving] = useTransition();
@@ -151,6 +167,59 @@ export default function TeamPrepQueuePanel({ queue }: TeamPrepQueuePanelProps) {
                   </div>
                 </div>
               </div>
+
+              {splits && splits.splits.length > 0 && (() => {
+                const locationValue = item.is_home ? "Home" : "Away";
+                const locationRow = splits.splits.find(
+                  (r) => r.split_family === "Location" && r.split_value === locationValue
+                );
+                const wlRow = splits.splits.find(
+                  (r) => r.split_family === "Win/Loss" && r.split_value === "Wins"
+                );
+                if (!locationRow && !wlRow) return null;
+                return (
+                  <div className="mt-4 flex flex-wrap gap-3">
+                    {locationRow && (
+                      <div className="rounded-xl border border-[var(--border)] bg-[rgba(255,255,255,0.56)] px-3 py-2 text-xs">
+                        <span className="font-semibold uppercase tracking-[0.14em] text-[var(--muted)]">
+                          {locationValue} W%
+                        </span>
+                        <span className="ml-2 font-bold text-[var(--foreground)]">
+                          {fmtPct(locationRow.w_pct)}
+                        </span>
+                        <span className="ml-1 text-[var(--muted)]">
+                          ({locationRow.w}–{locationRow.l})
+                        </span>
+                        {locationRow.plus_minus != null && (
+                          <span className={`ml-2 font-semibold ${plusMinusTone(locationRow.plus_minus)}`}>
+                            {fmtPlusMinus(locationRow.plus_minus)} +/-
+                          </span>
+                        )}
+                      </div>
+                    )}
+                    {wlRow && (
+                      <div className="rounded-xl border border-[var(--border)] bg-[rgba(255,255,255,0.56)] px-3 py-2 text-xs">
+                        <span className="font-semibold uppercase tracking-[0.14em] text-[var(--muted)]">
+                          In Wins
+                        </span>
+                        <span className="ml-2 font-bold text-[var(--foreground)]">
+                          {fmtPct(wlRow.w_pct)}
+                        </span>
+                        {wlRow.pts != null && (
+                          <span className="ml-2 text-[var(--muted-strong)]">
+                            {wlRow.pts.toFixed(1)} PTS
+                          </span>
+                        )}
+                        {wlRow.plus_minus != null && (
+                          <span className={`ml-2 font-semibold ${plusMinusTone(wlRow.plus_minus)}`}>
+                            {fmtPlusMinus(wlRow.plus_minus)} +/-
+                          </span>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                );
+              })()}
 
               <div className="mt-5 grid gap-3 md:grid-cols-3">
                 <div className="rounded-2xl border border-[var(--border)] bg-[rgba(255,255,255,0.72)] p-4">

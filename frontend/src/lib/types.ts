@@ -2206,6 +2206,36 @@ export interface GameVisualizationStep {
   elements: GameVisualizationElement[];
 }
 
+export interface TeamSplitRow {
+  split_family: string;
+  split_value: string;
+  label: string;
+  gp: number;
+  w: number;
+  l: number;
+  w_pct: number;
+  min?: number | null;
+  pts?: number | null;
+  reb?: number | null;
+  ast?: number | null;
+  tov?: number | null;
+  stl?: number | null;
+  blk?: number | null;
+  fg_pct?: number | null;
+  fg3_pct?: number | null;
+  ft_pct?: number | null;
+  plus_minus?: number | null;
+}
+
+export interface TeamSplitsResponse {
+  team_id: number;
+  abbreviation: string;
+  season: string;
+  canonical_source?: string | null;
+  last_synced_at?: string | null;
+  splits: TeamSplitRow[];
+}
+
 export interface GameVisualizationResponse {
   game_id: string;
   season: string;

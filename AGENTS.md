@@ -1,6 +1,6 @@
 # Agent Coordination
 
-Last updated: 2026-04-17 by Codex (Sprint 46 Ask workspace closeout prepared; Sprint 47 kickoff)
+Last updated: 2026-04-17 by Claude (Sprint 47 kickoff — Team General Splits UI Wiring)
 
 > Both agents read this file before touching code at the start of every session.
 > The canonical source of truth is the clean `master` checkout at `/Users/viv/Documents/Basketball Intelligence Platform`.
@@ -15,12 +15,12 @@ Last updated: 2026-04-17 by Codex (Sprint 46 Ask workspace closeout prepared; Sp
 | Field | Value |
 |-------|-------|
 | Sprint | 47 |
-| Goal | TBD |
-| Started | TBD |
+| Goal | Team General Splits UI Wiring — surface Sprint 45 `team_split_stats` data across team page, prep, and compare |
+| Started | 2026-04-17 |
 | Target merge | TBD |
-| Sprint shape | TBD |
-| Branch | `TBD` |
-| Worker policy | TBD |
+| Sprint shape | Single stream — Claude frontend-only |
+| Branch | `feature/sprint-47-team-splits-ui` |
+| Worker policy | No parallel workers needed — sequential frontend pass |
 
 ---
 
@@ -38,13 +38,13 @@ If repo state, sprint numbering, or shipped features appear to disagree across l
 ## Current Assignments
 
 ### Claude
-- Branch: `TBD`
-- Scope: available for Sprint 46 planning / review / optimization roles across any stream
-- Status: Available
+- Branch: `feature/sprint-47-team-splits-ui`
+- Scope: Full frontend wiring of team general splits — types, API client, SWR hook, TeamSplitsPanel, team page tab, prep card signals
+- Status: In progress
 
 ### Codex
 - Branch: `TBD`
-- Scope: Sprint 47 kickoff, integration, and engineering lead across the next streams
+- Scope: Available for Sprint 47 review / integration / follow-on backend work
 - Status: Available
 
 ---
@@ -58,8 +58,10 @@ Claim a shared file here before editing. If a file is already claimed, read that
 
 | File | Claimed by | Purpose |
 |------|------------|---------|
-| `frontend/src/lib/types.ts` | — |  |
-| `frontend/src/lib/api.ts` | — |  |
+| `frontend/src/lib/types.ts` | Claude | Add TeamSplitRow, TeamSplitsResponse |
+| `frontend/src/lib/api.ts` | Claude | Add getTeamSplits() |
+| `frontend/src/app/teams/[abbr]/page.tsx` | Claude | Add splits tab |
+| `frontend/src/components/TeamPrepQueuePanel.tsx` | Claude | Add split signals to prep cards |
 | `backend/main.py` | — |  |
 
 ---
@@ -80,10 +82,7 @@ Specs or review notes written by one stream for another. Check this before start
 
 ## Merge Order
 
-1. Team 1 — TBD
-2. Team 2 — TBD
-3. Team 3 — TBD
-4. Final integration / verification / merge to `master`
+1. Claude — `feature/sprint-47-team-splits-ui` → `master`
 
 ---
 
@@ -91,8 +90,12 @@ Specs or review notes written by one stream for another. Check this before start
 
 | Files / Directories | Assigned this sprint |
 |---------------------|----------------------|
-| `TBD` | TBD |
-| `TBD` | TBD |
+| `frontend/src/lib/types.ts` | Claude — append TeamSplitRow, TeamSplitsResponse |
+| `frontend/src/lib/api.ts` | Claude — append getTeamSplits() |
+| `frontend/src/hooks/usePlayerStats.ts` | Claude — append useTeamSplits() |
+| `frontend/src/components/TeamSplitsPanel.tsx` | Claude — new component |
+| `frontend/src/app/teams/[abbr]/page.tsx` | Claude — add splits tab |
+| `frontend/src/components/TeamPrepQueuePanel.tsx` | Claude — add split signals |
 | `frontend/package.json`, `frontend/src/lib/api.ts`, `frontend/src/lib/types.ts` | Shared contract surface — edits must stay additive and centrally coordinated |
 
 ---
