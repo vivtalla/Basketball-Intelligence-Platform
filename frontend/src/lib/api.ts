@@ -2,6 +2,10 @@ import type {
   PlayerSearchResult,
   ShotChartResponse,
   LeaderboardResponse,
+  QueryAskRequest,
+  QueryAskResponse,
+  QueryExample,
+  QueryMetricMetadata,
   TeamSummary,
   TeamRosterResponse,
   TeamAnalytics,
@@ -89,6 +93,24 @@ export async function getLeaderboard(
   });
   if (team) params.set("team", team);
   return fetchApi<LeaderboardResponse>(`/api/leaderboards?${params.toString()}`);
+}
+
+export async function askCourtVue(
+  payload: QueryAskRequest
+): Promise<QueryAskResponse> {
+  return fetchApi<QueryAskResponse>("/api/query/ask", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function getQueryExamples(): Promise<QueryExample[]> {
+  return fetchApi<QueryExample[]>("/api/query/examples");
+}
+
+export async function getQueryMetrics(): Promise<QueryMetricMetadata[]> {
+  return fetchApi<QueryMetricMetadata[]>("/api/query/metrics");
 }
 
 export async function getPlayerPercentiles(

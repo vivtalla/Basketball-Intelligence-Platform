@@ -1,9 +1,21 @@
 # Sprint History Archive
 
-Sprints 1–45. Current sprint summaries also live in `CLAUDE.md` under "Recent Sprints".
+Sprints 1–46. Current sprint summaries also live in `CLAUDE.md` under "Recent Sprints".
 
 For detailed per-sprint records, see the individual closeout files in this directory:
-`specs/sprint-09-closeout.md` through `specs/sprint-45-closeout.md`
+`specs/sprint-09-closeout.md` through `specs/sprint-46-closeout.md`
+
+---
+
+### Sprint 46 — CourtVue Ask Workspace
+**Branch:** `feature/sprint-46-ask-workspace` — closeout pending merge
+
+- Added DB-first query endpoints for CourtVue Ask: `POST /api/query/ask`, `GET /api/query/examples`, and `GET /api/query/metrics`
+- Added a canonical query metric registry with aliases, descriptions, formats, entity support, source metadata, and higher/lower-is-better behavior
+- Added deterministic interpretation for player leaderboards, team rankings, threshold filters, explicit seasons, player/team lookup fallbacks, recent player/team form, and player compare deep links
+- Added the `/ask` workspace with URL-backed questions, example chips, answer cards, sortable metric tables, hover explanations, source context, suggestions, and workflow links
+- Added `Ask` to the top navigation and homepage workspace grid
+- Verified with full backend `pytest`, frontend `npm run lint`, and frontend `npm run build`
 
 ---
 

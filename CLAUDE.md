@@ -260,6 +260,14 @@ CourtVue Labs uses a hybrid sprint model: major feature sprints typically run as
 
 > Full history → `specs/sprint-history.md`
 
+### Sprint 46 — CourtVue Ask Workspace
+
+- Added DB-first query endpoints for CourtVue Ask: `POST /api/query/ask`, `GET /api/query/examples`, and `GET /api/query/metrics`
+- Added a canonical query metric registry with aliases, descriptions, formatting, entity support, and higher/lower-is-better sort behavior for player and team metrics
+- Added deterministic interpretation for player leaderboards, team rankings, threshold filters, explicit seasons, recent player/team form, player/team lookup fallbacks, and player compare deep links
+- Added the `/ask` workspace with URL-backed questions, example chips, answer cards, sortable/explainable result tables, source context, suggestions, and links into existing workflows
+- Verified with full backend `pytest`, frontend `npm run lint`, and frontend `npm run build`
+
 ### Sprint 45 — Canonical Team General Splits
 
 - Added canonical persisted official `TeamDashboardByGeneralSplits` rows through `team_split_stats` and Alembic revision `0004_team_split_stats`
@@ -268,14 +276,6 @@ CourtVue Labs uses a hybrid sprint model: major feature sprints typically run as
 - Updated the official data source matrix and backlog so team general splits are now shipped while team shooting splits remain a follow-on
 - Verified with targeted parsing/sync/API/migration tests, the wider official-data backend suite, full backend `pytest`, compileall, and `git diff --check`
 
-### Sprint 44 — Official Data Canonicalization and Player Stats Overhaul
-
-- Added canonical persisted official team-season dashboards plus daily sync coverage for both official player and team season rows
-- Shifted team analytics onto the persisted team-season source of truth and documented the official-domain map in `specs/official-data-source-matrix.md`
-- Expanded leaderboard payloads across the full sortable stat library, then fixed shooting percentages to derive from raw counts when stored percent columns are missing
-- Turned `Player Stats` into a stronger workspace with metric groups, quick metric switching, spotlight cards, mobile row context, richer empty/loading states, and URL-backed filter plus table-preference sharing
-- Verified with targeted official-data / leaderboard backend tests and frontend `npm run lint` / `npm run build`
-
 ---
 
 ## Active Branches
@@ -283,6 +283,7 @@ CourtVue Labs uses a hybrid sprint model: major feature sprints typically run as
 | Branch | Owner | Status |
 |--------|-------|--------|
 | `master` | — | Stable |
+| `feature/sprint-46-ask-workspace` | Codex | Closeout prepared |
 
 Sprint branches are created at kickoff and listed in `AGENTS.md`.
 

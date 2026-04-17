@@ -164,6 +164,85 @@ export interface LeaderboardResponse {
   entries: LeaderboardEntry[];
 }
 
+export interface QueryAskRequest {
+  question: string;
+  season?: string;
+  limit?: number;
+}
+
+export interface QueryMetricMetadata {
+  key: string;
+  label: string;
+  description: string;
+  format: "number" | "integer" | "percent" | "record";
+  category: string;
+  aliases: string[];
+  entity_types: Array<"player" | "team">;
+  higher_is_better: boolean;
+  source: string;
+}
+
+export interface QueryExample {
+  category: string;
+  prompt: string;
+  description: string;
+}
+
+export interface QueryFilter {
+  metric_key: string;
+  label: string;
+  operator: "gte" | "lte";
+  value: number;
+  formatted_value: string;
+}
+
+export interface QueryIntent {
+  intent_type: string;
+  entity_type: "player" | "team" | null;
+  metric_key: string | null;
+  metric_label: string | null;
+  season: string | null;
+  sort_direction: "asc" | "desc" | null;
+  limit: number;
+  confidence: number;
+  normalized_question: string;
+  filters: QueryFilter[];
+}
+
+export interface QueryResultRow {
+  rank: number;
+  entity_type: "player" | "team" | "game" | "link";
+  entity_id: string | null;
+  name: string;
+  subtitle: string | null;
+  team_abbreviation: string | null;
+  abbreviation: string | null;
+  value: number | null;
+  formatted_value: string | null;
+  detail_url: string | null;
+  metrics: Record<string, string | number | null>;
+}
+
+export interface QueryAnswerCard {
+  title: string;
+  summary: string;
+  primary_label: string | null;
+  primary_value: string | null;
+  href: string | null;
+}
+
+export interface QueryAskResponse {
+  question: string;
+  status: "ready" | "empty" | "needs_clarification";
+  answer: QueryAnswerCard;
+  intent: QueryIntent;
+  rows: QueryResultRow[];
+  metrics: QueryMetricMetadata[];
+  warnings: string[];
+  suggestions: string[];
+  source: string;
+}
+
 export interface PercentileResult {
   season: string;
   percentiles: Record<string, number | null>;

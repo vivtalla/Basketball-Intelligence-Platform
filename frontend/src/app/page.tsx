@@ -6,6 +6,14 @@ import Link from "next/link";
 
 const platformAreas = [
   {
+    href: "/ask",
+    eyebrow: "CourtVue Ask",
+    icon: "Q",
+    title: "Ask a basketball question",
+    description:
+      "Get instant player leaders, team rankings, filters, recent form, and profile links from synced CourtVue data.",
+  },
+  {
     href: "/standings",
     eyebrow: "League Context",
     icon: "📊",

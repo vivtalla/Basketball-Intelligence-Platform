@@ -1,6 +1,6 @@
 # Agent Coordination
 
-Last updated: 2026-04-16 by Codex (standings live-QA closeout saved; Sprint 46 still TBD)
+Last updated: 2026-04-17 by Codex (Sprint 46 Ask workspace closeout prepared; Sprint 47 kickoff)
 
 > Both agents read this file before touching code at the start of every session.
 > The canonical source of truth is the clean `master` checkout at `/Users/viv/Documents/Basketball Intelligence Platform`.
@@ -14,9 +14,9 @@ Last updated: 2026-04-16 by Codex (standings live-QA closeout saved; Sprint 46 s
 
 | Field | Value |
 |-------|-------|
-| Sprint | 46 |
+| Sprint | 47 |
 | Goal | TBD |
-| Started | 2026-04-12 |
+| Started | TBD |
 | Target merge | TBD |
 | Sprint shape | TBD |
 | Branch | `TBD` |
@@ -44,7 +44,7 @@ If repo state, sprint numbering, or shipped features appear to disagree across l
 
 ### Codex
 - Branch: `TBD`
-- Scope: Sprint 46 kickoff, integration, and engineering lead across the next streams
+- Scope: Sprint 47 kickoff, integration, and engineering lead across the next streams
 - Status: Available
 
 ---
@@ -71,6 +71,7 @@ Specs or review notes written by one stream for another. Check this before start
 | Spec file | From | To | Status |
 |-----------|------|----|--------|
 | `specs/data-architecture.md` | Sprint 26 | Next sprint | Reference — read before touching data layer |
+| `specs/sprint-46-closeout.md` | Sprint 46 | Next sprint | Reference — CourtVue Ask query registry, deterministic parser, `/ask` workspace, and query follow-ons |
 | `specs/standings-live-qa-closeout-2026-04-16.md` | Codex live QA | Next standings/UI pass | Reference — current-season standings source-of-truth, expanded grouped stats, sortable headers, and trend mini-graph notes |
 | `specs/sprint-31-closeout.md` | Sprint 31 | Next sprint | Reference — visual renaissance follow-ons and viz seeds |
 | `specs/sprint-32-closeout.md` | Sprint 32 | Next sprint | Reference — warehouse team-prep follow-ons and DB-first team intelligence notes |
@@ -165,6 +166,7 @@ Specs or review notes written by one stream for another. Check this before start
 
 *Free-form, dated, newest first. Use this for coordination and repo-state exceptions.*
 
+2026-04-17 (Codex): Sprint 46 closeout prepared on `feature/sprint-46-ask-workspace`. Shipped the CourtVue Ask workspace: `POST /api/query/ask`, examples and metric registry endpoints, deterministic player/team query interpretation, threshold filters, recent player/team form, compare deep links, `/ask` UI, sortable/explainable result tables, and nav/home entry points. Verification covered full backend `pytest`, frontend `npm run lint`, and frontend `npm run build`. See `specs/sprint-46-closeout.md` before Sprint 47 kickoff.
 2026-04-16 (Codex): Non-sprint live-QA standings pass completed on `master`. Shipped `2025-26` standings restoration by preferring official `team_season_stats` for totals/advanced metrics, preserving `team_standings` as snapshot fallback, enriching L10/home-away/streak/opponent PPG/recent trend from warehouse final-game rows, and rebuilding the standings page with side-by-side grouped stat views, sortable metric headers, hover definitions, corrected playoff/play-in separators, compact team abbreviations, and last-10 margin mini-graphs. Verification covered targeted `tests/test_standings_route.py`, frontend `npm run lint`, frontend `npm run build`, and local standings API/page smoke checks. See `specs/standings-live-qa-closeout-2026-04-16.md` before the next standings/UI pass.
 2026-04-12 (Codex): Sprint 45 branch closeout prepared on `feature/sprint-45-team-general-splits`. Shipped canonical `TeamDashboardByGeneralSplits` persistence through `team_split_stats`, daily-sync refresh, thin persisted `GET /api/teams/{abbr}/splits`, parsing/sync/API/migration tests, and official-data/backlog docs. No UI work shipped; team shooting splits, player splits, play-type, and richer prep/compare consumers remain follow-ons. See `specs/sprint-45-closeout.md` before Sprint 46 kickoff.
 2026-04-12 (Codex): Sprint 45 active on `feature/sprint-45-team-general-splits`. Scope is backend-first canonical official TeamDashboardByGeneralSplits persistence: `team_split_stats`, daily refresh, thin team splits read API, targeted tests, and official-data docs. No major UI work planned; shooting splits and play-type remain follow-ons.

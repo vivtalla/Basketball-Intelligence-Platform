@@ -28,6 +28,12 @@ export default function RootLayout({
             <NavSearch />
             <div className="hidden md:flex items-center gap-5">
               <Link
+                href="/ask"
+                className="text-sm text-[var(--muted)] bip-link"
+              >
+                Ask
+              </Link>
+              <Link
                 href="/player-stats"
                 className="text-sm text-[var(--muted)] bip-link"
               >
