@@ -63,6 +63,7 @@ import type {
   MatchupFlagsResponse,
   FollowThroughResponse,
   TeamSplitsResponse,
+  MvpRaceResponse,
 } from "@/lib/types";
 import {
   getPlayerProfile,
@@ -123,6 +124,7 @@ import {
   getMatchupFlagsReport,
   postFollowThroughGames,
   getTeamSplits,
+  getMvpRace,
 } from "@/lib/api";
 
 const DEFAULT_SHOT_LAB_FILTERS: ShotLabFilters = {
@@ -913,4 +915,11 @@ export function useTeamDefenseShotChartRefresh(
   }
 
   return { refresh, isRefreshing };
+}
+
+export function useMvpRace(season: string | null) {
+  return useSWR<MvpRaceResponse>(
+    season ? `mvp-race-${season}` : null,
+    () => getMvpRace(season!)
+  );
 }

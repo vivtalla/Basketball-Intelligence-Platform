@@ -1,6 +1,6 @@
 # Agent Coordination
 
-Last updated: 2026-04-17 by Claude (Sprint 47 closed — Team General Splits UI shipped; reset for Sprint 48)
+Last updated: 2026-04-17 by Claude (Sprint 48 closed — MVP Award Race Tracker shipped; reset for Sprint 49)
 
 > Both agents read this file before touching code at the start of every session.
 > The canonical source of truth is the clean `master` checkout at `/Users/viv/Documents/Basketball Intelligence Platform`.
@@ -14,7 +14,7 @@ Last updated: 2026-04-17 by Claude (Sprint 47 closed — Team General Splits UI 
 
 | Field | Value |
 |-------|-------|
-| Sprint | 48 |
+| Sprint | 49 |
 | Goal | TBD — awaiting Vivek's sprint kickoff |
 | Started | TBD |
 | Target merge | TBD |
@@ -38,12 +38,12 @@ If repo state, sprint numbering, or shipped features appear to disagree across l
 ## Current Assignments
 
 ### Claude
-- Branch: `feature/sprint-48-[slug]`
+- Branch: `feature/sprint-49-[slug]`
 - Scope: TBD
 - Status: Not started
 
 ### Codex
-- Branch: `codex-sprint-48-[slug]`
+- Branch: `codex-sprint-49-[slug]`
 - Scope: TBD
 - Status: Not started
 
@@ -71,8 +71,8 @@ Specs or review notes written by one stream for another. Check this before start
 | Spec file | From | To | Status |
 |-----------|------|----|--------|
 | `specs/data-architecture.md` | Sprint 26 | Next sprint | Reference — read before touching data layer |
+| `specs/sprint-48-closeout.md` | Sprint 48 | Next sprint | Reference — MVP Race Tracker shipped; MVP home widget, position filter, team shooting splits are next |
 | `specs/sprint-47-closeout.md` | Sprint 47 | Next sprint | Reference — team general splits UI shipped; team shooting splits and ComparisonView wiring are next |
-| `specs/sprint-46-closeout.md` | Sprint 46 | Next sprint | Reference — CourtVue Ask query registry, deterministic parser, `/ask` workspace, and query follow-ons |
 | `specs/standings-live-qa-closeout-2026-04-16.md` | Codex live QA | Next standings/UI pass | Reference — current-season standings source-of-truth, expanded grouped stats, sortable headers, and trend mini-graph notes |
 
 ---
@@ -86,7 +86,7 @@ Specs or review notes written by one stream for another. Check this before start
 
 ## Sprint Work Allocation
 
-Sprint 48 allocation — TBD at kickoff
+Sprint 49 allocation — TBD at kickoff
 
 | Files / Directories | Assigned this sprint |
 |---------------------|----------------------|
@@ -163,7 +163,8 @@ Sprint 48 allocation — TBD at kickoff
 
 *Free-form, dated, newest first. Use this for coordination and repo-state exceptions.*
 
-2026-04-17 (Claude): Sprint 47 closed on `feature/sprint-47-team-splits-ui`. Shipped full UI wiring of team general splits: TeamSplitsPanel, Splits tab on team page, and situational split signals on prep cards. Single-stream frontend-only sprint. Team shooting splits (DB pipeline) and ComparisonView splits wiring remain as top follow-ons for Sprint 48. See `specs/sprint-47-closeout.md` before Sprint 48 kickoff.
+2026-04-17 (Claude): Sprint 48 closed on `feature/sprint-48-mvp-tracker`. Shipped MVP Award Race Tracker end-to-end: composite z-score service, GET /api/mvp/race endpoint, MvpRacePanel with ranked cards and momentum signals, /mvp page with season picker, and nav link. Single-stream Claude-only sprint. MVP home widget, position filter, and team shooting splits are top follow-ons for Sprint 49. See `specs/sprint-48-closeout.md` before Sprint 49 kickoff.
+2026-04-17 (Claude): Sprint 47 closed on `feature/sprint-47-team-splits-ui`. Shipped full UI wiring of team general splits: TeamSplitsPanel, Splits tab on team page, and situational split signals on prep cards. Single-stream frontend-only sprint. Team shooting splits (DB pipeline) and ComparisonView splits wiring remain as top follow-ons.
 2026-04-17 (Codex): Sprint 46 closeout prepared on `feature/sprint-46-ask-workspace`. Shipped the CourtVue Ask workspace: `POST /api/query/ask`, examples and metric registry endpoints, deterministic player/team query interpretation, threshold filters, recent player/team form, compare deep links, `/ask` UI, sortable/explainable result tables, and nav/home entry points. Verification covered full backend `pytest`, frontend `npm run lint`, and frontend `npm run build`. See `specs/sprint-46-closeout.md` before Sprint 47 kickoff.
 2026-04-16 (Codex): Non-sprint live-QA standings pass completed on `master`. Shipped `2025-26` standings restoration by preferring official `team_season_stats` for totals/advanced metrics, preserving `team_standings` as snapshot fallback, enriching L10/home-away/streak/opponent PPG/recent trend from warehouse final-game rows, and rebuilding the standings page with side-by-side grouped stat views, sortable metric headers, hover definitions, corrected playoff/play-in separators, compact team abbreviations, and last-10 margin mini-graphs. Verification covered targeted `tests/test_standings_route.py`, frontend `npm run lint`, frontend `npm run build`, and local standings API/page smoke checks. See `specs/standings-live-qa-closeout-2026-04-16.md` before the next standings/UI pass.
 2026-04-12 (Codex): Sprint 45 branch closeout prepared on `feature/sprint-45-team-general-splits`. Shipped canonical `TeamDashboardByGeneralSplits` persistence through `team_split_stats`, daily-sync refresh, thin persisted `GET /api/teams/{abbr}/splits`, parsing/sync/API/migration tests, and official-data/backlog docs. No UI work shipped; team shooting splits, player splits, play-type, and richer prep/compare consumers remain follow-ons. See `specs/sprint-45-closeout.md` before Sprint 46 kickoff.

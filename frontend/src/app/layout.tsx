@@ -34,6 +34,12 @@ export default function RootLayout({
                 Ask
               </Link>
               <Link
+                href="/mvp"
+                className="text-sm text-[var(--muted)] bip-link"
+              >
+                MVP Race
+              </Link>
+              <Link
                 href="/player-stats"
                 className="text-sm text-[var(--muted)] bip-link"
               >

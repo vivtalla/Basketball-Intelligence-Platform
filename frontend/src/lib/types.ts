@@ -2256,3 +2256,34 @@ export interface GameVisualizationResponse {
   source_context?: Record<string, string> | null;
   steps: GameVisualizationStep[];
 }
+
+// ---------------------------------------------------------------------------
+// MVP Award Race — Sprint 48
+// ---------------------------------------------------------------------------
+
+export interface MvpCandidate {
+  rank: number;
+  player_id: number;
+  player_name: string;
+  team_abbreviation: string;
+  headshot_url: string;
+  gp: number;
+  composite_score: number;
+  pts_pg: number;
+  reb_pg: number;
+  ast_pg: number;
+  ts_pct: number | null;
+  bpm: number | null;
+  pts_delta: number | null;
+  reb_delta: number | null;
+  ast_delta: number | null;
+  momentum: "hot" | "cold" | "steady";
+  last_games: number;
+}
+
+export interface MvpRaceResponse {
+  season: string;
+  as_of_date: string;
+  candidates: MvpCandidate[];
+  weights: Record<string, number>;
+}

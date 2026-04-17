@@ -1134,6 +1134,12 @@ export async function getTeamSplits(
   );
 }
 
+export async function getMvpRace(season: string): Promise<import("./types").MvpRaceResponse> {
+  return fetchApi<import("./types").MvpRaceResponse>(
+    `/api/mvp/race?season=${encodeURIComponent(season)}`
+  );
+}
+
 export async function refreshTeamDefenseShotChart(
   teamId: number,
   season: string,
