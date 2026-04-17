@@ -62,6 +62,7 @@ import type {
   PlayTypeEVResponse,
   MatchupFlagsResponse,
   FollowThroughResponse,
+  TeamSplitsResponse,
 } from "@/lib/types";
 import {
   getPlayerProfile,
@@ -121,6 +122,7 @@ import {
   getPlayTypeEVReport,
   getMatchupFlagsReport,
   postFollowThroughGames,
+  getTeamSplits,
 } from "@/lib/api";
 
 const DEFAULT_SHOT_LAB_FILTERS: ShotLabFilters = {
@@ -433,6 +435,18 @@ export function useTeamRotationReport(
       ? `team-rotation-report-${teamAbbreviation}-${season}`
       : null,
     () => getTeamRotationReport(teamAbbreviation!, season!)
+  );
+}
+
+export function useTeamSplits(
+  teamAbbreviation: string | null,
+  season: string | null
+) {
+  return useSWR<TeamSplitsResponse>(
+    teamAbbreviation && season
+      ? `team-splits-${teamAbbreviation}-${season}`
+      : null,
+    () => getTeamSplits(teamAbbreviation!, season!)
   );
 }
 

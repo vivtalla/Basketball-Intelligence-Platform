@@ -12,6 +12,7 @@ import {
   useTeamFocusLevers,
   useTeamIntelligence,
   useTeamRotationReport,
+  useTeamSplits,
   useLineupImpactReport,
   usePlayTypeEVReport,
   useMatchupFlagsReport,
@@ -25,6 +26,7 @@ import TeamPrepQueuePanel from "@/components/TeamPrepQueuePanel";
 import TeamRotationIntelligencePanel from "@/components/TeamRotationIntelligencePanel";
 import TeamLineupsPanel from "@/components/TeamLineupsPanel";
 import TeamDecisionToolsPanel from "@/components/TeamDecisionToolsPanel";
+import TeamSplitsPanel from "@/components/TeamSplitsPanel";
 import type { TeamPrepQueueItem, TeamRosterPlayer } from "@/lib/types";
 
 const DEFAULT_SEASON = "2024-25";
@@ -39,7 +41,7 @@ function coverageTone(status: "none" | "partial" | "ready") {
   return "bg-[var(--surface-alt)] text-[var(--muted)]";
 }
 
-type Tab = "decision" | "prep" | "intelligence" | "roster" | "analytics" | "lineups";
+type Tab = "decision" | "prep" | "intelligence" | "roster" | "analytics" | "splits" | "lineups";
 
 export default function TeamDetailPage() {
   const params = useParams<{ abbr: string }>();
@@ -55,7 +57,7 @@ export default function TeamDetailPage() {
   const [selectedTab, setSelectedTab] = useState<Tab>("intelligence");
   const [selectedSeason, setSelectedSeason] = useState<string>("");
   const activeTab =
-    (activeTabParam && (["decision", "prep", "intelligence", "roster", "analytics", "lineups"] as Tab[]).includes(activeTabParam as Tab)
+    (activeTabParam && (["decision", "prep", "intelligence", "roster", "analytics", "splits", "lineups"] as Tab[]).includes(activeTabParam as Tab)
       ? (activeTabParam as Tab)
       : selectedTab);
 
@@ -106,6 +108,14 @@ export default function TeamDetailPage() {
     isLoading: analyticsLoading,
     error: analyticsError,
   } = useTeamAnalytics(teamAbbreviation, effectiveSeason);
+  const {
+    data: teamSplits,
+    isLoading: splitsLoading,
+    error: splitsError,
+  } = useTeamSplits(
+    activeTab === "splits" || activeTab === "prep" ? teamAbbreviation : null,
+    activeTab === "splits" || activeTab === "prep" ? effectiveSeason : null
+  );
   const {
     data: availability,
     isLoading: availabilityLoading,
@@ -481,7 +491,7 @@ export default function TeamDetailPage() {
 
       {/* Tab bar */}
       <div className="flex rounded-xl overflow-hidden border border-gray-200 dark:border-gray-700 w-fit text-sm">
-        {(["decision", "prep", "intelligence", "roster", "analytics", "lineups"] as Tab[]).map((tab) => (
+        {(["decision", "prep", "intelligence", "roster", "analytics", "splits", "lineups"] as Tab[]).map((tab) => (
           <button
             key={tab}
             onClick={() => {
@@ -549,7 +559,7 @@ export default function TeamDetailPage() {
               Could not load the prep queue for {effectiveSeason}. The rest of the team room is still available.
             </div>
           )}
-          {prepQueue && !prepLoading && <TeamPrepQueuePanel queue={prepQueue} />}
+          {prepQueue && !prepLoading && <TeamPrepQueuePanel queue={prepQueue} splits={teamSplits ?? null} />}
         </section>
       )}
 
@@ -645,6 +655,26 @@ export default function TeamDetailPage() {
                 />
               ) : null}
             </div>
+          )}
+        </section>
+      )}
+
+      {/* Splits tab */}
+      {activeTab === "splits" && (
+        <section>
+          {splitsLoading && (
+            <div className="space-y-4 animate-pulse">
+              <div className="h-40 rounded-[2rem] bg-gray-200 dark:bg-gray-700" />
+              <div className="h-64 rounded-[1.8rem] bg-gray-200 dark:bg-gray-700" />
+            </div>
+          )}
+          {splitsError && (
+            <div className="rounded-2xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-6 text-center text-gray-500 dark:text-gray-400">
+              No split data for {effectiveSeason} yet. Splits are populated by the daily official sync — check back after the next sync run.
+            </div>
+          )}
+          {teamSplits && !splitsLoading && (
+            <TeamSplitsPanel splits={teamSplits} />
           )}
         </section>
       )}

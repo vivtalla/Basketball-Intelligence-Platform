@@ -1125,6 +1125,15 @@ export async function getGameVisualization(
   );
 }
 
+export async function getTeamSplits(
+  teamAbbreviation: string,
+  season: string
+): Promise<import("./types").TeamSplitsResponse> {
+  return fetchApi<import("./types").TeamSplitsResponse>(
+    `/api/teams/${encodeURIComponent(teamAbbreviation)}/splits?season=${encodeURIComponent(season)}`
+  );
+}
+
 export async function refreshTeamDefenseShotChart(
   teamId: number,
   season: string,
