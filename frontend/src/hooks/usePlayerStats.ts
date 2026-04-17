@@ -64,6 +64,7 @@ import type {
   FollowThroughResponse,
   TeamSplitsResponse,
   MvpCandidateCaseResponse,
+  MvpContextMapResponse,
   MvpRaceResponse,
   MvpRaceOptions,
 } from "@/lib/types";
@@ -127,6 +128,7 @@ import {
   postFollowThroughGames,
   getTeamSplits,
   getMvpCandidateCase,
+  getMvpContextMap,
   getMvpRace,
 } from "@/lib/api";
 
@@ -941,5 +943,15 @@ export function useMvpCandidateCase(
   return useSWR<MvpCandidateCaseResponse>(
     key,
     () => getMvpCandidateCase(playerId!, season!, options)
+  );
+}
+
+export function useMvpContextMap(season: string | null, options?: MvpRaceOptions) {
+  const key = season
+    ? ["mvp-context-map", season, options?.top ?? 20, options?.minGp ?? 20, options?.position ?? "all"]
+    : null;
+  return useSWR<MvpContextMapResponse>(
+    key,
+    () => getMvpContextMap(season!, options)
   );
 }

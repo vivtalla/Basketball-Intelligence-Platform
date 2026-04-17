@@ -22,6 +22,13 @@ function CandidateCard({ candidate, rank }: { candidate: MvpCandidate; rank: num
   // Use pts_delta as a proxy for composite trend direction
   const delta = candidate.pts_delta;
   const deltaUp = delta == null ? null : delta >= 0;
+  const eligibility = candidate.eligibility;
+  const eligibilityTone =
+    eligibility?.eligibility_status === "eligible"
+      ? "var(--success-ink)"
+      : eligibility?.eligibility_status === "ineligible"
+        ? "var(--danger-ink)"
+        : "var(--accent)";
 
   return (
     <Link
@@ -53,6 +60,16 @@ function CandidateCard({ candidate, rank }: { candidate: MvpCandidate; rank: num
             }}
           >
             {candidate.team_abbreviation}
+          </p>
+          <p
+            className="mt-1 tabular-nums"
+            style={{
+              fontFamily: "var(--font-geist-mono)",
+              fontSize: 10,
+              color: eligibilityTone,
+            }}
+          >
+            {eligibility?.eligible_games ?? candidate.gp}/65 qualified · {eligibility?.eligibility_status ?? "unknown"}
           </p>
         </div>
         <div className="relative h-12 w-12 shrink-0 overflow-hidden rounded-full bg-[var(--surface-alt)] border border-[var(--border)]">
@@ -165,6 +182,11 @@ function CandidateCard({ candidate, rank }: { candidate: MvpCandidate; rank: num
           </p>
         </div>
       </div>
+      <p className="mt-3 text-xs leading-5 text-[var(--muted)]">
+        {candidate.opponent_context?.best_split
+          ? `Best split: ${candidate.opponent_context.best_split}`
+          : "Open the case map for availability, splits, and support context."}
+      </p>
     </Link>
   );
 }

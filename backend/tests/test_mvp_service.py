@@ -19,8 +19,8 @@ from db.models import (  # noqa: E402
     Team,
     TeamSeasonStat,
 )
-from routers.mvp import get_mvp_candidate_case, get_mvp_race  # noqa: E402
-from services.mvp_service import build_mvp_candidate_case, build_mvp_race  # noqa: E402
+from routers.mvp import get_mvp_candidate_case, get_mvp_context_map, get_mvp_race  # noqa: E402
+from services.mvp_service import build_mvp_candidate_case, build_mvp_context_map, build_mvp_race  # noqa: E402
 
 
 def make_session():
@@ -209,11 +209,15 @@ def _seed_player_case(session):
                 season="2025-26",
                 season_type="Regular Season",
                 game_date=base_date + timedelta(days=index),
+                matchup="BOS vs DEN" if index % 2 == 0 else "BOS @ DEN",
+                wl="W" if index % 3 else "L",
+                min=34.0,
                 pts=30 + index,
                 reb=5,
                 ast=6,
                 fga=20,
                 fta=8,
+                plus_minus=8 - index,
             )
         )
     session.add_all(
@@ -281,9 +285,57 @@ def test_mvp_race_builds_case_payload_and_dedupes_trade_rows():
         assert alpha_case.clutch_and_pace is not None
         assert alpha_case.clutch_and_pace.fast_break_pts == 80.0
         assert alpha_case.play_style
+        assert alpha_case.eligibility is not None
+        assert alpha_case.eligibility.minutes_qualified_games == 12
+        assert alpha_case.eligibility.eligibility_status == "ineligible"
+        assert alpha_case.opponent_context is not None
+        assert alpha_case.opponent_context.rows
+        assert alpha_case.support_burden is not None
+        assert alpha_case.impact_metric_coverage is not None
+        assert "EPM" in alpha_case.impact_metric_coverage.external_metrics_missing
+        assert alpha_case.visual_coordinates is not None
         assert alpha_case.data_coverage is not None
         assert alpha_case.data_coverage.has_play_style is True
+        assert alpha_case.data_coverage.has_eligibility is True
         assert alpha_case.case_summary
+    finally:
+        session.close()
+
+
+def test_mvp_eligibility_counts_near_miss_games():
+    session = make_session()
+    try:
+        alpha, _, _ = _seed_player_case(session)
+        base_date = date(2026, 2, 1)
+        for index in range(53):
+            session.add(
+                PlayerGameLog(
+                    player_id=alpha.id,
+                    game_id=f"00225010{index:02d}",
+                    season="2025-26",
+                    season_type="Regular Season",
+                    game_date=base_date + timedelta(days=index),
+                    matchup="BOS vs DEN",
+                    wl="W",
+                    min=16.0 if index < 3 else 22.0,
+                    pts=24,
+                    reb=5,
+                    ast=6,
+                    fga=16,
+                    fta=6,
+                )
+            )
+        session.commit()
+
+        response = build_mvp_race(session, season="2025-26", top=3)
+        alpha_case = next(row for row in response.candidates if row.player_id == alpha.id)
+
+        assert alpha_case.eligibility is not None
+        assert alpha_case.eligibility.minutes_qualified_games == 62
+        assert alpha_case.eligibility.near_miss_games == 3
+        assert alpha_case.eligibility.eligible_games == 64
+        assert alpha_case.eligibility.games_needed == 1
+        assert alpha_case.eligibility.eligibility_status == "at_risk"
     finally:
         session.close()
 
@@ -315,6 +367,25 @@ def test_mvp_routes_support_filters_and_candidate_case():
         case = get_mvp_candidate_case(player_id=alpha.id, season="2025-26", min_gp=20, position=None, db=session)
         assert case.candidate.player_id == alpha.id
         assert case.nearby
+
+        context_map = get_mvp_context_map(season="2025-26", top=2, min_gp=20, position=None, db=session)
+        assert context_map.points
+        assert context_map.points[0].quick_evidence
+    finally:
+        session.close()
+
+
+def test_mvp_context_map_returns_lightweight_coordinates():
+    session = make_session()
+    try:
+        _seed_player_case(session)
+        response = build_mvp_context_map(session, season="2025-26", top=2)
+
+        assert response.scoring_profile == "mvp_case_v1"
+        assert response.default_x == "team_success"
+        assert len(response.points) == 2
+        assert 0 <= response.points[0].x_team_success <= 100
+        assert 0 <= response.points[0].y_individual_impact <= 100
     finally:
         session.close()
 

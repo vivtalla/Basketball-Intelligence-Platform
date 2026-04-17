@@ -153,15 +153,25 @@ Likely shape:
 
 ## MVP Tracking
 
-### MVP Award-Race Tracker
+### MVP Award-Race Follow-Ons
 Why it matters:
-CourtVue Labs is increasingly good at telling player-value and team-context stories, which makes a future MVP lens feel natural. A dedicated award-race tracker could turn existing player, trend, and matchup context into a staff-readable season narrative without pretending the product is itself the official vote.
+Sprints 48-50 turned the MVP tracker into a case platform with eligibility, opponent context, support burden, and a case map. The next gains are deeper data sources and longitudinal storytelling rather than another static leaderboard.
 
 Likely shape:
-- track a living MVP board with movement over time instead of a static leaderboard snapshot
-- combine player value indicators, team success context, recent trend momentum, and evidence-backed narrative bullets
-- make the workflow transparent about what is model-driven versus editorial framing so the race view stays interpretable
-- connect award-race entries back into player pages, compare, and trend workflows rather than creating a disconnected microsite
+- persist daily MVP snapshots so rank, score, and case-strength movement can be shown over time
+- add an MVP voter-room compare mode for two or three candidates using the existing case context
+- replace inferred play-style and pace proxies with persisted official play-type/tracking domains where available
+- add player-page MVP embeds once the context-map payload is stable enough to reuse outside `/mvp`
+
+### NBA Gravity Metric Layer
+Why it matters:
+The MVP methodology now openly acknowledges that box-score and box-score-derived stats dominate the current case score. A gravity layer would make the platform better at valuing players who bend defenses, create space, pull rim protection, or warp help coverage even when the box score undersells the possession-level effect.
+
+Likely shape:
+- define local gravity proxies first: shooting gravity, rim gravity, creation gravity, off-ball attention, and lineup spacing lift
+- derive transparent v1 signals from shot profile, assisted/unassisted patterns, PBP descriptions, lineup on/off, teammate efficiency shifts, and opponent context
+- persist official tracking, play-type, hustle, and matchup data behind DB-first reads when available, then calibrate or replace the proxy layer
+- expose gravity as context before letting it materially influence MVP/composite scoring
 
 ---
 

@@ -1160,6 +1160,19 @@ export async function getMvpCandidateCase(
   );
 }
 
+export async function getMvpContextMap(
+  season: string,
+  options?: import("./types").MvpRaceOptions
+): Promise<import("./types").MvpContextMapResponse> {
+  const params = new URLSearchParams({ season });
+  if (options?.top != null) params.set("top", String(options.top));
+  if (options?.minGp != null) params.set("min_gp", String(options.minGp));
+  if (options?.position) params.set("position", options.position);
+  return fetchApi<import("./types").MvpContextMapResponse>(
+    `/api/mvp/context-map?${params.toString()}`
+  );
+}
+
 export async function refreshTeamDefenseShotChart(
   teamId: number,
   season: string,

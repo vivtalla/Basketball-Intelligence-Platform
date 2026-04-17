@@ -2288,6 +2288,12 @@ export interface MvpCandidate {
   clutch_and_pace?: MvpClutchAndPaceProfile | null;
   play_style?: MvpPlayStyleRow[];
   data_coverage?: MvpDataCoverage | null;
+  eligibility?: MvpEligibilityProfile | null;
+  opponent_context?: MvpOpponentContext | null;
+  support_burden?: MvpSupportBurden | null;
+  split_profile?: MvpSplitRow[];
+  impact_metric_coverage?: MvpImpactMetricCoverage | null;
+  visual_coordinates?: MvpVisualCoordinates | null;
 }
 
 export interface MvpRaceResponse {
@@ -2377,7 +2383,72 @@ export interface MvpDataCoverage {
   has_on_off: boolean;
   has_pbp_splits: boolean;
   has_play_style: boolean;
+  has_eligibility?: boolean;
+  has_opponent_context?: boolean;
+  has_support_burden?: boolean;
+  has_external_impact?: boolean;
   warnings: string[];
+}
+
+export interface MvpEligibilityProfile {
+  eligibility_status: "eligible" | "at_risk" | "ineligible" | "unknown";
+  eligible_games: number;
+  games_needed: number;
+  minutes_qualified_games: number;
+  near_miss_games: number;
+  games_played: number;
+  minutes_played: number | null;
+  warning: string | null;
+}
+
+export interface MvpSplitRow {
+  key: string;
+  label: string;
+  games: number;
+  wins: number | null;
+  losses: number | null;
+  pts_pg: number | null;
+  reb_pg: number | null;
+  ast_pg: number | null;
+  ts_pct: number | null;
+  plus_minus_pg: number | null;
+  confidence: "high" | "medium" | "low";
+}
+
+export interface MvpOpponentContext {
+  rows: MvpSplitRow[];
+  best_split: string | null;
+  biggest_weakness: string | null;
+  note: string;
+}
+
+export interface MvpSupportBurden {
+  candidate_usage_pct: number | null;
+  team_net_without_candidate: number | null;
+  top_teammate_name: string | null;
+  top_teammate_pts_pg: number | null;
+  top_teammate_games: number | null;
+  teammate_availability_avg_gp: number | null;
+  support_note: string | null;
+}
+
+export interface MvpImpactMetricCoverage {
+  local_metrics: string[];
+  external_metrics_present: string[];
+  external_metrics_missing: string[];
+  note: string;
+}
+
+export interface MvpVisualCoordinates {
+  x_team_success: number;
+  y_individual_impact: number;
+  production: number;
+  efficiency: number;
+  availability: number;
+  momentum: number;
+  bubble_size: number;
+  color_key: string;
+  explanation: string;
 }
 
 export interface MvpNearbyCandidate {
@@ -2401,4 +2472,35 @@ export interface MvpRaceOptions {
   top?: number;
   minGp?: number;
   position?: string | null;
+}
+
+export interface MvpContextMapPoint {
+  rank: number;
+  player_id: number;
+  player_name: string;
+  team_abbreviation: string;
+  composite_score: number;
+  eligibility_status: string;
+  momentum: string;
+  x_team_success: number;
+  y_individual_impact: number;
+  production: number;
+  efficiency: number;
+  availability: number;
+  momentum_score: number;
+  bubble_size: number;
+  color_key: string;
+  quick_evidence: string[];
+  coverage_warnings: string[];
+}
+
+export interface MvpContextMapResponse {
+  season: string;
+  as_of_date: string;
+  scoring_profile: string;
+  default_x: string;
+  default_y: string;
+  axis_options: string[];
+  points: MvpContextMapPoint[];
+  methodology: string;
 }

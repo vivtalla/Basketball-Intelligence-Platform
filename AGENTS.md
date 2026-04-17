@@ -1,6 +1,6 @@
 # Agent Coordination
 
-Last updated: 2026-04-17 by Claude (Sprint 48 closed — MVP Award Race Tracker shipped; reset for Sprint 49)
+Last updated: 2026-04-17 by Codex (Sprint 50 MVP Context Map implemented)
 
 > Both agents read this file before touching code at the start of every session.
 > The canonical source of truth is the clean `master` checkout at `/Users/viv/Documents/Basketball Intelligence Platform`.
@@ -14,12 +14,12 @@ Last updated: 2026-04-17 by Claude (Sprint 48 closed — MVP Award Race Tracker 
 
 | Field | Value |
 |-------|-------|
-| Sprint | 49 |
-| Goal | MVP Case Platform — expanded award-race case data, explainable scoring, and UI |
+| Sprint | 50 |
+| Goal | MVP Context Map — eligibility, opponent/support context, and visual MVP case map |
 | Started | 2026-04-17 |
 | Target merge | TBD |
-| Sprint shape | TBD |
-| Branch | `codex-sprint-49-mvp-case-platform` |
+| Sprint shape | Balanced data enrichment + product visualization |
+| Branch | `codex-sprint-50-mvp-context-map` |
 | Worker policy | Single-stream Codex implementation unless bounded independent subtasks emerge |
 
 ---
@@ -43,9 +43,9 @@ If repo state, sprint numbering, or shipped features appear to disagree across l
 - Status: Not started
 
 ### Codex
-- Branch: `codex-sprint-49-mvp-case-platform`
-- Scope: MVP case platform backend contracts, scoring, case UI, home teaser, and tests
-- Status: Complete — ready to merge to `master`
+- Branch: `codex-sprint-50-mvp-context-map`
+- Scope: MVP eligibility, opponent/support context, context-map endpoint/UI, home teaser, and tests
+- Status: Implemented locally — awaiting review/merge
 
 ---
 
@@ -58,8 +58,8 @@ Claim a shared file here before editing. If a file is already claimed, read that
 
 | File | Claimed by | Purpose |
 |------|------------|---------|
-| `frontend/src/lib/types.ts` | Codex | Sprint 49 MVP case platform additive contracts |
-| `frontend/src/lib/api.ts` | Codex | Sprint 49 MVP race/candidate case API helpers |
+| `frontend/src/lib/types.ts` | Codex | Sprint 50 MVP context-map additive contracts |
+| `frontend/src/lib/api.ts` | Codex | Sprint 50 MVP context-map API helper |
 | `backend/main.py` | — |  |
 
 ---

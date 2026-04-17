@@ -260,22 +260,22 @@ CourtVue Labs uses a hybrid sprint model: major feature sprints typically run as
 
 > Full history → `specs/sprint-history.md`
 
-### Sprint 48 — MVP Award Race Tracker
+### Sprint 50 — MVP Context Map
 
-- Added `MvpCandidate` and `MvpRaceResponse` Pydantic schemas, `build_mvp_race()` service with composite z-score (PTS_PG/REB_PG/AST_PG/TS_PCT/BPM), batch last-10-game trend deltas, and hot/cold momentum classification
-- Added `GET /api/mvp/race` endpoint registered in `main.py`
-- Added TypeScript interfaces, `getMvpRace()` API function, `useMvpRace()` SWR hook
-- Added `MvpRacePanel` component: ranked candidate cards with score bars, stat chips with delta arrows, momentum badges, and click-through to player profiles
-- Added `/mvp` page with season picker, suspense skeleton, and methodology footnote; "MVP Race" nav link in layout
-- Verified with backend import smoke, frontend `npm run lint`, and `npm run build`
+- Expanded MVP case payloads with award eligibility, opponent-quality splits, support-burden context, optional external impact coverage, and visual map coordinates
+- Added `GET /api/mvp/context-map` for lightweight MVP map points and quick evidence
+- Added a new `/mvp` Case Map with axis toggles, availability/minutes bubble sizing, momentum color, and selected-candidate evidence
+- Extended case detail and home teaser surfaces with eligibility, opponent context, support burden, and updated methodology language
+- Added visible methodology/limitations language that calls out the current box-score bias and points the next sprint toward richer tracking/play-type/gravity context
+- Verified with MVP/backend targeted tests, frontend `npm run lint`, frontend `npm run build`, and a local database context-map smoke
 
-### Sprint 47 — Team General Splits UI Wiring
+### Sprint 49 — MVP Case Platform
 
-- Added `TeamSplitRow` and `TeamSplitsResponse` TypeScript interfaces and `getTeamSplits()` API client
-- Added `useTeamSplits()` SWR hook and new `TeamSplitsPanel` component with family toggle (Location, W/L, Days Rest, Month, Pre/Post All-Star), stat table, and honest empty state
-- Added "Splits" tab to the team page between Analytics and Lineups; hook pre-allocated and tab-gated per existing patterns
-- Added situational split signals to `TeamPrepQueuePanel`: per-card Home/Away W% and +/- using already-fetched splits data
-- Verified with frontend `npm run lint` and `npm run build`
+- Expanded the MVP tracker from a ranked list into a case-building workspace with score pillars, case summaries, team context, on/off lift, advanced profile, clutch/pace fields, and inferred play-style proxy rows
+- Added `GET /api/mvp/candidates/{player_id}/case` for focused candidate case payloads
+- Versioned the MVP scoring profile as `mvp_case_v1` with production, efficiency, impact, team context, momentum, and capped play-style contributions
+- Updated shared TypeScript contracts, API helpers, hooks, `/mvp`, and the home MVP teaser
+- Added WS/48 to the advanced profile and filled the local `2025-26` data foundation before Sprint 50 planning
 
 ---
 
@@ -284,7 +284,7 @@ CourtVue Labs uses a hybrid sprint model: major feature sprints typically run as
 | Branch | Owner | Status |
 |--------|-------|--------|
 | `master` | — | Stable |
-| `feature/sprint-48-mvp-tracker` | Claude | Merged to master |
+| `codex-sprint-50-mvp-context-map` | Codex | Implemented locally; awaiting review/merge |
 
 Sprint branches are created at kickoff and listed in `AGENTS.md`.
 

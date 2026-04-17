@@ -1,9 +1,18 @@
 # Sprint History Archive
 
-Sprints 1–46. Current sprint summaries also live in `CLAUDE.md` under "Recent Sprints".
+Sprints 1–48. Current sprint summaries also live in `CLAUDE.md` under "Recent Sprints".
 
 For detailed per-sprint records, see the individual closeout files in this directory:
-`specs/sprint-09-closeout.md` through `specs/sprint-46-closeout.md`
+`specs/sprint-09-closeout.md` through `specs/sprint-50-closeout.md`
+
+---
+
+### Sprint 48 — MVP Award Race Tracker
+**Branch:** `feature/sprint-48-mvp-tracker`
+
+- Added the first MVP race endpoint, score model, TypeScript contracts, SWR hook, `/mvp` page, and navigation entry.
+- Shipped ranked MVP candidate cards with composite score bars, stat chips, recent momentum, and player-profile links.
+- Verified with frontend lint/build and backend smoke checks.
 
 ---
 
