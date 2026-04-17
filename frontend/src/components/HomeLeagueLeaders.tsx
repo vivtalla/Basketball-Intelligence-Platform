@@ -104,14 +104,14 @@ export default function HomeLeagueLeaders() {
     <div>
       <div className="mb-4 flex items-end justify-between gap-4">
         <div>
-          <h2 className="bip-display text-2xl font-semibold text-[var(--foreground)]">League Leaders</h2>
-          <p className="text-sm text-[var(--muted)]">
-            {SEASON} regular season — top 5 per category.
-          </p>
+          <p className="bip-kicker mb-1.5">League Leaders · {SEASON}</p>
+          <h2 className="bip-display text-3xl font-semibold text-[var(--foreground)]">
+            The composite <span className="text-[var(--accent)]">top five.</span>
+          </h2>
         </div>
         <Link
           href="/player-stats"
-          className="text-sm bip-link"
+          className="text-sm bip-link shrink-0 font-medium"
         >
           All player stats →
         </Link>

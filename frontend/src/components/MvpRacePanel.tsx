@@ -253,7 +253,7 @@ function CandidateCase({ candidate, asOfDate }: { candidate: MvpCandidate; asOfD
         <section>
           <h3 className="text-sm font-semibold text-[var(--foreground)]">Advanced</h3>
           <div className="mt-3 grid gap-3 sm:grid-cols-3">
-            <MetricBlock label="USG" value={fmt(advanced?.usg_pct)} />
+            <MetricBlock label="USG%" value={fmtPct(advanced?.usg_pct)} />
             <MetricBlock label="BPM" value={fmtSigned(advanced?.bpm)} />
             <MetricBlock label="VORP" value={fmt(advanced?.vorp)} />
             <MetricBlock label="WS" value={fmt(advanced?.ws)} />

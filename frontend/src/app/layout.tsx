@@ -20,9 +20,8 @@ export default function RootLayout({
         <nav className="sticky top-0 z-40 border-b border-[var(--border)] bg-[rgba(247,239,228,0.86)] backdrop-blur-xl">
           <div className="max-w-7xl mx-auto px-4 py-4 flex items-center gap-4">
             <Link href="/" className="flex items-center gap-2 shrink-0">
-              <span className="bip-display text-2xl font-bold tracking-tight text-[var(--foreground)]">CourtVue Labs</span>
-              <span className="text-sm text-[var(--muted)] hidden lg:inline">
-                NBA intelligence workspace
+              <span className="bip-display text-2xl font-bold tracking-tight text-[var(--foreground)]">
+                CourtVue <span className="text-[var(--signal)]">Labs</span>
               </span>
             </Link>
             <NavSearch />

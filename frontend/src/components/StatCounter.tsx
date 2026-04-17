@@ -29,11 +29,27 @@ export default function StatCounter({ target, label, duration = 1800 }: StatCoun
   }, [target, duration]);
 
   return (
-    <div className="inline-flex flex-col items-center gap-1">
-      <span className="bip-display text-5xl font-bold text-[var(--accent)] tabular-nums sm:text-6xl">
-        {count.toLocaleString()}+
+    <div className="inline-flex items-baseline gap-2.5">
+      <span
+        className="bip-display tabular-nums"
+        style={{
+          fontSize: "clamp(2.5rem, 5vw, 3.25rem)",
+          fontWeight: 700,
+          lineHeight: 1,
+          color: "var(--foreground)",
+          fontVariantNumeric: "tabular-nums",
+          letterSpacing: "-0.02em",
+        }}
+      >
+        {count.toLocaleString()}
       </span>
-      <span className="text-xs font-semibold uppercase tracking-[0.2em] text-[var(--muted)]">
+      <span
+        style={{
+          fontSize: 13,
+          color: "var(--muted)",
+          letterSpacing: "0.04em",
+        }}
+      >
         {label}
       </span>
     </div>

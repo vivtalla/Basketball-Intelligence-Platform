@@ -3,13 +3,87 @@ import HomeLeagueLeaders from "@/components/HomeLeagueLeaders";
 import HomeMvpTeaser from "@/components/HomeMvpTeaser";
 import FavoritesList from "@/components/FavoritesList";
 import StatCounter from "@/components/StatCounter";
+import HeroHardwood from "@/components/HeroHardwood";
 import Link from "next/link";
+
+// Heroicons-style SVG icons for platform cards (24×24, 1.7px stroke, round caps/joins)
+function PlatformIcon({ name, size = 18 }: { name: string; size?: number }) {
+  const paths: Record<string, React.ReactNode> = {
+    beaker: (
+      <>
+        <path d="M9 3h6" />
+        <path d="M10 3v6l-5 9a3 3 0 0 0 2.6 4.5h8.8A3 3 0 0 0 19 18l-5-9V3" />
+      </>
+    ),
+    basketball: (
+      <>
+        <circle cx="12" cy="12" r="9" />
+        <path d="M3 12h18" />
+        <path d="M12 3v18" />
+        <path d="M5.5 5.5c4 3 9 3 13 0" />
+        <path d="M5.5 18.5c4-3 9-3 13 0" />
+      </>
+    ),
+    sparkle: <path d="M13 2 3 14h7l-1 8 10-12h-7l1-8z" />,
+    shield: <path d="M12 3 4 6v6c0 5 3.5 8.5 8 9 4.5-.5 8-4 8-9V6l-8-3z" />,
+    scales: (
+      <>
+        <path d="M12 3v18" />
+        <path d="M4 20h16" />
+        <path d="m6 8 3 7H3z" />
+        <path d="m18 8 3 7h-6z" />
+        <path d="M4 8h16" />
+      </>
+    ),
+    clipboard: (
+      <>
+        <rect x="6" y="4" width="12" height="17" rx="2" />
+        <path d="M9 4h6v3H9z" />
+        <path d="M9 11h6" />
+        <path d="M9 15h4" />
+      </>
+    ),
+    chart: (
+      <>
+        <path d="M4 20V10" />
+        <path d="M10 20V4" />
+        <path d="M16 20v-7" />
+        <path d="M22 20H2" />
+      </>
+    ),
+    microscope: (
+      <>
+        <path d="M6 18h8" />
+        <path d="M3 22h18" />
+        <path d="M14 22a7 7 0 1 0 0-14h-1" />
+        <path d="M9 14h2" />
+        <path d="M9 12a2 2 0 0 1-2-2V6h6v4a2 2 0 0 1-2 2Z" />
+        <path d="M12 6V3a1 1 0 0 0-1-1H9a1 1 0 0 0-1 1v3" />
+      </>
+    ),
+  };
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.7"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden
+    >
+      {paths[name] ?? paths.chart}
+    </svg>
+  );
+}
 
 const platformAreas = [
   {
     href: "/ask",
     eyebrow: "CourtVue Ask",
-    icon: "Q",
+    icon: "beaker",
     title: "Ask a basketball question",
     description:
       "Get instant player leaders, team rankings, filters, recent form, and profile links from synced CourtVue data.",
@@ -17,7 +91,7 @@ const platformAreas = [
   {
     href: "/standings",
     eyebrow: "League Context",
-    icon: "📊",
+    icon: "chart",
     title: "Check the standings",
     description:
       "Conference standings with W-L records, last 10, home/away splits, and scoring differential.",
@@ -25,7 +99,7 @@ const platformAreas = [
   {
     href: "/player-stats",
     eyebrow: "Player Stats",
-    icon: "🏀",
+    icon: "basketball",
     title: "Scan player leaderboards",
     description:
       "Advanced, external, and play-by-play-informed leaderboards across every key stat.",
@@ -33,31 +107,31 @@ const platformAreas = [
   {
     href: "/metrics",
     eyebrow: "Metrics Workspace",
-    icon: "⚗️",
+    icon: "sparkle",
     title: "Build your own metric",
     description:
       "Load starter presets, share metric links, and rank the player pool through your own weighted model.",
   },
   {
     href: "/teams",
-    eyebrow: "Explore Context",
-    icon: "🛡️",
+    eyebrow: "Team Context",
+    icon: "shield",
     title: "Browse team intelligence",
     description:
-      "Team efficiency ratings, four factors, roster leaders, and player dashboards.",
+      "Team efficiency ratings, four factors, roster leaders, and rotation intelligence.",
   },
   {
     href: "/coverage",
     eyebrow: "Operations",
-    icon: "🔬",
+    icon: "microscope",
     title: "Audit PBP sync coverage",
     description:
       "See which teams and players are ready, partial, or missing play-by-play-derived data.",
   },
   {
     href: "/compare",
-    eyebrow: "Compare Stars",
-    icon: "⚖️",
+    eyebrow: "Compare",
+    icon: "scales",
     title: "Stack careers side by side",
     description:
       "Put two players in the same frame to compare production, efficiency, and arc.",
@@ -65,7 +139,7 @@ const platformAreas = [
   {
     href: "/pre-read",
     eyebrow: "Coach Workflow",
-    icon: "📋",
+    icon: "clipboard",
     title: "Build a pre-read deck",
     description:
       "Generate a short printable briefing with focus levers, matchup edges, and tactical adjustments.",
@@ -77,6 +151,9 @@ export default function HomePage() {
     <div className="space-y-14">
       {/* ── Hero ─────────────────────────────────────────────────── */}
       <div className="bip-panel-strong relative overflow-hidden rounded-[2.2rem] px-6 sm:px-12 min-h-[88vh] flex flex-col items-center justify-center">
+
+        {/* ── Warm woodgrain texture ── */}
+        <HeroHardwood opacity={0.18} tint="#b07a37" seed={7} />
 
         {/* ── Decorative court art (purely visual) ── */}
         <div className="absolute inset-0 overflow-hidden rounded-[2.2rem] pointer-events-none select-none">
@@ -145,15 +222,15 @@ export default function HomePage() {
       </div>
 
       {/* ── Platform areas ───────────────────────────────────────── */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
         {platformAreas.map((area) => (
           <Link
             key={area.href}
             href={area.href}
             className="group bip-panel rounded-[1.85rem] p-6 hover:-translate-y-1 hover:border-[var(--accent)] hover:shadow-[0_24px_60px_rgba(33,72,59,0.16)] transition-all duration-200"
           >
-            <div className="flex items-center gap-2 mb-1">
-              <span className="text-lg leading-none" aria-hidden="true">{area.icon}</span>
+            <div className="flex items-center gap-2 mb-1 text-[var(--accent)]">
+              <PlatformIcon name={area.icon} size={18} />
               <p className="bip-kicker">{area.eyebrow}</p>
             </div>
             <h2 className="bip-display mt-3 text-2xl font-semibold text-[var(--foreground)]">
