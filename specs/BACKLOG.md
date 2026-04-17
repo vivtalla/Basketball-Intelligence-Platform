@@ -221,6 +221,17 @@ Likely shape:
 - improve metric-to-compare and metric-to-player handoff
 - explore whether saved state should stay URL-based or evolve toward richer reusable workspaces
 
+### Ask Workspace Follow-Ons
+Why it matters:
+Sprint 46 introduced the first StatMuse-inspired CourtVue Ask workspace with deterministic player/team query interpretation. The next value comes from expanding the grammar and making answers launch richer existing workflows with less manual setup.
+
+Likely shape:
+- preload Player Stats, Standings, Teams, Compare, and Game Explorer with interpreted query state instead of only linking to the broad destination
+- add date windows, opponent filters, playoffs, positions, and "in a game" leaderboards
+- add small recent-form visuals for player game logs and team last-10 margin answers
+- keep improving alias coverage through the metric registry before adding any optional LLM-assisted interpreter
+- expose enough query confidence/debug context in development to tune parser behavior safely
+
 ### Player Stats Saved Views and Workflow Follow-Ons
 Why it matters:
 Sprint 44 substantially upgraded the Player Stats workspace with better hierarchy, spotlighting, mobile scan-ability, and URL-backed workspace state. The next gains are no longer basic polish; they are workflow and reuse improvements.
