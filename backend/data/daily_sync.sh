@@ -15,7 +15,7 @@ PYEOF
 )"
 fi
 export SEASON
-LOG=/var/log/bip_sync.log
+LOG="$HOME/Library/Logs/bip_sync.log"
 
 echo "[$(date -u +%Y-%m-%dT%H:%M:%SZ)] daily_sync start season=$SEASON" >> "$LOG"
 
