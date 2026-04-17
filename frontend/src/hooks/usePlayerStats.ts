@@ -63,7 +63,9 @@ import type {
   MatchupFlagsResponse,
   FollowThroughResponse,
   TeamSplitsResponse,
+  MvpCandidateCaseResponse,
   MvpRaceResponse,
+  MvpRaceOptions,
 } from "@/lib/types";
 import {
   getPlayerProfile,
@@ -124,6 +126,7 @@ import {
   getMatchupFlagsReport,
   postFollowThroughGames,
   getTeamSplits,
+  getMvpCandidateCase,
   getMvpRace,
 } from "@/lib/api";
 
@@ -917,9 +920,26 @@ export function useTeamDefenseShotChartRefresh(
   return { refresh, isRefreshing };
 }
 
-export function useMvpRace(season: string | null) {
+export function useMvpRace(season: string | null, options?: MvpRaceOptions) {
+  const key = season
+    ? ["mvp-race", season, options?.top ?? 10, options?.minGp ?? 20, options?.position ?? "all"]
+    : null;
   return useSWR<MvpRaceResponse>(
-    season ? `mvp-race-${season}` : null,
-    () => getMvpRace(season!)
+    key,
+    () => getMvpRace(season!, options)
+  );
+}
+
+export function useMvpCandidateCase(
+  playerId: number | null,
+  season: string | null,
+  options?: Pick<MvpRaceOptions, "minGp" | "position">
+) {
+  const key = playerId && season
+    ? ["mvp-candidate-case", playerId, season, options?.minGp ?? 20, options?.position ?? "all"]
+    : null;
+  return useSWR<MvpCandidateCaseResponse>(
+    key,
+    () => getMvpCandidateCase(playerId!, season!, options)
   );
 }

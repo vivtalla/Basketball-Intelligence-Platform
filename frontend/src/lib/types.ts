@@ -2277,8 +2277,17 @@ export interface MvpCandidate {
   pts_delta: number | null;
   reb_delta: number | null;
   ast_delta: number | null;
+  ts_delta?: number | null;
   momentum: "hot" | "cold" | "steady";
   last_games: number;
+  score_pillars?: Record<string, MvpScorePillar>;
+  case_summary?: string[];
+  team_context?: MvpTeamContext | null;
+  on_off?: MvpOnOffProfile | null;
+  advanced_profile?: MvpAdvancedProfile | null;
+  clutch_and_pace?: MvpClutchAndPaceProfile | null;
+  play_style?: MvpPlayStyleRow[];
+  data_coverage?: MvpDataCoverage | null;
 }
 
 export interface MvpRaceResponse {
@@ -2286,4 +2295,110 @@ export interface MvpRaceResponse {
   as_of_date: string;
   candidates: MvpCandidate[];
   weights: Record<string, number>;
+  scoring_profile?: string;
+}
+
+export interface MvpScorePillar {
+  label: string;
+  weight: number;
+  raw_score: number;
+  weighted_score: number;
+  display_score: number;
+}
+
+export interface MvpTeamContext {
+  team_id: number | null;
+  team_name: string | null;
+  wins: number | null;
+  losses: number | null;
+  win_pct: number | null;
+  net_rating: number | null;
+  off_rating: number | null;
+  def_rating: number | null;
+  win_pct_rank: number | null;
+  net_rating_rank: number | null;
+}
+
+export interface MvpOnOffProfile {
+  on_minutes: number | null;
+  off_minutes: number | null;
+  on_net_rating: number | null;
+  off_net_rating: number | null;
+  on_off_net: number | null;
+  on_ortg: number | null;
+  on_drtg: number | null;
+  off_ortg: number | null;
+  off_drtg: number | null;
+  confidence: "high" | "medium" | "low";
+}
+
+export interface MvpAdvancedProfile {
+  usg_pct: number | null;
+  ts_pct: number | null;
+  efg_pct: number | null;
+  bpm: number | null;
+  obpm: number | null;
+  dbpm: number | null;
+  vorp: number | null;
+  ws: number | null;
+  win_shares_per_48: number | null;
+  pie: number | null;
+  net_rating: number | null;
+  off_rating: number | null;
+  def_rating: number | null;
+  epm: number | null;
+  raptor: number | null;
+  lebron: number | null;
+}
+
+export interface MvpClutchAndPaceProfile {
+  clutch_pts: number | null;
+  clutch_fga: number | null;
+  clutch_fg_pct: number | null;
+  second_chance_pts: number | null;
+  fast_break_pts: number | null;
+}
+
+export interface MvpPlayStyleRow {
+  action_family: string;
+  label: string;
+  usage_share: number | null;
+  points_per_possession: number | null;
+  turnover_rate: number | null;
+  ev_score: number | null;
+  raw_volume: number;
+  confidence: "high" | "medium" | "low";
+  note: string;
+}
+
+export interface MvpDataCoverage {
+  has_season_stats: boolean;
+  has_team_context: boolean;
+  has_on_off: boolean;
+  has_pbp_splits: boolean;
+  has_play_style: boolean;
+  warnings: string[];
+}
+
+export interface MvpNearbyCandidate {
+  rank: number;
+  player_id: number;
+  player_name: string;
+  team_abbreviation: string;
+  composite_score: number;
+}
+
+export interface MvpCandidateCaseResponse {
+  season: string;
+  as_of_date: string;
+  candidate: MvpCandidate;
+  nearby: MvpNearbyCandidate[];
+  weights: Record<string, number>;
+  scoring_profile: string;
+}
+
+export interface MvpRaceOptions {
+  top?: number;
+  minGp?: number;
+  position?: string | null;
 }

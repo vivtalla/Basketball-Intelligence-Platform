@@ -1,70 +1,49 @@
 "use client";
 
+import { useMemo, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import type { MvpRaceResponse, MvpCandidate } from "@/lib/types";
+import type { MvpCandidate, MvpRaceResponse, MvpScorePillar } from "@/lib/types";
 
 interface MvpRacePanelProps {
   data: MvpRaceResponse;
 }
 
-// ---------------------------------------------------------------------------
-// Formatters
-// ---------------------------------------------------------------------------
+const PILLAR_ORDER = ["production", "efficiency", "impact", "team_context", "momentum", "play_style"];
 
 function fmt(value: number | null | undefined, digits = 1): string {
-  if (value == null) return "—";
+  if (value == null || Number.isNaN(value)) return "-";
   return value.toFixed(digits);
 }
 
-function fmtPct(value: number | null | undefined): string {
-  if (value == null) return "—";
-  return (value * 100).toFixed(1) + "%";
+function fmtSigned(value: number | null | undefined, digits = 1): string {
+  if (value == null || Number.isNaN(value)) return "-";
+  return `${value >= 0 ? "+" : ""}${value.toFixed(digits)}`;
 }
 
-function fmtDelta(value: number | null | undefined): string {
-  if (value == null || Math.abs(value) < 1) return "";
-  return (value >= 0 ? "+" : "") + value.toFixed(1);
+function fmtPct(value: number | null | undefined, digits = 1): string {
+  if (value == null || Number.isNaN(value)) return "-";
+  return `${(value * 100).toFixed(digits)}%`;
 }
 
-function momentumLabel(m: MvpCandidate["momentum"]): string {
-  if (m === "hot") return "Hot";
-  if (m === "cold") return "Cold";
-  return "";
+function confidenceClass(confidence: string | null | undefined): string {
+  if (confidence === "high") return "text-[var(--success-ink)]";
+  if (confidence === "medium") return "text-[var(--accent)]";
+  return "text-[var(--muted)]";
 }
-
-function momentumClasses(m: MvpCandidate["momentum"]): string {
-  if (m === "hot") return "bg-orange-100 text-orange-700 border border-orange-200";
-  if (m === "cold") return "bg-blue-100 text-blue-700 border border-blue-200";
-  return "";
-}
-
-function rankBadgeClasses(rank: number): string {
-  if (rank === 1) return "text-yellow-600 font-bold";
-  if (rank === 2) return "text-zinc-500 font-bold";
-  if (rank === 3) return "text-amber-700 font-bold";
-  return "text-[var(--muted)] font-semibold";
-}
-
-// ---------------------------------------------------------------------------
-// Skeleton
-// ---------------------------------------------------------------------------
 
 function SkeletonCard() {
   return (
-    <div className="flex items-center gap-4 p-4 rounded-xl border border-[var(--border)] bg-[var(--surface)] animate-pulse">
+    <div className="flex items-center gap-4 p-4 rounded-lg border border-[var(--border)] bg-[var(--surface)] animate-pulse">
       <div className="w-8 h-8 rounded bg-[var(--border)]" />
       <div className="w-12 h-12 rounded-full bg-[var(--border)]" />
       <div className="flex-1 space-y-2">
         <div className="h-3 w-32 rounded bg-[var(--border)]" />
         <div className="h-2 w-20 rounded bg-[var(--border)]" />
       </div>
-      <div className="flex gap-3">
+      <div className="hidden sm:flex gap-3">
         {[0, 1, 2].map((i) => (
-          <div key={i} className="space-y-1 text-right">
-            <div className="h-2 w-8 rounded bg-[var(--border)]" />
-            <div className="h-3 w-10 rounded bg-[var(--border)]" />
-          </div>
+          <div key={i} className="h-10 w-16 rounded bg-[var(--border)]" />
         ))}
       </div>
     </div>
@@ -73,150 +52,302 @@ function SkeletonCard() {
 
 export function MvpRacePanelSkeleton() {
   return (
-    <div className="space-y-3">
-      {Array.from({ length: 5 }).map((_, i) => (
-        <SkeletonCard key={i} />
-      ))}
+    <div className="grid gap-5 lg:grid-cols-[minmax(0,0.95fr)_minmax(0,1.35fr)]">
+      <div className="space-y-3">
+        {Array.from({ length: 6 }).map((_, i) => (
+          <SkeletonCard key={i} />
+        ))}
+      </div>
+      <div className="rounded-lg border border-[var(--border)] bg-[var(--surface)] p-5 animate-pulse">
+        <div className="h-5 w-44 rounded bg-[var(--border)]" />
+        <div className="mt-5 grid grid-cols-2 gap-3">
+          {Array.from({ length: 6 }).map((_, i) => (
+            <div key={i} className="h-20 rounded bg-[var(--border)]" />
+          ))}
+        </div>
+      </div>
     </div>
   );
 }
 
-// ---------------------------------------------------------------------------
-// Candidate card
-// ---------------------------------------------------------------------------
+function PillarBar({ pillar }: { pillar: MvpScorePillar }) {
+  return (
+    <div>
+      <div className="mb-1 flex items-center justify-between gap-2 text-[11px]">
+        <span className="font-medium text-[var(--foreground)]">{pillar.label}</span>
+        <span className="tabular-nums text-[var(--muted)]">{fmt(pillar.display_score, 0)}</span>
+      </div>
+      <div className="h-1.5 overflow-hidden rounded bg-[var(--border)]">
+        <div
+          className="h-full rounded bg-[var(--accent)]"
+          style={{ width: `${Math.max(0, Math.min(100, pillar.display_score)).toFixed(0)}%` }}
+        />
+      </div>
+    </div>
+  );
+}
 
-function CandidateCard({ candidate, maxScore }: { candidate: MvpCandidate; maxScore: number }) {
-  const barWidth = maxScore > 0 ? (candidate.composite_score / maxScore) * 100 : 0;
-  const ptsDelta = fmtDelta(candidate.pts_delta);
-  const rebDelta = fmtDelta(candidate.reb_delta);
-  const astDelta = fmtDelta(candidate.ast_delta);
-  const momentumTag = momentumLabel(candidate.momentum);
+function CandidateRow({
+  candidate,
+  selected,
+  onSelect,
+}: {
+  candidate: MvpCandidate;
+  selected: boolean;
+  onSelect: () => void;
+}) {
+  const pillars = candidate.score_pillars ?? {};
+  const impact = pillars.impact?.display_score;
+  const team = candidate.team_context;
 
   return (
-    <Link href={`/players/${candidate.player_id}`} className="block group">
-      <div className="flex items-center gap-4 p-4 rounded-xl border border-[var(--border)] bg-[var(--surface)] hover:border-[var(--accent)] transition-colors">
-        {/* Rank */}
-        <div className={`w-7 text-center text-lg shrink-0 ${rankBadgeClasses(candidate.rank)}`}>
+    <button
+      type="button"
+      onClick={onSelect}
+      className={`w-full rounded-lg border p-4 text-left transition-colors ${
+        selected
+          ? "border-[var(--accent)] bg-[rgba(33,72,59,0.08)]"
+          : "border-[var(--border)] bg-[var(--surface)] hover:border-[var(--accent)]"
+      }`}
+    >
+      <div className="flex items-center gap-3">
+        <div className="w-7 shrink-0 text-center text-lg font-bold tabular-nums text-[var(--accent)]">
           {candidate.rank}
         </div>
-
-        {/* Headshot */}
-        <div className="shrink-0">
+        <div className="relative h-12 w-12 shrink-0 overflow-hidden rounded-full bg-[var(--surface-alt)]">
           {candidate.headshot_url ? (
-            <Image
-              src={candidate.headshot_url}
-              alt={candidate.player_name}
-              width={48}
-              height={48}
-              className="rounded-full object-cover bg-[var(--border)]"
-              unoptimized
-            />
+            <Image src={candidate.headshot_url} alt={candidate.player_name} fill className="object-cover object-top" unoptimized />
           ) : (
-            <div className="w-12 h-12 rounded-full bg-[var(--border)] flex items-center justify-center text-[var(--muted)] text-xs font-bold">
-              {candidate.player_name.split(" ").map((n) => n[0]).join("").slice(0, 2)}
+            <div className="flex h-full w-full items-center justify-center text-xs font-bold text-[var(--muted)]">
+              {candidate.player_name.split(" ").map((name) => name[0]).join("").slice(0, 2)}
             </div>
           )}
         </div>
-
-        {/* Name + score bar */}
-        <div className="flex-1 min-w-0">
+        <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2">
-            <span className="font-semibold text-sm truncate group-hover:text-[var(--accent)]">
-              {candidate.player_name}
+            <p className="truncate text-sm font-semibold text-[var(--foreground)]">{candidate.player_name}</p>
+            <span className="rounded border border-[var(--border)] px-1.5 py-0.5 text-[10px] uppercase text-[var(--muted)]">
+              {candidate.momentum}
             </span>
-            {momentumTag && (
-              <span className={`text-[10px] px-1.5 py-0.5 rounded font-medium shrink-0 ${momentumClasses(candidate.momentum)}`}>
-                {momentumTag}
-              </span>
-            )}
           </div>
-          <div className="text-[11px] text-[var(--muted)] mt-0.5">
-            {candidate.team_abbreviation} &middot; {candidate.gp} GP
-          </div>
-          {/* Composite score bar */}
-          <div className="mt-2 h-1.5 rounded-full bg-[var(--border)] overflow-hidden">
-            <div
-              className="h-full rounded-full bg-[var(--accent)]"
-              style={{ width: `${barWidth.toFixed(1)}%` }}
-            />
-          </div>
-        </div>
-
-        {/* Stat chips */}
-        <div className="hidden sm:flex items-center gap-4 shrink-0 text-right">
-          <StatChip label="PTS" value={fmt(candidate.pts_pg)} delta={ptsDelta} />
-          <StatChip label="REB" value={fmt(candidate.reb_pg)} delta={rebDelta} />
-          <StatChip label="AST" value={fmt(candidate.ast_pg)} delta={astDelta} />
-          <StatChip label="TS%" value={fmtPct(candidate.ts_pct)} />
-          {candidate.bpm != null && (
-            <StatChip
-              label="BPM"
-              value={(candidate.bpm >= 0 ? "+" : "") + fmt(candidate.bpm)}
-              tone={candidate.bpm >= 3 ? "positive" : candidate.bpm <= 0 ? "negative" : "neutral"}
-            />
-          )}
+          <p className="mt-0.5 text-xs text-[var(--muted)]">
+            {candidate.team_abbreviation} - {candidate.gp} GP - Score {fmt(candidate.composite_score, 1)}
+          </p>
         </div>
       </div>
-    </Link>
+      <div className="mt-4 grid grid-cols-3 gap-2 text-center text-xs">
+        <StatTile label="PTS" value={fmt(candidate.pts_pg)} />
+        <StatTile label="TS" value={fmtPct(candidate.ts_pct)} />
+        <StatTile label="Impact" value={impact == null ? "-" : fmt(impact, 0)} />
+      </div>
+      <div className="mt-3 text-xs text-[var(--muted)]">
+        {team?.wins != null && team?.losses != null
+          ? `${candidate.team_abbreviation} ${team.wins}-${team.losses}, net ${fmtSigned(team.net_rating)}`
+          : "Team context pending"}
+      </div>
+    </button>
   );
 }
 
-function StatChip({
-  label,
-  value,
-  delta,
-  tone,
-}: {
-  label: string;
-  value: string;
-  delta?: string;
-  tone?: "positive" | "negative" | "neutral";
-}) {
-  const toneClass =
-    tone === "positive"
-      ? "text-[var(--success-ink)]"
-      : tone === "negative"
-      ? "text-[var(--danger-ink)]"
-      : "text-[var(--foreground)]";
-
+function StatTile({ label, value }: { label: string; value: string }) {
   return (
-    <div>
-      <div className="text-[10px] text-[var(--muted)] uppercase tracking-[0.12em]">{label}</div>
-      <div className={`text-sm font-semibold ${toneClass}`}>
-        {value}
-        {delta && (
-          <span
-            className={`ml-1 text-[10px] font-normal ${delta.startsWith("+") ? "text-[var(--success-ink)]" : "text-[var(--danger-ink)]"}`}
-          >
-            {delta}
-          </span>
-        )}
-      </div>
+    <div className="rounded-lg border border-[var(--border)] bg-[var(--surface-alt)] px-2 py-2">
+      <div className="text-[10px] uppercase tracking-[0.08em] text-[var(--muted)]">{label}</div>
+      <div className="mt-1 font-semibold tabular-nums text-[var(--foreground)]">{value}</div>
     </div>
   );
 }
 
-// ---------------------------------------------------------------------------
-// Main panel
-// ---------------------------------------------------------------------------
+function MetricBlock({ label, value, sub }: { label: string; value: string; sub?: string }) {
+  return (
+    <div className="rounded-lg border border-[var(--border)] bg-[var(--surface-alt)] p-3">
+      <p className="text-[10px] uppercase tracking-[0.08em] text-[var(--muted)]">{label}</p>
+      <p className="mt-1 text-lg font-semibold tabular-nums text-[var(--foreground)]">{value}</p>
+      {sub && <p className="mt-1 text-xs text-[var(--muted)]">{sub}</p>}
+    </div>
+  );
+}
+
+function CandidateCase({ candidate, asOfDate }: { candidate: MvpCandidate; asOfDate: string }) {
+  const pillars = candidate.score_pillars ?? {};
+  const warnings = candidate.data_coverage?.warnings ?? [];
+  const styleRows = candidate.play_style ?? [];
+  const topStyle = styleRows.slice(0, 4);
+  const advanced = candidate.advanced_profile;
+  const onOff = candidate.on_off;
+  const clutch = candidate.clutch_and_pace;
+  const team = candidate.team_context;
+
+  return (
+    <section className="rounded-lg border border-[var(--border)] bg-[var(--surface)] p-5">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-start">
+        <div className="relative h-20 w-20 shrink-0 overflow-hidden rounded-full bg-[var(--surface-alt)]">
+          {candidate.headshot_url ? (
+            <Image src={candidate.headshot_url} alt={candidate.player_name} fill className="object-cover object-top" unoptimized />
+          ) : (
+            <div className="flex h-full w-full items-center justify-center text-lg font-bold text-[var(--muted)]">
+              {candidate.player_name.split(" ").map((name) => name[0]).join("").slice(0, 2)}
+            </div>
+          )}
+        </div>
+        <div className="min-w-0 flex-1">
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="rounded border border-[var(--accent)] px-2 py-1 text-xs font-semibold text-[var(--accent)]">
+              Rank {candidate.rank}
+            </span>
+            <span className="rounded border border-[var(--border)] px-2 py-1 text-xs text-[var(--muted)]">
+              {candidate.team_abbreviation}
+            </span>
+            <span className="rounded border border-[var(--border)] px-2 py-1 text-xs text-[var(--muted)]">
+              As of {asOfDate}
+            </span>
+          </div>
+          <h2 className="bip-display mt-3 text-3xl font-semibold text-[var(--foreground)]">{candidate.player_name}</h2>
+          <p className="mt-2 text-sm leading-6 text-[var(--muted)]">
+            Score {fmt(candidate.composite_score, 1)} from production, efficiency, impact, team context, momentum, and transparent style proxies.
+          </p>
+        </div>
+        <Link href={`/players/${candidate.player_id}`} className="rounded-lg border border-[var(--border)] px-3 py-2 text-sm font-medium text-[var(--accent)] hover:border-[var(--accent)]">
+          Player profile
+        </Link>
+      </div>
+
+      <div className="mt-6 grid gap-3 sm:grid-cols-3">
+        <MetricBlock label="Production" value={`${fmt(candidate.pts_pg)} / ${fmt(candidate.reb_pg)} / ${fmt(candidate.ast_pg)}`} sub="PTS / REB / AST" />
+        <MetricBlock label="Efficiency" value={fmtPct(candidate.ts_pct)} sub={`eFG ${fmtPct(advanced?.efg_pct)}`} />
+        <MetricBlock label="Impact" value={fmtSigned(onOff?.on_off_net)} sub={`On/off confidence ${onOff?.confidence ?? "low"}`} />
+      </div>
+
+      <div className="mt-6 grid gap-5 lg:grid-cols-[minmax(0,0.95fr)_minmax(0,1.05fr)]">
+        <div>
+          <h3 className="text-sm font-semibold text-[var(--foreground)]">Case</h3>
+          <div className="mt-3 space-y-2">
+            {(candidate.case_summary ?? []).map((line) => (
+              <p key={line} className="rounded-lg border border-[var(--border)] bg-[var(--surface-alt)] p-3 text-sm leading-6 text-[var(--foreground)]">
+                {line}
+              </p>
+            ))}
+          </div>
+        </div>
+        <div>
+          <h3 className="text-sm font-semibold text-[var(--foreground)]">Score Pillars</h3>
+          <div className="mt-3 grid gap-3 sm:grid-cols-2">
+            {PILLAR_ORDER.map((key) => pillars[key]).filter(Boolean).map((pillar) => (
+              <PillarBar key={pillar.label} pillar={pillar} />
+            ))}
+          </div>
+        </div>
+      </div>
+
+      <div className="mt-6 grid gap-5 lg:grid-cols-2">
+        <section>
+          <h3 className="text-sm font-semibold text-[var(--foreground)]">Team Lift</h3>
+          <div className="mt-3 grid gap-3 sm:grid-cols-2">
+            <MetricBlock label="Team Record" value={team?.wins != null && team.losses != null ? `${team.wins}-${team.losses}` : "-"} sub={team?.win_pct_rank ? `Win% rank ${team.win_pct_rank}` : undefined} />
+            <MetricBlock label="Team Net" value={fmtSigned(team?.net_rating)} sub={team?.net_rating_rank ? `Net rank ${team.net_rating_rank}` : undefined} />
+            <MetricBlock label="On Net" value={fmtSigned(onOff?.on_net_rating)} sub={`${fmt(onOff?.on_minutes, 0)} on minutes`} />
+            <MetricBlock label="Off Net" value={fmtSigned(onOff?.off_net_rating)} sub={`${fmt(onOff?.off_minutes, 0)} off minutes`} />
+          </div>
+        </section>
+
+        <section>
+          <h3 className="text-sm font-semibold text-[var(--foreground)]">Advanced</h3>
+          <div className="mt-3 grid gap-3 sm:grid-cols-3">
+            <MetricBlock label="USG" value={fmt(advanced?.usg_pct)} />
+            <MetricBlock label="BPM" value={fmtSigned(advanced?.bpm)} />
+            <MetricBlock label="VORP" value={fmt(advanced?.vorp)} />
+            <MetricBlock label="WS" value={fmt(advanced?.ws)} />
+            <MetricBlock label="WS/48" value={fmt(advanced?.win_shares_per_48, 3)} />
+            <MetricBlock label="PIE" value={fmtPct(advanced?.pie)} />
+            <MetricBlock label="Net" value={fmtSigned(advanced?.net_rating)} />
+          </div>
+        </section>
+      </div>
+
+      <div className="mt-6 grid gap-5 lg:grid-cols-2">
+        <section>
+          <h3 className="text-sm font-semibold text-[var(--foreground)]">Style</h3>
+          <div className="mt-3 space-y-2">
+            {topStyle.length ? topStyle.map((row) => (
+              <div key={row.action_family} className="rounded-lg border border-[var(--border)] bg-[var(--surface-alt)] p-3">
+                <div className="flex items-center justify-between gap-3">
+                  <p className="text-sm font-medium text-[var(--foreground)]">{row.label}</p>
+                  <span className={`text-xs font-medium ${confidenceClass(row.confidence)}`}>{row.confidence}</span>
+                </div>
+                <div className="mt-2 grid grid-cols-3 gap-2 text-xs text-[var(--muted)]">
+                  <span>Usage {fmtPct(row.usage_share, 1)}</span>
+                  <span>PPP {fmt(row.points_per_possession, 2)}</span>
+                  <span>EV {fmt(row.ev_score, 2)}</span>
+                </div>
+              </div>
+            )) : (
+              <p className="rounded-lg border border-[var(--border)] bg-[var(--surface-alt)] p-3 text-sm text-[var(--muted)]">
+                No qualifying play-style proxy events yet.
+              </p>
+            )}
+          </div>
+          <p className="mt-2 text-xs leading-5 text-[var(--muted)]">
+            Style values are inferred from play-by-play descriptions and outcomes.
+          </p>
+        </section>
+
+        <section>
+          <h3 className="text-sm font-semibold text-[var(--foreground)]">Recent Form</h3>
+          <div className="mt-3 grid gap-3 sm:grid-cols-2">
+            <MetricBlock label="PTS Trend" value={fmtSigned(candidate.pts_delta)} sub={`Last ${candidate.last_games} games`} />
+            <MetricBlock label="REB Trend" value={fmtSigned(candidate.reb_delta)} />
+            <MetricBlock label="AST Trend" value={fmtSigned(candidate.ast_delta)} />
+            <MetricBlock label="TS Trend" value={fmtSigned(candidate.ts_delta == null ? null : candidate.ts_delta * 100)} sub="percentage points" />
+            <MetricBlock label="Clutch PTS" value={fmt(clutch?.clutch_pts)} sub={`${fmt(clutch?.clutch_fga, 0)} FGA`} />
+            <MetricBlock label="Pace PTS" value={`${fmt(clutch?.fast_break_pts, 0)} / ${fmt(clutch?.second_chance_pts, 0)}`} sub="fast break / second chance" />
+          </div>
+        </section>
+      </div>
+
+      {warnings.length > 0 && (
+        <div className="mt-6 rounded-lg border border-[var(--border)] bg-[var(--surface-alt)] p-3">
+          <p className="text-xs font-semibold uppercase tracking-[0.08em] text-[var(--muted)]">Coverage Notes</p>
+          <ul className="mt-2 space-y-1 text-xs leading-5 text-[var(--muted)]">
+            {warnings.map((warning) => (
+              <li key={warning}>{warning}</li>
+            ))}
+          </ul>
+        </div>
+      )}
+    </section>
+  );
+}
 
 export default function MvpRacePanel({ data }: MvpRacePanelProps) {
-  if (data.candidates.length === 0) {
+  const [selectedId, setSelectedId] = useState<number | null>(data.candidates[0]?.player_id ?? null);
+
+  const selected = useMemo(
+    () => data.candidates.find((candidate) => candidate.player_id === selectedId) ?? data.candidates[0],
+    [data.candidates, selectedId]
+  );
+
+  if (data.candidates.length === 0 || !selected) {
     return (
-      <div className="text-center py-16 text-[var(--muted)]">
+      <div className="rounded-lg border border-[var(--border)] bg-[var(--surface)] py-16 text-center text-[var(--muted)]">
         <p className="text-sm">No MVP candidates found for {data.season}.</p>
-        <p className="text-xs mt-1">Requires 20+ games played. Run a season stats sync to populate.</p>
+        <p className="mt-1 text-xs">Requires enough regular-season games and synced season stats.</p>
       </div>
     );
   }
 
-  const maxScore = data.candidates[0]?.composite_score ?? 100;
-
   return (
-    <div className="space-y-3">
-      {data.candidates.map((c) => (
-        <CandidateCard key={c.player_id} candidate={c} maxScore={maxScore} />
-      ))}
+    <div className="grid gap-5 lg:grid-cols-[minmax(0,0.95fr)_minmax(0,1.35fr)]">
+      <div className="space-y-3">
+        {data.candidates.map((candidate) => (
+          <CandidateRow
+            key={candidate.player_id}
+            candidate={candidate}
+            selected={candidate.player_id === selected.player_id}
+            onSelect={() => setSelectedId(candidate.player_id)}
+          />
+        ))}
+      </div>
+      <CandidateCase candidate={selected} asOfDate={data.as_of_date} />
     </div>
   );
 }

@@ -1134,9 +1134,29 @@ export async function getTeamSplits(
   );
 }
 
-export async function getMvpRace(season: string): Promise<import("./types").MvpRaceResponse> {
+export async function getMvpRace(
+  season: string,
+  options?: import("./types").MvpRaceOptions
+): Promise<import("./types").MvpRaceResponse> {
+  const params = new URLSearchParams({ season });
+  if (options?.top != null) params.set("top", String(options.top));
+  if (options?.minGp != null) params.set("min_gp", String(options.minGp));
+  if (options?.position) params.set("position", options.position);
   return fetchApi<import("./types").MvpRaceResponse>(
-    `/api/mvp/race?season=${encodeURIComponent(season)}`
+    `/api/mvp/race?${params.toString()}`
+  );
+}
+
+export async function getMvpCandidateCase(
+  playerId: number,
+  season: string,
+  options?: Pick<import("./types").MvpRaceOptions, "minGp" | "position">
+): Promise<import("./types").MvpCandidateCaseResponse> {
+  const params = new URLSearchParams({ season });
+  if (options?.minGp != null) params.set("min_gp", String(options.minGp));
+  if (options?.position) params.set("position", options.position);
+  return fetchApi<import("./types").MvpCandidateCaseResponse>(
+    `/api/mvp/candidates/${encodeURIComponent(playerId)}/case?${params.toString()}`
   );
 }
 

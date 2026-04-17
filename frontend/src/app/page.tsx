@@ -1,5 +1,6 @@
 import PlayerSearchBar from "@/components/PlayerSearchBar";
 import HomeLeagueLeaders from "@/components/HomeLeagueLeaders";
+import HomeMvpTeaser from "@/components/HomeMvpTeaser";
 import FavoritesList from "@/components/FavoritesList";
 import StatCounter from "@/components/StatCounter";
 import Link from "next/link";
@@ -170,6 +171,9 @@ export default function HomePage() {
 
       {/* ── Watchlist ────────────────────────────────────────────── */}
       <FavoritesList />
+
+      {/* ── MVP race teaser ──────────────────────────────────────── */}
+      <HomeMvpTeaser />
 
       {/* ── Live league leaders ──────────────────────────────────── */}
       <HomeLeagueLeaders />

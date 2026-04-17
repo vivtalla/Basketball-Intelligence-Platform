@@ -15,12 +15,12 @@ Last updated: 2026-04-17 by Claude (Sprint 48 closed — MVP Award Race Tracker 
 | Field | Value |
 |-------|-------|
 | Sprint | 49 |
-| Goal | TBD — awaiting Vivek's sprint kickoff |
-| Started | TBD |
+| Goal | MVP Case Platform — expanded award-race case data, explainable scoring, and UI |
+| Started | 2026-04-17 |
 | Target merge | TBD |
 | Sprint shape | TBD |
-| Branch | `TBD` |
-| Worker policy | TBD |
+| Branch | `codex-sprint-49-mvp-case-platform` |
+| Worker policy | Single-stream Codex implementation unless bounded independent subtasks emerge |
 
 ---
 
@@ -43,9 +43,9 @@ If repo state, sprint numbering, or shipped features appear to disagree across l
 - Status: Not started
 
 ### Codex
-- Branch: `codex-sprint-49-[slug]`
-- Scope: TBD
-- Status: Not started
+- Branch: `codex-sprint-49-mvp-case-platform`
+- Scope: MVP case platform backend contracts, scoring, case UI, home teaser, and tests
+- Status: Complete — ready to merge to `master`
 
 ---
 
@@ -58,8 +58,8 @@ Claim a shared file here before editing. If a file is already claimed, read that
 
 | File | Claimed by | Purpose |
 |------|------------|---------|
-| `frontend/src/lib/types.ts` | — |  |
-| `frontend/src/lib/api.ts` | — |  |
+| `frontend/src/lib/types.ts` | Codex | Sprint 49 MVP case platform additive contracts |
+| `frontend/src/lib/api.ts` | Codex | Sprint 49 MVP race/candidate case API helpers |
 | `backend/main.py` | — |  |
 
 ---
