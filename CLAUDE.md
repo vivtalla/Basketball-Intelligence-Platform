@@ -260,6 +260,15 @@ CourtVue Labs uses a hybrid sprint model: major feature sprints typically run as
 
 > Full history → `specs/sprint-history.md`
 
+### Sprint 48 — MVP Award Race Tracker
+
+- Added `MvpCandidate` and `MvpRaceResponse` Pydantic schemas, `build_mvp_race()` service with composite z-score (PTS_PG/REB_PG/AST_PG/TS_PCT/BPM), batch last-10-game trend deltas, and hot/cold momentum classification
+- Added `GET /api/mvp/race` endpoint registered in `main.py`
+- Added TypeScript interfaces, `getMvpRace()` API function, `useMvpRace()` SWR hook
+- Added `MvpRacePanel` component: ranked candidate cards with score bars, stat chips with delta arrows, momentum badges, and click-through to player profiles
+- Added `/mvp` page with season picker, suspense skeleton, and methodology footnote; "MVP Race" nav link in layout
+- Verified with backend import smoke, frontend `npm run lint`, and `npm run build`
+
 ### Sprint 47 — Team General Splits UI Wiring
 
 - Added `TeamSplitRow` and `TeamSplitsResponse` TypeScript interfaces and `getTeamSplits()` API client
@@ -268,14 +277,6 @@ CourtVue Labs uses a hybrid sprint model: major feature sprints typically run as
 - Added situational split signals to `TeamPrepQueuePanel`: per-card Home/Away W% and +/- using already-fetched splits data
 - Verified with frontend `npm run lint` and `npm run build`
 
-### Sprint 46 — CourtVue Ask Workspace
-
-- Added DB-first query endpoints for CourtVue Ask: `POST /api/query/ask`, `GET /api/query/examples`, and `GET /api/query/metrics`
-- Added a canonical query metric registry with aliases, descriptions, formatting, entity support, and higher/lower-is-better sort behavior for player and team metrics
-- Added deterministic interpretation for player leaderboards, team rankings, threshold filters, explicit seasons, recent player/team form, player/team lookup fallbacks, and player compare deep links
-- Added the `/ask` workspace with URL-backed questions, example chips, answer cards, sortable/explainable result tables, source context, suggestions, and links into existing workflows
-- Verified with full backend `pytest`, frontend `npm run lint`, and frontend `npm run build`
-
 ---
 
 ## Active Branches
@@ -283,7 +284,7 @@ CourtVue Labs uses a hybrid sprint model: major feature sprints typically run as
 | Branch | Owner | Status |
 |--------|-------|--------|
 | `master` | — | Stable |
-| `feature/sprint-47-team-splits-ui` | Claude | Merged to master |
+| `feature/sprint-48-mvp-tracker` | Claude | Merged to master |
 
 Sprint branches are created at kickoff and listed in `AGENTS.md`.
 
@@ -313,6 +314,7 @@ Sprint branches are created at kickoff and listed in `AGENTS.md`.
 | `CompareShotLab` | `components/` | Shared-filter compare shot workspace with side-by-side advanced shot views (Sprint 35) |
 | `ShotSnapshotButton` | `components/` | Shared snapshot save action for shot-lab surfaces |
 | `TeamSplitsPanel` | `components/` | Official team general splits by family (Location, W/L, Days Rest, Month, Pre/Post All-Star) with stat table and toggle (Sprint 47) |
+| `MvpRacePanel` | `components/` | MVP Award Race: ranked candidate cards with composite score bars, stat chips, delta arrows, and momentum badges (Sprint 48) |
 | `TeamDefenseShotLab` | `components/` | Opponent shot lab for team-defense surfaces |
 | `ProceduralHalfCourt` | `components/three/` | Procedural NBA court geometry for 3D visualizers |
 | `ShotLab3DScene` | `components/three/` | React Three Fiber shot-lab 3D scene scaffold |
