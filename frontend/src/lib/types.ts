@@ -2269,6 +2269,11 @@ export interface MvpCandidate {
   headshot_url: string;
   gp: number;
   composite_score: number;
+  basketball_value_score?: number | null;
+  award_case_score?: number | null;
+  basketball_value_rank?: number | null;
+  award_case_rank?: number | null;
+  ballot_eligible_rank?: number | null;
   context_adjusted_score?: number | null;
   pts_pg: number;
   reb_pg: number;
@@ -2282,6 +2287,11 @@ export interface MvpCandidate {
   momentum: "hot" | "cold" | "steady";
   last_games: number;
   score_pillars?: Record<string, MvpScorePillar>;
+  basketball_value_pillars?: Record<string, MvpScorePillar>;
+  award_modifiers?: Record<string, MvpAwardModifier>;
+  confidence?: MvpCandidateConfidence | null;
+  qualitative_lenses?: MvpQualitativeLens[];
+  methodology_labels?: MvpMethodologyLabel[];
   case_summary?: string[];
   team_context?: MvpTeamContext | null;
   on_off?: MvpOnOffProfile | null;
@@ -2399,12 +2409,110 @@ export interface MvpSensitivityResponse {
   players: MvpSensitivityPlayer[];
 }
 
+export interface MvpTimelinePoint {
+  date: string;
+  rank: number;
+  score: number;
+  context_adjusted_score?: number | null;
+  pts_pg?: number | null;
+  reb_pg?: number | null;
+  ast_pg?: number | null;
+  ts_pct?: number | null;
+  wins?: number | null;
+  losses?: number | null;
+}
+
+export interface MvpTimelinePlayer {
+  player_id: number;
+  player_name: string;
+  team_abbreviation: string;
+  current_rank: number;
+  previous_rank: number | null;
+  rank_delta: number | null;
+  current_score: number;
+  previous_score: number | null;
+  score_delta: number | null;
+  current_context_adjusted_score?: number | null;
+  momentum: "hot" | "cold" | "steady" | string;
+  eligibility_status: string;
+  impact_consensus_score?: number | null;
+  clutch_confidence?: "high" | "medium" | "low" | null;
+  gravity_score?: number | null;
+  coverage_warning_count: number;
+  reasons: string[];
+  series: MvpTimelinePoint[];
+}
+
+export interface MvpTimelineMover {
+  player_id: number;
+  player_name: string;
+  team_abbreviation: string;
+  current_rank: number;
+  previous_rank: number;
+  rank_delta: number;
+  score_delta: number | null;
+  reasons: string[];
+}
+
+export interface MvpTimelineResponse {
+  season: string;
+  profile: string;
+  as_of_date: string;
+  snapshot_count: number;
+  horizon_start?: string | null;
+  horizon_end?: string | null;
+  timeline_grain: string;
+  timeline_mode?: string;
+  future_mode?: string;
+  methodology: string;
+  players: MvpTimelinePlayer[];
+  biggest_movers: MvpTimelineMover[];
+  coverage_note: string;
+}
+
 export interface MvpScorePillar {
   label: string;
   weight: number;
   raw_score: number;
   weighted_score: number;
   display_score: number;
+  confidence?: "high" | "medium" | "low" | null;
+  category?: string | null;
+  note?: string | null;
+}
+
+export interface MvpAwardModifier {
+  key: string;
+  label: string;
+  raw_score: number;
+  modifier: number;
+  display_score: number;
+  confidence: "high" | "medium" | "low";
+  category: string;
+  note: string | null;
+}
+
+export interface MvpCandidateConfidence {
+  overall: "high" | "medium" | "low";
+  coverage_score: number;
+  sample_stability_score: number;
+  signal_agreement_score: number;
+  notes: string[];
+}
+
+export interface MvpQualitativeLens {
+  key: string;
+  label: string;
+  summary: string;
+  confidence: "high" | "medium" | "low";
+  evidence: string[];
+}
+
+export interface MvpMethodologyLabel {
+  key: string;
+  label: string;
+  category: "core_score_input" | "award_modifier" | "context_signal" | "qualitative_lens";
+  description: string;
 }
 
 export interface MvpTeamContext {

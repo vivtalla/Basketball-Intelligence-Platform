@@ -2,9 +2,10 @@
 
 import { Suspense, useEffect, useState } from "react";
 import { getAvailableSeasons } from "@/lib/api";
-import { useMvpRace, useMvpSensitivity } from "@/hooks/usePlayerStats";
+import { useMvpRace, useMvpSensitivity, useMvpTimeline } from "@/hooks/usePlayerStats";
 import MvpRacePanel, { MvpRacePanelSkeleton } from "@/components/MvpRacePanel";
 import MvpSensitivitySlope from "@/components/MvpSensitivitySlope";
+import MvpTimelineStrip from "@/components/MvpTimelineStrip";
 
 const POSITION_OPTIONS = [
   { label: "All positions", value: "" },
@@ -38,18 +39,16 @@ function MvpContent({
   season,
   top,
   position,
-  profile,
 }: {
   season: string;
   top: number;
   position: string | null;
-  profile: string;
 }) {
   const { data, isLoading, error } = useMvpRace(season, {
     top,
     minGp: 20,
     position,
-    profile,
+    profile: "balanced",
   });
 
   if (isLoading) return <MvpRacePanelSkeleton />;
@@ -73,12 +72,27 @@ function SensitivitySection({ season }: { season: string }) {
   return <MvpSensitivitySlope data={data} isLoading={isLoading} />;
 }
 
+function TimelineSection({
+  season,
+  top,
+}: {
+  season: string;
+  top: number;
+}) {
+  const { data, isLoading } = useMvpTimeline(season, {
+    top: Math.min(top, 8),
+    minGp: 20,
+    profile: "balanced",
+    days: 210,
+  });
+  return <MvpTimelineStrip data={data} isLoading={isLoading} />;
+}
+
 export default function MvpPage() {
   const [seasons, setSeasons] = useState<string[]>([]);
   const [season, setSeason] = useState<string | null>(null);
   const [top, setTop] = useState(10);
   const [position, setPosition] = useState<string>("");
-  const [profile, setProfile] = useState<string>("balanced");
 
   useEffect(() => {
     getAvailableSeasons()
@@ -97,8 +111,8 @@ export default function MvpPage() {
             <p className="bip-kicker">Award case lab</p>
             <h1 className="bip-display mt-2 text-3xl font-bold tracking-tight text-[var(--foreground)]">MVP Race</h1>
             <p className="mt-2 max-w-3xl text-sm leading-6 text-[var(--muted)]">
-              Multiple transparent scoring profiles, a multi-metric impact consensus, clutch/leverage context,
-              opponent-adjusted splits, eligibility, support burden, and signature-game evidence in one case workspace.
+              A refined four-layer race model: Basketball Value, Award Case modifiers, context/confidence signals,
+              and structured analyst lenses in one transparent case workspace.
             </p>
           </div>
 
@@ -151,51 +165,39 @@ export default function MvpPage() {
         </div>
 
         <div className="mt-5 rounded-lg border border-[var(--border)] bg-[var(--surface-alt)] p-4">
-          <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-            <div>
-              <p className="text-xs font-semibold uppercase tracking-wide text-[var(--accent)]">Scoring Profile</p>
-              <p className="mt-1 text-xs text-[var(--muted)]">
-                Each profile publishes its weights. None is tuned to favor a specific player — toggle to see how the ranking shifts.
-              </p>
+          <p className="text-xs font-semibold uppercase tracking-wide text-[var(--accent)]">Refined Methodology</p>
+          <p className="mt-1 max-w-4xl text-xs leading-5 text-[var(--muted)]">
+            Each block below tells you what job a metric has. Core score inputs build the Basketball Value base;
+            award modifiers shape the MVP ballot case; context signals explain the evidence; analyst lenses translate the data into basketball terms.
+          </p>
+          <div className="mt-3 grid gap-3 md:grid-cols-4">
+            <div className="rounded-lg border border-[var(--border)] bg-[var(--surface)] p-3">
+              <p className="text-sm font-semibold text-[var(--foreground)]">Basketball Value</p>
+              <p className="mt-1 text-xs leading-5 text-[var(--muted)]">Season-long on-court value from impact, efficiency, scoring load, playmaking load, team value, and availability.</p>
             </div>
-            <div className="flex flex-wrap gap-2">
-              {PROFILES.map((p) => {
-                const active = p.key === profile;
-                return (
-                  <button
-                    key={p.key}
-                    type="button"
-                    onClick={() => setProfile(p.key)}
-                    title={p.weights}
-                    className={`rounded-full border px-4 py-1.5 text-xs font-semibold transition ${
-                      active
-                        ? "border-[var(--accent)] bg-[var(--accent)] text-white"
-                        : "border-[var(--border)] bg-[var(--surface)] text-[var(--foreground)] hover:border-[var(--accent)]"
-                    }`}
-                  >
-                    {p.label}
-                  </button>
-                );
-              })}
+            <div className="rounded-lg border border-[var(--border)] bg-[var(--surface)] p-3">
+              <p className="text-sm font-semibold text-[var(--foreground)]">Award Case</p>
+              <p className="mt-1 text-xs leading-5 text-[var(--muted)]">The main leaderboard rank. Starts with Basketball Value, then applies capped voter-facing modifiers.</p>
+            </div>
+            <div className="rounded-lg border border-[var(--border)] bg-[var(--surface)] p-3">
+              <p className="text-sm font-semibold text-[var(--foreground)]">Confidence</p>
+              <p className="mt-1 text-xs leading-5 text-[var(--muted)]">Coverage, sample stability, and signal agreement make uncertainty visible instead of hiding it.</p>
+            </div>
+            <div className="rounded-lg border border-[var(--border)] bg-[var(--surface)] p-3">
+              <p className="text-sm font-semibold text-[var(--foreground)]">Analyst Lenses</p>
+              <p className="mt-1 text-xs leading-5 text-[var(--muted)]">Role difficulty, scalability, game control, two-way pressure, and playoff translation standardize the qualitative layer.</p>
             </div>
           </div>
-          <p className="mt-3 text-xs text-[var(--muted)]">
-            <span className="font-semibold text-[var(--foreground)]">
-              {PROFILES.find((p) => p.key === profile)?.label}:
-            </span>{" "}
-            {PROFILES.find((p) => p.key === profile)?.blurb}
-          </p>
-          <p className="mt-1 text-[10px] text-[var(--muted)]">
-            Weights: {PROFILES.find((p) => p.key === profile)?.weights}
-          </p>
         </div>
       </header>
 
       {season ? <SensitivitySection season={season} /> : null}
 
+      {season ? <TimelineSection season={season} top={top} /> : null}
+
       {season ? (
         <Suspense fallback={<MvpRacePanelSkeleton />}>
-          <MvpContent season={season} top={top} position={position || null} profile={profile} />
+          <MvpContent season={season} top={top} position={position || null} />
         </Suspense>
       ) : (
         <MvpRacePanelSkeleton />
@@ -205,12 +207,10 @@ export default function MvpPage() {
         <p className="text-xs font-semibold uppercase text-[var(--accent)]">Methodology</p>
         <h2 className="bip-display mt-1 text-2xl font-semibold text-[var(--foreground)]">How the MVP case engine works</h2>
         <p className="mt-3 max-w-4xl text-sm leading-6 text-[var(--muted)]">
-          We publish three transparent scoring profiles and let you compare them. The Balanced default blends traditional
-          box-score pillars with a multi-metric Impact Consensus (EPM, LEBRON, RAPTOR, PIPM, DARKO, RAPM, BPM, WS/48) and a
-          confidence-gated Clutch signal. The Impact-Consensus profile leans further on consensus impact metrics and
-          de-emphasizes raw box totals. Box-First preserves the original Sprint 48 weights for continuity. Every external
-          metric is shown with its source and as-of date; metrics that aren&apos;t loaded locally are simply labeled
-          &quot;coverage n/8&quot; instead of being silently imputed.
+          The v3 tracker separates season-long Basketball Value from voter-facing Award Case logic. The main rank is Award Case:
+          Basketball Value plus capped modifiers for team framing, eligibility pressure, clutch, momentum, and signature games.
+          Gravity, support burden, opponent splits, play-style translation, and coverage warnings remain labeled context signals
+          unless their samples are stable enough to join a core pillar.
         </p>
         <div className="mt-5 grid gap-3 md:grid-cols-3">
           {PROFILES.map((p) => (
@@ -221,6 +221,9 @@ export default function MvpPage() {
             </div>
           ))}
         </div>
+        <p className="mt-2 text-xs leading-5 text-[var(--muted)]">
+          These legacy profiles are now sensitivity checks, not the main methodology. They help explain whether a candidate&apos;s case depends more on box totals, balanced weighting, or impact consensus.
+        </p>
         <div className="mt-5 grid gap-3 md:grid-cols-3">
           <div className="rounded-lg border border-[var(--border)] bg-[var(--surface-alt)] p-3 text-xs leading-5 text-[var(--muted)]">
             <span className="font-semibold text-[var(--foreground)]">Consensus over any one metric:</span> when impact metrics

@@ -155,11 +155,13 @@ Likely shape:
 
 ### MVP Award-Race Follow-Ons
 Why it matters:
-Sprints 48-51 turned the MVP tracker into a case platform with eligibility, opponent context, support burden, a case map, and a Gravity context layer. The next gains are calibration, richer official-data coverage, and longitudinal storytelling rather than another static leaderboard.
+Sprints 48-53 turned the MVP tracker into a case platform with eligibility, opponent context, support burden, Gravity context, refined Basketball Value/Award Case scoring, and a weekly voter timeline. The next gains are calibration, richer official-data coverage, and deeper candidate comparison.
 
 Likely shape:
-- persist daily MVP snapshots so rank, score, and case-strength movement can be shown over time
 - add an MVP voter-room compare mode for two or three candidates using the existing case context
+- schedule daily MVP snapshot jobs in production and decide when persisted daily snapshots should become visible alongside weekly reconstruction
+- add historical dated rows for impact, Gravity, clutch, opponent-adjusted context, and signature-game leverage so the timeline can evolve beyond game-log-only reconstruction
+- calibrate Award Case modifier caps after more live review of ranking movement
 - broaden official play-type/tracking/hustle refresh coverage and make coverage health visible per candidate
 - add player-page MVP embeds once the context-map payload is stable enough to reuse outside `/mvp`
 

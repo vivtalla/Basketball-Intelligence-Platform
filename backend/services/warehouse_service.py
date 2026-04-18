@@ -1224,6 +1224,18 @@ def queue_current_season_daily_sync(db: Session, season: str) -> List[IngestionJ
     return jobs
 
 
+def queue_mvp_timeline_snapshot(db: Session, season: str, snapshot_date: Optional[str] = None) -> IngestionJob:
+    job_key = "mvp_snapshot:{0}:{1}".format(season, snapshot_date or date.today().isoformat())
+    return enqueue_job(
+        db,
+        job_type="materialize_mvp_snapshot",
+        job_key=job_key,
+        season=season,
+        priority=85,
+        payload={"snapshot_date": snapshot_date} if snapshot_date else {},
+    )
+
+
 def queue_player_profile_sync(
     db: Session,
     player_id: int,
@@ -2082,6 +2094,24 @@ def _dispatch_job(db: Session, job: IngestionJob) -> dict:
         return materialize_game_stats(db, job.game_id or job.job_key)
     if job.job_type == "materialize_season_aggregates":
         return materialize_season_aggregates(db, job.season or job.job_key)
+    if job.job_type == "materialize_mvp_snapshot":
+        from services.mvp_timeline_service import materialize_mvp_timeline_snapshots
+
+        payload = job.payload or {}
+        raw_date = payload.get("snapshot_date")
+        snapshot_date = _parse_iso_date(raw_date) if raw_date else date.today()
+        snapshots = materialize_mvp_timeline_snapshots(
+            db,
+            season=job.season or _active_nba_season(),
+            snapshot_date=snapshot_date,
+        )
+        return {
+            "status": "ok",
+            "season": job.season or _active_nba_season(),
+            "snapshot_date": snapshot_date.isoformat(),
+            "profiles": [snapshot.profile for snapshot in snapshots],
+            "snapshots": len(snapshots),
+        }
     if job.job_type == "sync_player_profile":
         payload = job.payload or {}
         player_id = payload.get("player_id")

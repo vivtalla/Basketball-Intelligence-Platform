@@ -70,6 +70,7 @@ import type {
   MvpRaceResponse,
   MvpRaceOptions,
   MvpSensitivityResponse,
+  MvpTimelineResponse,
 } from "@/lib/types";
 import {
   getPlayerProfile,
@@ -136,6 +137,7 @@ import {
   getMvpGravity,
   getMvpRace,
   getMvpSensitivity,
+  getMvpTimeline,
 } from "@/lib/api";
 
 const DEFAULT_SHOT_LAB_FILTERS: ShotLabFilters = {
@@ -983,6 +985,26 @@ export function useMvpSensitivity(season: string | null, options?: MvpRaceOption
   return useSWR<MvpSensitivityResponse>(
     key,
     () => getMvpSensitivity(season!, options)
+  );
+}
+
+export function useMvpTimeline(
+  season: string | null,
+  options?: Pick<MvpRaceOptions, "top" | "minGp"> & { profile?: string; days?: number }
+) {
+  const key = season
+    ? [
+        "mvp-timeline",
+        season,
+        options?.profile ?? "balanced",
+        options?.days ?? 30,
+        options?.top ?? 8,
+        options?.minGp ?? 20,
+      ]
+    : null;
+  return useSWR<MvpTimelineResponse>(
+    key,
+    () => getMvpTimeline(season!, options)
   );
 }
 

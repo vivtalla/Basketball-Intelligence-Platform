@@ -15,18 +15,22 @@ from db.models import (  # noqa: E402
     Player,
     PlayerGameLog,
     PlayerGravityStat,
+    MvpRaceSnapshot,
+    MvpRaceSnapshotCandidate,
     PlayerOnOff,
     SeasonStat,
     Team,
     TeamSeasonStat,
 )
-from routers.mvp import get_mvp_candidate_case, get_mvp_context_map, get_mvp_gravity, get_mvp_race  # noqa: E402
+from routers.mvp import get_mvp_candidate_case, get_mvp_context_map, get_mvp_gravity, get_mvp_race, get_mvp_timeline  # noqa: E402
 from services.mvp_service import (  # noqa: E402
     build_mvp_candidate_case,
     build_mvp_context_map,
     build_mvp_gravity_leaderboard,
     build_mvp_race,
+    build_mvp_sensitivity,
 )
+from services.mvp_timeline_service import _weekly_cutoffs, build_mvp_timeline, materialize_mvp_timeline_snapshot  # noqa: E402
 
 
 def make_session():
@@ -292,12 +296,22 @@ def test_mvp_race_builds_case_payload_and_dedupes_trade_rows():
         alpha, _, _ = _seed_player_case(session)
         response = build_mvp_race(session, season="2025-26", top=3)
 
-        assert response.scoring_profile == "mvp_case_v2_holistic"
+        assert response.scoring_profile == "mvp_case_v3_refined"
         assert len(response.candidates) == 3
 
         alpha_case = next(row for row in response.candidates if row.player_id == alpha.id)
         assert alpha_case.team_abbreviation == "TOT"
         assert alpha_case.gp == 25
+        assert alpha_case.composite_score == alpha_case.award_case_score
+        assert alpha_case.award_case_rank == alpha_case.rank
+        assert alpha_case.basketball_value_score is not None
+        assert alpha_case.basketball_value_rank is not None
+        assert alpha_case.basketball_value_pillars["impact"].weight == 0.30
+        assert alpha_case.award_modifiers["eligibility_pressure"].category == "award_modifier"
+        assert alpha_case.confidence is not None
+        assert alpha_case.confidence.overall in {"high", "medium", "low"}
+        assert len(alpha_case.qualitative_lenses) == 5
+        assert alpha_case.methodology_labels
         assert alpha_case.score_pillars["production"].weight == 0.18
         assert alpha_case.team_context is not None
         assert alpha_case.team_context.win_pct_rank == 1
@@ -396,6 +410,7 @@ def test_mvp_routes_support_filters_and_candidate_case():
         race = get_mvp_race(season="2025-26", top=2, min_gp=20, position="G", db=session)
         assert len(race.candidates) == 1
         assert race.candidates[0].player_id == alpha.id
+        assert race.candidates[0].award_case_score is not None
 
         case = get_mvp_candidate_case(player_id=alpha.id, season="2025-26", min_gp=20, position=None, db=session)
         assert case.candidate.player_id == alpha.id
@@ -406,6 +421,149 @@ def test_mvp_routes_support_filters_and_candidate_case():
         assert context_map.points[0].quick_evidence
         gravity = get_mvp_gravity(season="2025-26", top=2, min_gp=20, position=None, db=session)
         assert gravity.profiles
+        sensitivity = build_mvp_sensitivity(session, season="2025-26", top=3)
+        assert sensitivity.default_profile == "award_case"
+        assert sensitivity.profiles[:2] == ["basketball_value", "award_case"]
+        assert "balanced" in sensitivity.profiles
+        assert sensitivity.players[0].rank_by_profile["award_case"] >= 1
+    finally:
+        session.close()
+
+
+def test_mvp_timeline_materialization_is_idempotent():
+    session = make_session()
+    try:
+        _seed_player_case(session)
+        snapshot_date = date(2026, 1, 20)
+        first = materialize_mvp_timeline_snapshot(
+            session,
+            season="2025-26",
+            snapshot_date=snapshot_date,
+            profile="balanced",
+            top=2,
+        )
+        session.commit()
+        first_id = first.id
+        assert session.query(MvpRaceSnapshotCandidate).filter_by(snapshot_id=first_id).count() == 2
+
+        second = materialize_mvp_timeline_snapshot(
+            session,
+            season="2025-26",
+            snapshot_date=snapshot_date,
+            profile="balanced",
+            top=3,
+        )
+        session.commit()
+
+        assert second.id == first_id
+        assert session.query(MvpRaceSnapshot).filter_by(season="2025-26", profile="balanced").count() == 1
+        assert session.query(MvpRaceSnapshotCandidate).filter_by(snapshot_id=first_id).count() == 3
+        assert second.payload_summary["candidate_count"] == 3
+    finally:
+        session.close()
+
+
+def test_mvp_timeline_returns_weekly_reconstruction_and_reasons():
+    session = make_session()
+    try:
+        alpha, beta, gamma = _seed_player_case(session)
+        base_date = date(2026, 1, 1)
+        for index in range(28):
+            beta_pts = 14 if index < 10 else 44
+            session.add(
+                PlayerGameLog(
+                    player_id=beta.id,
+                    game_id=f"00225020{index:02d}",
+                    season="2025-26",
+                    season_type="Regular Season",
+                    game_date=base_date + timedelta(days=index),
+                    matchup="DEN vs BOS",
+                    wl="W" if index >= 10 else "L",
+                    min=34.0,
+                    pts=beta_pts,
+                    reb=12,
+                    ast=9,
+                    fga=22,
+                    fta=8,
+                )
+            )
+            session.add(
+                PlayerGameLog(
+                    player_id=gamma.id,
+                    game_id=f"00225030{index:02d}",
+                    season="2025-26",
+                    season_type="Regular Season",
+                    game_date=base_date + timedelta(days=index),
+                    matchup="DEN vs BOS",
+                    wl="W" if index % 2 else "L",
+                    min=31.0,
+                    pts=24,
+                    reb=6,
+                    ast=4,
+                    fga=17,
+                    fta=4,
+                )
+            )
+        session.commit()
+
+        cutoffs = _weekly_cutoffs(session, "2025-26")
+        assert len(cutoffs) >= 3
+
+        response = build_mvp_timeline(session, season="2025-26", profile="balanced", days=60, top=3, min_gp=5)
+
+        assert response.timeline_grain == "weekly"
+        assert response.methodology
+        assert response.horizon_start is not None
+        assert response.horizon_end is not None
+        assert response.snapshot_count >= 3
+        assert response.players
+        assert response.players[0].series[-1].pts_pg is not None
+        assert response.players[0].series[-1].wins is not None
+        assert response.players[0].reasons
+        assert response.biggest_movers
+
+        route_response = get_mvp_timeline(season="2025-26", profile="balanced", days=60, top=3, min_gp=5, db=session)
+        assert route_response.methodology
+        assert route_response.timeline_grain == "weekly"
+    finally:
+        session.close()
+
+
+def test_mvp_game_log_rates_ignore_zero_minute_rows():
+    session = make_session()
+    try:
+        alpha, _, _ = _seed_player_case(session)
+        session.add(
+            PlayerGameLog(
+                player_id=alpha.id,
+                game_id="0022500099",
+                season="2025-26",
+                season_type="Regular Season",
+                game_date=date(2026, 1, 13),
+                matchup="BOS vs DEN",
+                wl="L",
+                min=0.0,
+                pts=0,
+                reb=0,
+                ast=0,
+                fga=0,
+                fta=0,
+            )
+        )
+        session.commit()
+
+        race = build_mvp_race(session, season="2025-26", top=3, min_gp=5)
+        alpha_case = next(row for row in race.candidates if row.player_id == alpha.id)
+        assert alpha_case.eligibility is not None
+        assert alpha_case.eligibility.games_played == 25
+        assert alpha_case.opponent_context is not None
+        recent_split = next(row for row in alpha_case.opponent_context.rows if row.key == "last15")
+        assert recent_split.games == 12
+        assert recent_split.pts_pg == 35.5
+
+        timeline = build_mvp_timeline(session, season="2025-26", profile="balanced", days=60, top=3, min_gp=5)
+        alpha_timeline = next(row for row in timeline.players if row.player_id == alpha.id)
+        assert alpha_timeline.series[-1].pts_pg == 35.5
     finally:
         session.close()
 
@@ -416,7 +574,7 @@ def test_mvp_context_map_returns_lightweight_coordinates():
         _seed_player_case(session)
         response = build_mvp_context_map(session, season="2025-26", top=2)
 
-        assert response.scoring_profile == "mvp_case_v2_holistic"
+        assert response.scoring_profile == "mvp_case_v3_refined"
         assert response.default_x == "team_success"
         assert len(response.points) == 2
         assert 0 <= response.points[0].x_team_success <= 100
@@ -456,6 +614,6 @@ def test_mvp_race_empty_season_response():
     try:
         response = build_mvp_race(session, season="1999-00", top=10)
         assert response.candidates == []
-        assert response.weights["impact"] == 0.15
+        assert response.weights["impact"] == 0.30
     finally:
         session.close()

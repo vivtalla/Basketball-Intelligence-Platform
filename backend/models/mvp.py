@@ -14,6 +14,43 @@ class MvpScorePillar(BaseModel):
     raw_score: float
     weighted_score: float
     display_score: float
+    confidence: Optional[Confidence] = None
+    category: Optional[str] = None
+    note: Optional[str] = None
+
+
+class MvpAwardModifier(BaseModel):
+    key: str
+    label: str
+    raw_score: float = 0.0
+    modifier: float = 0.0
+    display_score: float = 50.0
+    confidence: Confidence = "medium"
+    category: str = "award_modifier"
+    note: Optional[str] = None
+
+
+class MvpCandidateConfidence(BaseModel):
+    overall: Confidence = "medium"
+    coverage_score: float = 0.0
+    sample_stability_score: float = 0.0
+    signal_agreement_score: float = 0.0
+    notes: List[str] = Field(default_factory=list)
+
+
+class MvpQualitativeLens(BaseModel):
+    key: str
+    label: str
+    summary: str
+    confidence: Confidence = "medium"
+    evidence: List[str] = Field(default_factory=list)
+
+
+class MvpMethodologyLabel(BaseModel):
+    key: str
+    label: str
+    category: Literal["core_score_input", "award_modifier", "context_signal", "qualitative_lens"]
+    description: str
 
 
 class MvpTeamContext(BaseModel):
@@ -260,6 +297,11 @@ class MvpCandidate(BaseModel):
     headshot_url: str
     gp: int
     composite_score: float          # normalized 0–100 relative to rank-1 player
+    basketball_value_score: Optional[float] = None
+    award_case_score: Optional[float] = None
+    basketball_value_rank: Optional[int] = None
+    award_case_rank: Optional[int] = None
+    ballot_eligible_rank: Optional[int] = None
     context_adjusted_score: Optional[float] = None
     pts_pg: float
     reb_pg: float
@@ -273,6 +315,11 @@ class MvpCandidate(BaseModel):
     momentum: str = "steady"            # "hot" | "cold" | "steady"
     last_games: int = 0                 # count of recent game log rows used
     score_pillars: Dict[str, MvpScorePillar] = Field(default_factory=dict)
+    basketball_value_pillars: Dict[str, MvpScorePillar] = Field(default_factory=dict)
+    award_modifiers: Dict[str, MvpAwardModifier] = Field(default_factory=dict)
+    confidence: Optional[MvpCandidateConfidence] = None
+    qualitative_lenses: List[MvpQualitativeLens] = Field(default_factory=list)
+    methodology_labels: List[MvpMethodologyLabel] = Field(default_factory=list)
     case_summary: List[str] = Field(default_factory=list)
     team_context: Optional[MvpTeamContext] = None
     on_off: Optional[MvpOnOffProfile] = None
@@ -348,6 +395,67 @@ class MvpSensitivityResponse(BaseModel):
         }
     )
     players: List[MvpSensitivityPlayer]
+
+
+class MvpTimelinePoint(BaseModel):
+    date: str
+    rank: int
+    score: float
+    context_adjusted_score: Optional[float] = None
+    pts_pg: Optional[float] = None
+    reb_pg: Optional[float] = None
+    ast_pg: Optional[float] = None
+    ts_pct: Optional[float] = None
+    wins: Optional[int] = None
+    losses: Optional[int] = None
+
+
+class MvpTimelinePlayer(BaseModel):
+    player_id: int
+    player_name: str
+    team_abbreviation: str
+    current_rank: int
+    previous_rank: Optional[int] = None
+    rank_delta: Optional[int] = None
+    current_score: float
+    previous_score: Optional[float] = None
+    score_delta: Optional[float] = None
+    current_context_adjusted_score: Optional[float] = None
+    momentum: str = "steady"
+    eligibility_status: str = "unknown"
+    impact_consensus_score: Optional[float] = None
+    clutch_confidence: Optional[Confidence] = None
+    gravity_score: Optional[float] = None
+    coverage_warning_count: int = 0
+    reasons: List[str] = Field(default_factory=list)
+    series: List[MvpTimelinePoint] = Field(default_factory=list)
+
+
+class MvpTimelineMover(BaseModel):
+    player_id: int
+    player_name: str
+    team_abbreviation: str
+    current_rank: int
+    previous_rank: int
+    rank_delta: int
+    score_delta: Optional[float] = None
+    reasons: List[str] = Field(default_factory=list)
+
+
+class MvpTimelineResponse(BaseModel):
+    season: str
+    profile: str = "balanced"
+    as_of_date: str
+    snapshot_count: int = 0
+    horizon_start: Optional[str] = None
+    horizon_end: Optional[str] = None
+    timeline_grain: str = "weekly"
+    timeline_mode: str = "value_driven_weekly_reconstruction"
+    future_mode: str = "voter_style_ballot_simulation"
+    methodology: str = ""
+    players: List[MvpTimelinePlayer] = Field(default_factory=list)
+    biggest_movers: List[MvpTimelineMover] = Field(default_factory=list)
+    coverage_note: str
 
 
 class MvpContextMapPoint(BaseModel):

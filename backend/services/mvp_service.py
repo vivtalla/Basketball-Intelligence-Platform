@@ -24,8 +24,10 @@ from db.models import (
 )
 from models.mvp import (
     MvpAdvancedProfile,
+    MvpAwardModifier,
     MvpCandidate,
     MvpCandidateCaseResponse,
+    MvpCandidateConfidence,
     MvpClutchAndPaceProfile,
     MvpClutchProfile,
     MvpContextMapPoint,
@@ -36,12 +38,14 @@ from models.mvp import (
     MvpImpactConsensusMetric,
     MvpImpactConsensusProfile,
     MvpImpactMetricCoverage,
+    MvpMethodologyLabel,
     MvpNearbyCandidate,
     MvpOnOffProfile,
     MvpOpponentAdjustedBucket,
     MvpOpponentAdjustedProfile,
     MvpOpponentContext,
     MvpPlayStyleRow,
+    MvpQualitativeLens,
     MvpRaceResponse,
     MvpScorePillar,
     MvpSensitivityPlayer,
@@ -54,7 +58,7 @@ from models.mvp import (
 )
 from services.gravity_service import build_gravity_profile
 
-SCORING_PROFILE = "mvp_case_v2_holistic"
+SCORING_PROFILE = "mvp_case_v3_refined"
 
 # Sprint 52 — multiple transparent scoring profiles. Users toggle between them;
 # no profile is tuned to favor any specific player. Balanced is the default.
@@ -89,6 +93,16 @@ SCORING_PROFILES: Dict[str, Dict[str, float]] = {
 }
 DEFAULT_PROFILE = "balanced"
 AVAILABLE_PROFILES: List[str] = list(SCORING_PROFILES.keys())
+
+REFINED_VALUE_WEIGHTS: Dict[str, float] = {
+    "impact": 0.30,
+    "efficiency": 0.20,
+    "scoring_load": 0.15,
+    "playmaking_load": 0.10,
+    "team_value": 0.15,
+    "availability": 0.10,
+}
+REFINED_AWARD_MODIFIER_CAP = 8.0
 
 # Back-compat export: some callers / tests still read MVP_WEIGHTS.
 MVP_WEIGHTS: Dict[str, float] = SCORING_PROFILES[DEFAULT_PROFILE]
@@ -151,6 +165,28 @@ def _zscore_pool(values: List[Optional[float]]) -> List[float]:
 
 def _display_score(raw: float) -> float:
     return round(max(0.0, min(100.0, ((raw + 3.0) / 6.0) * 100.0)), 1)
+
+
+def _confidence_from_score(score: float) -> str:
+    if score >= 74.0:
+        return "high"
+    if score >= 48.0:
+        return "medium"
+    return "low"
+
+
+def _clamp(value: float, low: float, high: float) -> float:
+    return max(low, min(high, value))
+
+
+def _modifier(raw: float, scale: float, cap: float = REFINED_AWARD_MODIFIER_CAP) -> float:
+    return round(_clamp(raw * scale, -cap, cap), 1)
+
+
+def _norm_0_100(value: Optional[float], *, center: float = 0.0, spread: float = 1.0) -> float:
+    if value is None:
+        return 50.0
+    return round(_clamp(50.0 + ((float(value) - center) / spread) * 50.0, 0.0, 100.0), 1)
 
 
 def _derive_ts_pct(row: SeasonStat) -> Optional[float]:
@@ -261,6 +297,10 @@ def _log_ts(row: PlayerGameLog) -> Optional[float]:
     return (pts / denom) if denom > 0 else None
 
 
+def _played_log(row: PlayerGameLog) -> bool:
+    return float(row.min or 0.0) > 0.0
+
+
 def _split_confidence(games: int) -> str:
     if games >= 10:
         return "high"
@@ -309,7 +349,8 @@ def _player_logs_by_player(db: Session, player_ids: List[int], season: str) -> D
 
 def _eligibility_profile(stat: SeasonStat, logs: List[PlayerGameLog]) -> MvpEligibilityProfile:
     minutes = [float(row.min or 0.0) for row in logs]
-    games_played = len(logs) or int(stat.gp or 0)
+    played_log_games = sum(1 for row in logs if _played_log(row))
+    games_played = max(played_log_games, int(stat.gp or 0))
     minutes_played = _sum(minutes) if logs else _safe_float(stat.min_total)
     qualified = sum(1 for value in minutes if value >= 20.0)
     near_miss = sum(1 for value in minutes if 15.0 <= value < 20.0)
@@ -348,6 +389,7 @@ def _opponent_context(
     teams_by_abbr: Dict[str, Team],
     team_stats_by_id: Dict[int, TeamSeasonStat],
 ) -> Tuple[MvpOpponentContext, List[MvpSplitRow]]:
+    logs = [row for row in logs if _played_log(row)]
     top_net_ids = {
         row.team_id
         for row in sorted(team_stats_by_id.values(), key=lambda r: float(r.net_rating or -999.0), reverse=True)[:10]
@@ -556,7 +598,7 @@ def _trend_data(
 
     result = {}
     for pid in player_ids:
-        all_logs = by_player.get(pid, [])
+        all_logs = [row for row in by_player.get(pid, []) if _played_log(row)]
         recent = all_logs[:window]
         if not recent:
             result[pid] = (None, None, None, None, "steady", 0, None)
@@ -836,6 +878,160 @@ def _case_summary(candidate: MvpCandidate) -> List[str]:
     return summary[:5]
 
 
+def _methodology_labels() -> List[MvpMethodologyLabel]:
+    return [
+        MvpMethodologyLabel(
+            key="basketball_value_score",
+            label="Basketball Value Score",
+            category="core_score_input",
+            description="Season-long on-court value from impact, efficiency, scoring load, playmaking load, team value, and availability.",
+        ),
+        MvpMethodologyLabel(
+            key="award_case_score",
+            label="Award Case Score",
+            category="award_modifier",
+            description="Basketball Value plus capped award-facing modifiers for team framing, eligibility, clutch, momentum, and signature games.",
+        ),
+        MvpMethodologyLabel(
+            key="context_signals",
+            label="Context Signals",
+            category="context_signal",
+            description="Gravity, support burden, opponent splits, play-style translation, and coverage notes explain the case without heavily driving rank.",
+        ),
+        MvpMethodologyLabel(
+            key="analyst_lenses",
+            label="Analyst Lenses",
+            category="qualitative_lens",
+            description="Structured qualitative interpretation across role difficulty, scalability, game control, two-way pressure, and playoff translation.",
+        ),
+    ]
+
+
+def _candidate_confidence(
+    candidate: MvpCandidate,
+    *,
+    impact_coverage_ratio: float,
+    impact_disagreement: Optional[float],
+) -> MvpCandidateConfidence:
+    coverage_checks = [
+        bool(candidate.team_context),
+        bool(candidate.on_off and candidate.on_off.on_off_net is not None),
+        bool(candidate.play_style),
+        bool(candidate.eligibility and candidate.eligibility.eligibility_status != "unknown"),
+        bool(candidate.opponent_context and any(row.games for row in candidate.opponent_context.rows)),
+        bool(candidate.support_burden and candidate.support_burden.top_teammate_name),
+        bool(candidate.gravity_profile and candidate.gravity_profile.overall_gravity is not None),
+        impact_coverage_ratio >= 0.5,
+    ]
+    coverage_score = round(sum(1 for value in coverage_checks if value) / len(coverage_checks) * 100.0, 1)
+    sample_bits = [
+        min(1.0, float(candidate.gp or 0) / 65.0),
+        min(1.0, float(candidate.last_games or 0) / TREND_WINDOW),
+    ]
+    if candidate.clutch_profile and candidate.clutch_profile.clutch_possessions:
+        sample_bits.append(min(1.0, float(candidate.clutch_profile.clutch_possessions) / 100.0))
+    if candidate.opponent_context and candidate.opponent_context.rows:
+        sample_bits.append(min(1.0, max(row.games for row in candidate.opponent_context.rows) / 10.0))
+    sample_stability = round((_avg(sample_bits) or 0.0) * 100.0, 1)
+    disagreement_penalty = min(45.0, float(impact_disagreement or 0.0) * 0.8)
+    signal_agreement = round(max(0.0, 100.0 - disagreement_penalty), 1)
+    overall_score = _avg([coverage_score, sample_stability, signal_agreement]) or 0.0
+    notes: List[str] = []
+    if coverage_score < 70:
+        notes.append("Coverage is partial across one or more context domains.")
+    if sample_stability < 70:
+        notes.append("Some signals rely on limited samples.")
+    if impact_disagreement is not None and impact_disagreement >= 20:
+        notes.append("Impact metrics disagree more than usual for this candidate.")
+    if not notes:
+        notes.append("Core data coverage and samples are stable enough for comparison.")
+    return MvpCandidateConfidence(
+        overall=_confidence_from_score(overall_score),  # type: ignore[arg-type]
+        coverage_score=coverage_score,
+        sample_stability_score=sample_stability,
+        signal_agreement_score=signal_agreement,
+        notes=notes[:3],
+    )
+
+
+def _qualitative_lenses(candidate: MvpCandidate) -> List[MvpQualitativeLens]:
+    support = candidate.support_burden
+    gravity = candidate.gravity_profile
+    opponent = candidate.opponent_context
+    top_style = candidate.play_style[0] if candidate.play_style else None
+    role_evidence = [
+        "{0:.1f}% usage with {1:.1f} PPG.".format(support.candidate_usage_pct, candidate.pts_pg)
+        if support and support.candidate_usage_pct is not None
+        else "{0:.1f} PPG scoring load.".format(candidate.pts_pg),
+    ]
+    if gravity and gravity.overall_gravity is not None:
+        role_evidence.append("Gravity {0:.1f} from {1}.".format(gravity.overall_gravity, gravity.source_label))
+    if support and support.top_teammate_name:
+        role_evidence.append("Top teammate support: {0}, {1:.1f} PPG.".format(support.top_teammate_name, support.top_teammate_pts_pg or 0.0))
+    scalability_evidence = []
+    if candidate.ts_pct is not None:
+        scalability_evidence.append("{0:.1f}% TS anchors scoring portability.".format(candidate.ts_pct * 100.0))
+    if top_style:
+        scalability_evidence.append("{0} leads inferred style mix at {1:.2f} EV.".format(top_style.label, top_style.ev_score or 0.0))
+    game_control_evidence = [
+        "{0:.1f} APG with recent AST trend {1:+.1f}.".format(candidate.ast_pg, candidate.ast_delta or 0.0)
+    ]
+    if candidate.clutch_profile and candidate.clutch_profile.clutch_net_rating is not None:
+        game_control_evidence.append("Clutch net rating {0:+.1f}.".format(candidate.clutch_profile.clutch_net_rating))
+    two_way_evidence = []
+    if candidate.advanced_profile and candidate.advanced_profile.dbpm is not None:
+        two_way_evidence.append("DBPM {0:+.1f}.".format(candidate.advanced_profile.dbpm))
+    if gravity and gravity.rim_gravity is not None:
+        two_way_evidence.append("Rim pressure gravity {0:.1f}.".format(gravity.rim_gravity))
+    if not two_way_evidence:
+        two_way_evidence.append("Two-way signal is mostly contextual in the current data.")
+    translation_evidence = []
+    if opponent and opponent.best_split:
+        translation_evidence.append("Best split: {0}.".format(opponent.best_split))
+    if candidate.opponent_adjusted and candidate.opponent_adjusted.ts_gap_top_vs_bottom is not None:
+        translation_evidence.append("Top-vs-bottom defense TS gap {0:+.1f} points.".format(candidate.opponent_adjusted.ts_gap_top_vs_bottom * 100.0))
+    if candidate.signature_games:
+        game = candidate.signature_games[0]
+        translation_evidence.append("Top signature game: {0} vs {1}.".format(game.pts or 0, game.opponent or "opponent"))
+    return [
+        MvpQualitativeLens(
+            key="role_difficulty",
+            label="Role Difficulty",
+            summary="How demanding the player's offensive job and attention burden are.",
+            confidence=(candidate.confidence.overall if candidate.confidence else "medium"),  # type: ignore[arg-type]
+            evidence=role_evidence[:3],
+        ),
+        MvpQualitativeLens(
+            key="scalability",
+            label="Scalability",
+            summary="How portable the player's value looks across lineups and roles.",
+            confidence="medium",
+            evidence=scalability_evidence[:3],
+        ),
+        MvpQualitativeLens(
+            key="game_control",
+            label="Game Control",
+            summary="How much the player shapes shot creation, decision quality, and late-game command.",
+            confidence="medium",
+            evidence=game_control_evidence[:3],
+        ),
+        MvpQualitativeLens(
+            key="two_way_pressure",
+            label="Two-Way Pressure",
+            summary="How much the player stresses opponents while adding defensive utility.",
+            confidence="medium",
+            evidence=two_way_evidence[:3],
+        ),
+        MvpQualitativeLens(
+            key="playoff_translation",
+            label="Playoff Translation",
+            summary="Whether the case appears resilient against stronger opponents and tighter game plans.",
+            confidence=(candidate.opponent_adjusted.confidence if candidate.opponent_adjusted else "low"),  # type: ignore[arg-type]
+            evidence=translation_evidence[:3] or ["Opponent-quality evidence is still limited."],
+        ),
+    ]
+
+
 def _candidate_rows(
     db: Session,
     season: str,
@@ -895,7 +1091,6 @@ def _impact_consensus_inputs(stat: SeasonStat) -> Dict[str, Optional[float]]:
         "DARKO": _safe_float(stat.darko),
         "RAPM": _safe_float(stat.rapm),
         "BPM": _safe_float(stat.bpm),
-        "WS/48": _win_shares_per_48(stat),
     }
 
 
@@ -911,7 +1106,7 @@ def _build_impact_consensus(
     values = _impact_consensus_inputs(stat)
     meta = dict(stat.external_metrics_meta or {})
     metrics: List[MvpImpactConsensusMetric] = []
-    ordered = ["EPM", "LEBRON", "RAPTOR", "PIPM", "DARKO", "RAPM", "BPM", "WS/48"]
+    ordered = ["EPM", "LEBRON", "RAPTOR", "PIPM", "DARKO", "RAPM", "BPM"]
     for name in ordered:
         value = values.get(name)
         percentile = percentiles_by_metric[name][row_index] if name in percentiles_by_metric else None
@@ -951,7 +1146,7 @@ def _impact_consensus_percentile_pools(
 ) -> Dict[str, List[Optional[float]]]:
     """Compute percentile rank for each impact metric across the candidate pool."""
     inputs_per_row = [_impact_consensus_inputs(stat) for stat, _ in stat_rows]
-    metric_names = ["EPM", "LEBRON", "RAPTOR", "PIPM", "DARKO", "RAPM", "BPM", "WS/48"]
+    metric_names = ["EPM", "LEBRON", "RAPTOR", "PIPM", "DARKO", "RAPM", "BPM"]
     pools: Dict[str, List[Optional[float]]] = {}
     for name in metric_names:
         raw = [row.get(name) for row in inputs_per_row]
@@ -1056,6 +1251,8 @@ def _opponent_buckets_from_game_logs(
 
     buckets: Dict[str, List[PlayerGameLog]] = {"top10_def": [], "mid_def": [], "bottom_def": []}
     for row in logs:
+        if not _played_log(row):
+            continue
         team = _opp_team(row)
         if not team:
             continue
@@ -1205,6 +1402,8 @@ def _signature_games(
 
     scored: List[Tuple[float, MvpSignatureGame]] = []
     for row in logs:
+        if not _played_log(row):
+            continue
         team = _opp_team(row)
         if not team:
             continue
@@ -1310,22 +1509,51 @@ def _build_ranked_candidates(
             )
         )
 
+    eligibility_profiles = [
+        _eligibility_profile(stat, logs_by_player.get(player.id, []))
+        for stat, player in stat_rows
+    ]
+
     pts_vals = [_safe_float(s.pts_pg) for s, _ in stat_rows]
     reb_vals = [_safe_float(s.reb_pg) for s, _ in stat_rows]
     ast_vals = [_safe_float(s.ast_pg) for s, _ in stat_rows]
     ts_vals = [_derive_ts_pct(s) for s, _ in stat_rows]
     efg_vals = [_derive_efg_pct(s) for s, _ in stat_rows]
     usage_eff_vals = [_usage_adjusted_efficiency(s) for s, _ in stat_rows]
+    usg_vals = [_safe_float(s.usg_pct) for s, _ in stat_rows]
+    ast_tov_vals = [_safe_float(s.ast_tov) for s, _ in stat_rows]
+    turnover_vals = [_safe_float(s.tov_pg) for s, _ in stat_rows]
     bpm_vals = [_safe_float(s.bpm) for s, _ in stat_rows]
     vorp_vals = [_safe_float(s.vorp) for s, _ in stat_rows]
     ws_vals = [_safe_float(s.ws) for s, _ in stat_rows]
+    epm_vals = [_safe_float(s.epm) for s, _ in stat_rows]
+    lebron_vals = [_safe_float(s.lebron) for s, _ in stat_rows]
+    raptor_vals = [_safe_float(s.raptor) for s, _ in stat_rows]
+    pipm_vals = [_safe_float(s.pipm) for s, _ in stat_rows]
+    darko_vals = [_safe_float(s.darko) for s, _ in stat_rows]
+    rapm_vals = [_safe_float(s.rapm) for s, _ in stat_rows]
+    opponent_ts_vals = [_opponent_adjusted_component(profile) for profile in opponent_adjusted_profiles]
+    availability_vals = [
+        _avg([
+            float(profile.games_played),
+            float(profile.eligible_games),
+            (profile.minutes_played or 0.0) / 34.0,
+        ])
+        for profile in eligibility_profiles
+    ]
     on_off_vals = [_safe_float(on_off_by_player.get(p.id).on_off_net) if on_off_by_player.get(p.id) else None for _, p in stat_rows]
+    on_net_vals = [_safe_float(on_off_by_player.get(p.id).on_net_rating) if on_off_by_player.get(p.id) else None for _, p in stat_rows]
     win_vals = []
     net_vals = []
+    candidate_win_vals = []
     momentum_vals = []
     for stat, player in stat_rows:
         team = team_by_key[player.id]
         team_row = team_stats_by_id.get(team.id) if team else None
+        logs = [row for row in logs_by_player.get(player.id, []) if _played_log(row)]
+        log_wins = sum(1 for row in logs if (row.wl or "").upper() == "W")
+        log_losses = sum(1 for row in logs if (row.wl or "").upper() == "L")
+        candidate_win_vals.append(log_wins / (log_wins + log_losses) if (log_wins + log_losses) else None)
         win_vals.append(_safe_float(team_row.w_pct) if team_row else None)
         net_vals.append(_safe_float(team_row.net_rating) if team_row else None)
         pts_delta, reb_delta, ast_delta, ts_delta, _, _, _ = trend.get(player.id, (None, None, None, None, "steady", 0, None))
@@ -1341,10 +1569,23 @@ def _build_ranked_candidates(
         "ts": _zscore_pool(ts_vals),
         "efg": _zscore_pool(efg_vals),
         "usage_eff": _zscore_pool(usage_eff_vals),
+        "usg": _zscore_pool(usg_vals),
+        "ast_tov": _zscore_pool(ast_tov_vals),
+        "turnover_inverse": _zscore_pool([(-value if value is not None else None) for value in turnover_vals]),
         "bpm": _zscore_pool(bpm_vals),
         "vorp": _zscore_pool(vorp_vals),
         "ws": _zscore_pool(ws_vals),
+        "epm": _zscore_pool(epm_vals),
+        "lebron": _zscore_pool(lebron_vals),
+        "raptor": _zscore_pool(raptor_vals),
+        "pipm": _zscore_pool(pipm_vals),
+        "darko": _zscore_pool(darko_vals),
+        "rapm": _zscore_pool(rapm_vals),
+        "opponent_ts": _zscore_pool(opponent_ts_vals),
+        "availability": _zscore_pool(availability_vals),
         "on_off": _zscore_pool(on_off_vals),
+        "on_net": _zscore_pool(on_net_vals),
+        "candidate_win": _zscore_pool(candidate_win_vals),
         "win": _zscore_pool(win_vals),
         "net": _zscore_pool(net_vals),
         "momentum": _zscore_pool(momentum_vals),
@@ -1374,10 +1615,62 @@ def _build_ranked_candidates(
         player_id: preliminary_play_z[index]
         for index, player_id in enumerate(preliminary_player_ids)
     }
+    signature_games_by_player: Dict[int, List[MvpSignatureGame]] = {}
+    signature_values: List[Optional[float]] = []
+    for stat, player in stat_rows:
+        team = team_by_key[player.id]
+        team_abbr = stat.team_abbreviation if (stat.team_abbreviation or "").upper() != "TOT" else (team.abbreviation if team else None)
+        games = _signature_games(logs_by_player.get(player.id, []), team_abbr, teams_by_abbr, team_stats_by_id)
+        signature_games_by_player[player.id] = games
+        signature_values.append(games[0].leverage_score if games else None)
+    signature_z = _zscore_pool(signature_values)
 
     pillar_raw: List[Dict[str, float]] = []
+    value_pillar_raw: List[Dict[str, float]] = []
+    award_modifier_raw: List[Dict[str, float]] = []
     for i in range(len(stat_rows)):
         player_id = stat_rows[i][1].id
+        impact_primary = _avg([z["epm"][i], z["lebron"][i], z["raptor"][i], z["pipm"][i], z["darko"][i], z["rapm"][i]])
+        impact_fallback = _avg([z["bpm"][i], z["on_off"][i]])
+        refined_impact = impact_primary if impact_primary is not None else (impact_fallback or 0.0) * 0.65
+        refined_efficiency = _avg([
+            z["ts"][i],
+            z["efg"][i],
+            z["usage_eff"][i],
+            z["opponent_ts"][i],
+            z["turnover_inverse"][i] * 0.35,
+        ]) or 0.0
+        scoring_load = _avg([z["pts"][i], z["usg"][i], z["usage_eff"][i]]) or 0.0
+        playmaking_load = _avg([z["ast"][i], z["ast_tov"][i], z["turnover_inverse"][i]]) or 0.0
+        team_value = _avg([z["candidate_win"][i], z["on_net"][i], z["on_off"][i], z["win"][i] * 0.4, z["net"][i] * 0.4]) or 0.0
+        availability = z["availability"][i] or 0.0
+        value_pillars = {
+            "impact": refined_impact,
+            "efficiency": refined_efficiency,
+            "scoring_load": scoring_load,
+            "playmaking_load": playmaking_load,
+            "team_value": team_value,
+            "availability": availability,
+        }
+        value_pillar_raw.append(value_pillars)
+        eligibility = eligibility_profiles[i]
+        eligibility_raw = 0.0
+        if eligibility.eligibility_status == "eligible":
+            eligibility_raw = 0.25
+        elif eligibility.eligibility_status == "at_risk":
+            eligibility_raw = -0.45
+        elif eligibility.eligibility_status == "ineligible":
+            eligibility_raw = -1.25
+        team_framing = _avg([z["candidate_win"][i], z["win"][i], z["net"][i]]) or 0.0
+        award_modifier_raw.append(
+            {
+                "team_framing": team_framing,
+                "eligibility_pressure": eligibility_raw,
+                "clutch": z["clutch"][i] or 0.0,
+                "momentum": z["momentum"][i] or 0.0,
+                "signature_games": signature_z[i] or 0.0,
+            }
+        )
         pillars = {
             "production": _avg([z["pts"][i], z["reb"][i], z["ast"][i]]) or 0.0,
             "efficiency": _avg([z["ts"][i], z["efg"][i], z["usage_eff"][i]]) or 0.0,
@@ -1397,6 +1690,23 @@ def _build_ranked_candidates(
             sum(weights.get(key, 0.0) * value for key, value in pillars.items())
             for pillars in pillar_raw
         ]
+    basketball_value_raw_scores = [
+        sum(REFINED_VALUE_WEIGHTS[key] * pillars.get(key, 0.0) for key in REFINED_VALUE_WEIGHTS)
+        for pillars in value_pillar_raw
+    ]
+    award_case_raw_scores = [
+        basketball_value_raw_scores[index]
+        + 0.08 * award_modifier_raw[index]["team_framing"]
+        + 0.08 * award_modifier_raw[index]["eligibility_pressure"]
+        + 0.06 * award_modifier_raw[index]["clutch"]
+        + 0.05 * award_modifier_raw[index]["momentum"]
+        + 0.05 * award_modifier_raw[index]["signature_games"]
+        for index in range(len(stat_rows))
+    ]
+    raw_scores_by_profile["basketball_value"] = basketball_value_raw_scores
+    raw_scores_by_profile["award_case"] = award_case_raw_scores
+    basketball_value_display_scores = _percentile_rank(basketball_value_raw_scores)
+    award_case_display_scores = _percentile_rank(award_case_raw_scores)
     # Rank lookup across every profile (1-indexed per profile).
     rank_by_profile_per_row: List[Dict[str, int]] = [dict() for _ in stat_rows]
     for profile_name, scores in raw_scores_by_profile.items():
@@ -1404,18 +1714,23 @@ def _build_ranked_candidates(
         for position_index, (row_idx, _) in enumerate(ordered):
             rank_by_profile_per_row[row_idx][profile_name] = position_index + 1
 
-    raw_scores = raw_scores_by_profile[profile]
+    raw_scores = award_case_raw_scores
     profile_weights = SCORING_PROFILES[profile]
 
     indexed = sorted(enumerate(raw_scores), key=lambda item: item[1], reverse=True)
     top_indices = [idx for idx, _ in indexed[:top]]
-    selected_scores = [raw_scores[i] for i in top_indices]
-    max_score = selected_scores[0] if selected_scores else 1.0
-    min_score = selected_scores[-1] if len(selected_scores) > 1 else 0.0
-    score_range = max_score - min_score if max_score != min_score else 1.0
-
-    def _normalized(raw: float) -> float:
-        return round(((raw - min_score) / score_range) * 100.0, 1)
+    ballot_eligible_order = [
+        idx for idx, _ in sorted(
+            (
+                (idx, score)
+                for idx, score in enumerate(award_case_raw_scores)
+                if eligibility_profiles[idx].eligibility_status == "eligible"
+            ),
+            key=lambda item: item[1],
+            reverse=True,
+        )
+    ]
+    ballot_rank_by_row = {row_idx: rank for rank, row_idx in enumerate(ballot_eligible_order, start=1)}
 
     latest_date = None
     candidates: List[MvpCandidate] = []
@@ -1459,7 +1774,7 @@ def _build_ranked_candidates(
                 off_drtg=_round(on_off_row.off_drtg, 1),
                 confidence=_on_off_confidence(on_off_row),
             )
-        eligibility = _eligibility_profile(stat, player_logs)
+        eligibility = eligibility_profiles[arr_idx]
         opponent_context, split_profile = _opponent_context(
             player_logs,
             stat.team_abbreviation if (stat.team_abbreviation or "").upper() != "TOT" else (team.abbreviation if team else None),
@@ -1512,15 +1827,57 @@ def _build_ranked_candidates(
                 raw_score=_round(pillar_raw[arr_idx].get(key, 0.0), 3) or 0.0,
                 weighted_score=_round(pillar_raw[arr_idx].get(key, 0.0) * profile_weights[key], 3) or 0.0,
                 display_score=_display_score(pillar_raw[arr_idx].get(key, 0.0)),
+                category="legacy_profile",
             )
             for key in profile_weights
         }
-        candidate_signature_games = _signature_games(
-            logs_by_player.get(player.id, []),
-            stat.team_abbreviation if (stat.team_abbreviation or "").upper() != "TOT" else (team.abbreviation if team else None),
-            teams_by_abbr,
-            team_stats_by_id,
-        )
+        basketball_value_pillars = {
+            key: MvpScorePillar(
+                label=key.replace("_", " ").title(),
+                weight=REFINED_VALUE_WEIGHTS[key],
+                raw_score=_round(value_pillar_raw[arr_idx].get(key, 0.0), 3) or 0.0,
+                weighted_score=_round(value_pillar_raw[arr_idx].get(key, 0.0) * REFINED_VALUE_WEIGHTS[key], 3) or 0.0,
+                display_score=_display_score(value_pillar_raw[arr_idx].get(key, 0.0)),
+                confidence=(
+                    "high"
+                    if key == "availability" and eligibility.eligible_games >= 60
+                    else "low"
+                    if key == "impact" and not impact_consensus_profiles[arr_idx].metrics
+                    else "medium"
+                ),  # type: ignore[arg-type]
+                category="core_score_input",
+                note="Core Basketball Value input in the refined v3 methodology.",
+            )
+            for key in REFINED_VALUE_WEIGHTS
+        }
+        award_modifier_specs = {
+            "team_framing": ("Team Framing", 4.0),
+            "eligibility_pressure": ("Eligibility Pressure", 5.0),
+            "clutch": ("Clutch", 3.5),
+            "momentum": ("Momentum", 3.0),
+            "signature_games": ("Signature Games", 3.0),
+        }
+        award_modifiers = {
+            key: MvpAwardModifier(
+                key=key,
+                label=label,
+                raw_score=_round(award_modifier_raw[arr_idx].get(key, 0.0), 3) or 0.0,
+                modifier=_modifier(award_modifier_raw[arr_idx].get(key, 0.0), scale),
+                display_score=_display_score(award_modifier_raw[arr_idx].get(key, 0.0)),
+                confidence=(
+                    clutch_profiles[arr_idx].confidence
+                    if key == "clutch" and clutch_profiles[arr_idx]
+                    else "medium"
+                ),  # type: ignore[arg-type]
+                note="Capped Award Case modifier; it shapes candidacy but does not define base basketball value.",
+            )
+            for key, (label, scale) in award_modifier_specs.items()
+        }
+        if eligibility.eligibility_status == "unknown":
+            award_modifiers["eligibility_pressure"].confidence = "low"  # type: ignore[assignment]
+        candidate_signature_games = signature_games_by_player.get(player.id, [])
+        basketball_value_score = _round(basketball_value_display_scores[arr_idx], 1) or 0.0
+        award_case_score = _round(award_case_display_scores[arr_idx], 1) or 0.0
         candidate = MvpCandidate(
             rank=rank,
             player_id=player.id,
@@ -1528,7 +1885,12 @@ def _build_ranked_candidates(
             team_abbreviation=stat.team_abbreviation,
             headshot_url=player.headshot_url or "",
             gp=stat.gp or 0,
-            composite_score=_normalized(raw_scores[arr_idx]),
+            composite_score=award_case_score,
+            basketball_value_score=basketball_value_score,
+            award_case_score=award_case_score,
+            basketball_value_rank=rank_by_profile_per_row[arr_idx].get("basketball_value"),
+            award_case_rank=rank_by_profile_per_row[arr_idx].get("award_case"),
+            ballot_eligible_rank=ballot_rank_by_row.get(arr_idx),
             pts_pg=float(stat.pts_pg or 0.0),
             reb_pg=float(stat.reb_pg or 0.0),
             ast_pg=float(stat.ast_pg or 0.0),
@@ -1541,6 +1903,9 @@ def _build_ranked_candidates(
             momentum=momentum,
             last_games=last_games,
             score_pillars=score_pillars,
+            basketball_value_pillars=basketball_value_pillars,
+            award_modifiers=award_modifiers,
+            methodology_labels=_methodology_labels(),
             team_context=team_context,
             on_off=on_off,
             advanced_profile=advanced,
@@ -1572,6 +1937,15 @@ def _build_ranked_candidates(
             has_gravity=gravity_profile.overall_gravity is not None if gravity_profile else False,
             gravity_warnings=gravity_profile.warnings if gravity_profile else None,
         )
+        impact_profile = impact_consensus_profiles[arr_idx]
+        present_metrics = [metric for metric in impact_profile.metrics if metric.percentile is not None]
+        impact_coverage_ratio = len(present_metrics) / len(impact_profile.metrics) if impact_profile.metrics else 0.0
+        candidate.confidence = _candidate_confidence(
+            candidate,
+            impact_coverage_ratio=impact_coverage_ratio,
+            impact_disagreement=impact_profile.disagreement,
+        )
+        candidate.qualitative_lenses = _qualitative_lenses(candidate)
         candidate.case_summary = _case_summary(candidate)
         candidates.append(candidate)
 
@@ -1599,7 +1973,7 @@ def build_mvp_race(
         season=season,
         as_of_date=as_of,
         candidates=candidates,
-        weights=SCORING_PROFILES[resolved],
+        weights=REFINED_VALUE_WEIGHTS,
         scoring_profile=SCORING_PROFILE,
         available_profiles=AVAILABLE_PROFILES,
     )
@@ -1641,7 +2015,7 @@ def build_mvp_candidate_case(
         as_of_date=as_of,
         candidate=candidate,
         nearby=nearby,
-        weights=SCORING_PROFILES[resolved],
+        weights=REFINED_VALUE_WEIGHTS,
         scoring_profile=SCORING_PROFILE,
         available_profiles=AVAILABLE_PROFILES,
     )
@@ -1776,7 +2150,14 @@ def build_mvp_sensitivity(
     return MvpSensitivityResponse(
         season=season,
         as_of_date=as_of,
-        default_profile=DEFAULT_PROFILE,
-        profiles=AVAILABLE_PROFILES,
+        default_profile="award_case",
+        profiles=["basketball_value", "award_case"] + AVAILABLE_PROFILES,
+        profile_labels={
+            "basketball_value": "Basketball Value",
+            "award_case": "Award Case",
+            "box_first": "Legacy Box-First",
+            "balanced": "Legacy Balanced",
+            "impact_consensus": "Legacy Impact",
+        },
         players=players,
     )

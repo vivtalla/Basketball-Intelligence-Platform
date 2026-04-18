@@ -26,6 +26,8 @@ def test_upgrade_database_creates_fresh_schema_from_migrations():
             assert "player_play_type_stats" in tables
             assert "player_tracking_stats" in tables
             assert "player_hustle_stats" in tables
+            assert "mvp_race_snapshots" in tables
+            assert "mvp_race_snapshot_candidates" in tables
             assert "team_standings" in tables
             assert "shot_lab_snapshots" in tables
             assert "alembic_version" in tables
@@ -100,11 +102,19 @@ def test_upgrade_database_stamps_legacy_sqlite_schema_and_applies_drift_columns(
             assert "overall_gravity" in gravity_columns
             assert "spacing_lift" in gravity_columns
 
+            mvp_snapshot_columns = {column["name"] for column in inspector.get_columns("mvp_race_snapshots")}
+            assert "snapshot_date" in mvp_snapshot_columns
+            assert "profile" in mvp_snapshot_columns
+
+            mvp_candidate_columns = {column["name"] for column in inspector.get_columns("mvp_race_snapshot_candidates")}
+            assert "context_adjusted_score" in mvp_candidate_columns
+            assert "pillar_scores" in mvp_candidate_columns
+
             tracking_columns = {column["name"] for column in inspector.get_columns("player_tracking_stats")}
             assert "tracking_family" in tracking_columns
             assert "touches" in tracking_columns
 
-            assert alembic_revision == "0006_mvp_impact_and_clutch"
+            assert alembic_revision == "0007_mvp_race_timeline"
             assert snapshot_date == "2025-12-01"
         finally:
             engine.dispose()

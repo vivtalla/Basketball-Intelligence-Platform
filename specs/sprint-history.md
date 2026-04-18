@@ -1,9 +1,9 @@
 # Sprint History Archive
 
-Sprints 1–51. Current sprint summaries also live in `CLAUDE.md` under "Recent Sprints".
+Sprints 1–53. Current sprint summaries also live in `CLAUDE.md` under "Recent Sprints".
 
 For detailed per-sprint records, see the individual closeout files in this directory:
-`specs/sprint-09-closeout.md` through `specs/sprint-51-closeout.md`
+`specs/sprint-09-closeout.md` through `specs/sprint-53-closeout.md`
 
 ---
 
@@ -566,3 +566,14 @@ Eliminated live NBA API calls on every player profile load:
 - Shipped team-page roster availability and structured pre-read availability summaries using the injuries pipeline
 - Added official NBA injury-report PDF fallback when the live injuries JSON feed returns `403`
 - Hardened injury identity resolution with alias-backed matching, persisted unresolved rows, and `GET /api/injuries/unresolved`
+---
+
+### Sprint 53 — MVP Race Timeline And Refined Methodology
+**Branch:** `codex/sprint-53-mvp-race-timeline` (Codex)
+
+- Added DB-first MVP race snapshots through Alembic revision `0007_mvp_race_timeline`, including idempotent materialization, manual CLI, and warehouse job dispatch.
+- Added `GET /api/mvp/timeline` with weekly reconstructed voter timeline output, movement reasons, methodology labels, and top-candidate rank/score/stat series.
+- Rebuilt `/mvp` movement into a larger Voter Timeline with hoverable rank paths, candidate selection, non-overlapping labels, and explanatory methodology copy.
+- Implemented refined MVP methodology v3: Basketball Value Score, Award Case Score, ranks, confidence, award modifiers, and structured qualitative lenses.
+- Demoted legacy scoring profiles into sensitivity comparison while keeping API compatibility.
+- Fixed game-log-derived MVP PPG by excluding zero-minute/DNP rows from timeline and split denominators.

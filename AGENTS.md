@@ -1,6 +1,6 @@
 # Agent Coordination
 
-Last updated: 2026-04-17 by Claude (Sprint 52 kickoff — MVP Holistic Case Engine)
+Last updated: 2026-04-18 by Codex (Sprint 53 closeout — ready for next sprint)
 
 > Both agents read this file before touching code at the start of every session.
 > The canonical source of truth is the clean `master` checkout at `/Users/viv/Documents/Basketball Intelligence Platform`.
@@ -14,13 +14,13 @@ Last updated: 2026-04-17 by Claude (Sprint 52 kickoff — MVP Holistic Case Engi
 
 | Field | Value |
 |-------|-------|
-| Sprint | 52 |
-| Goal | MVP Holistic Case Engine — impact-consensus, clutch, opponent-adjusted context, scoring profiles, and four signature visuals |
-| Started | 2026-04-17 |
+| Sprint | Next kickoff TBD |
+| Goal | TBD |
+| Started | TBD |
 | Target merge | TBD |
-| Sprint shape | Single-stream Claude — data layer + backend scoring profiles + frontend viz expansion |
-| Branch | `feature/sprint-52-mvp-holistic-case` |
-| Worker policy | Single-stream Claude implementation unless bounded independent subtasks emerge |
+| Sprint shape | TBD |
+| Branch | `master` |
+| Worker policy | Assign per sprint plan |
 
 ---
 
@@ -38,9 +38,9 @@ If repo state, sprint numbering, or shipped features appear to disagree across l
 ## Current Assignments
 
 ### Claude
-- Branch: `feature/sprint-52-mvp-holistic-case`
-- Scope: External impact metric ingestion + attribution, clutch/opponent-adjusted tables, scoring profiles refactor (`mvp_service.py`), new `/api/mvp/sensitivity` endpoint, and four new MVP page visuals (Impact Consensus Radar, Weighting-Sensitivity Slope, Clutch Card, Signature Games timeline)
-- Status: In progress
+- Branch: —
+- Scope: —
+- Status: Not assigned
 
 ### Codex
 - Branch: —
@@ -58,14 +58,7 @@ Claim a shared file here before editing. If a file is already claimed, read that
 
 | File | Claimed by | Purpose |
 |------|------------|---------|
-| `frontend/src/lib/types.ts` | Claude | Sprint 52 additive MVP case contracts (impact consensus, clutch, opponent-adjusted, sensitivity) |
-| `frontend/src/lib/api.ts` | Claude | Sprint 52 MVP profile + sensitivity API helpers |
-| `backend/db/models.py` | Claude | Sprint 52 clutch/opponent-splits ORM + metric attribution columns |
-| `backend/db/ensure_schema.py` | Claude | Paired with models.py |
-| `backend/services/mvp_service.py` | Claude | Sprint 52 scoring profiles refactor |
-| `backend/routers/mvp.py` | Claude | Sprint 52 profile query + sensitivity endpoint |
-| `frontend/src/app/mvp/page.tsx` | Claude | Sprint 52 profile selector + sensitivity chart mount |
-| `frontend/src/components/MvpRacePanel.tsx` | Claude | Sprint 52 case detail extensions |
+| — | — | — |
 
 ---
 
@@ -76,37 +69,24 @@ Specs or review notes written by one stream for another. Check this before start
 | Spec file | From | To | Status |
 |-----------|------|----|--------|
 | `specs/data-architecture.md` | Sprint 26 | Next sprint | Reference — read before touching data layer |
-| `specs/sprint-48-closeout.md` | Sprint 48 | Sprint 52 | Reference — MVP Race Tracker baseline |
+| `specs/sprint-53-closeout.md` | Sprint 53 | Next sprint | Reference — MVP v3/timeline baseline |
 
 ---
 
 ## Merge Order
 
-1. Claude — `feature/sprint-52-mvp-holistic-case`
+1. Next sprint branch TBD
 2. Final integration / verification / merge to `master`
 
 ---
 
 ## Sprint Work Allocation
 
-Sprint 52 allocation — single-stream Claude
+No active sprint allocation.
 
 | Files / Directories | Assigned this sprint |
 |---------------------|----------------------|
-| `backend/alembic/versions/0006_mvp_impact_and_clutch.py` (new) | Claude — clutch + opponent-splits + attribution schema |
-| `backend/db/models.py`, `backend/db/ensure_schema.py` | Claude — ORM additions paired with migration |
-| `backend/data/mvp_impact_import.py` (new) | Claude — external metric CSV ingestion CLI |
-| `backend/services/mvp_service.py` | Claude — scoring profiles + pillars refactor |
-| `backend/services/mvp_clutch_service.py` (new, if needed) | Claude — clutch sync/materialization |
-| `backend/routers/mvp.py` | Claude — profile param + `/api/mvp/sensitivity` |
-| `backend/models/mvp.py` | Claude — Pydantic schema extensions |
-| `frontend/src/app/mvp/page.tsx` | Claude — profile selector + sensitivity chart mount + methodology rewrite |
-| `frontend/src/components/MvpRacePanel.tsx` | Claude — case detail wiring for new visuals |
-| `frontend/src/components/MvpImpactRadar.tsx` (new) | Claude |
-| `frontend/src/components/MvpSensitivitySlope.tsx` (new) | Claude |
-| `frontend/src/components/MvpClutchCard.tsx` (new) | Claude |
-| `frontend/src/components/MvpSignatureGames.tsx` (new) | Claude |
-| `frontend/src/lib/api.ts`, `frontend/src/lib/types.ts` | Claude — additive contract additions only |
+| — | — |
 
 ---
 
@@ -179,6 +159,7 @@ Sprint 52 allocation — single-stream Claude
 
 *Free-form, dated, newest first. Use this for coordination and repo-state exceptions.*
 
+2026-04-18 (Codex): Sprint 53 closed on `codex/sprint-53-mvp-race-timeline`. Shipped DB-first MVP snapshots, weekly voter timeline, refined MVP methodology v3, methodology explanations throughout `/mvp`, and the DNP-safe PPG fix. Closeout: `specs/sprint-53-closeout.md`.
 2026-04-17 (Claude): Sprint 52 kicked off on `feature/sprint-52-mvp-holistic-case`. Plan file at `~/.claude/plans/i-want-to-plan-declarative-corbato.md`. Goal: remove box-score bias from MVP tracker by introducing transparent scoring profiles (Box-First / Balanced / Impact-Consensus), ingesting external impact metrics (EPM, LEBRON, RAPTOR, PIPM, DARKO, RAPM) with source attribution, adding clutch + opponent-adjusted tables, and shipping four signature visuals: Impact Consensus Radar, Weighting-Sensitivity Slope, Clutch & High-Leverage Card, Signature-Games Timeline. No weight tuning that favors any specific player.
 2026-04-17 (Codex): Sprint 51 implemented on `codex-sprint-51-mvp-gravity-foundation`. Added DB-first MVP context tables for play-type, tracking, hustle, and gravity; official NBA Gravity source spike with CourtVue proxy fallback; MVP `gravity_profile`, `context_adjusted_score`, `/api/mvp/gravity`, Gravity map axis, Gravity case section, and methodology copy. Verification covered MVP/gravity/schema backend tests, official season sync/materialization/standings/shotchart targeted tests, frontend lint, frontend build, and `git diff --check`.
 2026-04-17 (Claude): Sprint 48 closed on `feature/sprint-48-mvp-tracker`. Shipped MVP Award Race Tracker end-to-end: composite z-score service, GET /api/mvp/race endpoint, MvpRacePanel with ranked cards and momentum signals, /mvp page with season picker, and nav link. Single-stream Claude-only sprint. MVP home widget, position filter, and team shooting splits are top follow-ons for Sprint 49. See `specs/sprint-48-closeout.md` before Sprint 49 kickoff.

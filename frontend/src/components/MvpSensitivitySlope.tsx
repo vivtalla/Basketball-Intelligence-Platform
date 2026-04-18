@@ -59,10 +59,13 @@ export default function MvpSensitivitySlope({ data, isLoading }: Props) {
         <div>
           <p className="text-xs font-semibold uppercase tracking-wide text-[var(--accent)]">Ranking Sensitivity</p>
           <h3 className="mt-1 text-sm font-semibold text-[var(--foreground)]">
-            How does the ranking change when we value impact metrics more than box totals?
+            How does rank change between Basketball Value, Award Case, and legacy profiles?
           </h3>
           <p className="mt-1 text-xs text-[var(--muted)]">
-            Each line is a candidate. A line that climbs from left to right is undervalued by box totals alone.
+            Each line is a candidate. The first two columns are the refined v3 scores; the remaining columns preserve legacy profile comparison.
+          </p>
+          <p className="mt-1 max-w-3xl text-xs leading-5 text-[var(--muted)]">
+            Use this as a robustness check: a stable line means the case survives different assumptions, while a steep line shows the candidate depends on a specific way of valuing production, impact, or award modifiers.
           </p>
         </div>
       </div>

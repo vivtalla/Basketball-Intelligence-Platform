@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, type ReactNode } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import type { MvpCandidate, MvpRaceResponse, MvpScorePillar } from "@/lib/types";
@@ -12,7 +12,8 @@ interface MvpRacePanelProps {
   data: MvpRaceResponse;
 }
 
-const PILLAR_ORDER = ["production", "efficiency", "impact", "team_context", "momentum", "play_style"];
+const VALUE_PILLAR_ORDER = ["impact", "efficiency", "scoring_load", "playmaking_load", "team_value", "availability"];
+const AWARD_MODIFIER_ORDER = ["team_framing", "eligibility_pressure", "clutch", "momentum", "signature_games"];
 const MAP_AXES = [
   { key: "team_success", label: "Team Success" },
   { key: "impact", label: "Impact" },
@@ -91,6 +92,9 @@ function MvpCaseMap({
           <p className="mt-2 max-w-3xl text-sm leading-6 text-[var(--muted)]">
             X-axis defaults to team success, Y-axis to individual impact. Bubble size reflects minutes and availability; color follows recent form. Gravity can be selected as an axis to surface off-box-score defensive attention.
           </p>
+          <MethodNote label="How to read it">
+            This is a context map, not the leaderboard formula. Use it to compare the shape of each case: team value, individual value, availability, momentum, and Gravity can each be inspected as axes.
+          </MethodNote>
         </div>
         <div className="grid gap-2 sm:grid-cols-2">
           <label className="text-xs text-[var(--muted)]">
@@ -168,9 +172,9 @@ function MvpCaseMap({
                 </span>
               </div>
               <div className="mt-4 grid grid-cols-2 gap-2 text-xs">
-                <StatTile label="Score" value={fmt(selected.composite_score)} />
+                <StatTile label="Award" value={fmt(selected.award_case_score ?? selected.composite_score)} />
+                <StatTile label="Value" value={fmt(selected.basketball_value_score)} />
                 <StatTile label="Gravity" value={fmt(selected.gravity_profile?.overall_gravity)} />
-                <StatTile label="Context" value={fmt(selected.context_adjusted_score)} />
                 <StatTile label="Qualified" value={`${selected.eligibility?.eligible_games ?? selected.gp}/65`} />
               </div>
               <div className="mt-4 space-y-2 text-xs leading-5 text-[var(--muted)]">
@@ -181,6 +185,9 @@ function MvpCaseMap({
               <div className="mt-4 rounded-lg border border-[var(--border)] bg-[var(--surface)] p-3 text-xs leading-5 text-[var(--muted)]">
                 {selected.visual_coordinates?.explanation ?? "Map placement uses pillar scores, availability, and momentum."}
               </div>
+              <MethodNote label="Score split">
+                Award is the ballot-facing rank. Value is the season-long basketball base. Gravity is context-only unless you choose it as an axis.
+              </MethodNote>
             </>
           ) : null}
         </aside>
@@ -244,6 +251,22 @@ function PillarBar({ pillar }: { pillar: MvpScorePillar }) {
   );
 }
 
+function ModifierBar({ modifier }: { modifier: NonNullable<MvpCandidate["award_modifiers"]>[string] }) {
+  const width = Math.max(0, Math.min(100, modifier.display_score));
+  return (
+    <div>
+      <div className="mb-1 flex items-center justify-between gap-2 text-[11px]">
+        <span className="font-medium text-[var(--foreground)]">{modifier.label}</span>
+        <span className="tabular-nums text-[var(--muted)]">{fmtSigned(modifier.modifier)}</span>
+      </div>
+      <div className="h-1.5 overflow-hidden rounded bg-[var(--border)]">
+        <div className="h-full rounded bg-[var(--accent)]" style={{ width: `${width.toFixed(0)}%` }} />
+      </div>
+      <p className="mt-1 text-[10px] uppercase text-[var(--muted)]">{modifier.confidence} confidence</p>
+    </div>
+  );
+}
+
 function CandidateRow({
   candidate,
   selected,
@@ -253,9 +276,9 @@ function CandidateRow({
   selected: boolean;
   onSelect: () => void;
 }) {
-  const pillars = candidate.score_pillars ?? {};
-  const impact = pillars.impact?.display_score;
   const team = candidate.team_context;
+  const awardScore = candidate.award_case_score ?? candidate.composite_score;
+  const valueScore = candidate.basketball_value_score;
 
   return (
     <button
@@ -291,15 +314,15 @@ function CandidateRow({
             </span>
           </div>
           <p className="mt-0.5 text-xs text-[var(--muted)]">
-            {candidate.team_abbreviation} - {candidate.gp} GP - Score {fmt(candidate.composite_score, 1)}
+            {candidate.team_abbreviation} - {candidate.gp} GP - Award {fmt(awardScore, 1)}
             {candidate.context_adjusted_score != null ? ` - Context ${fmt(candidate.context_adjusted_score, 1)}` : ""}
           </p>
         </div>
       </div>
       <div className="mt-4 grid grid-cols-3 gap-2 text-center text-xs">
-        <StatTile label="PTS" value={fmt(candidate.pts_pg)} />
-        <StatTile label="TS" value={fmtPct(candidate.ts_pct)} />
-        <StatTile label="Impact" value={impact == null ? "-" : fmt(impact, 0)} />
+        <StatTile label="Award" value={fmt(awardScore)} />
+        <StatTile label="Value" value={fmt(valueScore)} />
+        <StatTile label="Confidence" value={candidate.confidence?.overall ?? "-"} />
       </div>
       <div className="mt-3 text-xs text-[var(--muted)]">
         {team?.wins != null && team?.losses != null
@@ -329,8 +352,17 @@ function MetricBlock({ label, value, sub }: { label: string; value: string; sub?
   );
 }
 
+function MethodNote({ label, children }: { label: string; children: ReactNode }) {
+  return (
+    <p className="mt-2 rounded border border-[var(--border)] bg-[var(--surface-alt)] px-3 py-2 text-xs leading-5 text-[var(--muted)]">
+      <span className="font-semibold uppercase text-[var(--accent)]">{label}:</span> {children}
+    </p>
+  );
+}
+
 function CandidateCase({ candidate, asOfDate }: { candidate: MvpCandidate; asOfDate: string }) {
-  const pillars = candidate.score_pillars ?? {};
+  const valuePillars = candidate.basketball_value_pillars ?? {};
+  const awardModifiers = candidate.award_modifiers ?? {};
   const warnings = candidate.data_coverage?.warnings ?? [];
   const styleRows = candidate.play_style ?? [];
   const topStyle = styleRows.slice(0, 4);
@@ -342,6 +374,8 @@ function CandidateCase({ candidate, asOfDate }: { candidate: MvpCandidate; asOfD
   const opponentRows = candidate.opponent_context?.rows ?? candidate.split_profile ?? [];
   const support = candidate.support_burden;
   const impactCoverage = candidate.impact_metric_coverage;
+  const awardScore = candidate.award_case_score ?? candidate.composite_score;
+  const valueScore = candidate.basketball_value_score;
 
   return (
     <section className="rounded-lg border border-[var(--border)] bg-[var(--surface)] p-5">
@@ -369,8 +403,11 @@ function CandidateCase({ candidate, asOfDate }: { candidate: MvpCandidate; asOfD
           </div>
           <h2 className="bip-display mt-3 text-3xl font-semibold text-[var(--foreground)]">{candidate.player_name}</h2>
           <p className="mt-2 text-sm leading-6 text-[var(--muted)]">
-            Score {fmt(candidate.composite_score, 1)} from production, efficiency, impact, team context, momentum, and transparent style proxies.
+            Award Case {fmt(awardScore, 1)} from Basketball Value plus capped award modifiers. Basketball Value {fmt(valueScore, 1)} keeps the on-court season separate from voter-facing candidacy.
           </p>
+          <MethodNote label="Why two scores">
+            Basketball Value asks who has delivered the strongest season on the floor. Award Case asks how that season translates to an MVP ballot after eligibility, team framing, clutch, momentum, and signature moments.
+          </MethodNote>
         </div>
         <Link href={`/players/${candidate.player_id}`} className="rounded-lg border border-[var(--border)] px-3 py-2 text-sm font-medium text-[var(--accent)] hover:border-[var(--accent)]">
           Player profile
@@ -378,9 +415,9 @@ function CandidateCase({ candidate, asOfDate }: { candidate: MvpCandidate; asOfD
       </div>
 
       <div className="mt-6 grid gap-3 sm:grid-cols-3">
-        <MetricBlock label="Production" value={`${fmt(candidate.pts_pg)} / ${fmt(candidate.reb_pg)} / ${fmt(candidate.ast_pg)}`} sub="PTS / REB / AST" />
-        <MetricBlock label="Efficiency" value={fmtPct(candidate.ts_pct)} sub={`eFG ${fmtPct(advanced?.efg_pct)}`} />
-        <MetricBlock label="Impact" value={fmtSigned(onOff?.on_off_net)} sub={`On/off confidence ${onOff?.confidence ?? "low"}`} />
+        <MetricBlock label="Award Case" value={fmt(awardScore)} sub={`Rank ${candidate.award_case_rank ?? candidate.rank}`} />
+        <MetricBlock label="Basketball Value" value={fmt(valueScore)} sub={candidate.basketball_value_rank ? `Value rank ${candidate.basketball_value_rank}` : "Core season score"} />
+        <MetricBlock label="Confidence" value={candidate.confidence?.overall ?? "-"} sub={`Coverage ${fmt(candidate.confidence?.coverage_score, 0)}`} />
         <MetricBlock label="Eligibility" value={`${eligibility?.eligible_games ?? candidate.gp}/65`} sub={eligibility?.eligibility_status ?? "unknown"} />
       </div>
 
@@ -394,7 +431,7 @@ function CandidateCase({ candidate, asOfDate }: { candidate: MvpCandidate; asOfD
             </p>
           </div>
           <div className="grid min-w-[260px] grid-cols-3 gap-2 text-xs">
-            <StatTile label="Main" value={fmt(candidate.composite_score)} />
+            <StatTile label="Award" value={fmt(awardScore)} />
             <StatTile label="Gravity" value={fmt(candidate.gravity_profile?.overall_gravity)} />
             <StatTile label="Adjusted" value={fmt(candidate.context_adjusted_score)} />
           </div>
@@ -413,18 +450,76 @@ function CandidateCase({ candidate, asOfDate }: { candidate: MvpCandidate; asOfD
           </div>
         </div>
         <div>
-          <h3 className="text-sm font-semibold text-[var(--foreground)]">Score Pillars</h3>
+          <h3 className="text-sm font-semibold text-[var(--foreground)]">Basketball Value Pillars</h3>
+          <p className="mt-1 text-xs leading-5 text-[var(--muted)]">
+            These are the core score inputs. They reduce double-counting by separating impact, efficiency, scoring burden, playmaking burden, team value, and availability.
+          </p>
           <div className="mt-3 grid gap-3 sm:grid-cols-2">
-            {PILLAR_ORDER.map((key) => pillars[key]).filter(Boolean).map((pillar) => (
+            {VALUE_PILLAR_ORDER.map((key) => valuePillars[key]).filter(Boolean).map((pillar) => (
               <PillarBar key={pillar.label} pillar={pillar} />
             ))}
           </div>
         </div>
       </div>
 
+      <div className="mt-6 grid gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
+        <section>
+          <h3 className="text-sm font-semibold text-[var(--foreground)]">Award Case Modifiers</h3>
+          <p className="mt-1 text-xs leading-5 text-[var(--muted)]">
+            These are capped voter-facing adjustments. They can move the Award Case, but they are intentionally smaller than the Basketball Value base.
+          </p>
+          <div className="mt-3 grid gap-3 sm:grid-cols-2">
+            {AWARD_MODIFIER_ORDER.map((key) => awardModifiers[key]).filter(Boolean).map((modifier) => (
+              <ModifierBar key={modifier.key} modifier={modifier} />
+            ))}
+          </div>
+        </section>
+        <section>
+          <h3 className="text-sm font-semibold text-[var(--foreground)]">Methodology Labels</h3>
+          <p className="mt-1 text-xs leading-5 text-[var(--muted)]">
+            Each label tells you whether a metric drives the score, modifies the award case, provides context, or supports the analyst interpretation.
+          </p>
+          <div className="mt-3 space-y-2">
+            {(candidate.methodology_labels ?? []).map((label) => (
+              <div key={label.key} className="rounded-lg border border-[var(--border)] bg-[var(--surface-alt)] p-3 text-xs leading-5 text-[var(--muted)]">
+                <span className="font-semibold text-[var(--foreground)]">{label.label}:</span> {label.description}
+              </div>
+            ))}
+          </div>
+        </section>
+      </div>
+
+      {candidate.qualitative_lenses && candidate.qualitative_lenses.length > 0 ? (
+        <section className="mt-6">
+          <h3 className="text-sm font-semibold text-[var(--foreground)]">Structured Analyst Lenses</h3>
+          <p className="mt-1 text-xs leading-5 text-[var(--muted)]">
+            These lenses translate the numbers into basketball language. They do not override the model; they explain role difficulty, scalability, game control, two-way pressure, and playoff translation using evidence already on the page.
+          </p>
+          <div className="mt-3 grid gap-3 lg:grid-cols-5">
+            {candidate.qualitative_lenses.map((lens) => (
+              <article key={lens.key} className="rounded-lg border border-[var(--border)] bg-[var(--surface-alt)] p-3">
+                <div className="flex items-start justify-between gap-2">
+                  <p className="text-sm font-semibold text-[var(--foreground)]">{lens.label}</p>
+                  <span className={`text-[10px] uppercase ${confidenceClass(lens.confidence)}`}>{lens.confidence}</span>
+                </div>
+                <p className="mt-2 text-xs leading-5 text-[var(--muted)]">{lens.summary}</p>
+                <ul className="mt-2 space-y-1 text-xs leading-5 text-[var(--muted)]">
+                  {lens.evidence.slice(0, 3).map((item) => (
+                    <li key={item}>{item}</li>
+                  ))}
+                </ul>
+              </article>
+            ))}
+          </div>
+        </section>
+      ) : null}
+
       <div className="mt-6 grid gap-5 lg:grid-cols-2">
         <section>
           <h3 className="text-sm font-semibold text-[var(--foreground)]">Gravity</h3>
+          <p className="mt-1 text-xs leading-5 text-[var(--muted)]">
+            Context signal. Gravity estimates the attention a player draws beyond the box score. It is shown separately so a proxy or partial source cannot dominate the default leaderboard.
+          </p>
           {candidate.gravity_profile ? (
             <>
               <div className="mt-3 grid gap-3 sm:grid-cols-2">
@@ -456,6 +551,9 @@ function CandidateCase({ candidate, asOfDate }: { candidate: MvpCandidate; asOfD
 
         <section>
           <h3 className="text-sm font-semibold text-[var(--foreground)]">Team Lift</h3>
+          <p className="mt-1 text-xs leading-5 text-[var(--muted)]">
+            Mixed signal. Team Value helps the Basketball Value score when tied to the player&apos;s participation; full team record and support burden explain the environment around that value.
+          </p>
           <div className="mt-3 grid gap-3 sm:grid-cols-2">
             <MetricBlock label="Team Record" value={team?.wins != null && team.losses != null ? `${team.wins}-${team.losses}` : "-"} sub={team?.win_pct_rank ? `Win% rank ${team.win_pct_rank}` : undefined} />
             <MetricBlock label="Team Net" value={fmtSigned(team?.net_rating)} sub={team?.net_rating_rank ? `Net rank ${team.net_rating_rank}` : undefined} />
@@ -468,6 +566,9 @@ function CandidateCase({ candidate, asOfDate }: { candidate: MvpCandidate; asOfD
 
         <section>
           <h3 className="text-sm font-semibold text-[var(--foreground)]">Advanced</h3>
+          <p className="mt-1 text-xs leading-5 text-[var(--muted)]">
+            Diagnostic layer. These metrics help explain impact, efficiency, usage, and coverage, but the v3 model avoids letting overlapping box-derived metrics count in too many places.
+          </p>
           <div className="mt-3 grid gap-3 sm:grid-cols-3">
             <MetricBlock label="USG%" value={fmtPercentish(advanced?.usg_pct)} />
             <MetricBlock label="BPM" value={fmtSigned(advanced?.bpm)} />
@@ -495,6 +596,9 @@ function CandidateCase({ candidate, asOfDate }: { candidate: MvpCandidate; asOfD
       <div className="mt-6 grid gap-5 lg:grid-cols-[minmax(0,1.05fr)_minmax(0,0.95fr)]">
         <section>
           <h3 className="text-sm font-semibold text-[var(--foreground)]">Opponent Context</h3>
+          <p className="mt-1 text-xs leading-5 text-[var(--muted)]">
+            Context and efficiency support. Strong samples against elite defenses can support the Efficiency pillar; broader split rows mainly show whether production travels across opponent quality.
+          </p>
           <div className="mt-3 grid gap-2 sm:grid-cols-2">
             {opponentRows.slice(0, 8).map((row) => (
               <div key={row.key} className="rounded-lg border border-[var(--border)] bg-[var(--surface-alt)] p-3">
@@ -517,6 +621,9 @@ function CandidateCase({ candidate, asOfDate }: { candidate: MvpCandidate; asOfD
 
         <section>
           <h3 className="text-sm font-semibold text-[var(--foreground)]">Eligibility</h3>
+          <p className="mt-1 text-xs leading-5 text-[var(--muted)]">
+            Award modifier and availability signal. Missed games do not erase Basketball Value, but the Award Case reflects 65-game pressure and ballot viability.
+          </p>
           <div className="mt-3 grid gap-3 sm:grid-cols-2">
             <MetricBlock label="Qualified Games" value={`${eligibility?.eligible_games ?? 0}`} sub={`${eligibility?.games_needed ?? 65} needed`} />
             <MetricBlock label="20+ Minute Games" value={`${eligibility?.minutes_qualified_games ?? 0}`} sub={`${eligibility?.near_miss_games ?? 0} near misses`} />
@@ -534,6 +641,9 @@ function CandidateCase({ candidate, asOfDate }: { candidate: MvpCandidate; asOfD
       <div className="mt-6 grid gap-5 lg:grid-cols-2">
         <section>
           <h3 className="text-sm font-semibold text-[var(--foreground)]">Style</h3>
+          <p className="mt-1 text-xs leading-5 text-[var(--muted)]">
+            Context signal. Style is inferred from play-by-play descriptions, so it explains how value is created rather than acting as a heavy direct ranking input.
+          </p>
           <div className="mt-3 space-y-2">
             {topStyle.length ? topStyle.map((row) => (
               <div key={row.action_family} className="rounded-lg border border-[var(--border)] bg-[var(--surface-alt)] p-3">
@@ -560,6 +670,9 @@ function CandidateCase({ candidate, asOfDate }: { candidate: MvpCandidate; asOfD
 
         <section>
           <h3 className="text-sm font-semibold text-[var(--foreground)]">Recent Form</h3>
+          <p className="mt-1 text-xs leading-5 text-[var(--muted)]">
+            Award modifier. Recent form captures how the race feels right now, but it stays capped so a short hot streak cannot overpower the full-season case.
+          </p>
           <div className="mt-3 grid gap-3 sm:grid-cols-2">
             <MetricBlock label="PTS Trend" value={fmtSigned(candidate.pts_delta)} sub={`Last ${candidate.last_games} games`} />
             <MetricBlock label="REB Trend" value={fmtSigned(candidate.reb_delta)} />
@@ -574,6 +687,9 @@ function CandidateCase({ candidate, asOfDate }: { candidate: MvpCandidate; asOfD
       {warnings.length > 0 && (
         <div className="mt-6 rounded-lg border border-[var(--border)] bg-[var(--surface-alt)] p-3">
           <p className="text-xs font-semibold uppercase tracking-[0.08em] text-[var(--muted)]">Coverage Notes</p>
+          <p className="mt-1 text-xs leading-5 text-[var(--muted)]">
+            These notes are part of the confidence system. They flag missing or low-stability evidence so the viewer can judge how much trust to place in the comparison.
+          </p>
           <ul className="mt-2 space-y-1 text-xs leading-5 text-[var(--muted)]">
             {warnings.map((warning) => (
               <li key={warning}>{warning}</li>

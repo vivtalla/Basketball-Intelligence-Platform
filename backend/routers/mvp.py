@@ -13,6 +13,7 @@ from models.mvp import (
     MvpGravityLeaderboardResponse,
     MvpRaceResponse,
     MvpSensitivityResponse,
+    MvpTimelineResponse,
 )
 from services.mvp_service import (
     AVAILABLE_PROFILES,
@@ -22,6 +23,7 @@ from services.mvp_service import (
     build_mvp_race,
     build_mvp_sensitivity,
 )
+from services.mvp_timeline_service import build_mvp_timeline
 
 router = APIRouter()
 
@@ -108,6 +110,27 @@ def get_mvp_sensitivity(
     resolved_season = season or _active_nba_season()
     return build_mvp_sensitivity(
         db, season=resolved_season, top=top, min_gp=min_gp, position=position
+    )
+
+
+@router.get("/timeline", response_model=MvpTimelineResponse)
+def get_mvp_timeline(
+    season: str = Query(default=None, description="Season string, e.g. 2024-25"),
+    profile: Optional[str] = Query(default=None, description=_PROFILE_DESCRIPTION),
+    days: int = Query(default=210, ge=2, le=240, description="Number of recent timeline days to include"),
+    top: int = Query(default=8, ge=1, le=15, description="Number of latest candidates to include"),
+    min_gp: int = Query(default=20, ge=1, le=82, description="Minimum games played"),
+    db: Session = Depends(get_db),
+) -> MvpTimelineResponse:
+    """Return persisted MVP race movement across daily snapshots."""
+    resolved_season = season or _active_nba_season()
+    return build_mvp_timeline(
+        db,
+        season=resolved_season,
+        profile=profile or "balanced",
+        days=days,
+        top=top,
+        min_gp=min_gp,
     )
 
 

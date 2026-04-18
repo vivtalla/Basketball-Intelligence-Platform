@@ -1200,6 +1200,20 @@ export async function getMvpSensitivity(
   );
 }
 
+export async function getMvpTimeline(
+  season: string,
+  options?: Pick<import("./types").MvpRaceOptions, "top" | "minGp"> & { profile?: string; days?: number }
+): Promise<import("./types").MvpTimelineResponse> {
+  const params = new URLSearchParams({ season });
+  if (options?.profile) params.set("profile", options.profile);
+  if (options?.days != null) params.set("days", String(options.days));
+  if (options?.top != null) params.set("top", String(options.top));
+  if (options?.minGp != null) params.set("min_gp", String(options.minGp));
+  return fetchApi<import("./types").MvpTimelineResponse>(
+    `/api/mvp/timeline?${params.toString()}`
+  );
+}
+
 export async function getMvpGravity(
   season: string,
   options?: import("./types").MvpRaceOptions

@@ -638,6 +638,70 @@ class TeamStanding(Base):
     team = relationship("Team")
 
 
+class MvpRaceSnapshot(Base):
+    """Persisted daily MVP race output for timeline/movement reads."""
+    __tablename__ = "mvp_race_snapshots"
+    __table_args__ = (
+        UniqueConstraint(
+            "season",
+            "snapshot_date",
+            "profile",
+            "min_gp",
+            name="uq_mvp_race_snapshot_run",
+        ),
+        Index("ix_mvp_race_snapshots_season_profile_date", "season", "profile", "snapshot_date"),
+    )
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    season = Column(String(10), nullable=False)
+    snapshot_date = Column(Date, nullable=False)
+    as_of_date = Column(Date)
+    profile = Column(String(40), nullable=False)
+    min_gp = Column(Integer, nullable=False, default=20)
+    top = Column(Integer, nullable=False, default=15)
+    scoring_profile = Column(String(80), nullable=False, default="")
+    payload_summary = Column(JSON)
+    created_at = Column(DateTime, server_default=func.now())
+    updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
+
+    candidates = relationship(
+        "MvpRaceSnapshotCandidate",
+        back_populates="snapshot",
+        cascade="all, delete-orphan",
+    )
+
+
+class MvpRaceSnapshotCandidate(Base):
+    __tablename__ = "mvp_race_snapshot_candidates"
+    __table_args__ = (
+        UniqueConstraint("snapshot_id", "player_id", name="uq_mvp_race_snapshot_candidate"),
+        Index("ix_mvp_snapshot_candidates_snapshot_rank", "snapshot_id", "rank"),
+        Index("ix_mvp_snapshot_candidates_player", "player_id"),
+    )
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    snapshot_id = Column(Integer, ForeignKey("mvp_race_snapshots.id"), nullable=False)
+    player_id = Column(Integer, ForeignKey("players.id"), nullable=False)
+    player_name = Column(String(100), nullable=False, default="")
+    team_abbreviation = Column(String(10), nullable=False, default="")
+    rank = Column(Integer, nullable=False)
+    composite_score = Column(Float, nullable=False, default=0.0)
+    context_adjusted_score = Column(Float)
+    momentum = Column(String(20), nullable=False, default="steady")
+    eligibility_status = Column(String(20), nullable=False, default="unknown")
+    impact_consensus_score = Column(Float)
+    clutch_confidence = Column(String(20))
+    gravity_score = Column(Float)
+    coverage_warning_count = Column(Integer, nullable=False, default=0)
+    pillar_scores = Column(JSON)
+    case_summary = Column(JSON)
+    created_at = Column(DateTime, server_default=func.now())
+    updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
+
+    snapshot = relationship("MvpRaceSnapshot", back_populates="candidates")
+    player = relationship("Player")
+
+
 class TeamSeasonStat(Base):
     """Official persisted team season stats from the NBA team dashboard."""
     __tablename__ = "team_season_stats"
