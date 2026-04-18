@@ -1147,12 +1147,13 @@ export async function getTeamSplits(
 
 export async function getMvpRace(
   season: string,
-  options?: import("./types").MvpRaceOptions
+  options?: import("./types").MvpRaceOptions & { profile?: string }
 ): Promise<import("./types").MvpRaceResponse> {
   const params = new URLSearchParams({ season });
   if (options?.top != null) params.set("top", String(options.top));
   if (options?.minGp != null) params.set("min_gp", String(options.minGp));
   if (options?.position) params.set("position", options.position);
+  if (options?.profile) params.set("profile", options.profile);
   return fetchApi<import("./types").MvpRaceResponse>(
     `/api/mvp/race?${params.toString()}`
   );
@@ -1161,11 +1162,12 @@ export async function getMvpRace(
 export async function getMvpCandidateCase(
   playerId: number,
   season: string,
-  options?: Pick<import("./types").MvpRaceOptions, "minGp" | "position">
+  options?: Pick<import("./types").MvpRaceOptions, "minGp" | "position"> & { profile?: string }
 ): Promise<import("./types").MvpCandidateCaseResponse> {
   const params = new URLSearchParams({ season });
   if (options?.minGp != null) params.set("min_gp", String(options.minGp));
   if (options?.position) params.set("position", options.position);
+  if (options?.profile) params.set("profile", options.profile);
   return fetchApi<import("./types").MvpCandidateCaseResponse>(
     `/api/mvp/candidates/${encodeURIComponent(playerId)}/case?${params.toString()}`
   );
@@ -1173,14 +1175,28 @@ export async function getMvpCandidateCase(
 
 export async function getMvpContextMap(
   season: string,
-  options?: import("./types").MvpRaceOptions
+  options?: import("./types").MvpRaceOptions & { profile?: string }
 ): Promise<import("./types").MvpContextMapResponse> {
   const params = new URLSearchParams({ season });
   if (options?.top != null) params.set("top", String(options.top));
   if (options?.minGp != null) params.set("min_gp", String(options.minGp));
   if (options?.position) params.set("position", options.position);
+  if (options?.profile) params.set("profile", options.profile);
   return fetchApi<import("./types").MvpContextMapResponse>(
     `/api/mvp/context-map?${params.toString()}`
+  );
+}
+
+export async function getMvpSensitivity(
+  season: string,
+  options?: import("./types").MvpRaceOptions
+): Promise<import("./types").MvpSensitivityResponse> {
+  const params = new URLSearchParams({ season });
+  if (options?.top != null) params.set("top", String(options.top));
+  if (options?.minGp != null) params.set("min_gp", String(options.minGp));
+  if (options?.position) params.set("position", options.position);
+  return fetchApi<import("./types").MvpSensitivityResponse>(
+    `/api/mvp/sensitivity?${params.toString()}`
   );
 }
 

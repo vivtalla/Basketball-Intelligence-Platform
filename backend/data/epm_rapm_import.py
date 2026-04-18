@@ -17,15 +17,23 @@ Public data sources:
 import csv
 import os
 import sys
+from typing import Optional
 from sqlalchemy.orm import Session
 from db.database import SessionLocal
 from db.models import SeasonStat
 
 # All metric columns supported for import
-SUPPORTED_METRICS = {"epm", "rapm", "lebron", "raptor", "pipm"}
+SUPPORTED_METRICS = {"epm", "rapm", "lebron", "raptor", "pipm", "darko"}
 
 
-def import_metrics(csv_path: str, metrics: list[str], batch_size: int = 100) -> dict:
+def import_metrics(
+    csv_path: str,
+    metrics: list,
+    batch_size: int = 100,
+    source: Optional[str] = None,
+    as_of: Optional[str] = None,
+    note: Optional[str] = None,
+) -> dict:
     """Import one or more metric columns from a CSV file.
 
     Args:
@@ -81,6 +89,19 @@ def import_metrics(csv_path: str, metrics: list[str], batch_size: int = 100) -> 
                 value = float(raw) if raw not in (None, "", "NA", "N/A", "null") else None
                 setattr(stat, metric, value)
 
+            if source or as_of or note:
+                meta = dict(stat.external_metrics_meta or {})
+                attribution = {}
+                if source:
+                    attribution["source"] = source
+                if as_of:
+                    attribution["as_of"] = as_of
+                if note:
+                    attribution["note"] = note
+                for metric in metrics:
+                    meta[metric] = attribution
+                stat.external_metrics_meta = meta
+
             counts["updated"] += 1
             if counts["updated"] % batch_size == 0:
                 session.commit()
@@ -104,6 +125,9 @@ if __name__ == "__main__":
         default="epm,rapm",
         help=f"Comma-separated metric columns to import. Supported: {sorted(SUPPORTED_METRICS)} (default: epm,rapm)",
     )
+    parser.add_argument("--source", default=None, help="Attribution source label (e.g. 'Dunks & Threes')")
+    parser.add_argument("--as-of", dest="as_of", default=None, help="Attribution date YYYY-MM-DD")
+    parser.add_argument("--note", default=None, help="Optional attribution note")
     args = parser.parse_args()
 
     metric_list = [m.strip().lower() for m in args.metrics.split(",") if m.strip()]
@@ -112,7 +136,13 @@ if __name__ == "__main__":
         sys.exit(1)
 
     try:
-        result = import_metrics(args.csv_path, metric_list)
+        result = import_metrics(
+            args.csv_path,
+            metric_list,
+            source=args.source,
+            as_of=args.as_of,
+            note=args.note,
+        )
     except (FileNotFoundError, ValueError) as e:
         print(f"Error: {e}", file=sys.stderr)
         sys.exit(1)

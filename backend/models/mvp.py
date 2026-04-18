@@ -156,6 +156,85 @@ class MvpVisualCoordinates(BaseModel):
     explanation: str
 
 
+class MvpImpactConsensusMetric(BaseModel):
+    name: str
+    value: Optional[float] = None
+    percentile: Optional[float] = None  # 0-100 percentile inside the candidate pool
+    source: Optional[str] = None
+    as_of: Optional[str] = None
+    note: Optional[str] = None
+
+
+class MvpImpactConsensusProfile(BaseModel):
+    """Percentile-averaged consensus across loaded impact metrics. Sprint 52."""
+    metrics: List[MvpImpactConsensusMetric] = Field(default_factory=list)
+    consensus_score: Optional[float] = None          # 0-100 avg percentile across available metrics
+    coverage_ratio: str = "0/0"                       # e.g. "3/6"
+    disagreement: Optional[float] = None              # std dev of percentiles; higher = metrics disagree
+    note: str = (
+        "Impact Consensus averages percentile ranks across the impact metrics we "
+        "currently have loaded for this season. Missing metrics are shown so coverage is transparent."
+    )
+
+
+class MvpClutchProfile(BaseModel):
+    """Dashboard clutch signals (NBA definition: last 5 min, margin ≤ 5). Sprint 52."""
+    clutch_games: Optional[int] = None
+    clutch_minutes: Optional[float] = None
+    clutch_possessions: Optional[float] = None
+    clutch_pts: Optional[float] = None
+    clutch_fg_pct: Optional[float] = None
+    clutch_fg3_pct: Optional[float] = None
+    clutch_ts_pct: Optional[float] = None
+    clutch_efg_pct: Optional[float] = None
+    clutch_ast_to: Optional[float] = None
+    clutch_usg_pct: Optional[float] = None
+    clutch_plus_minus: Optional[float] = None
+    clutch_net_rating: Optional[float] = None
+    clutch_on_off: Optional[float] = None
+    close_game_wins: Optional[int] = None
+    close_game_losses: Optional[int] = None
+    confidence: Confidence = "low"
+    source: Optional[str] = None
+    note: Optional[str] = None
+
+
+class MvpOpponentAdjustedBucket(BaseModel):
+    bucket: str                      # "top10_def" | "mid_def" | "bottom_def"
+    label: str
+    games: Optional[int] = None
+    pts_per_game: Optional[float] = None
+    ts_pct: Optional[float] = None
+    plus_minus: Optional[float] = None
+    confidence: Confidence = "low"
+
+
+class MvpOpponentAdjustedProfile(BaseModel):
+    buckets: List[MvpOpponentAdjustedBucket] = Field(default_factory=list)
+    ts_gap_top_vs_bottom: Optional[float] = None     # delta TS% against top-10 D vs bottom-10 D
+    pts_gap_top_vs_bottom: Optional[float] = None
+    confidence: Confidence = "low"
+    note: str = (
+        "Buckets group opponents by season defensive rating tier. "
+        "Gaps quantify how a candidate's production holds up against stronger defenses."
+    )
+
+
+class MvpSignatureGame(BaseModel):
+    game_id: Optional[str] = None
+    date: Optional[str] = None
+    opponent: Optional[str] = None
+    opponent_drtg_rank: Optional[int] = None
+    opponent_tier: Optional[str] = None       # "top10_def" | "mid_def" | "bottom_def"
+    result: Optional[str] = None              # "W" | "L"
+    pts: Optional[int] = None
+    reb: Optional[int] = None
+    ast: Optional[int] = None
+    ts_pct: Optional[float] = None
+    plus_minus: Optional[int] = None
+    leverage_score: Optional[float] = None    # higher = bigger stage (opp quality × closeness × volume)
+
+
 class MvpGravityProfile(BaseModel):
     player_id: int
     source: str = "courtvue_proxy"
@@ -208,6 +287,12 @@ class MvpCandidate(BaseModel):
     impact_metric_coverage: Optional[MvpImpactMetricCoverage] = None
     visual_coordinates: Optional[MvpVisualCoordinates] = None
     gravity_profile: Optional[MvpGravityProfile] = None
+    # Sprint 52 additions — holistic context blocks
+    impact_consensus: Optional[MvpImpactConsensusProfile] = None
+    clutch_profile: Optional[MvpClutchProfile] = None
+    opponent_adjusted: Optional[MvpOpponentAdjustedProfile] = None
+    signature_games: List[MvpSignatureGame] = Field(default_factory=list)
+    rank_by_profile: Dict[str, int] = Field(default_factory=dict)
 
 
 class MvpRaceResponse(BaseModel):
@@ -216,6 +301,9 @@ class MvpRaceResponse(BaseModel):
     candidates: List[MvpCandidate]
     weights: Dict[str, float]           # weights used for this response
     scoring_profile: str = "mvp_case_v2_gravity"
+    available_profiles: List[str] = Field(
+        default_factory=lambda: ["box_first", "balanced", "impact_consensus"]
+    )
 
 
 class MvpNearbyCandidate(BaseModel):
@@ -233,6 +321,33 @@ class MvpCandidateCaseResponse(BaseModel):
     nearby: List[MvpNearbyCandidate] = Field(default_factory=list)
     weights: Dict[str, float]
     scoring_profile: str = "mvp_case_v2_gravity"
+    available_profiles: List[str] = Field(
+        default_factory=lambda: ["box_first", "balanced", "impact_consensus"]
+    )
+
+
+class MvpSensitivityPlayer(BaseModel):
+    player_id: int
+    player_name: str
+    team_abbreviation: str
+    headshot_url: str = ""
+    rank_by_profile: Dict[str, int]
+    composite_score_default: Optional[float] = None
+
+
+class MvpSensitivityResponse(BaseModel):
+    season: str
+    as_of_date: str
+    default_profile: str = "balanced"
+    profiles: List[str]
+    profile_labels: Dict[str, str] = Field(
+        default_factory=lambda: {
+            "box_first": "Box-First",
+            "balanced": "Balanced",
+            "impact_consensus": "Impact-Consensus",
+        }
+    )
+    players: List[MvpSensitivityPlayer]
 
 
 class MvpContextMapPoint(BaseModel):

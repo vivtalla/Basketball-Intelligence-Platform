@@ -4,6 +4,9 @@ import { useMemo, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import type { MvpCandidate, MvpRaceResponse, MvpScorePillar } from "@/lib/types";
+import MvpImpactRadar from "./MvpImpactRadar";
+import MvpClutchCard from "./MvpClutchCard";
+import MvpSignatureGames from "./MvpSignatureGames";
 
 interface MvpRacePanelProps {
   data: MvpRaceResponse;
@@ -477,6 +480,17 @@ function CandidateCase({ candidate, asOfDate }: { candidate: MvpCandidate; asOfD
           </div>
         </section>
       </div>
+
+      <div className="mt-6 grid gap-5 lg:grid-cols-[minmax(0,1.1fr)_minmax(0,0.9fr)]">
+        <MvpImpactRadar profile={candidate.impact_consensus} playerName={candidate.player_name} />
+        <MvpClutchCard clutch={candidate.clutch_profile} />
+      </div>
+
+      {candidate.signature_games && candidate.signature_games.length > 0 ? (
+        <div className="mt-6">
+          <MvpSignatureGames games={candidate.signature_games} />
+        </div>
+      ) : null}
 
       <div className="mt-6 grid gap-5 lg:grid-cols-[minmax(0,1.05fr)_minmax(0,0.95fr)]">
         <section>

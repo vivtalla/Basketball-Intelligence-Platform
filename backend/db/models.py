@@ -134,6 +134,10 @@ class SeasonStat(Base):
     second_chance_pts = Column(Float)
     fast_break_pts = Column(Float)
 
+    # Sprint 52 — per-metric attribution for external impact metrics.
+    # Keys: epm, lebron, raptor, pipm, darko, rapm. Values: {"source": str, "as_of": "YYYY-MM-DD", "note": str}.
+    external_metrics_meta = Column(JSON)
+
 
 class GameLog(Base):
     __tablename__ = "game_logs"
@@ -893,6 +897,88 @@ class PlayerGravityStat(Base):
     gravity_confidence = Column(String(20), nullable=False, default="low")
     source_note = Column(String(500))
     warnings = Column(JSON)
+    raw_payload = Column(JSON)
+    updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
+
+    player = relationship("Player")
+
+
+class PlayerClutchStat(Base):
+    """League-dashboard clutch signals (last 5 min, margin ≤ 5). Sprint 52."""
+    __tablename__ = "player_clutch_stats"
+    __table_args__ = (
+        UniqueConstraint(
+            "player_id", "season", "season_type", "source",
+            name="uq_player_clutch_stat",
+        ),
+        Index("ix_player_clutch_stats_season", "season"),
+        Index("ix_player_clutch_stats_player_season", "player_id", "season"),
+    )
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    player_id = Column(Integer, ForeignKey("players.id"), nullable=False)
+    season = Column(String(10), nullable=False)
+    season_type = Column(String(30), nullable=False, default="Regular Season")
+    source = Column(String(80), nullable=False, default="stats.nba.com/leaguedashplayerclutch")
+    team_id = Column(Integer, ForeignKey("teams.id"), nullable=True)
+    team_abbreviation = Column(String(10))
+    clutch_games = Column(Integer)
+    clutch_minutes = Column(Float)
+    clutch_possessions = Column(Float)
+    clutch_pts = Column(Float)
+    clutch_fgm = Column(Float)
+    clutch_fga = Column(Float)
+    clutch_fg_pct = Column(Float)
+    clutch_fg3m = Column(Float)
+    clutch_fg3a = Column(Float)
+    clutch_ts_pct = Column(Float)
+    clutch_efg_pct = Column(Float)
+    clutch_ast = Column(Float)
+    clutch_tov = Column(Float)
+    clutch_ast_to = Column(Float)
+    clutch_usg_pct = Column(Float)
+    clutch_plus_minus = Column(Float)
+    clutch_net_rating = Column(Float)
+    clutch_on_off = Column(Float)
+    close_game_wins = Column(Integer)
+    close_game_losses = Column(Integer)
+    confidence = Column(String(20), nullable=False, default="low")
+    raw_payload = Column(JSON)
+    updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
+
+    player = relationship("Player")
+
+
+class PlayerOpponentSplit(Base):
+    """Opponent-bucketed production for opponent-adjusted scoring. Sprint 52.
+
+    `opponent_bucket` is one of: top10_def, mid_def, bottom_def (by opponent DRtg tier).
+    """
+    __tablename__ = "player_opponent_splits"
+    __table_args__ = (
+        UniqueConstraint(
+            "player_id", "season", "season_type", "opponent_bucket",
+            name="uq_player_opponent_split",
+        ),
+        Index("ix_player_opponent_splits_season", "season"),
+        Index("ix_player_opponent_splits_player_season", "player_id", "season"),
+    )
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    player_id = Column(Integer, ForeignKey("players.id"), nullable=False)
+    season = Column(String(10), nullable=False)
+    season_type = Column(String(30), nullable=False, default="Regular Season")
+    opponent_bucket = Column(String(30), nullable=False)
+    bucket_label = Column(String(80))
+    games = Column(Integer)
+    minutes = Column(Float)
+    pts_per_game = Column(Float)
+    reb_per_game = Column(Float)
+    ast_per_game = Column(Float)
+    ts_pct = Column(Float)
+    efg_pct = Column(Float)
+    plus_minus = Column(Float)
+    confidence = Column(String(20), nullable=False, default="low")
     raw_payload = Column(JSON)
     updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
 

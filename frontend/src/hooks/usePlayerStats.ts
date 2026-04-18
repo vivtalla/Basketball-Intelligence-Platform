@@ -69,6 +69,7 @@ import type {
   MvpGravityLeaderboardResponse,
   MvpRaceResponse,
   MvpRaceOptions,
+  MvpSensitivityResponse,
 } from "@/lib/types";
 import {
   getPlayerProfile,
@@ -134,6 +135,7 @@ import {
   getMvpContextMap,
   getMvpGravity,
   getMvpRace,
+  getMvpSensitivity,
 } from "@/lib/api";
 
 const DEFAULT_SHOT_LAB_FILTERS: ShotLabFilters = {
@@ -933,9 +935,19 @@ export function useTeamDefenseShotChartRefresh(
   return { refresh, isRefreshing };
 }
 
-export function useMvpRace(season: string | null, options?: MvpRaceOptions) {
+export function useMvpRace(
+  season: string | null,
+  options?: MvpRaceOptions & { profile?: string }
+) {
   const key = season
-    ? ["mvp-race", season, options?.top ?? 10, options?.minGp ?? 20, options?.position ?? "all"]
+    ? [
+        "mvp-race",
+        season,
+        options?.top ?? 10,
+        options?.minGp ?? 20,
+        options?.position ?? "all",
+        options?.profile ?? "balanced",
+      ]
     : null;
   return useSWR<MvpRaceResponse>(
     key,
@@ -946,14 +958,31 @@ export function useMvpRace(season: string | null, options?: MvpRaceOptions) {
 export function useMvpCandidateCase(
   playerId: number | null,
   season: string | null,
-  options?: Pick<MvpRaceOptions, "minGp" | "position">
+  options?: Pick<MvpRaceOptions, "minGp" | "position"> & { profile?: string }
 ) {
   const key = playerId && season
-    ? ["mvp-candidate-case", playerId, season, options?.minGp ?? 20, options?.position ?? "all"]
+    ? [
+        "mvp-candidate-case",
+        playerId,
+        season,
+        options?.minGp ?? 20,
+        options?.position ?? "all",
+        options?.profile ?? "balanced",
+      ]
     : null;
   return useSWR<MvpCandidateCaseResponse>(
     key,
     () => getMvpCandidateCase(playerId!, season!, options)
+  );
+}
+
+export function useMvpSensitivity(season: string | null, options?: MvpRaceOptions) {
+  const key = season
+    ? ["mvp-sensitivity", season, options?.top ?? 15, options?.minGp ?? 20, options?.position ?? "all"]
+    : null;
+  return useSWR<MvpSensitivityResponse>(
+    key,
+    () => getMvpSensitivity(season!, options)
   );
 }
 

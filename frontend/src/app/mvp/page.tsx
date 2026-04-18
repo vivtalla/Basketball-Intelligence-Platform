@@ -2,8 +2,9 @@
 
 import { Suspense, useEffect, useState } from "react";
 import { getAvailableSeasons } from "@/lib/api";
-import { useMvpRace } from "@/hooks/usePlayerStats";
+import { useMvpRace, useMvpSensitivity } from "@/hooks/usePlayerStats";
 import MvpRacePanel, { MvpRacePanelSkeleton } from "@/components/MvpRacePanel";
+import MvpSensitivitySlope from "@/components/MvpSensitivitySlope";
 
 const POSITION_OPTIONS = [
   { label: "All positions", value: "" },
@@ -12,49 +13,44 @@ const POSITION_OPTIONS = [
   { label: "Centers", value: "C" },
 ];
 
-const PILLAR_METHODS = [
+const PROFILES = [
   {
-    label: "Production",
-    weight: "25%",
-    formula: "z(PTS/G), z(REB/G), z(AST/G)",
+    key: "box_first",
+    label: "Box-First",
+    blurb: "Classic MVP index — production, efficiency, BPM/VORP/WS, team context.",
+    weights: "Production 25% · Efficiency 20% · Impact 25% · Team 15% · Momentum 10% · Style 5%",
   },
   {
-    label: "Efficiency",
-    weight: "20%",
-    formula: "z(TS%), z(eFG%), z(usage-adjusted TS)",
+    key: "balanced",
+    label: "Balanced",
+    blurb: "Default. Blends box totals with multi-metric impact consensus and clutch signal.",
+    weights: "Prod 18 · Eff 15 · Box-Impact 15 · Impact Consensus 20 · Clutch 10 · Team 12 · Momentum 7 · Style 3",
   },
   {
-    label: "Impact",
-    weight: "25%",
-    formula: "z(BPM), z(VORP), z(WS), z(on/off net)",
+    key: "impact_consensus",
+    label: "Impact-Consensus",
+    blurb: "Leans on EPM/LEBRON/RAPTOR/PIPM/DARKO consensus + clutch; tempers box-total reliance.",
+    weights: "Impact Consensus 35 · Clutch 15 · Eff 15 · Team 15 · Prod 10 · Style 5 · Momentum 5",
   },
-  {
-    label: "Team Context",
-    weight: "15%",
-    formula: "z(team win%), z(team net rating)",
-  },
-  {
-    label: "Momentum",
-    weight: "10%",
-    formula: "last-10 PTS/REB/AST and TS trend vs season baseline",
-  },
-  {
-    label: "Play Style",
-    weight: "5%",
-    formula: "capped PBP-derived style EV proxy",
-  },
-];
+] as const;
 
 function MvpContent({
   season,
   top,
   position,
+  profile,
 }: {
   season: string;
   top: number;
   position: string | null;
+  profile: string;
 }) {
-  const { data, isLoading, error } = useMvpRace(season, { top, minGp: 20, position });
+  const { data, isLoading, error } = useMvpRace(season, {
+    top,
+    minGp: 20,
+    position,
+    profile,
+  });
 
   if (isLoading) return <MvpRacePanelSkeleton />;
 
@@ -72,11 +68,17 @@ function MvpContent({
   return <MvpRacePanel data={data} />;
 }
 
+function SensitivitySection({ season }: { season: string }) {
+  const { data, isLoading } = useMvpSensitivity(season, { top: 10 });
+  return <MvpSensitivitySlope data={data} isLoading={isLoading} />;
+}
+
 export default function MvpPage() {
   const [seasons, setSeasons] = useState<string[]>([]);
   const [season, setSeason] = useState<string | null>(null);
   const [top, setTop] = useState(10);
   const [position, setPosition] = useState<string>("");
+  const [profile, setProfile] = useState<string>("balanced");
 
   useEffect(() => {
     getAvailableSeasons()
@@ -95,7 +97,8 @@ export default function MvpPage() {
             <p className="bip-kicker">Award case lab</p>
             <h1 className="bip-display mt-2 text-3xl font-bold tracking-tight text-[var(--foreground)]">MVP Race</h1>
             <p className="mt-2 max-w-3xl text-sm leading-6 text-[var(--muted)]">
-              Production, efficiency, team context, on/off lift, eligibility, opponent context, support burden, recent form, transparent play-style proxies, and Gravity context in one case workspace.
+              Multiple transparent scoring profiles, a multi-metric impact consensus, clutch/leverage context,
+              opponent-adjusted splits, eligibility, support burden, and signature-game evidence in one case workspace.
             </p>
           </div>
 
@@ -146,75 +149,93 @@ export default function MvpPage() {
             </label>
           </div>
         </div>
+
+        <div className="mt-5 rounded-lg border border-[var(--border)] bg-[var(--surface-alt)] p-4">
+          <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-wide text-[var(--accent)]">Scoring Profile</p>
+              <p className="mt-1 text-xs text-[var(--muted)]">
+                Each profile publishes its weights. None is tuned to favor a specific player — toggle to see how the ranking shifts.
+              </p>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              {PROFILES.map((p) => {
+                const active = p.key === profile;
+                return (
+                  <button
+                    key={p.key}
+                    type="button"
+                    onClick={() => setProfile(p.key)}
+                    title={p.weights}
+                    className={`rounded-full border px-4 py-1.5 text-xs font-semibold transition ${
+                      active
+                        ? "border-[var(--accent)] bg-[var(--accent)] text-white"
+                        : "border-[var(--border)] bg-[var(--surface)] text-[var(--foreground)] hover:border-[var(--accent)]"
+                    }`}
+                  >
+                    {p.label}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+          <p className="mt-3 text-xs text-[var(--muted)]">
+            <span className="font-semibold text-[var(--foreground)]">
+              {PROFILES.find((p) => p.key === profile)?.label}:
+            </span>{" "}
+            {PROFILES.find((p) => p.key === profile)?.blurb}
+          </p>
+          <p className="mt-1 text-[10px] text-[var(--muted)]">
+            Weights: {PROFILES.find((p) => p.key === profile)?.weights}
+          </p>
+        </div>
       </header>
+
+      {season ? <SensitivitySection season={season} /> : null}
 
       {season ? (
         <Suspense fallback={<MvpRacePanelSkeleton />}>
-          <MvpContent season={season} top={top} position={position || null} />
+          <MvpContent season={season} top={top} position={position || null} profile={profile} />
         </Suspense>
       ) : (
         <MvpRacePanelSkeleton />
       )}
 
       <section className="rounded-lg border border-[var(--border)] bg-[var(--surface)] p-5">
-        <div className="grid gap-5 lg:grid-cols-[minmax(0,0.8fr)_minmax(0,1.2fr)]">
-          <div>
-            <p className="text-xs font-semibold uppercase text-[var(--accent)]">Methodology</p>
-            <h2 className="bip-display mt-1 text-2xl font-semibold text-[var(--foreground)]">How the MVP score is built</h2>
-            <p className="mt-3 text-sm leading-6 text-[var(--muted)]">
-              This is an explainable case index, not an official prediction model. Every input is normalized against the current candidate pool with z-scores, then combined through the weighted pillars below. Missing data is treated neutrally and surfaced in coverage notes.
-            </p>
-            <p className="mt-3 rounded-lg border border-[rgba(176,70,70,0.28)] bg-[rgba(176,70,70,0.08)] p-3 text-sm leading-6 text-[var(--foreground)]">
-              Important limitation: the current methodology is still very favorable to box-score and box-score-derived stats. Production, BPM, VORP, WS, TS, and eFG explain a lot of the score, but they are incomplete measures of defense, scheme load, spacing, matchup difficulty, teammate dependence, and possession-level creation.
-            </p>
-            <p className="mt-3 text-sm leading-6 text-[var(--muted)]">
-              Sprint 51 adds a separate context-adjusted score with a capped Gravity modifier. The original composite remains visible so users can see when invisible attention helps a player without hiding the box-score bias.
-            </p>
-          </div>
-
-          <div className="grid gap-3 sm:grid-cols-2">
-            {PILLAR_METHODS.map((pillar) => (
-              <div key={pillar.label} className="rounded-lg border border-[var(--border)] bg-[var(--surface-alt)] p-3">
-                <div className="flex items-center justify-between gap-3">
-                  <p className="text-sm font-semibold text-[var(--foreground)]">{pillar.label}</p>
-                  <span className="rounded border border-[var(--border)] px-2 py-1 text-[10px] font-semibold text-[var(--muted)]">
-                    {pillar.weight}
-                  </span>
-                </div>
-                <p className="mt-2 text-xs leading-5 text-[var(--muted)]">{pillar.formula}</p>
-              </div>
-            ))}
-          </div>
+        <p className="text-xs font-semibold uppercase text-[var(--accent)]">Methodology</p>
+        <h2 className="bip-display mt-1 text-2xl font-semibold text-[var(--foreground)]">How the MVP case engine works</h2>
+        <p className="mt-3 max-w-4xl text-sm leading-6 text-[var(--muted)]">
+          We publish three transparent scoring profiles and let you compare them. The Balanced default blends traditional
+          box-score pillars with a multi-metric Impact Consensus (EPM, LEBRON, RAPTOR, PIPM, DARKO, RAPM, BPM, WS/48) and a
+          confidence-gated Clutch signal. The Impact-Consensus profile leans further on consensus impact metrics and
+          de-emphasizes raw box totals. Box-First preserves the original Sprint 48 weights for continuity. Every external
+          metric is shown with its source and as-of date; metrics that aren&apos;t loaded locally are simply labeled
+          &quot;coverage n/8&quot; instead of being silently imputed.
+        </p>
+        <div className="mt-5 grid gap-3 md:grid-cols-3">
+          {PROFILES.map((p) => (
+            <div key={p.key} className="rounded-lg border border-[var(--border)] bg-[var(--surface-alt)] p-3">
+              <p className="text-sm font-semibold text-[var(--foreground)]">{p.label}</p>
+              <p className="mt-1 text-xs leading-5 text-[var(--muted)]">{p.blurb}</p>
+              <p className="mt-2 text-[10px] leading-4 text-[var(--muted)]">{p.weights}</p>
+            </div>
+          ))}
         </div>
-
         <div className="mt-5 grid gap-3 md:grid-cols-3">
           <div className="rounded-lg border border-[var(--border)] bg-[var(--surface-alt)] p-3 text-xs leading-5 text-[var(--muted)]">
-            <span className="font-semibold text-[var(--foreground)]">Impact today:</span> BPM, VORP, WS, and on/off net. External impact metrics are shown only when imported locally.
+            <span className="font-semibold text-[var(--foreground)]">Consensus over any one metric:</span> when impact metrics
+            disagree we surface the disagreement (σ) rather than picking a winner.
           </div>
           <div className="rounded-lg border border-[var(--border)] bg-[var(--surface-alt)] p-3 text-xs leading-5 text-[var(--muted)]">
-            <span className="font-semibold text-[var(--foreground)]">Context today:</span> team success, opponent-quality splits, support burden, eligibility, and recent form are explanatory layers.
+            <span className="font-semibold text-[var(--foreground)]">Confidence gating:</span> clutch stats under ~100 possessions
+            and opponent splits with &lt; 4 games per bucket render dimmed with a warning icon, not hidden.
           </div>
           <div className="rounded-lg border border-[var(--border)] bg-[var(--surface-alt)] p-3 text-xs leading-5 text-[var(--muted)]">
-            <span className="font-semibold text-[var(--foreground)]">Gravity today:</span> official NBA Gravity is used when persisted locally; otherwise CourtVue proxy Gravity is labeled as derived from persisted tracking, play-type, hustle, shot, and on/off inputs.
+            <span className="font-semibold text-[var(--foreground)]">Attribution:</span> every external metric is labeled with
+            source and as-of date. Gravity continues to distinguish official NBA rows from CourtVue proxy values.
           </div>
         </div>
       </section>
-
-      <div className="rounded-lg border border-[var(--border)] bg-[var(--surface)] p-4 text-xs leading-6 text-[var(--muted)]">
-        <p>
-          Scoring profile `mvp_case_v2_gravity`: production 25%, efficiency 20%, impact 25%, team context 15%, momentum 10%, play style 5%.
-          Each pillar is z-score normalized across the candidate pool and shown with coverage notes when the underlying data is partial. The case map places candidates by team-context and impact scores by default, sizes bubbles by minutes and availability, and colors recent momentum.
-        </p>
-        <p className="mt-2">
-          Award eligibility is derived from regular-season game logs using the 65-game, 20-minute threshold with up to two 15-20 minute near-miss games. External metrics such as EPM, RAPTOR, LEBRON, DARKO, RAPM, and PIPM are optional imports; local BPM, VORP, WS, WS/48, and on/off remain the fallback impact layer.
-        </p>
-        <p className="mt-2">
-          Play-style and pace values are inferred from parsed play-by-play descriptions and outcomes. They are directional proxies, not official Synergy labels.
-        </p>
-        <p className="mt-2">
-          Gravity values are DB-first. Official NBA Gravity fields override proxy fields when available. CourtVue proxy Gravity is normalized 0-100, marked as derived, and used only as a capped modifier for the context-adjusted score.
-        </p>
-      </div>
     </div>
   );
 }
