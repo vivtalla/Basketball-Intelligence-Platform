@@ -91,6 +91,7 @@ class MvpDataCoverage(BaseModel):
     has_opponent_context: bool = False
     has_support_burden: bool = False
     has_external_impact: bool = False
+    has_gravity: bool = False
     warnings: List[str] = Field(default_factory=list)
 
 
@@ -155,6 +156,23 @@ class MvpVisualCoordinates(BaseModel):
     explanation: str
 
 
+class MvpGravityProfile(BaseModel):
+    player_id: int
+    source: str = "courtvue_proxy"
+    source_label: str = "CourtVue Proxy Gravity"
+    overall_gravity: Optional[float] = None
+    shooting_gravity: Optional[float] = None
+    rim_gravity: Optional[float] = None
+    creation_gravity: Optional[float] = None
+    roll_or_screen_gravity: Optional[float] = None
+    off_ball_gravity: Optional[float] = None
+    spacing_lift: Optional[float] = None
+    gravity_confidence: Confidence = "low"
+    gravity_minutes: Optional[float] = None
+    source_note: str
+    warnings: List[str] = Field(default_factory=list)
+
+
 class MvpCandidate(BaseModel):
     rank: int
     player_id: int
@@ -163,6 +181,7 @@ class MvpCandidate(BaseModel):
     headshot_url: str
     gp: int
     composite_score: float          # normalized 0–100 relative to rank-1 player
+    context_adjusted_score: Optional[float] = None
     pts_pg: float
     reb_pg: float
     ast_pg: float
@@ -188,6 +207,7 @@ class MvpCandidate(BaseModel):
     split_profile: List[MvpSplitRow] = Field(default_factory=list)
     impact_metric_coverage: Optional[MvpImpactMetricCoverage] = None
     visual_coordinates: Optional[MvpVisualCoordinates] = None
+    gravity_profile: Optional[MvpGravityProfile] = None
 
 
 class MvpRaceResponse(BaseModel):
@@ -195,7 +215,7 @@ class MvpRaceResponse(BaseModel):
     as_of_date: str                     # ISO date of most-recent game log row used
     candidates: List[MvpCandidate]
     weights: Dict[str, float]           # weights used for this response
-    scoring_profile: str = "mvp_case_v1"
+    scoring_profile: str = "mvp_case_v2_gravity"
 
 
 class MvpNearbyCandidate(BaseModel):
@@ -212,7 +232,7 @@ class MvpCandidateCaseResponse(BaseModel):
     candidate: MvpCandidate
     nearby: List[MvpNearbyCandidate] = Field(default_factory=list)
     weights: Dict[str, float]
-    scoring_profile: str = "mvp_case_v1"
+    scoring_profile: str = "mvp_case_v2_gravity"
 
 
 class MvpContextMapPoint(BaseModel):
@@ -229,6 +249,7 @@ class MvpContextMapPoint(BaseModel):
     efficiency: float
     availability: float
     momentum_score: float
+    gravity: Optional[float] = None
     bubble_size: float
     color_key: str
     quick_evidence: List[str] = Field(default_factory=list)
@@ -238,7 +259,7 @@ class MvpContextMapPoint(BaseModel):
 class MvpContextMapResponse(BaseModel):
     season: str
     as_of_date: str
-    scoring_profile: str = "mvp_case_v1"
+    scoring_profile: str = "mvp_case_v2_gravity"
     default_x: str = "team_success"
     default_y: str = "individual_impact"
     axis_options: List[str] = Field(default_factory=lambda: [
@@ -248,6 +269,14 @@ class MvpContextMapResponse(BaseModel):
         "efficiency",
         "availability",
         "momentum",
+        "gravity",
     ])
     points: List[MvpContextMapPoint]
     methodology: str
+
+
+class MvpGravityLeaderboardResponse(BaseModel):
+    season: str
+    as_of_date: str
+    source_policy: str
+    profiles: List[MvpGravityProfile]

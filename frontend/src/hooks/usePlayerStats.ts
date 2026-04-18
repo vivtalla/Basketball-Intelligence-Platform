@@ -5,6 +5,7 @@ import useSWR, { useSWRConfig } from "swr";
 import type {
   DbFirstPlayerProfile,
   DbFirstCareerStatsResponse,
+  MvpGravityProfile,
   PlayerTrendReport,
   PersistedShotChartResponse,
   LeaderboardResponse,
@@ -65,11 +66,13 @@ import type {
   TeamSplitsResponse,
   MvpCandidateCaseResponse,
   MvpContextMapResponse,
+  MvpGravityLeaderboardResponse,
   MvpRaceResponse,
   MvpRaceOptions,
 } from "@/lib/types";
 import {
   getPlayerProfile,
+  getPlayerGravity,
   getPlayerCareerStats,
   getPlayerTrendReport,
   getLeaderboard,
@@ -129,6 +132,7 @@ import {
   getTeamSplits,
   getMvpCandidateCase,
   getMvpContextMap,
+  getMvpGravity,
   getMvpRace,
 } from "@/lib/api";
 
@@ -205,6 +209,13 @@ export function usePlayerCareerStats(playerId: number | null) {
   return useSWR<DbFirstCareerStatsResponse>(
     playerId ? `player-career-${playerId}` : null,
     () => getPlayerCareerStats(playerId!)
+  );
+}
+
+export function usePlayerGravity(playerId: number | null, season: string | null, seasonType = "Regular Season") {
+  return useSWR<MvpGravityProfile>(
+    playerId && season ? `player-gravity-${playerId}-${season}-${seasonType}` : null,
+    () => getPlayerGravity(playerId!, season!, seasonType)
   );
 }
 
@@ -953,5 +964,15 @@ export function useMvpContextMap(season: string | null, options?: MvpRaceOptions
   return useSWR<MvpContextMapResponse>(
     key,
     () => getMvpContextMap(season!, options)
+  );
+}
+
+export function useMvpGravity(season: string | null, options?: MvpRaceOptions) {
+  const key = season
+    ? ["mvp-gravity", season, options?.top ?? 20, options?.minGp ?? 20, options?.position ?? "all"]
+    : null;
+  return useSWR<MvpGravityLeaderboardResponse>(
+    key,
+    () => getMvpGravity(season!, options)
   );
 }

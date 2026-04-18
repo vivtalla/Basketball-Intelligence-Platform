@@ -9,7 +9,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from sqlalchemy import text  # noqa: E402
 
 from db.database import Base  # noqa: E402
-from db.models import Player, SeasonStat, Team  # noqa: E402
+from db.models import Player, PlayerGravityStat, SeasonStat, Team  # noqa: E402
 from routers.leaderboards import leaderboard  # noqa: E402
 
 
@@ -102,5 +102,78 @@ def test_leaderboard_derives_shooting_pcts_from_raw_counts_when_stored_column_is
         assert mv.get("ft_pct") == round(150 / 200, 3)
         assert mv.get("efg_pct") == round(400 / 600, 3)   # no 3s: efg = fgm/fga
         assert mv.get("fg3_pct") == 0.0                   # stored 0 (default=0, no 3PA)
+    finally:
+        session.close()
+
+
+def test_leaderboard_supports_gravity_metrics():
+    session = make_session()
+    try:
+        team = Team(id=1610612747, abbreviation="LAL", name="Los Angeles Lakers")
+        player_a = Player(id=4, full_name="Alpha Gravity", first_name="Alpha", last_name="Gravity", team_id=team.id, is_active=True)
+        player_b = Player(id=5, full_name="Beta Gravity", first_name="Beta", last_name="Gravity", team_id=team.id, is_active=True)
+        session.add_all([team, player_a, player_b])
+        session.flush()
+
+        session.add_all(
+            [
+                SeasonStat(
+                    player_id=player_a.id,
+                    season="2025-26",
+                    team_abbreviation="LAL",
+                    is_playoff=False,
+                    gp=60,
+                    min_total=1900,
+                    pts_pg=22.0,
+                ),
+                SeasonStat(
+                    player_id=player_b.id,
+                    season="2025-26",
+                    team_abbreviation="LAL",
+                    is_playoff=False,
+                    gp=62,
+                    min_total=1850,
+                    pts_pg=24.0,
+                ),
+                PlayerGravityStat(
+                    player_id=player_a.id,
+                    season="2025-26",
+                    season_type="Regular Season",
+                    source="courtvue_proxy",
+                    overall_gravity=72.5,
+                    shooting_gravity=80.0,
+                    gravity_confidence="medium",
+                    source_note="Test proxy.",
+                    warnings=[],
+                ),
+                PlayerGravityStat(
+                    player_id=player_b.id,
+                    season="2025-26",
+                    season_type="Regular Season",
+                    source="courtvue_proxy",
+                    overall_gravity=61.0,
+                    shooting_gravity=65.0,
+                    gravity_confidence="medium",
+                    source_note="Test proxy.",
+                    warnings=[],
+                ),
+            ]
+        )
+        session.commit()
+
+        response = leaderboard(
+            season="2025-26",
+            stat="overall_gravity",
+            season_type="Regular Season",
+            limit=25,
+            min_gp=15,
+            team=None,
+            db=session,
+        )
+
+        assert response.stat == "overall_gravity"
+        assert response.entries[0].player_name == "Alpha Gravity"
+        assert response.entries[0].stat_value == 72.5
+        assert response.entries[0].metric_values["shooting_gravity"] == 80.0
     finally:
         session.close()

@@ -1,9 +1,40 @@
 # Sprint History Archive
 
-Sprints 1–48. Current sprint summaries also live in `CLAUDE.md` under "Recent Sprints".
+Sprints 1–51. Current sprint summaries also live in `CLAUDE.md` under "Recent Sprints".
 
 For detailed per-sprint records, see the individual closeout files in this directory:
-`specs/sprint-09-closeout.md` through `specs/sprint-50-closeout.md`
+`specs/sprint-09-closeout.md` through `specs/sprint-51-closeout.md`
+
+---
+
+### Sprint 51 — MVP Gravity Foundation
+**Branch:** `codex-sprint-51-mvp-gravity-foundation` — stacked on Sprint 50
+
+- Added DB-first MVP context tables for play-type, tracking, hustle, and gravity through Alembic revision `0005_player_gravity_context`.
+- Added official NBA Gravity probing plus CourtVue proxy Gravity fallback with a shared `gravity_profile` contract.
+- Extended MVP race, candidate case, context map, and new `GET /api/mvp/gravity` reads with Gravity and capped `context_adjusted_score`.
+- Updated `/mvp` with a Gravity axis, Gravity case section, Box Score vs Gravity comparison strip, and methodology copy separating official NBA Gravity from CourtVue proxy Gravity.
+- Verified with targeted MVP/gravity/schema/backend suites, official season sync/materialization/standings/shotchart tests, frontend lint/build, and `git diff --check`.
+
+---
+
+### Sprint 50 — MVP Context Map
+**Branch:** `codex-sprint-50-mvp-context-map`
+
+- Expanded MVP case payloads with award eligibility, opponent-quality splits, support-burden context, optional external impact coverage, and visual map coordinates.
+- Added `GET /api/mvp/context-map` for lightweight MVP map points and quick evidence.
+- Added the `/mvp` Case Map with axis toggles, availability/minutes bubble sizing, momentum color, selected-candidate evidence, and methodology language calling out box-score bias.
+- Verified with MVP/backend targeted tests, frontend lint/build, and local context-map smoke checks.
+
+---
+
+### Sprint 49 — MVP Case Platform
+**Branch:** `codex-sprint-49-mvp-case-platform`
+
+- Expanded the MVP tracker from a ranked list into a case-building workspace with score pillars, case summaries, team context, on/off lift, advanced profile, clutch/pace fields, and inferred play-style proxy rows.
+- Added `GET /api/mvp/candidates/{player_id}/case` for focused candidate case payloads.
+- Versioned the MVP scoring profile as `mvp_case_v1`, added WS/48, updated shared TypeScript/API/hooks, rebuilt `/mvp`, and refreshed the home MVP teaser.
+- Filled the local `2025-26` data foundation before Sprint 50 planning.
 
 ---
 

@@ -16,6 +16,7 @@ from models.leaderboard import (
     LeaderboardEntry,
     LeaderboardResponse,
 )
+from services.gravity_service import build_gravity_profile
 from services.custom_metric_service import build_custom_metric_report
 from services.sync_service import canonical_player_name
 
@@ -33,7 +34,17 @@ SORTABLE_STATS = {
     "epm", "rapm", "lebron", "raptor", "pipm",
 }
 
-LEADERBOARD_METRIC_FIELDS = tuple(sorted(SORTABLE_STATS))
+GRAVITY_SORTABLE_STATS = {
+    "overall_gravity",
+    "shooting_gravity",
+    "rim_gravity",
+    "creation_gravity",
+    "roll_or_screen_gravity",
+    "off_ball_gravity",
+    "spacing_lift",
+}
+
+LEADERBOARD_METRIC_FIELDS = tuple(sorted(SORTABLE_STATS | GRAVITY_SORTABLE_STATS))
 
 # Pct fields that can be derived from raw counts when the stored column is NULL.
 _DERIVED_PCTS = {
@@ -71,6 +82,31 @@ def _metric_value(stat_row: "SeasonStat", key: str) -> Optional[float]:  # type:
         denom = 2 * (fga + 0.44 * fta)
         return round(pts / denom, 3) if denom else None
     return None
+
+
+def _gravity_metric_values(db: Session, player_id: int, season: str, season_type: str) -> dict:
+    profile = build_gravity_profile(db, player_id=player_id, season=season, season_type=season_type)
+    return {
+        "overall_gravity": profile.overall_gravity,
+        "shooting_gravity": profile.shooting_gravity,
+        "rim_gravity": profile.rim_gravity,
+        "creation_gravity": profile.creation_gravity,
+        "roll_or_screen_gravity": profile.roll_or_screen_gravity,
+        "off_ball_gravity": profile.off_ball_gravity,
+        "spacing_lift": profile.spacing_lift,
+    }
+
+
+def _entry_metric_values(db: Session, stat_row: SeasonStat, player_id: int, season_type: str) -> dict:
+    values = {
+        key: _metric_value(stat_row, key)
+        for key in SORTABLE_STATS
+    }
+    if stat_row.season and season_type == "Regular Season":
+        values.update(_gravity_metric_values(db, player_id, stat_row.season, season_type))
+    else:
+        values.update({key: None for key in GRAVITY_SORTABLE_STATS})
+    return values
 
 
 CAREER_SORTABLE_STATS = {
@@ -129,14 +165,14 @@ def leaderboard(
     team: Optional[str] = Query(None, description="Filter by team abbreviation"),
     db: Session = Depends(get_db),
 ):
-    if stat not in SORTABLE_STATS:
+    if stat not in SORTABLE_STATS and stat not in GRAVITY_SORTABLE_STATS:
         raise HTTPException(
             status_code=422,
-            detail=f"Invalid stat '{stat}'. Must be one of: {sorted(SORTABLE_STATS)}",
+            detail=f"Invalid stat '{stat}'. Must be one of: {sorted(SORTABLE_STATS | GRAVITY_SORTABLE_STATS)}",
         )
 
     is_playoff = season_type == "Playoffs"
-    stat_col = getattr(SeasonStat, stat)
+    stat_col = getattr(SeasonStat, stat, None)
 
     q = (
         db.query(SeasonStat, Player)
@@ -145,15 +181,19 @@ def leaderboard(
             SeasonStat.season == season,
             SeasonStat.is_playoff == is_playoff,  # noqa: E712
             SeasonStat.gp >= min_gp,
-            stat_col.isnot(None),
         )
     )
+    if stat_col is not None:
+        q = q.filter(stat_col.isnot(None))
     if team:
         q = q.filter(SeasonStat.team_abbreviation == team)
 
     # Fetch extra rows to account for mid-season trades (one DB row per team).
     # Sort by stat desc then gp desc so the best/most-played row comes first per player.
-    raw = q.order_by(stat_col.desc(), SeasonStat.gp.desc()).limit(limit * 4).all()
+    if stat_col is not None:
+        raw = q.order_by(stat_col.desc(), SeasonStat.gp.desc()).limit(limit * 4).all()
+    else:
+        raw = q.order_by(SeasonStat.gp.desc(), SeasonStat.min_total.desc()).limit(max(limit * 8, 200)).all()
 
     # Deduplicate: keep the first (highest-stat) row per player_id
     seen_ids: set = set()
@@ -162,8 +202,23 @@ def leaderboard(
         if player.id not in seen_ids:
             seen_ids.add(player.id)
             rows.append((stat_row, player))
-        if len(rows) >= limit:
+        if stat not in GRAVITY_SORTABLE_STATS and len(rows) >= limit:
             break
+
+    if stat in GRAVITY_SORTABLE_STATS:
+        gravity_rows = []
+        for stat_row, player in rows:
+            metric_values = _entry_metric_values(db, stat_row, player.id, season_type)
+            value = metric_values.get(stat)
+            if value is not None:
+                gravity_rows.append((float(value), metric_values, stat_row, player))
+        gravity_rows.sort(key=lambda item: item[0], reverse=True)
+        rows_with_metrics = gravity_rows[:limit]
+    else:
+        rows_with_metrics = [
+            (float(getattr(stat_row, stat)), _entry_metric_values(db, stat_row, player.id, season_type), stat_row, player)
+            for stat_row, player in rows
+        ]
 
     entries = [
         LeaderboardEntry(
@@ -177,19 +232,16 @@ def leaderboard(
             team_abbreviation=stat_row.team_abbreviation,
             headshot_url=player.headshot_url or "",
             gp=stat_row.gp or 0,
-            stat_value=float(getattr(stat_row, stat)),
+            stat_value=stat_value,
             pts_pg=stat_row.pts_pg,
             reb_pg=stat_row.reb_pg,
             ast_pg=stat_row.ast_pg,
             ts_pct=stat_row.ts_pct,
             per=stat_row.per,
             bpm=stat_row.bpm,
-            metric_values={
-                key: _metric_value(stat_row, key)
-                for key in LEADERBOARD_METRIC_FIELDS
-            },
+            metric_values=metric_values,
         )
-        for rank, (stat_row, player) in enumerate(rows, start=1)
+        for rank, (stat_value, metric_values, stat_row, player) in enumerate(rows_with_metrics, start=1)
     ]
 
     return LeaderboardResponse(

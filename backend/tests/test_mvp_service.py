@@ -14,13 +14,19 @@ from db.models import (  # noqa: E402
     PlayByPlayEvent,
     Player,
     PlayerGameLog,
+    PlayerGravityStat,
     PlayerOnOff,
     SeasonStat,
     Team,
     TeamSeasonStat,
 )
-from routers.mvp import get_mvp_candidate_case, get_mvp_context_map, get_mvp_race  # noqa: E402
-from services.mvp_service import build_mvp_candidate_case, build_mvp_context_map, build_mvp_race  # noqa: E402
+from routers.mvp import get_mvp_candidate_case, get_mvp_context_map, get_mvp_gravity, get_mvp_race  # noqa: E402
+from services.mvp_service import (  # noqa: E402
+    build_mvp_candidate_case,
+    build_mvp_context_map,
+    build_mvp_gravity_leaderboard,
+    build_mvp_race,
+)
 
 
 def make_session():
@@ -198,6 +204,25 @@ def _seed_player_case(session):
                 off_net_rating=2.0,
                 on_off_net=6.0,
             ),
+            PlayerGravityStat(
+                player_id=alpha.id,
+                season="2025-26",
+                season_type="Regular Season",
+                source="nba_inside_the_game",
+                team_id=team_a.id,
+                team_abbreviation="BOS",
+                gravity_minutes=850,
+                overall_gravity=77.0,
+                shooting_gravity=82.0,
+                rim_gravity=70.0,
+                creation_gravity=85.0,
+                roll_or_screen_gravity=48.0,
+                off_ball_gravity=76.0,
+                spacing_lift=79.0,
+                gravity_confidence="high",
+                source_note="Official NBA Gravity test row.",
+                warnings=[],
+            ),
         ]
     )
     base_date = date(2026, 1, 1)
@@ -267,7 +292,7 @@ def test_mvp_race_builds_case_payload_and_dedupes_trade_rows():
         alpha, _, _ = _seed_player_case(session)
         response = build_mvp_race(session, season="2025-26", top=3)
 
-        assert response.scoring_profile == "mvp_case_v1"
+        assert response.scoring_profile == "mvp_case_v2_gravity"
         assert len(response.candidates) == 3
 
         alpha_case = next(row for row in response.candidates if row.player_id == alpha.id)
@@ -294,6 +319,11 @@ def test_mvp_race_builds_case_payload_and_dedupes_trade_rows():
         assert alpha_case.impact_metric_coverage is not None
         assert "EPM" in alpha_case.impact_metric_coverage.external_metrics_missing
         assert alpha_case.visual_coordinates is not None
+        assert alpha_case.gravity_profile is not None
+        assert alpha_case.gravity_profile.source_label == "Official NBA Gravity"
+        assert alpha_case.gravity_profile.overall_gravity == 77.0
+        assert alpha_case.context_adjusted_score is not None
+        assert alpha_case.context_adjusted_score >= alpha_case.composite_score
         assert alpha_case.data_coverage is not None
         assert alpha_case.data_coverage.has_play_style is True
         assert alpha_case.data_coverage.has_eligibility is True
@@ -350,6 +380,9 @@ def test_mvp_race_keeps_missing_impact_data_candidates_with_warnings():
         assert gamma_case.bpm is None
         assert gamma_case.on_off is None
         assert gamma_case.play_style == []
+        assert gamma_case.gravity_profile is not None
+        assert gamma_case.gravity_profile.source == "courtvue_proxy"
+        assert gamma_case.context_adjusted_score is not None
         assert gamma_case.data_coverage is not None
         assert "On/off impact is missing for this candidate." in gamma_case.data_coverage.warnings
     finally:
@@ -371,6 +404,8 @@ def test_mvp_routes_support_filters_and_candidate_case():
         context_map = get_mvp_context_map(season="2025-26", top=2, min_gp=20, position=None, db=session)
         assert context_map.points
         assert context_map.points[0].quick_evidence
+        gravity = get_mvp_gravity(season="2025-26", top=2, min_gp=20, position=None, db=session)
+        assert gravity.profiles
     finally:
         session.close()
 
@@ -381,11 +416,27 @@ def test_mvp_context_map_returns_lightweight_coordinates():
         _seed_player_case(session)
         response = build_mvp_context_map(session, season="2025-26", top=2)
 
-        assert response.scoring_profile == "mvp_case_v1"
+        assert response.scoring_profile == "mvp_case_v2_gravity"
         assert response.default_x == "team_success"
         assert len(response.points) == 2
         assert 0 <= response.points[0].x_team_success <= 100
         assert 0 <= response.points[0].y_individual_impact <= 100
+        assert response.points[0].gravity is not None
+    finally:
+        session.close()
+
+
+def test_mvp_gravity_leaderboard_uses_official_and_proxy_profiles():
+    session = make_session()
+    try:
+        alpha, _, _ = _seed_player_case(session)
+        response = build_mvp_gravity_leaderboard(session, season="2025-26", top=3)
+
+        assert response.source_policy
+        assert response.profiles
+        alpha_profile = next(profile for profile in response.profiles if profile.player_id == alpha.id)
+        assert alpha_profile.source == "nba_inside_the_game"
+        assert alpha_profile.overall_gravity == 77.0
     finally:
         session.close()
 

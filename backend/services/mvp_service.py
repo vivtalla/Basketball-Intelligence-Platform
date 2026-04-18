@@ -29,6 +29,7 @@ from models.mvp import (
     MvpContextMapResponse,
     MvpDataCoverage,
     MvpEligibilityProfile,
+    MvpGravityLeaderboardResponse,
     MvpImpactMetricCoverage,
     MvpNearbyCandidate,
     MvpOnOffProfile,
@@ -41,8 +42,9 @@ from models.mvp import (
     MvpTeamContext,
     MvpVisualCoordinates,
 )
+from services.gravity_service import build_gravity_profile
 
-SCORING_PROFILE = "mvp_case_v1"
+SCORING_PROFILE = "mvp_case_v2_gravity"
 MVP_WEIGHTS: Dict[str, float] = {
     "production": 0.25,
     "efficiency": 0.20,
@@ -461,6 +463,24 @@ def _visual_coordinates(candidate: MvpCandidate) -> MvpVisualCoordinates:
     )
 
 
+def _gravity_modifier(candidate: MvpCandidate) -> float:
+    profile = candidate.gravity_profile
+    if not profile or profile.overall_gravity is None:
+        return 0.0
+    confidence_scale = {
+        "high": 1.0,
+        "medium": 0.65,
+        "low": 0.35,
+    }.get(profile.gravity_confidence, 0.35)
+    raw_modifier = (float(profile.overall_gravity) - 50.0) * 0.12 * confidence_scale
+    return max(-5.0, min(5.0, raw_modifier))
+
+
+def _context_adjusted_score(candidate: MvpCandidate) -> float:
+    adjusted = candidate.composite_score + _gravity_modifier(candidate)
+    return round(max(0.0, min(100.0, adjusted)), 1)
+
+
 def _trend_data(
     db: Session,
     player_ids: List[int],
@@ -685,6 +705,8 @@ def _coverage(
     opponent_context: Optional[MvpOpponentContext] = None,
     support_burden: Optional[MvpSupportBurden] = None,
     impact_metric_coverage: Optional[MvpImpactMetricCoverage] = None,
+    has_gravity: bool = False,
+    gravity_warnings: Optional[List[str]] = None,
 ) -> MvpDataCoverage:
     has_pbp_splits = any(
         value is not None
@@ -707,6 +729,7 @@ def _coverage(
         warnings.append("Support-burden context is partial for this candidate.")
     if impact_metric_coverage and impact_metric_coverage.external_metrics_missing:
         warnings.append("Optional external impact metrics are not fully imported for this candidate.")
+    warnings.extend(gravity_warnings or [])
     return MvpDataCoverage(
         has_season_stats=True,
         has_team_context=team_context is not None and team_context.win_pct is not None,
@@ -717,6 +740,7 @@ def _coverage(
         has_opponent_context=opponent_context is not None and any(row.games for row in opponent_context.rows),
         has_support_burden=support_burden is not None and support_burden.top_teammate_name is not None,
         has_external_impact=bool(impact_metric_coverage and impact_metric_coverage.external_metrics_present),
+        has_gravity=has_gravity,
         warnings=warnings,
     )
 
@@ -746,6 +770,13 @@ def _case_summary(candidate: MvpCandidate) -> List[str]:
             ))
     if candidate.opponent_context and candidate.opponent_context.best_split:
         summary.append("Best contextual split: {0}.".format(candidate.opponent_context.best_split))
+    if candidate.gravity_profile and candidate.gravity_profile.overall_gravity is not None:
+        summary.append(
+            "Gravity context: {0:.1f} overall via {1}.".format(
+                candidate.gravity_profile.overall_gravity,
+                candidate.gravity_profile.source_label,
+            )
+        )
     if candidate.play_style:
         style = candidate.play_style[0]
         if style.ev_score is not None:
@@ -940,6 +971,7 @@ def _build_ranked_candidates(
         )
         support_burden = _support_burden(stat, player, team, stat_rows, on_off)
         impact_metric_coverage = _impact_metric_coverage(stat)
+        gravity_profile = build_gravity_profile(db, player.id, season)
         advanced = MvpAdvancedProfile(
             usg_pct=_round(stat.usg_pct, 1),
             ts_pct=_round(_derive_ts_pct(stat), 3),
@@ -1016,7 +1048,9 @@ def _build_ranked_candidates(
             support_burden=support_burden,
             split_profile=split_profile,
             impact_metric_coverage=impact_metric_coverage,
+            gravity_profile=gravity_profile,
         )
+        candidate.context_adjusted_score = _context_adjusted_score(candidate)
         candidate.visual_coordinates = _visual_coordinates(candidate)
         candidate.data_coverage = _coverage(
             stat,
@@ -1027,6 +1061,8 @@ def _build_ranked_candidates(
             opponent_context=opponent_context,
             support_burden=support_burden,
             impact_metric_coverage=impact_metric_coverage,
+            has_gravity=gravity_profile.overall_gravity is not None if gravity_profile else False,
+            gravity_warnings=gravity_profile.warnings if gravity_profile else None,
         )
         candidate.case_summary = _case_summary(candidate)
         candidates.append(candidate)
@@ -1119,6 +1155,8 @@ def build_mvp_context_map(
             )
         if candidate.opponent_context and candidate.opponent_context.best_split:
             evidence.append(f"Best split: {candidate.opponent_context.best_split}.")
+        if candidate.gravity_profile and candidate.gravity_profile.overall_gravity is not None:
+            evidence.append(f"Gravity {candidate.gravity_profile.overall_gravity:.1f}; {candidate.gravity_profile.source_label}.")
         points.append(
             MvpContextMapPoint(
                 rank=candidate.rank,
@@ -1134,6 +1172,7 @@ def build_mvp_context_map(
                 efficiency=coordinates.efficiency,
                 availability=coordinates.availability,
                 momentum_score=coordinates.momentum,
+                gravity=candidate.gravity_profile.overall_gravity if candidate.gravity_profile else None,
                 bubble_size=coordinates.bubble_size,
                 color_key=coordinates.color_key,
                 quick_evidence=evidence[:4],
@@ -1148,6 +1187,37 @@ def build_mvp_context_map(
         methodology=(
             "The map places candidates by team-context and impact pillar scores by default. "
             "Bubble size reflects availability and minutes burden; color reflects recent momentum. "
-            "Eligibility, opponent splits, support burden, and optional external impact coverage are labeled as context."
+            "Eligibility, opponent splits, support burden, optional external impact coverage, and official or proxy Gravity are labeled as context."
         ),
+    )
+
+
+def build_mvp_gravity_leaderboard(
+    db: Session,
+    season: str,
+    top: int = 20,
+    min_gp: int = MIN_GP,
+    position: Optional[str] = None,
+) -> MvpGravityLeaderboardResponse:
+    candidates, as_of = _build_ranked_candidates(
+        db=db,
+        season=season,
+        top=max(top, 25),
+        min_gp=min_gp,
+        position=position,
+    )
+    profiles = [
+        candidate.gravity_profile
+        for candidate in candidates
+        if candidate.gravity_profile is not None and candidate.gravity_profile.overall_gravity is not None
+    ]
+    profiles.sort(key=lambda profile: float(profile.overall_gravity or 0.0), reverse=True)
+    return MvpGravityLeaderboardResponse(
+        season=season,
+        as_of_date=as_of,
+        source_policy=(
+            "Official NBA Gravity rows are used when persisted locally. "
+            "Otherwise CourtVue proxy Gravity is derived from persisted shot, play-type, tracking, hustle, lineup, and on/off context."
+        ),
+        profiles=profiles[:top],
     )

@@ -95,7 +95,7 @@ export default function MvpPage() {
             <p className="bip-kicker">Award case lab</p>
             <h1 className="bip-display mt-2 text-3xl font-bold tracking-tight text-[var(--foreground)]">MVP Race</h1>
             <p className="mt-2 max-w-3xl text-sm leading-6 text-[var(--muted)]">
-              Production, efficiency, team context, on/off lift, eligibility, opponent context, support burden, recent form, and transparent play-style proxies in one case workspace.
+              Production, efficiency, team context, on/off lift, eligibility, opponent context, support burden, recent form, transparent play-style proxies, and Gravity context in one case workspace.
             </p>
           </div>
 
@@ -167,6 +167,9 @@ export default function MvpPage() {
             <p className="mt-3 rounded-lg border border-[rgba(176,70,70,0.28)] bg-[rgba(176,70,70,0.08)] p-3 text-sm leading-6 text-[var(--foreground)]">
               Important limitation: the current methodology is still very favorable to box-score and box-score-derived stats. Production, BPM, VORP, WS, TS, and eFG explain a lot of the score, but they are incomplete measures of defense, scheme load, spacing, matchup difficulty, teammate dependence, and possession-level creation.
             </p>
+            <p className="mt-3 text-sm leading-6 text-[var(--muted)]">
+              Sprint 51 adds a separate context-adjusted score with a capped Gravity modifier. The original composite remains visible so users can see when invisible attention helps a player without hiding the box-score bias.
+            </p>
           </div>
 
           <div className="grid gap-3 sm:grid-cols-2">
@@ -192,14 +195,14 @@ export default function MvpPage() {
             <span className="font-semibold text-[var(--foreground)]">Context today:</span> team success, opponent-quality splits, support burden, eligibility, and recent form are explanatory layers.
           </div>
           <div className="rounded-lg border border-[var(--border)] bg-[var(--surface-alt)] p-3 text-xs leading-5 text-[var(--muted)]">
-            <span className="font-semibold text-[var(--foreground)]">Next improvement:</span> persist official play-type, tracking, hustle, matchup, and external all-in-one metrics so box-score gravity does not dominate.
+            <span className="font-semibold text-[var(--foreground)]">Gravity today:</span> official NBA Gravity is used when persisted locally; otherwise CourtVue proxy Gravity is labeled as derived from persisted tracking, play-type, hustle, shot, and on/off inputs.
           </div>
         </div>
       </section>
 
       <div className="rounded-lg border border-[var(--border)] bg-[var(--surface)] p-4 text-xs leading-6 text-[var(--muted)]">
         <p>
-          Scoring profile `mvp_case_v1`: production 25%, efficiency 20%, impact 25%, team context 15%, momentum 10%, play style 5%.
+          Scoring profile `mvp_case_v2_gravity`: production 25%, efficiency 20%, impact 25%, team context 15%, momentum 10%, play style 5%.
           Each pillar is z-score normalized across the candidate pool and shown with coverage notes when the underlying data is partial. The case map places candidates by team-context and impact scores by default, sizes bubbles by minutes and availability, and colors recent momentum.
         </p>
         <p className="mt-2">
@@ -207,6 +210,9 @@ export default function MvpPage() {
         </p>
         <p className="mt-2">
           Play-style and pace values are inferred from parsed play-by-play descriptions and outcomes. They are directional proxies, not official Synergy labels.
+        </p>
+        <p className="mt-2">
+          Gravity values are DB-first. Official NBA Gravity fields override proxy fields when available. CourtVue proxy Gravity is normalized 0-100, marked as derived, and used only as a capped modifier for the context-adjusted score.
         </p>
       </div>
     </div>

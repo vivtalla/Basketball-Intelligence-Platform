@@ -17,6 +17,7 @@ const MAP_AXES = [
   { key: "efficiency", label: "Efficiency" },
   { key: "availability", label: "Availability" },
   { key: "momentum", label: "Momentum" },
+  { key: "gravity", label: "Gravity" },
 ] as const;
 type MapAxis = (typeof MAP_AXES)[number]["key"];
 
@@ -61,6 +62,7 @@ function coordinateFor(candidate: MvpCandidate, axis: MapAxis): number {
   if (axis === "production") return visual?.production ?? pillars.production?.display_score ?? 50;
   if (axis === "efficiency") return visual?.efficiency ?? pillars.efficiency?.display_score ?? 50;
   if (axis === "availability") return visual?.availability ?? Math.min(100, (candidate.gp / 65) * 100);
+  if (axis === "gravity") return candidate.gravity_profile?.overall_gravity ?? 50;
   return visual?.momentum ?? pillars.momentum?.display_score ?? 50;
 }
 
@@ -84,7 +86,7 @@ function MvpCaseMap({
           <p className="text-xs font-semibold uppercase text-[var(--accent)]">MVP Case Map</p>
           <h2 className="bip-display mt-1 text-2xl font-semibold text-[var(--foreground)]">Who has the clearest path?</h2>
           <p className="mt-2 max-w-3xl text-sm leading-6 text-[var(--muted)]">
-            X-axis defaults to team success, Y-axis to individual impact. Bubble size reflects minutes and availability; color follows recent form.
+            X-axis defaults to team success, Y-axis to individual impact. Bubble size reflects minutes and availability; color follows recent form. Gravity can be selected as an axis to surface off-box-score defensive attention.
           </p>
         </div>
         <div className="grid gap-2 sm:grid-cols-2">
@@ -164,6 +166,8 @@ function MvpCaseMap({
               </div>
               <div className="mt-4 grid grid-cols-2 gap-2 text-xs">
                 <StatTile label="Score" value={fmt(selected.composite_score)} />
+                <StatTile label="Gravity" value={fmt(selected.gravity_profile?.overall_gravity)} />
+                <StatTile label="Context" value={fmt(selected.context_adjusted_score)} />
                 <StatTile label="Qualified" value={`${selected.eligibility?.eligible_games ?? selected.gp}/65`} />
               </div>
               <div className="mt-4 space-y-2 text-xs leading-5 text-[var(--muted)]">
@@ -285,6 +289,7 @@ function CandidateRow({
           </div>
           <p className="mt-0.5 text-xs text-[var(--muted)]">
             {candidate.team_abbreviation} - {candidate.gp} GP - Score {fmt(candidate.composite_score, 1)}
+            {candidate.context_adjusted_score != null ? ` - Context ${fmt(candidate.context_adjusted_score, 1)}` : ""}
           </p>
         </div>
       </div>
@@ -376,6 +381,23 @@ function CandidateCase({ candidate, asOfDate }: { candidate: MvpCandidate; asOfD
         <MetricBlock label="Eligibility" value={`${eligibility?.eligible_games ?? candidate.gp}/65`} sub={eligibility?.eligibility_status ?? "unknown"} />
       </div>
 
+      <section className="mt-6 rounded-lg border border-[var(--border)] bg-[var(--surface-alt)] p-4">
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+          <div>
+            <p className="text-xs font-semibold uppercase text-[var(--accent)]">Box Score vs Gravity</p>
+            <h3 className="mt-1 text-sm font-semibold text-[var(--foreground)]">How invisible attention changes the case</h3>
+            <p className="mt-2 max-w-2xl text-xs leading-5 text-[var(--muted)]">
+              The main MVP score stays box-score visible. The context-adjusted score applies only a capped Gravity modifier so spacing, rim pressure, and off-ball attention are visible without letting a noisy proxy dominate.
+            </p>
+          </div>
+          <div className="grid min-w-[260px] grid-cols-3 gap-2 text-xs">
+            <StatTile label="Main" value={fmt(candidate.composite_score)} />
+            <StatTile label="Gravity" value={fmt(candidate.gravity_profile?.overall_gravity)} />
+            <StatTile label="Adjusted" value={fmt(candidate.context_adjusted_score)} />
+          </div>
+        </div>
+      </section>
+
       <div className="mt-6 grid gap-5 lg:grid-cols-[minmax(0,0.95fr)_minmax(0,1.05fr)]">
         <div>
           <h3 className="text-sm font-semibold text-[var(--foreground)]">Case</h3>
@@ -398,6 +420,37 @@ function CandidateCase({ candidate, asOfDate }: { candidate: MvpCandidate; asOfD
       </div>
 
       <div className="mt-6 grid gap-5 lg:grid-cols-2">
+        <section>
+          <h3 className="text-sm font-semibold text-[var(--foreground)]">Gravity</h3>
+          {candidate.gravity_profile ? (
+            <>
+              <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                <MetricBlock label="Overall" value={fmt(candidate.gravity_profile.overall_gravity)} sub={candidate.gravity_profile.source_label} />
+                <MetricBlock label="Shooting" value={fmt(candidate.gravity_profile.shooting_gravity)} sub="perimeter attention" />
+                <MetricBlock label="Rim" value={fmt(candidate.gravity_profile.rim_gravity)} sub="paint pressure" />
+                <MetricBlock label="Creation" value={fmt(candidate.gravity_profile.creation_gravity)} sub="on-ball load" />
+                <MetricBlock label="Roll/Screen" value={fmt(candidate.gravity_profile.roll_or_screen_gravity)} sub="screen and roll pressure" />
+                <MetricBlock label="Off Ball" value={fmt(candidate.gravity_profile.off_ball_gravity)} sub={`confidence ${candidate.gravity_profile.gravity_confidence}`} />
+                <MetricBlock label="Spacing Lift" value={fmt(candidate.gravity_profile.spacing_lift)} sub={`${fmt(candidate.gravity_profile.gravity_minutes, 0)} gravity minutes`} />
+              </div>
+              <p className="mt-3 text-xs leading-5 text-[var(--muted)]">
+                {candidate.gravity_profile.source_note}
+              </p>
+              {candidate.gravity_profile.warnings.length > 0 && (
+                <ul className="mt-2 space-y-1 text-xs leading-5 text-[var(--muted)]">
+                  {candidate.gravity_profile.warnings.slice(0, 3).map((warning) => (
+                    <li key={warning}>{warning}</li>
+                  ))}
+                </ul>
+              )}
+            </>
+          ) : (
+            <p className="mt-3 rounded-lg border border-[var(--border)] bg-[var(--surface-alt)] p-3 text-sm text-[var(--muted)]">
+              Gravity context is not available for this candidate yet.
+            </p>
+          )}
+        </section>
+
         <section>
           <h3 className="text-sm font-semibold text-[var(--foreground)]">Team Lift</h3>
           <div className="mt-3 grid gap-3 sm:grid-cols-2">

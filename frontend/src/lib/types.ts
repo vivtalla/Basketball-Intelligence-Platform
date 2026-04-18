@@ -2269,6 +2269,7 @@ export interface MvpCandidate {
   headshot_url: string;
   gp: number;
   composite_score: number;
+  context_adjusted_score?: number | null;
   pts_pg: number;
   reb_pg: number;
   ast_pg: number;
@@ -2294,6 +2295,7 @@ export interface MvpCandidate {
   split_profile?: MvpSplitRow[];
   impact_metric_coverage?: MvpImpactMetricCoverage | null;
   visual_coordinates?: MvpVisualCoordinates | null;
+  gravity_profile?: MvpGravityProfile | null;
 }
 
 export interface MvpRaceResponse {
@@ -2387,6 +2389,7 @@ export interface MvpDataCoverage {
   has_opponent_context?: boolean;
   has_support_burden?: boolean;
   has_external_impact?: boolean;
+  has_gravity?: boolean;
   warnings: string[];
 }
 
@@ -2451,6 +2454,23 @@ export interface MvpVisualCoordinates {
   explanation: string;
 }
 
+export interface MvpGravityProfile {
+  player_id: number;
+  source: string;
+  source_label: string;
+  overall_gravity: number | null;
+  shooting_gravity: number | null;
+  rim_gravity: number | null;
+  creation_gravity: number | null;
+  roll_or_screen_gravity: number | null;
+  off_ball_gravity: number | null;
+  spacing_lift: number | null;
+  gravity_confidence: "high" | "medium" | "low";
+  gravity_minutes: number | null;
+  source_note: string;
+  warnings: string[];
+}
+
 export interface MvpNearbyCandidate {
   rank: number;
   player_id: number;
@@ -2488,6 +2508,7 @@ export interface MvpContextMapPoint {
   efficiency: number;
   availability: number;
   momentum_score: number;
+  gravity?: number | null;
   bubble_size: number;
   color_key: string;
   quick_evidence: string[];
@@ -2503,4 +2524,11 @@ export interface MvpContextMapResponse {
   axis_options: string[];
   points: MvpContextMapPoint[];
   methodology: string;
+}
+
+export interface MvpGravityLeaderboardResponse {
+  season: string;
+  as_of_date: string;
+  source_policy: string;
+  profiles: MvpGravityProfile[];
 }

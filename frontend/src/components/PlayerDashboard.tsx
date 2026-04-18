@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { usePlayerProfile, usePlayerCareerStats, usePlayerPercentiles, usePlayerZoneProfile } from "@/hooks/usePlayerStats";
+import { usePlayerProfile, usePlayerCareerStats, usePlayerGravity, usePlayerPercentiles, usePlayerZoneProfile } from "@/hooks/usePlayerStats";
 import PlayerHeader from "./PlayerHeader";
 import StatTable from "./StatTable";
 import RadarChart from "./RadarChart";
@@ -17,6 +17,7 @@ import ExternalMetricsPanel from "./ExternalMetricsPanel";
 import ChartStatusBadge from "./ChartStatusBadge";
 import PerformanceCalendar from "./PerformanceCalendar";
 import ShotSeasonEvolution from "./ShotSeasonEvolution";
+import PlayerGravityPanel from "./PlayerGravityPanel";
 
 interface PlayerDashboardProps {
   playerId: number;
@@ -48,6 +49,20 @@ export default function PlayerDashboard({ playerId }: PlayerDashboardProps) {
   const { data: radarPercentiles, isLoading: radarPercentilesLoading } = usePlayerPercentiles(
     playerId,
     percentileSeason
+  );
+  const latestPlayoffSeason =
+    careerStats && careerStats.playoff_seasons.length > 0
+      ? careerStats.playoff_seasons[careerStats.playoff_seasons.length - 1].season
+      : null;
+  const gravitySeason =
+    mode === "regular"
+      ? selectedSeasonStr || latestRegularSeason
+      : selectedSeasonStr || latestPlayoffSeason;
+  const gravitySeasonType = mode === "playoffs" ? "Playoffs" : "Regular Season";
+  const { data: gravityProfile, isLoading: gravityLoading } = usePlayerGravity(
+    playerId,
+    gravitySeason,
+    gravitySeasonType
   );
 
   if (profileError || statsError) {
@@ -182,6 +197,14 @@ export default function PlayerDashboard({ playerId }: PlayerDashboardProps) {
           playerId={playerId}
           season={effectiveSeasonStr}
           isPlayoffs={isPlayoffs}
+        />
+      )}
+
+      {effectiveSeasonStr && (
+        <PlayerGravityPanel
+          profile={gravityProfile}
+          isLoading={gravityLoading}
+          season={effectiveSeasonStr}
         />
       )}
 

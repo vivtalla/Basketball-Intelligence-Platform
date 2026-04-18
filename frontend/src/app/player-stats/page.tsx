@@ -87,6 +87,18 @@ const STAT_GROUPS = [
     ],
   },
   {
+    label: "Gravity",
+    options: [
+      { key: "overall_gravity", label: "Overall Gravity", fmt: "1f", tooltip: "CourtVue Gravity score, using official NBA Gravity when persisted and a labeled local proxy otherwise." },
+      { key: "shooting_gravity", label: "Shooting Gravity", fmt: "1f", tooltip: "Perimeter attention drawn through volume, range, and shooting pressure." },
+      { key: "rim_gravity", label: "Rim Gravity", fmt: "1f", tooltip: "Paint pressure from rim attacks, foul pressure, and interior scoring attention." },
+      { key: "creation_gravity", label: "Creation Gravity", fmt: "1f", tooltip: "On-ball creation load from usage, playmaking, drives, and creation proxies." },
+      { key: "off_ball_gravity", label: "Off-Ball Gravity", fmt: "1f", tooltip: "Attention drawn away from the ball through shooting, movement, and spacing." },
+      { key: "roll_or_screen_gravity", label: "Roll/Screen Gravity", fmt: "1f", tooltip: "Pressure created as a roller, screener, cutter, or screen-assist hub." },
+      { key: "spacing_lift", label: "Spacing Lift", fmt: "1f", tooltip: "Lineup value signal for how strongly the player improves team spacing context." },
+    ],
+  },
+  {
     label: "External",
     options: [
       { key: "epm", label: "EPM", fmt: "2f", tooltip: "Estimated Plus/Minus (Dunks & Threes) — ridge regression impact metric." },
@@ -138,6 +150,13 @@ const GROUP_ACCENTS: Record<string, { bg: string; border: string; text: string; 
     text: "#4a3a2d",
     activeBg: "rgba(53, 41, 33, 0.13)",
     activeText: "#201a16",
+  },
+  Gravity: {
+    bg: "rgba(42, 94, 112, 0.09)",
+    border: "rgba(42, 94, 112, 0.26)",
+    text: "#2a5e70",
+    activeBg: "rgba(42, 94, 112, 0.16)",
+    activeText: "#1f4a59",
   },
   External: {
     bg: "rgba(111, 101, 90, 0.09)",
@@ -939,7 +958,7 @@ function PlayerStatsPageContent() {
 
         {/* Players mode */}
         {mode === "players" && (
-          <table className="w-full min-w-[5200px]">
+          <table className="w-full min-w-[6200px]">
             <thead>
               <tr className="border-b border-gray-200 dark:border-gray-700">
                 <th rowSpan={2} className={`${stickyRankClass} text-left text-xs font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500 px-4 py-3 w-10`}>#</th>

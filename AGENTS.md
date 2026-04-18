@@ -1,6 +1,6 @@
 # Agent Coordination
 
-Last updated: 2026-04-17 by Codex (Sprint 50 MVP Context Map implemented)
+Last updated: 2026-04-17 by Codex (Sprint 51 MVP Gravity Foundation implemented)
 
 > Both agents read this file before touching code at the start of every session.
 > The canonical source of truth is the clean `master` checkout at `/Users/viv/Documents/Basketball Intelligence Platform`.
@@ -14,12 +14,12 @@ Last updated: 2026-04-17 by Codex (Sprint 50 MVP Context Map implemented)
 
 | Field | Value |
 |-------|-------|
-| Sprint | 50 |
-| Goal | MVP Context Map — eligibility, opponent/support context, and visual MVP case map |
+| Sprint | 51 |
+| Goal | MVP Gravity Foundation — DB-first tracking/play-type/hustle context and MVP Gravity layer |
 | Started | 2026-04-17 |
 | Target merge | TBD |
-| Sprint shape | Balanced data enrichment + product visualization |
-| Branch | `codex-sprint-50-mvp-context-map` |
+| Sprint shape | Balanced data foundation + MVP product context |
+| Branch | `codex-sprint-51-mvp-gravity-foundation` |
 | Worker policy | Single-stream Codex implementation unless bounded independent subtasks emerge |
 
 ---
@@ -38,13 +38,13 @@ If repo state, sprint numbering, or shipped features appear to disagree across l
 ## Current Assignments
 
 ### Claude
-- Branch: `feature/sprint-49-[slug]`
+- Branch: TBD
 - Scope: TBD
 - Status: Not started
 
 ### Codex
-- Branch: `codex-sprint-50-mvp-context-map`
-- Scope: MVP eligibility, opponent/support context, context-map endpoint/UI, home teaser, and tests
+- Branch: `codex-sprint-51-mvp-gravity-foundation`
+- Scope: Gravity schema/sync path, CourtVue proxy Gravity, MVP Gravity API contracts, `/mvp` Gravity UI, and tests
 - Status: Implemented locally — awaiting review/merge
 
 ---
@@ -58,8 +58,8 @@ Claim a shared file here before editing. If a file is already claimed, read that
 
 | File | Claimed by | Purpose |
 |------|------------|---------|
-| `frontend/src/lib/types.ts` | Codex | Sprint 50 MVP context-map additive contracts |
-| `frontend/src/lib/api.ts` | Codex | Sprint 50 MVP context-map API helper |
+| `frontend/src/lib/types.ts` | Codex | Sprint 51 MVP Gravity additive contracts |
+| `frontend/src/lib/api.ts` | Codex | Sprint 51 MVP Gravity API helper |
 | `backend/main.py` | — |  |
 
 ---
@@ -86,11 +86,13 @@ Specs or review notes written by one stream for another. Check this before start
 
 ## Sprint Work Allocation
 
-Sprint 49 allocation — TBD at kickoff
+Sprint 51 allocation — single-stream Codex
 
 | Files / Directories | Assigned this sprint |
 |---------------------|----------------------|
 | `frontend/package.json`, `frontend/src/lib/api.ts`, `frontend/src/lib/types.ts` | Shared contract surface — edits must stay additive and centrally coordinated |
+| `backend/db/models.py`, `backend/alembic/versions/0005_player_gravity_context.py` | Codex — MVP Gravity/context schema |
+| `backend/services/gravity_service.py`, `backend/services/gravity_sync_service.py`, `backend/services/mvp_service.py` | Codex — gravity sync/profile + MVP integration |
 
 ---
 
@@ -163,6 +165,7 @@ Sprint 49 allocation — TBD at kickoff
 
 *Free-form, dated, newest first. Use this for coordination and repo-state exceptions.*
 
+2026-04-17 (Codex): Sprint 51 implemented on `codex-sprint-51-mvp-gravity-foundation`. Added DB-first MVP context tables for play-type, tracking, hustle, and gravity; official NBA Gravity source spike with CourtVue proxy fallback; MVP `gravity_profile`, `context_adjusted_score`, `/api/mvp/gravity`, Gravity map axis, Gravity case section, and methodology copy. Verification covered MVP/gravity/schema backend tests, official season sync/materialization/standings/shotchart targeted tests, frontend lint, frontend build, and `git diff --check`.
 2026-04-17 (Claude): Sprint 48 closed on `feature/sprint-48-mvp-tracker`. Shipped MVP Award Race Tracker end-to-end: composite z-score service, GET /api/mvp/race endpoint, MvpRacePanel with ranked cards and momentum signals, /mvp page with season picker, and nav link. Single-stream Claude-only sprint. MVP home widget, position filter, and team shooting splits are top follow-ons for Sprint 49. See `specs/sprint-48-closeout.md` before Sprint 49 kickoff.
 2026-04-17 (Claude): Sprint 47 closed on `feature/sprint-47-team-splits-ui`. Shipped full UI wiring of team general splits: TeamSplitsPanel, Splits tab on team page, and situational split signals on prep cards. Single-stream frontend-only sprint. Team shooting splits (DB pipeline) and ComparisonView splits wiring remain as top follow-ons.
 2026-04-17 (Codex): Sprint 46 closeout prepared on `feature/sprint-46-ask-workspace`. Shipped the CourtVue Ask workspace: `POST /api/query/ask`, examples and metric registry endpoints, deterministic player/team query interpretation, threshold filters, recent player/team form, compare deep links, `/ask` UI, sortable/explainable result tables, and nav/home entry points. Verification covered full backend `pytest`, frontend `npm run lint`, and frontend `npm run build`. See `specs/sprint-46-closeout.md` before Sprint 47 kickoff.

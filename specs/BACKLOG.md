@@ -155,23 +155,23 @@ Likely shape:
 
 ### MVP Award-Race Follow-Ons
 Why it matters:
-Sprints 48-50 turned the MVP tracker into a case platform with eligibility, opponent context, support burden, and a case map. The next gains are deeper data sources and longitudinal storytelling rather than another static leaderboard.
+Sprints 48-51 turned the MVP tracker into a case platform with eligibility, opponent context, support burden, a case map, and a Gravity context layer. The next gains are calibration, richer official-data coverage, and longitudinal storytelling rather than another static leaderboard.
 
 Likely shape:
 - persist daily MVP snapshots so rank, score, and case-strength movement can be shown over time
 - add an MVP voter-room compare mode for two or three candidates using the existing case context
-- replace inferred play-style and pace proxies with persisted official play-type/tracking domains where available
+- broaden official play-type/tracking/hustle refresh coverage and make coverage health visible per candidate
 - add player-page MVP embeds once the context-map payload is stable enough to reuse outside `/mvp`
 
-### NBA Gravity Metric Layer
+### Gravity Calibration and Official Coverage
 Why it matters:
-The MVP methodology now openly acknowledges that box-score and box-score-derived stats dominate the current case score. A gravity layer would make the platform better at valuing players who bend defenses, create space, pull rim protection, or warp help coverage even when the box score undersells the possession-level effect.
+Sprint 51 shipped DB-first Gravity contracts and CourtVue proxy Gravity, but the next step is proving the proxy against richer official tracking domains and official NBA Gravity rows when the source stabilizes.
 
 Likely shape:
-- define local gravity proxies first: shooting gravity, rim gravity, creation gravity, off-ball attention, and lineup spacing lift
-- derive transparent v1 signals from shot profile, assisted/unassisted patterns, PBP descriptions, lineup on/off, teammate efficiency shifts, and opponent context
-- persist official tracking, play-type, hustle, and matchup data behind DB-first reads when available, then calibrate or replace the proxy layer
-- expose gravity as context before letting it materially influence MVP/composite scoring
+- add scheduled/backfill jobs for the new play-type, tracking, hustle, and gravity tables
+- compare CourtVue proxy Gravity against official NBA Gravity wherever rows are available
+- improve spacing-lift and off-ball components with teammate efficiency and lineup-with/without patterns
+- keep Gravity as a capped context adjustment until validation shows it is stable enough for stronger scoring influence
 
 ---
 

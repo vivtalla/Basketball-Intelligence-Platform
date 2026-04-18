@@ -5,9 +5,12 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import or_
 from sqlalchemy.orm import Session
 
+from data.nba_client import _active_nba_season
 from db.database import get_db
 from db.models import Player
+from models.mvp import MvpGravityProfile
 from models.player import PlayerProfile, PlayerSearchResult, PlayerTrendReport
+from services.gravity_service import build_gravity_profile
 from services.player_trend_service import build_player_trend_report
 from services.sync_service import canonical_player_name
 
@@ -117,6 +120,21 @@ def get_player(player_id: int, db: Session = Depends(get_db)):
         data_status=_profile_data_status(player),
         last_synced_at=player.updated_at.isoformat() if player.updated_at else None,
     )
+
+
+@router.get("/{player_id}/gravity", response_model=MvpGravityProfile)
+def get_player_gravity(
+    player_id: int,
+    season: str = Query(default=None, description="Season string, e.g. 2025-26"),
+    season_type: str = Query(default="Regular Season"),
+    db: Session = Depends(get_db),
+) -> MvpGravityProfile:
+    """Return one player's DB-first Gravity profile for player pages and stat workspaces."""
+    player = db.query(Player).filter(Player.id == player_id).first()
+    if not player:
+        raise HTTPException(status_code=404, detail=f"Player {player_id} not found in local warehouse.")
+    resolved_season = season or _active_nba_season()
+    return build_gravity_profile(db, player_id=player_id, season=resolved_season, season_type=season_type)
 
 
 @router.post("/{player_id}/sync")

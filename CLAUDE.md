@@ -260,6 +260,14 @@ CourtVue Labs uses a hybrid sprint model: major feature sprints typically run as
 
 > Full history → `specs/sprint-history.md`
 
+### Sprint 51 — MVP Gravity Foundation
+
+- Added DB-first MVP context tables for persisted play-type, tracking, hustle, and gravity rows through Alembic revision `0005_player_gravity_context`
+- Added official NBA Gravity source probing plus CourtVue proxy Gravity fallback, exposed through a shared `gravity_profile` response shape
+- Extended MVP race, candidate case, context map, and new `GET /api/mvp/gravity` payloads with Gravity context and capped `context_adjusted_score`
+- Updated `/mvp` with a Gravity axis, Gravity case section, Box Score vs Gravity comparison strip, and methodology copy distinguishing official NBA Gravity from CourtVue proxy Gravity
+- Verified with MVP/gravity/schema/backend targeted tests, official sync/materialization/standings/shotchart targeted tests, frontend `npm run lint`, frontend `npm run build`, and `git diff --check`
+
 ### Sprint 50 — MVP Context Map
 
 - Expanded MVP case payloads with award eligibility, opponent-quality splits, support-burden context, optional external impact coverage, and visual map coordinates
@@ -269,14 +277,6 @@ CourtVue Labs uses a hybrid sprint model: major feature sprints typically run as
 - Added visible methodology/limitations language that calls out the current box-score bias and points the next sprint toward richer tracking/play-type/gravity context
 - Verified with MVP/backend targeted tests, frontend `npm run lint`, frontend `npm run build`, and a local database context-map smoke
 
-### Sprint 49 — MVP Case Platform
-
-- Expanded the MVP tracker from a ranked list into a case-building workspace with score pillars, case summaries, team context, on/off lift, advanced profile, clutch/pace fields, and inferred play-style proxy rows
-- Added `GET /api/mvp/candidates/{player_id}/case` for focused candidate case payloads
-- Versioned the MVP scoring profile as `mvp_case_v1` with production, efficiency, impact, team context, momentum, and capped play-style contributions
-- Updated shared TypeScript contracts, API helpers, hooks, `/mvp`, and the home MVP teaser
-- Added WS/48 to the advanced profile and filled the local `2025-26` data foundation before Sprint 50 planning
-
 ---
 
 ## Active Branches
@@ -284,7 +284,8 @@ CourtVue Labs uses a hybrid sprint model: major feature sprints typically run as
 | Branch | Owner | Status |
 |--------|-------|--------|
 | `master` | — | Stable |
-| `codex-sprint-50-mvp-context-map` | Codex | Implemented locally; awaiting review/merge |
+| `codex-sprint-50-mvp-context-map` | Codex | Draft PR #18; Sprint 51 is stacked on top |
+| `codex-sprint-51-mvp-gravity-foundation` | Codex | Implemented locally; awaiting review/merge |
 
 Sprint branches are created at kickoff and listed in `AGENTS.md`.
 
