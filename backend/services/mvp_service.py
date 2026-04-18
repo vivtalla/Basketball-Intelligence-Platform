@@ -14,8 +14,10 @@ from db.models import (
     PlayByPlayEvent,
     GamePlayerStat,
     Player,
+    PlayerClutchStat,
     PlayerGameLog,
     PlayerOnOff,
+    PlayerOpponentSplit,
     SeasonStat,
     Team,
     TeamSeasonStat,
@@ -25,18 +27,26 @@ from models.mvp import (
     MvpCandidate,
     MvpCandidateCaseResponse,
     MvpClutchAndPaceProfile,
+    MvpClutchProfile,
     MvpContextMapPoint,
     MvpContextMapResponse,
     MvpDataCoverage,
     MvpEligibilityProfile,
     MvpGravityLeaderboardResponse,
+    MvpImpactConsensusMetric,
+    MvpImpactConsensusProfile,
     MvpImpactMetricCoverage,
     MvpNearbyCandidate,
     MvpOnOffProfile,
+    MvpOpponentAdjustedBucket,
+    MvpOpponentAdjustedProfile,
     MvpOpponentContext,
     MvpPlayStyleRow,
     MvpRaceResponse,
     MvpScorePillar,
+    MvpSensitivityPlayer,
+    MvpSensitivityResponse,
+    MvpSignatureGame,
     MvpSplitRow,
     MvpSupportBurden,
     MvpTeamContext,
@@ -44,14 +54,54 @@ from models.mvp import (
 )
 from services.gravity_service import build_gravity_profile
 
-SCORING_PROFILE = "mvp_case_v2_gravity"
-MVP_WEIGHTS: Dict[str, float] = {
-    "production": 0.25,
-    "efficiency": 0.20,
-    "impact": 0.25,
-    "team_context": 0.15,
-    "momentum": 0.10,
-    "play_style": 0.05,
+SCORING_PROFILE = "mvp_case_v2_holistic"
+
+# Sprint 52 — multiple transparent scoring profiles. Users toggle between them;
+# no profile is tuned to favor any specific player. Balanced is the default.
+SCORING_PROFILES: Dict[str, Dict[str, float]] = {
+    "box_first": {
+        "production": 0.25,
+        "efficiency": 0.20,
+        "impact": 0.25,
+        "team_context": 0.15,
+        "momentum": 0.10,
+        "play_style": 0.05,
+    },
+    "balanced": {
+        "production": 0.18,
+        "efficiency": 0.15,
+        "impact": 0.15,
+        "impact_consensus": 0.20,
+        "clutch": 0.10,
+        "team_context": 0.12,
+        "momentum": 0.07,
+        "play_style": 0.03,
+    },
+    "impact_consensus": {
+        "impact_consensus": 0.35,
+        "clutch": 0.15,
+        "efficiency": 0.15,
+        "team_context": 0.15,
+        "production": 0.10,
+        "play_style": 0.05,
+        "momentum": 0.05,
+    },
+}
+DEFAULT_PROFILE = "balanced"
+AVAILABLE_PROFILES: List[str] = list(SCORING_PROFILES.keys())
+
+# Back-compat export: some callers / tests still read MVP_WEIGHTS.
+MVP_WEIGHTS: Dict[str, float] = SCORING_PROFILES[DEFAULT_PROFILE]
+
+IMPACT_CONSENSUS_SOURCES: Dict[str, str] = {
+    "EPM": "Dunks & Threes",
+    "LEBRON": "BBall-Index",
+    "RAPTOR": "FiveThirtyEight (archive)",
+    "PIPM": "BBall-Index",
+    "DARKO": "DARKO",
+    "RAPM": "nbarapm.com",
+    "BPM": "Basketball-Reference (local)",
+    "WS/48": "Basketball-Reference (local)",
 }
 
 MIN_GP = 20
@@ -807,13 +857,418 @@ def _candidate_rows(
     return _dedupe_player_rows(query.all())
 
 
+# ---------------------------------------------------------------------------
+# Sprint 52 — impact consensus, clutch, opponent-adjusted, signature games
+# ---------------------------------------------------------------------------
+
+
+def _percentile_rank(values: List[Optional[float]]) -> List[Optional[float]]:
+    """Return 0-100 percentile rank for each value in the pool.
+
+    Nulls stay null. Ties share the average rank (standard competition behavior
+    compressed to a percentile).
+    """
+    non_null_sorted = sorted(v for v in values if v is not None)
+    n = len(non_null_sorted)
+    if n == 0:
+        return [None] * len(values)
+    out: List[Optional[float]] = []
+    for v in values:
+        if v is None:
+            out.append(None)
+            continue
+        # fraction of pool strictly below + half of ties, standard percentile
+        below = sum(1 for x in non_null_sorted if x < v)
+        equal = sum(1 for x in non_null_sorted if x == v)
+        pct = (below + 0.5 * equal) / n * 100.0
+        out.append(round(pct, 1))
+    return out
+
+
+def _impact_consensus_inputs(stat: SeasonStat) -> Dict[str, Optional[float]]:
+    """The set of impact metrics a candidate can contribute to consensus."""
+    return {
+        "EPM": _safe_float(stat.epm),
+        "LEBRON": _safe_float(stat.lebron),
+        "RAPTOR": _safe_float(stat.raptor),
+        "PIPM": _safe_float(stat.pipm),
+        "DARKO": _safe_float(stat.darko),
+        "RAPM": _safe_float(stat.rapm),
+        "BPM": _safe_float(stat.bpm),
+        "WS/48": _win_shares_per_48(stat),
+    }
+
+
+def _build_impact_consensus(
+    stat: SeasonStat,
+    percentiles_by_metric: Dict[str, List[Optional[float]]],
+    row_index: int,
+) -> MvpImpactConsensusProfile:
+    """Build the per-candidate MvpImpactConsensusProfile.
+
+    Reads precomputed pool percentiles so the result is honest cohort-relative.
+    """
+    values = _impact_consensus_inputs(stat)
+    meta = dict(stat.external_metrics_meta or {})
+    metrics: List[MvpImpactConsensusMetric] = []
+    ordered = ["EPM", "LEBRON", "RAPTOR", "PIPM", "DARKO", "RAPM", "BPM", "WS/48"]
+    for name in ordered:
+        value = values.get(name)
+        percentile = percentiles_by_metric[name][row_index] if name in percentiles_by_metric else None
+        attribution = meta.get(name.lower().replace("/48", "")) if name.startswith("WS") else meta.get(name.lower())
+        metrics.append(
+            MvpImpactConsensusMetric(
+                name=name,
+                value=_round(value, 3),
+                percentile=percentile,
+                source=(attribution or {}).get("source") or IMPACT_CONSENSUS_SOURCES.get(name),
+                as_of=(attribution or {}).get("as_of"),
+                note=(attribution or {}).get("note"),
+            )
+        )
+    present_percentiles = [m.percentile for m in metrics if m.percentile is not None]
+    coverage_ratio = f"{len(present_percentiles)}/{len(ordered)}"
+    consensus_score = (
+        round(statistics.mean(present_percentiles), 1)
+        if present_percentiles
+        else None
+    )
+    disagreement = (
+        round(statistics.stdev(present_percentiles), 1)
+        if len(present_percentiles) >= 2
+        else None
+    )
+    return MvpImpactConsensusProfile(
+        metrics=metrics,
+        consensus_score=consensus_score,
+        coverage_ratio=coverage_ratio,
+        disagreement=disagreement,
+    )
+
+
+def _impact_consensus_percentile_pools(
+    stat_rows: Sequence[Tuple[SeasonStat, Player]],
+) -> Dict[str, List[Optional[float]]]:
+    """Compute percentile rank for each impact metric across the candidate pool."""
+    inputs_per_row = [_impact_consensus_inputs(stat) for stat, _ in stat_rows]
+    metric_names = ["EPM", "LEBRON", "RAPTOR", "PIPM", "DARKO", "RAPM", "BPM", "WS/48"]
+    pools: Dict[str, List[Optional[float]]] = {}
+    for name in metric_names:
+        raw = [row.get(name) for row in inputs_per_row]
+        pools[name] = _percentile_rank(raw)
+    return pools
+
+
+def _clutch_rows_by_player(
+    db: Session, player_ids: List[int], season: str
+) -> Dict[int, PlayerClutchStat]:
+    if not player_ids:
+        return {}
+    rows = (
+        db.query(PlayerClutchStat)
+        .filter(
+            PlayerClutchStat.player_id.in_(player_ids),
+            PlayerClutchStat.season == season,
+            PlayerClutchStat.season_type == "Regular Season",
+        )
+        .all()
+    )
+    return {row.player_id: row for row in rows}
+
+
+def _build_clutch_profile(
+    stat: SeasonStat, clutch_row: Optional[PlayerClutchStat]
+) -> Optional[MvpClutchProfile]:
+    """Prefer league-dashboard clutch table; fall back to PBP-derived season stats."""
+    if clutch_row is not None:
+        return MvpClutchProfile(
+            clutch_games=clutch_row.clutch_games,
+            clutch_minutes=_round(clutch_row.clutch_minutes, 1),
+            clutch_possessions=_round(clutch_row.clutch_possessions, 1),
+            clutch_pts=_round(clutch_row.clutch_pts, 1),
+            clutch_fg_pct=_round(clutch_row.clutch_fg_pct, 3),
+            clutch_fg3_pct=None,  # derivable from fg3m/fg3a if needed
+            clutch_ts_pct=_round(clutch_row.clutch_ts_pct, 3),
+            clutch_efg_pct=_round(clutch_row.clutch_efg_pct, 3),
+            clutch_ast_to=_round(clutch_row.clutch_ast_to, 2),
+            clutch_usg_pct=_round(clutch_row.clutch_usg_pct, 1),
+            clutch_plus_minus=_round(clutch_row.clutch_plus_minus, 1),
+            clutch_net_rating=_round(clutch_row.clutch_net_rating, 1),
+            clutch_on_off=_round(clutch_row.clutch_on_off, 1),
+            close_game_wins=clutch_row.close_game_wins,
+            close_game_losses=clutch_row.close_game_losses,
+            confidence=clutch_row.confidence or "low",  # type: ignore[arg-type]
+            source=clutch_row.source,
+            note="Official NBA league-dashboard clutch data.",
+        )
+    # Fallback: PBP-derived season-stat clutch columns.
+    clutch_pts = _safe_float(stat.clutch_pts)
+    clutch_fga = int(stat.clutch_fga or 0)
+    if clutch_pts is None and clutch_fga == 0:
+        return None
+    if clutch_fga >= 40:
+        confidence: Confidence_t = "medium"
+    elif clutch_fga >= 15:
+        confidence = "low"
+    else:
+        confidence = "low"
+    return MvpClutchProfile(
+        clutch_pts=_round(clutch_pts, 1),
+        clutch_fg_pct=_round(stat.clutch_fg_pct, 3),
+        clutch_plus_minus=_round(stat.clutch_plus_minus, 1),
+        confidence=confidence,
+        source="courtvue_pbp_derived",
+        note="Derived from play-by-play; NBA league dashboard clutch feed is not loaded for this candidate.",
+    )
+
+
+def _clutch_score_component(profile: Optional[MvpClutchProfile]) -> Optional[float]:
+    """Blend clutch net rating + TS% + plus/minus into one signal for z-scoring."""
+    if profile is None:
+        return None
+    pieces: List[float] = []
+    if profile.clutch_net_rating is not None:
+        pieces.append(profile.clutch_net_rating / 10.0)
+    if profile.clutch_ts_pct is not None:
+        pieces.append((profile.clutch_ts_pct - 0.55) * 10.0)
+    if profile.clutch_plus_minus is not None:
+        pieces.append(profile.clutch_plus_minus / 5.0)
+    if not pieces:
+        return None
+    # Confidence attenuates weak samples so low-sample clutch rows don't dominate.
+    scale = {"high": 1.0, "medium": 0.7, "low": 0.4}.get(profile.confidence, 0.4)
+    return sum(pieces) / len(pieces) * scale
+
+
+def _opponent_buckets_from_game_logs(
+    logs: List[PlayerGameLog],
+    team_abbreviation: Optional[str],
+    teams_by_abbr: Dict[str, Team],
+    team_stats_by_id: Dict[int, TeamSeasonStat],
+) -> Dict[str, List[PlayerGameLog]]:
+    drtg_ranked = sorted(team_stats_by_id.values(), key=lambda r: float(r.def_rating or 999.0))
+    top10_ids = {row.team_id for row in drtg_ranked[:10]}
+    bottom10_ids = {row.team_id for row in drtg_ranked[-10:]}
+
+    def _opp_team(row: PlayerGameLog) -> Optional[Team]:
+        abbr = _parse_opponent_abbr(row.matchup, team_abbreviation)
+        return teams_by_abbr.get(abbr or "")
+
+    buckets: Dict[str, List[PlayerGameLog]] = {"top10_def": [], "mid_def": [], "bottom_def": []}
+    for row in logs:
+        team = _opp_team(row)
+        if not team:
+            continue
+        if team.id in top10_ids:
+            buckets["top10_def"].append(row)
+        elif team.id in bottom10_ids:
+            buckets["bottom_def"].append(row)
+        else:
+            buckets["mid_def"].append(row)
+    return buckets
+
+
+def _build_opponent_adjusted(
+    db: Session,
+    player_id: int,
+    season: str,
+    logs: List[PlayerGameLog],
+    team_abbreviation: Optional[str],
+    teams_by_abbr: Dict[str, Team],
+    team_stats_by_id: Dict[int, TeamSeasonStat],
+) -> Optional[MvpOpponentAdjustedProfile]:
+    persisted = (
+        db.query(PlayerOpponentSplit)
+        .filter(
+            PlayerOpponentSplit.player_id == player_id,
+            PlayerOpponentSplit.season == season,
+            PlayerOpponentSplit.season_type == "Regular Season",
+        )
+        .all()
+    )
+    bucket_rows = {row.opponent_bucket: row for row in persisted}
+
+    labels = {
+        "top10_def": "vs Top-10 Defenses",
+        "mid_def": "vs Mid-Tier Defenses",
+        "bottom_def": "vs Bottom-10 Defenses",
+    }
+
+    if not bucket_rows:
+        # Derive from game logs on the fly.
+        by_bucket = _opponent_buckets_from_game_logs(
+            logs, team_abbreviation, teams_by_abbr, team_stats_by_id
+        )
+        derived: List[MvpOpponentAdjustedBucket] = []
+        for key in ("top10_def", "mid_def", "bottom_def"):
+            bucket_logs = by_bucket.get(key, [])
+            games = len(bucket_logs)
+            if games == 0:
+                derived.append(
+                    MvpOpponentAdjustedBucket(bucket=key, label=labels[key], games=0, confidence="low")
+                )
+                continue
+            pts = _avg([r.pts for r in bucket_logs])
+            ts = _avg([_log_ts(r) for r in bucket_logs])
+            pm = _avg([r.plus_minus for r in bucket_logs])
+            derived.append(
+                MvpOpponentAdjustedBucket(
+                    bucket=key,
+                    label=labels[key],
+                    games=games,
+                    pts_per_game=_round(pts, 1),
+                    ts_pct=_round(ts, 3),
+                    plus_minus=_round(pm, 1),
+                    confidence=_split_confidence(games),
+                )
+            )
+        buckets = derived
+    else:
+        buckets = []
+        for key in ("top10_def", "mid_def", "bottom_def"):
+            row = bucket_rows.get(key)
+            if row is None:
+                buckets.append(
+                    MvpOpponentAdjustedBucket(bucket=key, label=labels[key], games=0, confidence="low")
+                )
+                continue
+            buckets.append(
+                MvpOpponentAdjustedBucket(
+                    bucket=key,
+                    label=labels[key],
+                    games=row.games or 0,
+                    pts_per_game=_round(row.pts_per_game, 1),
+                    ts_pct=_round(row.ts_pct, 3),
+                    plus_minus=_round(row.plus_minus, 1),
+                    confidence=row.confidence or _split_confidence(row.games or 0),  # type: ignore[arg-type]
+                )
+            )
+
+    top_bucket = next((b for b in buckets if b.bucket == "top10_def"), None)
+    bot_bucket = next((b for b in buckets if b.bucket == "bottom_def"), None)
+    ts_gap = None
+    pts_gap = None
+    if top_bucket and bot_bucket and top_bucket.ts_pct is not None and bot_bucket.ts_pct is not None:
+        ts_gap = round(top_bucket.ts_pct - bot_bucket.ts_pct, 3)
+    if top_bucket and bot_bucket and top_bucket.pts_per_game is not None and bot_bucket.pts_per_game is not None:
+        pts_gap = round(top_bucket.pts_per_game - bot_bucket.pts_per_game, 1)
+    min_games = min((b.games or 0) for b in buckets) if buckets else 0
+    overall_confidence: Confidence_t = _split_confidence(min_games)
+    return MvpOpponentAdjustedProfile(
+        buckets=buckets,
+        ts_gap_top_vs_bottom=ts_gap,
+        pts_gap_top_vs_bottom=pts_gap,
+        confidence=overall_confidence,
+    )
+
+
+def _opponent_adjusted_component(profile: Optional[MvpOpponentAdjustedProfile]) -> Optional[float]:
+    """Component for opponent-adjusted efficiency z-scoring.
+
+    Uses TS% vs top-10 defenses (if adequate sample), otherwise falls back to the
+    bucket-weighted average TS%. Higher = holds up better against strong defenses.
+    """
+    if profile is None or not profile.buckets:
+        return None
+    top = next((b for b in profile.buckets if b.bucket == "top10_def"), None)
+    if top and top.ts_pct is not None and (top.games or 0) >= 4:
+        return float(top.ts_pct)
+    # bucket-weighted average, games as weights
+    weighted = 0.0
+    total_games = 0
+    for bucket in profile.buckets:
+        if bucket.ts_pct is not None and bucket.games:
+            weighted += bucket.ts_pct * bucket.games
+            total_games += bucket.games
+    if total_games == 0:
+        return None
+    return weighted / total_games
+
+
+def _signature_games(
+    logs: List[PlayerGameLog],
+    team_abbreviation: Optional[str],
+    teams_by_abbr: Dict[str, Team],
+    team_stats_by_id: Dict[int, TeamSeasonStat],
+    limit: int = 5,
+) -> List[MvpSignatureGame]:
+    if not logs:
+        return []
+    drtg_sorted = sorted(team_stats_by_id.values(), key=lambda r: float(r.def_rating or 999.0))
+    drtg_rank_by_team: Dict[int, int] = {row.team_id: idx + 1 for idx, row in enumerate(drtg_sorted)}
+    top10_ids = {row.team_id for row in drtg_sorted[:10]}
+    bottom10_ids = {row.team_id for row in drtg_sorted[-10:]}
+
+    def _opp_team(row: PlayerGameLog) -> Optional[Team]:
+        abbr = _parse_opponent_abbr(row.matchup, team_abbreviation)
+        return teams_by_abbr.get(abbr or "")
+
+    scored: List[Tuple[float, MvpSignatureGame]] = []
+    for row in logs:
+        team = _opp_team(row)
+        if not team:
+            continue
+        drtg_rank = drtg_rank_by_team.get(team.id)
+        if team.id in top10_ids:
+            tier = "top10_def"
+            opp_weight = 1.25
+        elif team.id in bottom10_ids:
+            tier = "bottom_def"
+            opp_weight = 0.75
+        else:
+            tier = "mid_def"
+            opp_weight = 1.0
+        ts = _log_ts(row)
+        pts = int(row.pts or 0)
+        pm = int(row.plus_minus) if row.plus_minus is not None else 0
+        # Leverage: reward stage (opp quality) × box contribution × TS efficiency × winning.
+        ts_bonus = ((ts or 0.5) - 0.5) * 40.0
+        win_bonus = 6.0 if (row.wl or "").upper() == "W" else 0.0
+        raw_score = (pts + (row.reb or 0) * 0.8 + (row.ast or 0) * 1.1) * opp_weight
+        leverage = raw_score + ts_bonus + win_bonus + pm * 0.2
+        date_str = row.game_date.isoformat() if row.game_date else None
+        scored.append(
+            (
+                leverage,
+                MvpSignatureGame(
+                    game_id=row.game_id,
+                    date=date_str,
+                    opponent=team.abbreviation,
+                    opponent_drtg_rank=drtg_rank,
+                    opponent_tier=tier,
+                    result=(row.wl or None),
+                    pts=pts,
+                    reb=int(row.reb) if row.reb is not None else None,
+                    ast=int(row.ast) if row.ast is not None else None,
+                    ts_pct=_round(ts, 3),
+                    plus_minus=pm if row.plus_minus is not None else None,
+                    leverage_score=round(leverage, 1),
+                ),
+            )
+        )
+    scored.sort(key=lambda pair: pair[0], reverse=True)
+    return [game for _, game in scored[:limit]]
+
+
+def _resolve_profile_name(profile: Optional[str]) -> str:
+    if profile and profile in SCORING_PROFILES:
+        return profile
+    return DEFAULT_PROFILE
+
+
+# Local type alias to keep Optional[Literal[...]] legibility in Python 3.8.
+Confidence_t = str  # noqa: N816 — Pydantic enforces real values on the schema side
+
+
 def _build_ranked_candidates(
     db: Session,
     season: str,
     top: int,
     min_gp: int,
     position: Optional[str],
+    profile: str = DEFAULT_PROFILE,
 ) -> Tuple[List[MvpCandidate], str]:
+    profile = _resolve_profile_name(profile)
     stat_rows = _candidate_rows(db, season, min_gp=min_gp, position=position)
     if not stat_rows:
         return [], str(date.today())
@@ -832,6 +1287,28 @@ def _build_ranked_candidates(
     team_stats_by_id, win_ranks, net_ranks = _team_context_maps(db, season)
     team_by_key: Dict[int, Optional[Team]] = {player.id: _resolve_team(db, stat, player) for stat, player in stat_rows}
     trend = _trend_data(db, player_ids, season, TREND_WINDOW)
+    teams_by_abbr = _team_lookup(db)
+    logs_by_player = _player_logs_by_player(db, player_ids, season)
+    clutch_rows = _clutch_rows_by_player(db, player_ids, season)
+
+    impact_consensus_pools = _impact_consensus_percentile_pools(stat_rows)
+    impact_consensus_profiles: List[MvpImpactConsensusProfile] = [
+        _build_impact_consensus(stat, impact_consensus_pools, i)
+        for i, (stat, _) in enumerate(stat_rows)
+    ]
+    clutch_profiles: List[Optional[MvpClutchProfile]] = [
+        _build_clutch_profile(stat, clutch_rows.get(player.id)) for stat, player in stat_rows
+    ]
+    opponent_adjusted_profiles: List[Optional[MvpOpponentAdjustedProfile]] = []
+    for stat, player in stat_rows:
+        team = team_by_key[player.id]
+        team_abbr = stat.team_abbreviation if (stat.team_abbreviation or "").upper() != "TOT" else (team.abbreviation if team else None)
+        opponent_adjusted_profiles.append(
+            _build_opponent_adjusted(
+                db, player.id, season, logs_by_player.get(player.id, []),
+                team_abbr, teams_by_abbr, team_stats_by_id,
+            )
+        )
 
     pts_vals = [_safe_float(s.pts_pg) for s, _ in stat_rows]
     reb_vals = [_safe_float(s.reb_pg) for s, _ in stat_rows]
@@ -854,6 +1331,9 @@ def _build_ranked_candidates(
         pts_delta, reb_delta, ast_delta, ts_delta, _, _, _ = trend.get(player.id, (None, None, None, None, "steady", 0, None))
         momentum_vals.append(_avg([pts_delta, reb_delta, ast_delta, (ts_delta * 100.0) if ts_delta is not None else None]))
 
+    consensus_score_vals = [p.consensus_score for p in impact_consensus_profiles]
+    clutch_component_vals = [_clutch_score_component(p) for p in clutch_profiles]
+
     z = {
         "pts": _zscore_pool(pts_vals),
         "reb": _zscore_pool(reb_vals),
@@ -868,6 +1348,8 @@ def _build_ranked_candidates(
         "win": _zscore_pool(win_vals),
         "net": _zscore_pool(net_vals),
         "momentum": _zscore_pool(momentum_vals),
+        "impact_consensus": _zscore_pool(consensus_score_vals),
+        "clutch": _zscore_pool(clutch_component_vals),
     }
 
     preliminary_scores: List[float] = []
@@ -894,7 +1376,6 @@ def _build_ranked_candidates(
     }
 
     pillar_raw: List[Dict[str, float]] = []
-    raw_scores: List[float] = []
     for i in range(len(stat_rows)):
         player_id = stat_rows[i][1].id
         pillars = {
@@ -902,11 +1383,29 @@ def _build_ranked_candidates(
             "efficiency": _avg([z["ts"][i], z["efg"][i], z["usage_eff"][i]]) or 0.0,
             "impact": _avg([z["bpm"][i], z["vorp"][i], z["ws"][i], z["on_off"][i]]) or 0.0,
             "team_context": _avg([z["win"][i], z["net"][i]]) or 0.0,
-            "momentum": z["momentum"][i],
+            "momentum": z["momentum"][i] or 0.0,
             "play_style": play_z_by_player.get(player_id, 0.0),
+            "impact_consensus": z["impact_consensus"][i] or 0.0,
+            "clutch": z["clutch"][i] or 0.0,
         }
         pillar_raw.append(pillars)
-        raw_scores.append(sum(MVP_WEIGHTS[key] * value for key, value in pillars.items()))
+
+    # Multi-profile raw scores: each profile only weights the pillars it defines.
+    raw_scores_by_profile: Dict[str, List[float]] = {}
+    for profile_name, weights in SCORING_PROFILES.items():
+        raw_scores_by_profile[profile_name] = [
+            sum(weights.get(key, 0.0) * value for key, value in pillars.items())
+            for pillars in pillar_raw
+        ]
+    # Rank lookup across every profile (1-indexed per profile).
+    rank_by_profile_per_row: List[Dict[str, int]] = [dict() for _ in stat_rows]
+    for profile_name, scores in raw_scores_by_profile.items():
+        ordered = sorted(enumerate(scores), key=lambda pair: pair[1], reverse=True)
+        for position_index, (row_idx, _) in enumerate(ordered):
+            rank_by_profile_per_row[row_idx][profile_name] = position_index + 1
+
+    raw_scores = raw_scores_by_profile[profile]
+    profile_weights = SCORING_PROFILES[profile]
 
     indexed = sorted(enumerate(raw_scores), key=lambda item: item[1], reverse=True)
     top_indices = [idx for idx, _ in indexed[:top]]
@@ -920,8 +1419,6 @@ def _build_ranked_candidates(
 
     latest_date = None
     candidates: List[MvpCandidate] = []
-    logs_by_player = _player_logs_by_player(db, player_ids, season)
-    teams_by_abbr = _team_lookup(db)
     for rank, arr_idx in enumerate(top_indices, start=1):
         stat, player = stat_rows[arr_idx]
         team = team_by_key[player.id]
@@ -1011,13 +1508,19 @@ def _build_ranked_candidates(
         score_pillars = {
             key: MvpScorePillar(
                 label=key.replace("_", " ").title(),
-                weight=MVP_WEIGHTS[key],
-                raw_score=_round(pillar_raw[arr_idx][key], 3) or 0.0,
-                weighted_score=_round(pillar_raw[arr_idx][key] * MVP_WEIGHTS[key], 3) or 0.0,
-                display_score=_display_score(pillar_raw[arr_idx][key]),
+                weight=profile_weights[key],
+                raw_score=_round(pillar_raw[arr_idx].get(key, 0.0), 3) or 0.0,
+                weighted_score=_round(pillar_raw[arr_idx].get(key, 0.0) * profile_weights[key], 3) or 0.0,
+                display_score=_display_score(pillar_raw[arr_idx].get(key, 0.0)),
             )
-            for key in MVP_WEIGHTS
+            for key in profile_weights
         }
+        candidate_signature_games = _signature_games(
+            logs_by_player.get(player.id, []),
+            stat.team_abbreviation if (stat.team_abbreviation or "").upper() != "TOT" else (team.abbreviation if team else None),
+            teams_by_abbr,
+            team_stats_by_id,
+        )
         candidate = MvpCandidate(
             rank=rank,
             player_id=player.id,
@@ -1049,6 +1552,11 @@ def _build_ranked_candidates(
             split_profile=split_profile,
             impact_metric_coverage=impact_metric_coverage,
             gravity_profile=gravity_profile,
+            impact_consensus=impact_consensus_profiles[arr_idx],
+            clutch_profile=clutch_profiles[arr_idx],
+            opponent_adjusted=opponent_adjusted_profiles[arr_idx],
+            signature_games=candidate_signature_games,
+            rank_by_profile=dict(rank_by_profile_per_row[arr_idx]),
         )
         candidate.context_adjusted_score = _context_adjusted_score(candidate)
         candidate.visual_coordinates = _visual_coordinates(candidate)
@@ -1076,20 +1584,24 @@ def build_mvp_race(
     top: int = 10,
     min_gp: int = MIN_GP,
     position: Optional[str] = None,
+    profile: Optional[str] = None,
 ) -> MvpRaceResponse:
+    resolved = _resolve_profile_name(profile)
     candidates, as_of = _build_ranked_candidates(
         db=db,
         season=season,
         top=top,
         min_gp=min_gp,
         position=position,
+        profile=resolved,
     )
     return MvpRaceResponse(
         season=season,
         as_of_date=as_of,
         candidates=candidates,
-        weights=MVP_WEIGHTS,
+        weights=SCORING_PROFILES[resolved],
         scoring_profile=SCORING_PROFILE,
+        available_profiles=AVAILABLE_PROFILES,
     )
 
 
@@ -1099,13 +1611,16 @@ def build_mvp_candidate_case(
     player_id: int,
     min_gp: int = MIN_GP,
     position: Optional[str] = None,
+    profile: Optional[str] = None,
 ) -> MvpCandidateCaseResponse:
+    resolved = _resolve_profile_name(profile)
     candidates, as_of = _build_ranked_candidates(
         db=db,
         season=season,
         top=25,
         min_gp=min_gp,
         position=position,
+        profile=resolved,
     )
     candidate = next((row for row in candidates if row.player_id == player_id), None)
     if candidate is None:
@@ -1126,8 +1641,9 @@ def build_mvp_candidate_case(
         as_of_date=as_of,
         candidate=candidate,
         nearby=nearby,
-        weights=MVP_WEIGHTS,
+        weights=SCORING_PROFILES[resolved],
         scoring_profile=SCORING_PROFILE,
+        available_profiles=AVAILABLE_PROFILES,
     )
 
 
@@ -1137,13 +1653,16 @@ def build_mvp_context_map(
     top: int = 20,
     min_gp: int = MIN_GP,
     position: Optional[str] = None,
+    profile: Optional[str] = None,
 ) -> MvpContextMapResponse:
+    resolved = _resolve_profile_name(profile)
     candidates, as_of = _build_ranked_candidates(
         db=db,
         season=season,
         top=top,
         min_gp=min_gp,
         position=position,
+        profile=resolved,
     )
     points: List[MvpContextMapPoint] = []
     for candidate in candidates:
@@ -1220,4 +1739,44 @@ def build_mvp_gravity_leaderboard(
             "Otherwise CourtVue proxy Gravity is derived from persisted shot, play-type, tracking, hustle, lineup, and on/off context."
         ),
         profiles=profiles[:top],
+    )
+
+
+def build_mvp_sensitivity(
+    db: Session,
+    season: str,
+    top: int = 15,
+    min_gp: int = MIN_GP,
+    position: Optional[str] = None,
+) -> "MvpSensitivityResponse":
+    """Compute rank-by-profile for the top-N candidates under the default profile.
+
+    Returns a lightweight shape for the ranking-shift slope chart; the top-N set
+    is chosen by the default profile so the visual compares the same cohort.
+    """
+    candidates, as_of = _build_ranked_candidates(
+        db=db,
+        season=season,
+        top=max(top, 10),
+        min_gp=min_gp,
+        position=position,
+        profile=DEFAULT_PROFILE,
+    )
+    players = [
+        MvpSensitivityPlayer(
+            player_id=c.player_id,
+            player_name=c.player_name,
+            team_abbreviation=c.team_abbreviation,
+            headshot_url=c.headshot_url,
+            rank_by_profile=dict(c.rank_by_profile),
+            composite_score_default=c.composite_score,
+        )
+        for c in candidates
+    ]
+    return MvpSensitivityResponse(
+        season=season,
+        as_of_date=as_of,
+        default_profile=DEFAULT_PROFILE,
+        profiles=AVAILABLE_PROFILES,
+        players=players,
     )

@@ -2296,7 +2296,14 @@ export interface MvpCandidate {
   impact_metric_coverage?: MvpImpactMetricCoverage | null;
   visual_coordinates?: MvpVisualCoordinates | null;
   gravity_profile?: MvpGravityProfile | null;
+  impact_consensus?: MvpImpactConsensusProfile | null;
+  clutch_profile?: MvpClutchProfile | null;
+  opponent_adjusted?: MvpOpponentAdjustedProfile | null;
+  signature_games?: MvpSignatureGame[];
+  rank_by_profile?: Record<string, number>;
 }
+
+export type MvpScoringProfile = "box_first" | "balanced" | "impact_consensus";
 
 export interface MvpRaceResponse {
   season: string;
@@ -2304,6 +2311,92 @@ export interface MvpRaceResponse {
   candidates: MvpCandidate[];
   weights: Record<string, number>;
   scoring_profile?: string;
+  available_profiles?: string[];
+}
+
+export interface MvpImpactConsensusMetric {
+  name: string;
+  value: number | null;
+  percentile: number | null;
+  source: string | null;
+  as_of: string | null;
+  note: string | null;
+}
+
+export interface MvpImpactConsensusProfile {
+  metrics: MvpImpactConsensusMetric[];
+  consensus_score: number | null;
+  coverage_ratio: string;
+  disagreement: number | null;
+}
+
+export interface MvpClutchProfile {
+  source: string;
+  clutch_games: number | null;
+  clutch_minutes: number | null;
+  clutch_possessions: number | null;
+  clutch_pts: number | null;
+  clutch_fg_pct: number | null;
+  clutch_ts_pct: number | null;
+  clutch_ast_to: number | null;
+  clutch_plus_minus: number | null;
+  clutch_net_rating: number | null;
+  clutch_usg_pct: number | null;
+  clutch_on_off: number | null;
+  close_game_wins: number | null;
+  close_game_losses: number | null;
+  confidence: "high" | "medium" | "low";
+  note: string | null;
+}
+
+export interface MvpOpponentAdjustedBucket {
+  bucket: "top10_def" | "mid_def" | "bottom_def";
+  label: string;
+  games: number;
+  pts_per_game?: number | null;
+  ts_pct?: number | null;
+  plus_minus?: number | null;
+  confidence: "high" | "medium" | "low";
+}
+
+export interface MvpOpponentAdjustedProfile {
+  buckets: MvpOpponentAdjustedBucket[];
+  ts_gap_top_vs_bottom: number | null;
+  pts_gap_top_vs_bottom: number | null;
+  confidence: "high" | "medium" | "low";
+}
+
+export interface MvpSignatureGame {
+  game_id: string;
+  date: string | null;
+  opponent: string;
+  opponent_drtg_rank: number | null;
+  opponent_tier: "top10_def" | "mid_def" | "bottom_def";
+  result: "W" | "L" | null;
+  pts: number;
+  reb: number | null;
+  ast: number | null;
+  ts_pct: number | null;
+  plus_minus: number | null;
+  leverage_score: number;
+}
+
+export interface MvpSensitivityPlayer {
+  player_id: number;
+  player_name: string;
+  team_abbreviation: string;
+  headshot_url: string;
+  rank_by_profile: Record<string, number>;
+  composite_score_default: number | null;
+}
+
+export interface MvpSensitivityResponse {
+  season: string;
+  as_of_date: string;
+  default_profile: string;
+  profiles: string[];
+  profile_labels: Record<string, string>;
+  players: MvpSensitivityPlayer[];
 }
 
 export interface MvpScorePillar {
@@ -2486,6 +2579,7 @@ export interface MvpCandidateCaseResponse {
   nearby: MvpNearbyCandidate[];
   weights: Record<string, number>;
   scoring_profile: string;
+  available_profiles?: string[];
 }
 
 export interface MvpRaceOptions {

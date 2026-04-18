@@ -292,13 +292,13 @@ def test_mvp_race_builds_case_payload_and_dedupes_trade_rows():
         alpha, _, _ = _seed_player_case(session)
         response = build_mvp_race(session, season="2025-26", top=3)
 
-        assert response.scoring_profile == "mvp_case_v2_gravity"
+        assert response.scoring_profile == "mvp_case_v2_holistic"
         assert len(response.candidates) == 3
 
         alpha_case = next(row for row in response.candidates if row.player_id == alpha.id)
         assert alpha_case.team_abbreviation == "TOT"
         assert alpha_case.gp == 25
-        assert alpha_case.score_pillars["production"].weight == 0.25
+        assert alpha_case.score_pillars["production"].weight == 0.18
         assert alpha_case.team_context is not None
         assert alpha_case.team_context.win_pct_rank == 1
         assert alpha_case.on_off is not None
@@ -416,7 +416,7 @@ def test_mvp_context_map_returns_lightweight_coordinates():
         _seed_player_case(session)
         response = build_mvp_context_map(session, season="2025-26", top=2)
 
-        assert response.scoring_profile == "mvp_case_v2_gravity"
+        assert response.scoring_profile == "mvp_case_v2_holistic"
         assert response.default_x == "team_success"
         assert len(response.points) == 2
         assert 0 <= response.points[0].x_team_success <= 100
@@ -456,6 +456,6 @@ def test_mvp_race_empty_season_response():
     try:
         response = build_mvp_race(session, season="1999-00", top=10)
         assert response.candidates == []
-        assert response.weights["impact"] == 0.25
+        assert response.weights["impact"] == 0.15
     finally:
         session.close()
