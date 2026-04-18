@@ -1221,6 +1221,7 @@ def queue_current_season_daily_sync(db: Session, season: str) -> List[IngestionJ
         day = today - timedelta(days=delta)
         jobs.extend(queue_date_sync(db, season, day.isoformat()))
     jobs.extend(queue_season_shot_charts(db, season, season_type="Regular Season"))
+    jobs.append(queue_mvp_timeline_snapshot(db, season, today.isoformat()))
     return jobs
 
 

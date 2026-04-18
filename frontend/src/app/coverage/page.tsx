@@ -11,6 +11,7 @@ import {
   useWarehouseReadiness,
 } from "@/hooks/usePlayerStats";
 import WarehousePipelinePanel from "@/components/WarehousePipelinePanel";
+import MvpCoveragePanel from "@/components/MvpCoveragePanel";
 
 const DEFAULT_SEASONS = ["2025-26", "2024-25", "2023-24", "2022-23"];
 
@@ -431,6 +432,8 @@ export default function CoveragePage() {
       </section>
 
       <WarehousePipelinePanel season={season} />
+
+      <MvpCoveragePanel season={season} />
 
       <div className="grid gap-6 xl:grid-cols-[1.05fr,0.95fr]">
         <section className="rounded-[2rem] border border-gray-200 bg-white p-6 dark:border-gray-800 dark:bg-gray-900">

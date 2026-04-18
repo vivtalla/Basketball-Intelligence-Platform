@@ -9,19 +9,24 @@ from data.nba_client import _active_nba_season
 from db.database import get_db
 from models.mvp import (
     MvpCandidateCaseResponse,
+    MvpCoverageResponse,
     MvpContextMapResponse,
     MvpGravityLeaderboardResponse,
     MvpRaceResponse,
     MvpSensitivityResponse,
     MvpTimelineResponse,
+    MvpVoterRoomResponse,
 )
 from services.mvp_service import (
     AVAILABLE_PROFILES,
     build_mvp_candidate_case,
+    build_mvp_coverage,
     build_mvp_context_map,
     build_mvp_gravity_leaderboard,
     build_mvp_race,
     build_mvp_sensitivity,
+    build_mvp_snapshot_freshness,
+    build_mvp_voter_room,
 )
 from services.mvp_timeline_service import build_mvp_timeline
 
@@ -132,6 +137,49 @@ def get_mvp_timeline(
         top=top,
         min_gp=min_gp,
     )
+
+
+@router.get("/voter-room", response_model=MvpVoterRoomResponse)
+def get_mvp_voter_room(
+    season: str = Query(default=None, description="Season string, e.g. 2024-25"),
+    player_ids: str = Query(default="", description="Comma-separated player IDs to compare, 2-3 candidates"),
+    min_gp: int = Query(default=20, ge=1, le=82, description="Minimum games played"),
+    db: Session = Depends(get_db),
+) -> MvpVoterRoomResponse:
+    """Return MVP case-comparison payload for a 2-3 candidate Voter Room."""
+    resolved_season = season or _active_nba_season()
+    parsed_ids = []
+    for token in (player_ids or "").split(","):
+        token = token.strip()
+        if not token:
+            continue
+        try:
+            parsed_ids.append(int(token))
+        except ValueError:
+            continue
+    return build_mvp_voter_room(db, season=resolved_season, player_ids=parsed_ids, min_gp=min_gp)
+
+
+@router.get("/coverage", response_model=MvpCoverageResponse)
+def get_mvp_coverage(
+    season: str = Query(default=None, description="Season string, e.g. 2024-25"),
+    top: int = Query(default=10, ge=1, le=25, description="Number of candidates to inspect"),
+    min_gp: int = Query(default=20, ge=1, le=82, description="Minimum games played"),
+    db: Session = Depends(get_db),
+) -> MvpCoverageResponse:
+    """Return MVP-specific source and snapshot coverage health."""
+    resolved_season = season or _active_nba_season()
+    return build_mvp_coverage(db, season=resolved_season, top=top, min_gp=min_gp)
+
+
+@router.get("/snapshot-freshness")
+def get_mvp_snapshot_freshness(
+    season: str = Query(default=None, description="Season string, e.g. 2024-25"),
+    db: Session = Depends(get_db),
+):
+    """Return lightweight persisted MVP snapshot freshness for product badges."""
+    resolved_season = season or _active_nba_season()
+    return build_mvp_snapshot_freshness(db, resolved_season)
 
 
 @router.get("/profiles")

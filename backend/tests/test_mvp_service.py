@@ -11,6 +11,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from db.database import Base  # noqa: E402
 from db.models import (  # noqa: E402
+    IngestionJob,
     PlayByPlayEvent,
     Player,
     PlayerGameLog,
@@ -22,15 +23,19 @@ from db.models import (  # noqa: E402
     Team,
     TeamSeasonStat,
 )
-from routers.mvp import get_mvp_candidate_case, get_mvp_context_map, get_mvp_gravity, get_mvp_race, get_mvp_timeline  # noqa: E402
+from routers.mvp import get_mvp_candidate_case, get_mvp_context_map, get_mvp_coverage, get_mvp_gravity, get_mvp_race, get_mvp_timeline, get_mvp_voter_room  # noqa: E402
+from routers.warehouse import queue_mvp_snapshot  # noqa: E402
 from services.mvp_service import (  # noqa: E402
     build_mvp_candidate_case,
+    build_mvp_coverage,
     build_mvp_context_map,
     build_mvp_gravity_leaderboard,
     build_mvp_race,
     build_mvp_sensitivity,
+    build_mvp_voter_room,
 )
 from services.mvp_timeline_service import _weekly_cutoffs, build_mvp_timeline, materialize_mvp_timeline_snapshot  # noqa: E402
+from services.warehouse_service import queue_current_season_daily_sync  # noqa: E402
 
 
 def make_session():
@@ -426,6 +431,81 @@ def test_mvp_routes_support_filters_and_candidate_case():
         assert sensitivity.profiles[:2] == ["basketball_value", "award_case"]
         assert "balanced" in sensitivity.profiles
         assert sensitivity.players[0].rank_by_profile["award_case"] >= 1
+    finally:
+        session.close()
+
+
+def test_mvp_voter_room_compares_selected_candidates_and_route_trims_invalid_ids():
+    session = make_session()
+    try:
+        alpha, beta, gamma = _seed_player_case(session)
+        response = build_mvp_voter_room(
+            session,
+            season="2025-26",
+            player_ids=[alpha.id, beta.id, gamma.id, 999999],
+            min_gp=20,
+        )
+
+        assert response.mode == "case_comparison"
+        assert len(response.candidates) == 3
+        assert response.categories
+        assert any(row.key == "award_case" and row.winner_player_id for row in response.categories)
+        assert response.ballot_summary
+        assert response.warnings == []
+
+        route_response = get_mvp_voter_room(
+            season="2025-26",
+            player_ids=f"{alpha.id},999999,{beta.id},{gamma.id}",
+            min_gp=20,
+            db=session,
+        )
+        assert len(route_response.candidates) == 3
+        assert route_response.warnings == ["Player 999999 is not in the current MVP candidate pool."]
+        assert route_response.candidates[0].award_case_score is not None
+        assert route_response.candidates[0].basketball_value_score is not None
+    finally:
+        session.close()
+
+
+def test_mvp_coverage_reports_domain_health_and_snapshot_freshness():
+    session = make_session()
+    try:
+        _seed_player_case(session)
+        materialize_mvp_timeline_snapshot(
+            session,
+            season="2025-26",
+            snapshot_date=date.today(),
+            profile="balanced",
+            top=3,
+        )
+        session.commit()
+
+        response = build_mvp_coverage(session, season="2025-26", top=3, min_gp=20)
+        assert response.status in {"ready", "partial", "missing"}
+        assert response.snapshot_freshness.status == "ready"
+        assert response.snapshot_freshness.latest_snapshot_date == date.today().isoformat()
+        assert any(domain.key == "daily_snapshots" for domain in response.domains)
+        assert response.candidates
+        assert response.candidates[0].warning_count >= 0
+
+        route_response = get_mvp_coverage(season="2025-26", top=3, min_gp=20, db=session)
+        assert route_response.domains
+        assert route_response.snapshot_freshness.profiles == ["balanced"]
+    finally:
+        session.close()
+
+
+def test_mvp_snapshot_queue_is_idempotent_and_current_sync_includes_snapshot_job():
+    session = make_session()
+    try:
+        first = queue_mvp_snapshot(season="2025-26", date_key="2026-01-20", db=session)
+        second = queue_mvp_snapshot(season="2025-26", date_key="2026-01-20", db=session)
+        assert first.queued == 1
+        assert second.queued == 1
+        assert session.query(IngestionJob).filter_by(job_type="materialize_mvp_snapshot").count() == 1
+
+        jobs = queue_current_season_daily_sync(session, "2025-26")
+        assert any(job.job_type == "materialize_mvp_snapshot" for job in jobs)
     finally:
         session.close()
 

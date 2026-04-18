@@ -358,6 +358,18 @@ export async function queueCurrentSeason(season: string): Promise<{ queued: numb
   );
 }
 
+export async function queueMvpSnapshot(
+  season: string,
+  dateKey?: string
+): Promise<import("./types").QueueResponse> {
+  const params = new URLSearchParams({ season });
+  if (dateKey) params.set("date_key", dateKey);
+  return fetchApi<import("./types").QueueResponse>(
+    `/api/warehouse/queue/mvp-snapshot?${params.toString()}`,
+    { method: "POST" }
+  );
+}
+
 export async function runNextWarehouseJob(
   season?: string
 ): Promise<{ status: string; result?: Record<string, unknown> }> {
@@ -1211,6 +1223,39 @@ export async function getMvpTimeline(
   if (options?.minGp != null) params.set("min_gp", String(options.minGp));
   return fetchApi<import("./types").MvpTimelineResponse>(
     `/api/mvp/timeline?${params.toString()}`
+  );
+}
+
+export async function getMvpVoterRoom(
+  season: string,
+  playerIds: number[],
+  options?: Pick<import("./types").MvpRaceOptions, "minGp">
+): Promise<import("./types").MvpVoterRoomResponse> {
+  const params = new URLSearchParams({ season });
+  if (playerIds.length) params.set("player_ids", playerIds.join(","));
+  if (options?.minGp != null) params.set("min_gp", String(options.minGp));
+  return fetchApi<import("./types").MvpVoterRoomResponse>(
+    `/api/mvp/voter-room?${params.toString()}`
+  );
+}
+
+export async function getMvpCoverage(
+  season: string,
+  options?: Pick<import("./types").MvpRaceOptions, "top" | "minGp">
+): Promise<import("./types").MvpCoverageResponse> {
+  const params = new URLSearchParams({ season });
+  if (options?.top != null) params.set("top", String(options.top));
+  if (options?.minGp != null) params.set("min_gp", String(options.minGp));
+  return fetchApi<import("./types").MvpCoverageResponse>(
+    `/api/mvp/coverage?${params.toString()}`
+  );
+}
+
+export async function getMvpSnapshotFreshness(
+  season: string
+): Promise<import("./types").MvpSnapshotFreshness> {
+  return fetchApi<import("./types").MvpSnapshotFreshness>(
+    `/api/mvp/snapshot-freshness?season=${encodeURIComponent(season)}`
   );
 }
 

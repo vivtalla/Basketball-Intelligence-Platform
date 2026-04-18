@@ -458,6 +458,81 @@ class MvpTimelineResponse(BaseModel):
     coverage_note: str
 
 
+class MvpVoterRoomCandidate(BaseModel):
+    player_id: int
+    player_name: str
+    team_abbreviation: str
+    headshot_url: str = ""
+    award_case_rank: Optional[int] = None
+    basketball_value_rank: Optional[int] = None
+    ballot_eligible_rank: Optional[int] = None
+    award_case_score: Optional[float] = None
+    basketball_value_score: Optional[float] = None
+    context_adjusted_score: Optional[float] = None
+    eligibility_status: str = "unknown"
+    confidence: Optional[MvpCandidateConfidence] = None
+    case_summary: List[str] = Field(default_factory=list)
+    evidence: List[str] = Field(default_factory=list)
+
+
+class MvpVoterRoomCategory(BaseModel):
+    key: str
+    label: str
+    winner_player_id: Optional[int] = None
+    winner_name: Optional[str] = None
+    summary: str
+    values: Dict[str, Optional[float]] = Field(default_factory=dict)
+
+
+class MvpVoterRoomResponse(BaseModel):
+    season: str
+    as_of_date: str
+    mode: str = "case_comparison"
+    methodology: str
+    selected_player_ids: List[int] = Field(default_factory=list)
+    candidates: List[MvpVoterRoomCandidate] = Field(default_factory=list)
+    categories: List[MvpVoterRoomCategory] = Field(default_factory=list)
+    ballot_summary: List[str] = Field(default_factory=list)
+    warnings: List[str] = Field(default_factory=list)
+
+
+class MvpSnapshotFreshness(BaseModel):
+    status: str = "missing"
+    latest_snapshot_date: Optional[str] = None
+    latest_as_of_date: Optional[str] = None
+    profiles: List[str] = Field(default_factory=list)
+    snapshot_count: int = 0
+    note: str = ""
+
+
+class MvpCoverageDomain(BaseModel):
+    key: str
+    label: str
+    status: str = "missing"
+    ready_count: int = 0
+    total_count: int = 0
+    detail: str = ""
+
+
+class MvpCoverageCandidate(BaseModel):
+    player_id: int
+    player_name: str
+    team_abbreviation: str
+    rank: int
+    warning_count: int = 0
+    warnings: List[str] = Field(default_factory=list)
+
+
+class MvpCoverageResponse(BaseModel):
+    season: str
+    as_of_date: str
+    status: str = "missing"
+    snapshot_freshness: MvpSnapshotFreshness
+    domains: List[MvpCoverageDomain] = Field(default_factory=list)
+    candidates: List[MvpCoverageCandidate] = Field(default_factory=list)
+    notes: List[str] = Field(default_factory=list)
+
+
 class MvpContextMapPoint(BaseModel):
     rank: int
     player_id: int

@@ -18,6 +18,7 @@ import ChartStatusBadge from "./ChartStatusBadge";
 import PerformanceCalendar from "./PerformanceCalendar";
 import ShotSeasonEvolution from "./ShotSeasonEvolution";
 import PlayerGravityPanel from "./PlayerGravityPanel";
+import MvpPlayerCaseEmbed from "./MvpPlayerCaseEmbed";
 
 interface PlayerDashboardProps {
   playerId: number;
@@ -198,6 +199,10 @@ export default function PlayerDashboard({ playerId }: PlayerDashboardProps) {
           season={effectiveSeasonStr}
           isPlayoffs={isPlayoffs}
         />
+      )}
+
+      {!isPlayoffs && effectiveSeasonStr && (
+        <MvpPlayerCaseEmbed playerId={playerId} season={effectiveSeasonStr} />
       )}
 
       {effectiveSeasonStr && (

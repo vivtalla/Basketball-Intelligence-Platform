@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import statistics
 from collections import defaultdict
-from datetime import date
+from datetime import date, timedelta
 from typing import Dict, Iterable, List, Optional, Sequence, Tuple
 
 from fastapi import HTTPException
@@ -11,6 +11,7 @@ from sqlalchemy import desc, func
 from sqlalchemy.orm import Session
 
 from db.models import (
+    MvpRaceSnapshot,
     PlayByPlayEvent,
     GamePlayerStat,
     Player,
@@ -30,6 +31,9 @@ from models.mvp import (
     MvpCandidateConfidence,
     MvpClutchAndPaceProfile,
     MvpClutchProfile,
+    MvpCoverageCandidate,
+    MvpCoverageDomain,
+    MvpCoverageResponse,
     MvpContextMapPoint,
     MvpContextMapResponse,
     MvpDataCoverage,
@@ -54,7 +58,11 @@ from models.mvp import (
     MvpSplitRow,
     MvpSupportBurden,
     MvpTeamContext,
+    MvpSnapshotFreshness,
     MvpVisualCoordinates,
+    MvpVoterRoomCandidate,
+    MvpVoterRoomCategory,
+    MvpVoterRoomResponse,
 )
 from services.gravity_service import build_gravity_profile
 
@@ -2018,6 +2026,340 @@ def build_mvp_candidate_case(
         weights=REFINED_VALUE_WEIGHTS,
         scoring_profile=SCORING_PROFILE,
         available_profiles=AVAILABLE_PROFILES,
+    )
+
+
+def _candidate_voter_evidence(candidate: MvpCandidate) -> List[str]:
+    evidence = list((candidate.case_summary or [])[:2])
+    if candidate.eligibility:
+        evidence.append(
+            "{0} award-qualified games; {1}.".format(
+                candidate.eligibility.eligible_games,
+                candidate.eligibility.eligibility_status.replace("_", " "),
+            )
+        )
+    if candidate.confidence:
+        evidence.append(
+            "{0} confidence; coverage {1:.0f}.".format(
+                candidate.confidence.overall.title(),
+                candidate.confidence.coverage_score,
+            )
+        )
+    return evidence[:4]
+
+
+def _voter_value(candidate: MvpCandidate, key: str) -> Optional[float]:
+    if key == "basketball_value":
+        return candidate.basketball_value_score
+    if key == "award_case":
+        return candidate.award_case_score
+    if key == "availability":
+        return float(candidate.eligibility.eligible_games) if candidate.eligibility else None
+    if key == "team_value":
+        if candidate.team_context and candidate.team_context.win_pct is not None:
+            return round(float(candidate.team_context.win_pct) * 100.0, 1)
+        return None
+    if key == "impact_confidence":
+        if candidate.impact_consensus and candidate.impact_consensus.consensus_score is not None:
+            return candidate.impact_consensus.consensus_score
+        if candidate.confidence:
+            return candidate.confidence.signal_agreement_score
+        return None
+    if key == "clutch_signature":
+        return _avg([
+            candidate.award_modifiers.get("clutch").display_score if candidate.award_modifiers and candidate.award_modifiers.get("clutch") else None,
+            candidate.award_modifiers.get("signature_games").display_score if candidate.award_modifiers and candidate.award_modifiers.get("signature_games") else None,
+        ])
+    if key == "momentum":
+        if candidate.award_modifiers and candidate.award_modifiers.get("momentum"):
+            return candidate.award_modifiers["momentum"].display_score
+        return _avg([candidate.pts_delta, candidate.reb_delta, candidate.ast_delta])
+    return None
+
+
+def _category_summary(key: str, winner: Optional[MvpCandidate], value: Optional[float]) -> str:
+    if winner is None:
+        return "No clear edge in this category."
+    if key == "availability":
+        return "{0} has the strongest availability footing at {1:.0f} qualified games.".format(winner.player_name, value or 0.0)
+    if key == "team_value":
+        return "{0} has the strongest team framing among the selected cases.".format(winner.player_name)
+    if key == "impact_confidence":
+        return "{0} carries the strongest impact/context confidence signal.".format(winner.player_name)
+    if key == "clutch_signature":
+        return "{0} has the strongest clutch/signature evidence blend.".format(winner.player_name)
+    if key == "momentum":
+        return "{0} has the strongest recent momentum signal.".format(winner.player_name)
+    return "{0} leads this comparison at {1:.1f}.".format(winner.player_name, value or 0.0)
+
+
+def build_mvp_voter_room(
+    db: Session,
+    season: str,
+    player_ids: Sequence[int],
+    min_gp: int = MIN_GP,
+) -> MvpVoterRoomResponse:
+    candidates, as_of = _build_ranked_candidates(
+        db=db,
+        season=season,
+        top=25,
+        min_gp=min_gp,
+        position=None,
+        profile=DEFAULT_PROFILE,
+    )
+    by_id = {candidate.player_id: candidate for candidate in candidates}
+    selected_ids: List[int] = []
+    warnings: List[str] = []
+    for player_id in player_ids:
+        if player_id in selected_ids:
+            continue
+        if player_id not in by_id:
+            warnings.append("Player {0} is not in the current MVP candidate pool.".format(player_id))
+            continue
+        selected_ids.append(player_id)
+        if len(selected_ids) >= 3:
+            break
+    if len(selected_ids) < 2:
+        for candidate in candidates:
+            if candidate.player_id not in selected_ids:
+                selected_ids.append(candidate.player_id)
+            if len(selected_ids) >= 2:
+                break
+    selected = [by_id[player_id] for player_id in selected_ids if player_id in by_id]
+    categories_spec = [
+        ("basketball_value", "Basketball Value"),
+        ("award_case", "Award Case"),
+        ("availability", "Availability / Eligibility"),
+        ("team_value", "Team Value"),
+        ("impact_confidence", "Impact / Context Confidence"),
+        ("clutch_signature", "Clutch / Signature Evidence"),
+        ("momentum", "Momentum / Timeline Movement"),
+    ]
+    categories: List[MvpVoterRoomCategory] = []
+    for key, label in categories_spec:
+        values = {str(candidate.player_id): _voter_value(candidate, key) for candidate in selected}
+        winner = max(
+            selected,
+            key=lambda candidate: _voter_value(candidate, key) if _voter_value(candidate, key) is not None else -9999.0,
+            default=None,
+        )
+        winner_value = _voter_value(winner, key) if winner else None
+        if winner_value is None:
+            winner = None
+        categories.append(
+            MvpVoterRoomCategory(
+                key=key,
+                label=label,
+                winner_player_id=winner.player_id if winner else None,
+                winner_name=winner.player_name if winner else None,
+                summary=_category_summary(key, winner, winner_value),
+                values=values,
+            )
+        )
+    voter_candidates = [
+        MvpVoterRoomCandidate(
+            player_id=candidate.player_id,
+            player_name=candidate.player_name,
+            team_abbreviation=candidate.team_abbreviation,
+            headshot_url=candidate.headshot_url,
+            award_case_rank=candidate.award_case_rank or candidate.rank,
+            basketball_value_rank=candidate.basketball_value_rank,
+            ballot_eligible_rank=candidate.ballot_eligible_rank,
+            award_case_score=candidate.award_case_score,
+            basketball_value_score=candidate.basketball_value_score,
+            context_adjusted_score=candidate.context_adjusted_score,
+            eligibility_status=candidate.eligibility.eligibility_status if candidate.eligibility else "unknown",
+            confidence=candidate.confidence,
+            case_summary=list(candidate.case_summary or [])[:3],
+            evidence=_candidate_voter_evidence(candidate),
+        )
+        for candidate in selected
+    ]
+    sorted_by_award = sorted(selected, key=lambda candidate: candidate.award_case_rank or candidate.rank)
+    ballot_summary = [
+        "{0} is the current Award Case leader in this room.".format(sorted_by_award[0].player_name)
+    ] if sorted_by_award else []
+    if len(sorted_by_award) > 1:
+        ballot_summary.append(
+            "This is a case comparison, not a simulated official ballot or voter-points projection."
+        )
+    return MvpVoterRoomResponse(
+        season=season,
+        as_of_date=as_of,
+        methodology=(
+            "Voter Room compares selected candidates across the refined v3 MVP case categories. "
+            "It summarizes case edges without assigning official ballot points."
+        ),
+        selected_player_ids=[candidate.player_id for candidate in selected],
+        candidates=voter_candidates,
+        categories=categories,
+        ballot_summary=ballot_summary,
+        warnings=warnings,
+    )
+
+
+def _coverage_status(ready_count: int, total_count: int) -> str:
+    if total_count <= 0 or ready_count <= 0:
+        return "missing"
+    if ready_count >= total_count:
+        return "ready"
+    return "partial"
+
+
+def build_mvp_snapshot_freshness(db: Session, season: str) -> MvpSnapshotFreshness:
+    snapshots = (
+        db.query(MvpRaceSnapshot)
+        .filter(MvpRaceSnapshot.season == season)
+        .order_by(MvpRaceSnapshot.snapshot_date.desc())
+        .all()
+    )
+    if not snapshots:
+        return MvpSnapshotFreshness(
+            status="missing",
+            note="No persisted MVP daily snapshots exist for this season yet.",
+        )
+    latest_date = snapshots[0].snapshot_date
+    latest_rows = [row for row in snapshots if row.snapshot_date == latest_date]
+    profiles = sorted({row.profile for row in latest_rows})
+    today = date.today()
+    status = "ready" if latest_date >= today else ("partial" if latest_date >= today - timedelta(days=2) else "missing")
+    latest_as_of = max((row.as_of_date for row in latest_rows if row.as_of_date is not None), default=None)
+    return MvpSnapshotFreshness(
+        status=status,
+        latest_snapshot_date=latest_date.isoformat() if latest_date else None,
+        latest_as_of_date=latest_as_of.isoformat() if latest_as_of else None,
+        profiles=profiles,
+        snapshot_count=len(snapshots),
+        note="{0} profile snapshot{1} captured on the latest date.".format(len(profiles), "" if len(profiles) == 1 else "s"),
+    )
+
+
+def _candidate_coverage_warnings(candidate: MvpCandidate) -> List[str]:
+    warnings: List[str] = []
+    if candidate.impact_metric_coverage and candidate.impact_metric_coverage.external_metrics_missing:
+        warnings.append("{0} impact metric sources missing.".format(len(candidate.impact_metric_coverage.external_metrics_missing)))
+    if not candidate.gravity_profile or candidate.gravity_profile.overall_gravity is None:
+        warnings.append("Gravity coverage missing or proxy unavailable.")
+    if not candidate.clutch_profile or candidate.clutch_profile.confidence == "low":
+        warnings.append("Clutch sample is missing or low confidence.")
+    if not candidate.opponent_adjusted or candidate.opponent_adjusted.confidence == "low":
+        warnings.append("Opponent-adjusted split sample is limited.")
+    if candidate.confidence and candidate.confidence.overall == "low":
+        warnings.append("Overall model confidence is low.")
+    return warnings
+
+
+def build_mvp_coverage(
+    db: Session,
+    season: str,
+    top: int = 10,
+    min_gp: int = MIN_GP,
+) -> MvpCoverageResponse:
+    candidates, as_of = _build_ranked_candidates(
+        db=db,
+        season=season,
+        top=top,
+        min_gp=min_gp,
+        position=None,
+        profile=DEFAULT_PROFILE,
+    )
+    freshness = build_mvp_snapshot_freshness(db, season)
+    total = len(candidates)
+    log_ready = sum(1 for candidate in candidates if candidate.last_games > 0)
+    impact_ready = sum(
+        1 for candidate in candidates
+        if candidate.impact_metric_coverage and candidate.impact_metric_coverage.external_metrics_present
+    )
+    gravity_ready = sum(
+        1 for candidate in candidates
+        if candidate.gravity_profile and candidate.gravity_profile.overall_gravity is not None
+    )
+    clutch_ready = sum(
+        1 for candidate in candidates
+        if candidate.clutch_profile and candidate.clutch_profile.confidence != "low"
+    )
+    opponent_ready = sum(
+        1 for candidate in candidates
+        if candidate.opponent_adjusted and candidate.opponent_adjusted.confidence != "low"
+    )
+    snapshot_ready = len(freshness.profiles)
+    domains = [
+        MvpCoverageDomain(
+            key="daily_snapshots",
+            label="Daily MVP Snapshots",
+            status=freshness.status,
+            ready_count=snapshot_ready,
+            total_count=max(1, len(AVAILABLE_PROFILES)),
+            detail=freshness.note,
+        ),
+        MvpCoverageDomain(
+            key="weekly_game_logs",
+            label="Weekly Timeline Game Logs",
+            status=_coverage_status(log_ready, total),
+            ready_count=log_ready,
+            total_count=total,
+            detail="Candidates with recent played-game logs for timeline reconstruction.",
+        ),
+        MvpCoverageDomain(
+            key="external_impact",
+            label="External Impact Metrics",
+            status=_coverage_status(impact_ready, total),
+            ready_count=impact_ready,
+            total_count=total,
+            detail="Candidates with at least one imported external impact metric.",
+        ),
+        MvpCoverageDomain(
+            key="gravity",
+            label="Gravity Rows",
+            status=_coverage_status(gravity_ready, total),
+            ready_count=gravity_ready,
+            total_count=total,
+            detail="Candidates with official or CourtVue proxy Gravity context.",
+        ),
+        MvpCoverageDomain(
+            key="clutch_context",
+            label="Clutch / Context Rows",
+            status=_coverage_status(clutch_ready, total),
+            ready_count=clutch_ready,
+            total_count=total,
+            detail="Candidates with medium-or-better clutch confidence.",
+        ),
+        MvpCoverageDomain(
+            key="opponent_adjusted",
+            label="Opponent-Adjusted Splits",
+            status=_coverage_status(opponent_ready, total),
+            ready_count=opponent_ready,
+            total_count=total,
+            detail="Candidates with medium-or-better opponent split confidence.",
+        ),
+    ]
+    status_rank = {"ready": 2, "partial": 1, "missing": 0}
+    overall = min((domain.status for domain in domains), key=lambda status: status_rank.get(status, 0), default="missing")
+    coverage_candidates: List[MvpCoverageCandidate] = []
+    for candidate in candidates:
+        warnings = _candidate_coverage_warnings(candidate)
+        coverage_candidates.append(
+            MvpCoverageCandidate(
+                player_id=candidate.player_id,
+                player_name=candidate.player_name,
+                team_abbreviation=candidate.team_abbreviation,
+                rank=candidate.rank,
+                warning_count=len(warnings),
+                warnings=warnings,
+            )
+        )
+    notes = [
+        "Coverage health is diagnostic; it does not directly rewrite Award Case rank.",
+        "Historical impact, Gravity, clutch, and opponent-adjusted rows are not backfilled yet.",
+    ]
+    return MvpCoverageResponse(
+        season=season,
+        as_of_date=as_of,
+        status=overall,
+        snapshot_freshness=freshness,
+        domains=domains,
+        candidates=coverage_candidates,
+        notes=notes,
     )
 
 

@@ -1,6 +1,6 @@
 # Agent Coordination
 
-Last updated: 2026-04-18 by Codex (Sprint 53 closeout — ready for next sprint)
+Last updated: 2026-04-18 by Codex (Sprint 54 kickoff — MVP Platform+)
 
 > Both agents read this file before touching code at the start of every session.
 > The canonical source of truth is the clean `master` checkout at `/Users/viv/Documents/Basketball Intelligence Platform`.
@@ -14,13 +14,13 @@ Last updated: 2026-04-18 by Codex (Sprint 53 closeout — ready for next sprint)
 
 | Field | Value |
 |-------|-------|
-| Sprint | Next kickoff TBD |
-| Goal | TBD |
-| Started | TBD |
+| Sprint | 54 |
+| Goal | MVP Platform+ — Voter Room, player embeds, coverage ops, and snapshot freshness |
+| Started | 2026-04-18 |
 | Target merge | TBD |
-| Sprint shape | TBD |
-| Branch | `master` |
-| Worker policy | Assign per sprint plan |
+| Sprint shape | Single-stream Codex — aggressive MVP platform expansion |
+| Branch | `codex/sprint-54-mvp-platform-plus` |
+| Worker policy | Single-stream unless bounded independent subtasks emerge |
 
 ---
 
@@ -43,9 +43,9 @@ If repo state, sprint numbering, or shipped features appear to disagree across l
 - Status: Not assigned
 
 ### Codex
-- Branch: —
-- Scope: —
-- Status: Not assigned
+- Branch: `codex/sprint-54-mvp-platform-plus`
+- Scope: MVP Voter Room, player-page MVP embeds, MVP coverage ops, and snapshot freshness
+- Status: In progress
 
 ---
 
@@ -58,7 +58,16 @@ Claim a shared file here before editing. If a file is already claimed, read that
 
 | File | Claimed by | Purpose |
 |------|------------|---------|
-| — | — | — |
+| `frontend/src/lib/types.ts` | Codex | Sprint 54 additive MVP platform contracts |
+| `frontend/src/lib/api.ts` | Codex | Sprint 54 MVP platform API helpers |
+| `backend/models/mvp.py` | Codex | Sprint 54 Voter Room and coverage schemas |
+| `backend/routers/mvp.py` | Codex | Sprint 54 MVP Voter Room and coverage endpoints |
+| `backend/routers/warehouse.py` | Codex | Sprint 54 manual MVP snapshot queue endpoint |
+| `backend/services/mvp_service.py` | Codex | Sprint 54 Voter Room and coverage builders |
+| `backend/services/warehouse_service.py` | Codex | Sprint 54 snapshot queue scheduling |
+| `frontend/src/app/mvp/page.tsx` | Codex | Sprint 54 Voter Room and freshness badge mount |
+| `frontend/src/app/coverage/page.tsx` | Codex | Sprint 54 MVP coverage ops surface |
+| `frontend/src/components/PlayerDashboard.tsx` | Codex | Sprint 54 MVP player-page embed mount |
 
 ---
 
@@ -75,18 +84,24 @@ Specs or review notes written by one stream for another. Check this before start
 
 ## Merge Order
 
-1. Next sprint branch TBD
+1. Codex — `codex/sprint-54-mvp-platform-plus`
 2. Final integration / verification / merge to `master`
 
 ---
 
 ## Sprint Work Allocation
 
-No active sprint allocation.
+Sprint 54 allocation — single-stream Codex
 
 | Files / Directories | Assigned this sprint |
 |---------------------|----------------------|
-| — | — |
+| `backend/models/mvp.py`, `backend/routers/mvp.py`, `backend/services/mvp_service.py` | Codex — Voter Room and MVP coverage contracts/read services |
+| `backend/routers/warehouse.py`, `backend/services/warehouse_service.py` | Codex — MVP snapshot queue endpoint and daily scheduling |
+| `frontend/src/app/mvp/page.tsx`, `frontend/src/components/MvpVoterRoom.tsx` (new), `frontend/src/components/MvpSnapshotFreshnessBadge.tsx` (new) | Codex — `/mvp` Voter Room + freshness |
+| `frontend/src/components/MvpPlayerCaseEmbed.tsx` (new), `frontend/src/components/PlayerDashboard.tsx` | Codex — player-page MVP embed |
+| `frontend/src/app/coverage/page.tsx`, `frontend/src/components/MvpCoveragePanel.tsx` (new) | Codex — MVP coverage ops |
+| `frontend/src/lib/api.ts`, `frontend/src/lib/types.ts`, `frontend/src/hooks/usePlayerStats.ts` | Codex — additive frontend contracts/hooks |
+| Backend and frontend targeted tests | Codex — Sprint 54 verification |
 
 ---
 
@@ -159,6 +174,7 @@ No active sprint allocation.
 
 *Free-form, dated, newest first. Use this for coordination and repo-state exceptions.*
 
+2026-04-18 (Codex): Sprint 54 kicked off on `codex/sprint-54-mvp-platform-plus`. Goal: make the MVP tracker a broader platform with Voter Room comparison, player-page embeds, MVP coverage ops, and persisted snapshot freshness.
 2026-04-18 (Codex): Sprint 53 closed on `codex/sprint-53-mvp-race-timeline`. Shipped DB-first MVP snapshots, weekly voter timeline, refined MVP methodology v3, methodology explanations throughout `/mvp`, and the DNP-safe PPG fix. Closeout: `specs/sprint-53-closeout.md`.
 2026-04-17 (Claude): Sprint 52 kicked off on `feature/sprint-52-mvp-holistic-case`. Plan file at `~/.claude/plans/i-want-to-plan-declarative-corbato.md`. Goal: remove box-score bias from MVP tracker by introducing transparent scoring profiles (Box-First / Balanced / Impact-Consensus), ingesting external impact metrics (EPM, LEBRON, RAPTOR, PIPM, DARKO, RAPM) with source attribution, adding clutch + opponent-adjusted tables, and shipping four signature visuals: Impact Consensus Radar, Weighting-Sensitivity Slope, Clutch & High-Leverage Card, Signature-Games Timeline. No weight tuning that favors any specific player.
 2026-04-17 (Codex): Sprint 51 implemented on `codex-sprint-51-mvp-gravity-foundation`. Added DB-first MVP context tables for play-type, tracking, hustle, and gravity; official NBA Gravity source spike with CourtVue proxy fallback; MVP `gravity_profile`, `context_adjusted_score`, `/api/mvp/gravity`, Gravity map axis, Gravity case section, and methodology copy. Verification covered MVP/gravity/schema backend tests, official season sync/materialization/standings/shotchart targeted tests, frontend lint, frontend build, and `git diff --check`.

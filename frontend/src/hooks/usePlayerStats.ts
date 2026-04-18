@@ -70,7 +70,10 @@ import type {
   MvpRaceResponse,
   MvpRaceOptions,
   MvpSensitivityResponse,
+  MvpCoverageResponse,
+  MvpSnapshotFreshness,
   MvpTimelineResponse,
+  MvpVoterRoomResponse,
 } from "@/lib/types";
 import {
   getPlayerProfile,
@@ -137,7 +140,10 @@ import {
   getMvpGravity,
   getMvpRace,
   getMvpSensitivity,
+  getMvpCoverage,
+  getMvpSnapshotFreshness,
   getMvpTimeline,
+  getMvpVoterRoom,
 } from "@/lib/api";
 
 const DEFAULT_SHOT_LAB_FILTERS: ShotLabFilters = {
@@ -1005,6 +1011,41 @@ export function useMvpTimeline(
   return useSWR<MvpTimelineResponse>(
     key,
     () => getMvpTimeline(season!, options)
+  );
+}
+
+export function useMvpVoterRoom(
+  season: string | null,
+  playerIds: number[],
+  options?: Pick<MvpRaceOptions, "minGp">
+) {
+  const key = season
+    ? ["mvp-voter-room", season, playerIds.join(","), options?.minGp ?? 20]
+    : null;
+  return useSWR<MvpVoterRoomResponse>(
+    key,
+    () => getMvpVoterRoom(season!, playerIds, options)
+  );
+}
+
+export function useMvpCoverage(
+  season: string | null,
+  options?: Pick<MvpRaceOptions, "top" | "minGp">
+) {
+  const key = season
+    ? ["mvp-coverage", season, options?.top ?? 10, options?.minGp ?? 20]
+    : null;
+  return useSWR<MvpCoverageResponse>(
+    key,
+    () => getMvpCoverage(season!, options)
+  );
+}
+
+export function useMvpSnapshotFreshness(season: string | null) {
+  const key = season ? ["mvp-snapshot-freshness", season] : null;
+  return useSWR<MvpSnapshotFreshness>(
+    key,
+    () => getMvpSnapshotFreshness(season!)
   );
 }
 

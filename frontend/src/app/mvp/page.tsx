@@ -6,6 +6,8 @@ import { useMvpRace, useMvpSensitivity, useMvpTimeline } from "@/hooks/usePlayer
 import MvpRacePanel, { MvpRacePanelSkeleton } from "@/components/MvpRacePanel";
 import MvpSensitivitySlope from "@/components/MvpSensitivitySlope";
 import MvpTimelineStrip from "@/components/MvpTimelineStrip";
+import MvpVoterRoom from "@/components/MvpVoterRoom";
+import MvpSnapshotFreshnessBadge from "@/components/MvpSnapshotFreshnessBadge";
 
 const POSITION_OPTIONS = [
   { label: "All positions", value: "" },
@@ -36,28 +38,22 @@ const PROFILES = [
 ] as const;
 
 function MvpContent({
-  season,
-  top,
-  position,
+  data,
+  isLoading,
+  error,
 }: {
-  season: string;
-  top: number;
-  position: string | null;
+  data: ReturnType<typeof useMvpRace>["data"];
+  isLoading: boolean;
+  error: unknown;
 }) {
-  const { data, isLoading, error } = useMvpRace(season, {
-    top,
-    minGp: 20,
-    position,
-    profile: "balanced",
-  });
-
   if (isLoading) return <MvpRacePanelSkeleton />;
 
   if (error) {
+    const message = error instanceof Error ? error.message : String(error);
     return (
       <div className="rounded-lg border border-[var(--border)] bg-[var(--surface)] py-16 text-center text-[var(--muted)]">
         <p className="text-sm">Could not load MVP race data.</p>
-        <p className="mt-1 text-xs text-[var(--danger-ink)]">{String(error?.message ?? error)}</p>
+        <p className="mt-1 text-xs text-[var(--danger-ink)]">{message}</p>
       </div>
     );
   }
@@ -93,6 +89,12 @@ export default function MvpPage() {
   const [season, setSeason] = useState<string | null>(null);
   const [top, setTop] = useState(10);
   const [position, setPosition] = useState<string>("");
+  const raceQuery = useMvpRace(season, {
+    top,
+    minGp: 20,
+    position: position || null,
+    profile: "balanced",
+  });
 
   useEffect(() => {
     getAvailableSeasons()
@@ -189,15 +191,20 @@ export default function MvpPage() {
             </div>
           </div>
         </div>
+        <div className="mt-3">
+          <MvpSnapshotFreshnessBadge season={season} />
+        </div>
       </header>
 
       {season ? <SensitivitySection season={season} /> : null}
 
       {season ? <TimelineSection season={season} top={top} /> : null}
 
+      {season ? <MvpVoterRoom season={season} candidates={raceQuery.data?.candidates ?? []} /> : null}
+
       {season ? (
         <Suspense fallback={<MvpRacePanelSkeleton />}>
-          <MvpContent season={season} top={top} position={position || null} />
+          <MvpContent data={raceQuery.data} isLoading={raceQuery.isLoading} error={raceQuery.error} />
         </Suspense>
       ) : (
         <MvpRacePanelSkeleton />

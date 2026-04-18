@@ -30,6 +30,7 @@ from services.warehouse_service import (
     queue_current_season_daily_sync,
     queue_date_sync,
     queue_game_resync,
+    queue_mvp_timeline_snapshot,
     queue_player_career_sync,
     queue_player_gamelogs_sync,
     queue_player_profile_sync,
@@ -96,6 +97,17 @@ def queue_daily_current_season(season: str = Query(...), db: Session = Depends(g
     jobs = queue_current_season_daily_sync(db, season)
     db.commit()
     return QueueResponse(queued=len(jobs), jobs=[_job_response(job) for job in jobs])
+
+
+@router.post("/queue/mvp-snapshot", response_model=QueueResponse)
+def queue_mvp_snapshot(
+    season: str = Query(...),
+    date_key: Optional[str] = Query(None, description="YYYY-MM-DD; defaults to today"),
+    db: Session = Depends(get_db),
+):
+    job = queue_mvp_timeline_snapshot(db, season, snapshot_date=date_key)
+    db.commit()
+    return QueueResponse(queued=1, jobs=[_job_response(job)])
 
 
 @router.post("/queue/player-profile", response_model=QueueResponse)

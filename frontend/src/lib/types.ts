@@ -2470,6 +2470,81 @@ export interface MvpTimelineResponse {
   coverage_note: string;
 }
 
+export interface MvpVoterRoomCandidate {
+  player_id: number;
+  player_name: string;
+  team_abbreviation: string;
+  headshot_url: string;
+  award_case_rank: number | null;
+  basketball_value_rank: number | null;
+  ballot_eligible_rank: number | null;
+  award_case_score: number | null;
+  basketball_value_score: number | null;
+  context_adjusted_score: number | null;
+  eligibility_status: string;
+  confidence?: MvpCandidateConfidence | null;
+  case_summary: string[];
+  evidence: string[];
+}
+
+export interface MvpVoterRoomCategory {
+  key: string;
+  label: string;
+  winner_player_id: number | null;
+  winner_name: string | null;
+  summary: string;
+  values: Record<string, number | null>;
+}
+
+export interface MvpVoterRoomResponse {
+  season: string;
+  as_of_date: string;
+  mode: string;
+  methodology: string;
+  selected_player_ids: number[];
+  candidates: MvpVoterRoomCandidate[];
+  categories: MvpVoterRoomCategory[];
+  ballot_summary: string[];
+  warnings: string[];
+}
+
+export interface MvpSnapshotFreshness {
+  status: "ready" | "partial" | "missing" | string;
+  latest_snapshot_date: string | null;
+  latest_as_of_date: string | null;
+  profiles: string[];
+  snapshot_count: number;
+  note: string;
+}
+
+export interface MvpCoverageDomain {
+  key: string;
+  label: string;
+  status: "ready" | "partial" | "missing" | string;
+  ready_count: number;
+  total_count: number;
+  detail: string;
+}
+
+export interface MvpCoverageCandidate {
+  player_id: number;
+  player_name: string;
+  team_abbreviation: string;
+  rank: number;
+  warning_count: number;
+  warnings: string[];
+}
+
+export interface MvpCoverageResponse {
+  season: string;
+  as_of_date: string;
+  status: "ready" | "partial" | "missing" | string;
+  snapshot_freshness: MvpSnapshotFreshness;
+  domains: MvpCoverageDomain[];
+  candidates: MvpCoverageCandidate[];
+  notes: string[];
+}
+
 export interface MvpScorePillar {
   label: string;
   weight: number;
