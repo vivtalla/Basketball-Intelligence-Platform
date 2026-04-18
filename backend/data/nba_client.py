@@ -6,7 +6,7 @@ import time
 from io import BytesIO
 from datetime import date, datetime, timedelta
 from html.parser import HTMLParser
-from typing import List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 import unicodedata
 from urllib.error import HTTPError, URLError
 from urllib.parse import urljoin
@@ -18,13 +18,18 @@ from nba_api.stats.endpoints import (
     boxscoretraditionalv2,
     commonplayerinfo,
     leaguedashplayerstats,
+    leaguehustlestatsplayer,
     leaguedashteamstats,
     leaguegamelog,
     leaguestandings,
     playergamelog,
     playbyplayv3,
     playercareerstats,
+    playerdashptpass,
+    playerdashptshotdefend,
+    playerdashptshots,
     shotchartdetail,
+    synergyplaytypes,
     teamdashboardbygeneralsplits,
 )
 from nba_api.live.nba.endpoints import boxscore as live_boxscore
@@ -1560,6 +1565,174 @@ def get_shot_chart_data(
         })
     CacheManager.set(cache_key, {"shots": shots}, _cache_ttl_for_season(season))
     return shots
+
+
+def _df_records(frame) -> List[Dict[str, Any]]:
+    if frame is None or frame.empty:
+        return []
+    return frame.where(pd.notnull(frame), None).to_dict("records")
+
+
+def get_synergy_player_play_types(
+    season: str,
+    season_type: str = "Regular Season",
+    play_type: str = "",
+    type_grouping: str = "offensive",
+) -> List[Dict[str, Any]]:
+    """Fetch official Synergy play-type rows when stats.nba.com exposes them."""
+    cache_key = f"synergy_player_play_types_{season}_{season_type}_{play_type}_{type_grouping}"
+    cached = CacheManager.get(cache_key)
+    if cached and isinstance(cached.get("rows"), list):
+        return cached["rows"]
+
+    _rate_limit()
+    response = synergyplaytypes.SynergyPlayTypes(
+        season=season,
+        season_type_all_star=season_type,
+        player_or_team_abbreviation="P",
+        play_type_nullable=play_type,
+        type_grouping_nullable=type_grouping,
+        per_mode_simple="Totals",
+        timeout=NBA_API_TIMEOUT,
+    )
+    frames = response.get_data_frames()
+    rows = _df_records(frames[0] if frames else None)
+    CacheManager.set(cache_key, {"rows": rows}, _cache_ttl_for_season(season))
+    return rows
+
+
+def get_league_hustle_player_stats(
+    season: str,
+    season_type: str = "Regular Season",
+) -> List[Dict[str, Any]]:
+    """Fetch official league player hustle rows."""
+    cache_key = f"league_hustle_player_{season}_{season_type}"
+    cached = CacheManager.get(cache_key)
+    if cached and isinstance(cached.get("rows"), list):
+        return cached["rows"]
+
+    _rate_limit()
+    response = leaguehustlestatsplayer.LeagueHustleStatsPlayer(
+        season=season,
+        season_type_all_star=season_type,
+        per_mode_time="Totals",
+        timeout=NBA_API_TIMEOUT,
+    )
+    frames = response.get_data_frames()
+    rows = _df_records(frames[0] if frames else None)
+    CacheManager.set(cache_key, {"rows": rows}, _cache_ttl_for_season(season))
+    return rows
+
+
+def get_player_tracking_dashboard(
+    player_id: int,
+    season: str,
+    season_type: str = "Regular Season",
+) -> List[Dict[str, Any]]:
+    """Fetch selected player-tracking dashboards for one player.
+
+    The result is intentionally normalized into family/split rows so callers
+    can persist partial endpoint coverage without changing product contracts.
+    """
+    cache_key = f"player_tracking_dashboard_{player_id}_{season}_{season_type}"
+    cached = CacheManager.get(cache_key)
+    if cached and isinstance(cached.get("rows"), list):
+        return cached["rows"]
+
+    rows: List[Dict[str, Any]] = []
+
+    def _collect(family: str, endpoint) -> None:
+        frames = endpoint.get_data_frames()
+        for dataset_name, frame in zip(endpoint.expected_data.keys(), frames):
+            for record in _df_records(frame):
+                split = (
+                    record.get("SHOT_TYPE")
+                    or record.get("DRIBBLE_RANGE")
+                    or record.get("TOUCH_TIME_RANGE")
+                    or record.get("CLOSE_DEF_DIST_RANGE")
+                    or record.get("PASS_TYPE")
+                    or record.get("DEFENSE_CATEGORY")
+                    or dataset_name
+                    or "overall"
+                )
+                rows.append({
+                    "family": family,
+                    "split_key": str(split),
+                    "dataset": dataset_name,
+                    "raw": record,
+                })
+
+    _rate_limit()
+    _collect(
+        "shots",
+        playerdashptshots.PlayerDashPtShots(
+            team_id=0,
+            player_id=player_id,
+            season=season,
+            season_type_all_star=season_type,
+            per_mode_simple="Totals",
+            timeout=NBA_API_TIMEOUT,
+        ),
+    )
+    _rate_limit()
+    _collect(
+        "passing",
+        playerdashptpass.PlayerDashPtPass(
+            team_id=0,
+            player_id=player_id,
+            season=season,
+            season_type_all_star=season_type,
+            per_mode_simple="Totals",
+            timeout=NBA_API_TIMEOUT,
+        ),
+    )
+    _rate_limit()
+    _collect(
+        "shot_defense",
+        playerdashptshotdefend.PlayerDashPtShotDefend(
+            team_id=0,
+            player_id=player_id,
+            season=season,
+            season_type_all_star=season_type,
+            per_mode_simple="Totals",
+            timeout=NBA_API_TIMEOUT,
+        ),
+    )
+    CacheManager.set(cache_key, {"rows": rows}, _cache_ttl_for_season(season))
+    return rows
+
+
+def get_inside_game_gravity_rows(
+    season: str,
+    season_type: str = "Regular Season",
+) -> List[Dict[str, Any]]:
+    """Best-effort source spike for NBA Inside the Game Gravity.
+
+    NBA currently renders Gravity through the Inside the Game web app. This
+    function only returns rows if a stable structured payload is discoverable;
+    callers must treat an empty result as "official source unavailable" and
+    fall back to CourtVue proxy persistence.
+    """
+    cache_key = f"inside_game_gravity_{season}_{season_type}"
+    cached = CacheManager.get(cache_key)
+    if cached and isinstance(cached.get("rows"), list):
+        return cached["rows"]
+
+    url = "https://www.nba.com/inside-the-game/player/gravity"
+    request = Request(url, headers=NBA_LIVE_HEADERS)
+    try:
+        with urlopen(request, timeout=NBA_API_TIMEOUT) as response:
+            html = response.read().decode("utf-8", errors="ignore")
+    except (HTTPError, URLError, TimeoutError):
+        CacheManager.set(cache_key, {"rows": []}, 1800)
+        return []
+
+    rows: List[Dict[str, Any]] = []
+    for match in re.finditer(r'"playerId"\s*:\s*(\d+).*?"gravity"\s*:\s*(-?\d+(?:\.\d+)?)', html, flags=re.IGNORECASE | re.DOTALL):
+        rows.append({"PLAYER_ID": int(match.group(1)), "GRAV": float(match.group(2)), "raw": match.group(0)})
+
+    CacheManager.set(cache_key, {"rows": rows}, 1800 if not rows else _cache_ttl_for_season(season))
+    return rows
 
 
 def _format_shot_clock(raw_minutes: object, raw_seconds: object) -> Optional[str]:

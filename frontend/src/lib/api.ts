@@ -56,6 +56,17 @@ export async function getPlayerProfile(
   return fetchApi<import("./types").DbFirstPlayerProfile>(`/api/players/${playerId}`);
 }
 
+export async function getPlayerGravity(
+  playerId: number,
+  season: string,
+  seasonType = "Regular Season"
+): Promise<import("./types").MvpGravityProfile> {
+  const params = new URLSearchParams({ season, season_type: seasonType });
+  return fetchApi<import("./types").MvpGravityProfile>(
+    `/api/players/${encodeURIComponent(playerId)}/gravity?${params.toString()}`
+  );
+}
+
 export async function getPlayerCareerStats(
   playerId: number
 ): Promise<import("./types").DbFirstCareerStatsResponse> {
@@ -1157,6 +1168,32 @@ export async function getMvpCandidateCase(
   if (options?.position) params.set("position", options.position);
   return fetchApi<import("./types").MvpCandidateCaseResponse>(
     `/api/mvp/candidates/${encodeURIComponent(playerId)}/case?${params.toString()}`
+  );
+}
+
+export async function getMvpContextMap(
+  season: string,
+  options?: import("./types").MvpRaceOptions
+): Promise<import("./types").MvpContextMapResponse> {
+  const params = new URLSearchParams({ season });
+  if (options?.top != null) params.set("top", String(options.top));
+  if (options?.minGp != null) params.set("min_gp", String(options.minGp));
+  if (options?.position) params.set("position", options.position);
+  return fetchApi<import("./types").MvpContextMapResponse>(
+    `/api/mvp/context-map?${params.toString()}`
+  );
+}
+
+export async function getMvpGravity(
+  season: string,
+  options?: import("./types").MvpRaceOptions
+): Promise<import("./types").MvpGravityLeaderboardResponse> {
+  const params = new URLSearchParams({ season });
+  if (options?.top != null) params.set("top", String(options.top));
+  if (options?.minGp != null) params.set("min_gp", String(options.minGp));
+  if (options?.position) params.set("position", options.position);
+  return fetchApi<import("./types").MvpGravityLeaderboardResponse>(
+    `/api/mvp/gravity?${params.toString()}`
   );
 }
 

@@ -731,6 +731,174 @@ class TeamSplitStat(Base):
     team = relationship("Team")
 
 
+class PlayerPlayTypeStat(Base):
+    """Persisted official/player play-type rows for DB-first style and gravity reads."""
+    __tablename__ = "player_play_type_stats"
+    __table_args__ = (
+        UniqueConstraint(
+            "player_id",
+            "season",
+            "season_type",
+            "play_type",
+            "type_grouping",
+            "source",
+            name="uq_player_play_type_stat",
+        ),
+        Index("ix_player_play_type_stats_season", "season"),
+        Index("ix_player_play_type_stats_player_season", "player_id", "season"),
+    )
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    player_id = Column(Integer, ForeignKey("players.id"), nullable=False)
+    season = Column(String(10), nullable=False)
+    season_type = Column(String(30), nullable=False, default="Regular Season")
+    source = Column(String(80), nullable=False, default="stats.nba.com/synergy-play-types")
+    play_type = Column(String(80), nullable=False)
+    type_grouping = Column(String(80), nullable=False, default="offensive")
+    team_id = Column(Integer, ForeignKey("teams.id"), nullable=True)
+    team_abbreviation = Column(String(10))
+    gp = Column(Integer, default=0)
+    possessions = Column(Float)
+    poss_pct = Column(Float)
+    points = Column(Float)
+    ppp = Column(Float)
+    percentile = Column(Float)
+    fg_pct = Column(Float)
+    efg_pct = Column(Float)
+    tov_poss_pct = Column(Float)
+    score_poss_pct = Column(Float)
+    raw_payload = Column(JSON)
+    updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
+
+    player = relationship("Player")
+
+
+class PlayerTrackingStat(Base):
+    """Persisted player tracking dashboard rows normalized by family/split."""
+    __tablename__ = "player_tracking_stats"
+    __table_args__ = (
+        UniqueConstraint(
+            "player_id",
+            "season",
+            "season_type",
+            "tracking_family",
+            "split_key",
+            "source",
+            name="uq_player_tracking_stat",
+        ),
+        Index("ix_player_tracking_stats_season", "season"),
+        Index("ix_player_tracking_stats_player_season", "player_id", "season"),
+    )
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    player_id = Column(Integer, ForeignKey("players.id"), nullable=False)
+    season = Column(String(10), nullable=False)
+    season_type = Column(String(30), nullable=False, default="Regular Season")
+    source = Column(String(80), nullable=False, default="stats.nba.com/player-tracking")
+    tracking_family = Column(String(50), nullable=False)
+    split_key = Column(String(80), nullable=False, default="overall")
+    team_id = Column(Integer, ForeignKey("teams.id"), nullable=True)
+    team_abbreviation = Column(String(10))
+    gp = Column(Integer, default=0)
+    minutes = Column(Float)
+    touches = Column(Float)
+    front_court_touches = Column(Float)
+    time_of_possession = Column(Float)
+    drives = Column(Float)
+    passes_made = Column(Float)
+    passes_received = Column(Float)
+    catch_shoot_fga = Column(Float)
+    catch_shoot_pts = Column(Float)
+    pull_up_fga = Column(Float)
+    pull_up_pts = Column(Float)
+    paint_touch_pts = Column(Float)
+    close_touch_pts = Column(Float)
+    raw_payload = Column(JSON)
+    updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
+
+    player = relationship("Player")
+
+
+class PlayerHustleStat(Base):
+    """Persisted official hustle rows for screen/attention and non-box-score context."""
+    __tablename__ = "player_hustle_stats"
+    __table_args__ = (
+        UniqueConstraint(
+            "player_id",
+            "season",
+            "season_type",
+            "source",
+            name="uq_player_hustle_stat",
+        ),
+        Index("ix_player_hustle_stats_season", "season"),
+        Index("ix_player_hustle_stats_player_season", "player_id", "season"),
+    )
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    player_id = Column(Integer, ForeignKey("players.id"), nullable=False)
+    season = Column(String(10), nullable=False)
+    season_type = Column(String(30), nullable=False, default="Regular Season")
+    source = Column(String(80), nullable=False, default="stats.nba.com/league-hustle")
+    team_id = Column(Integer, ForeignKey("teams.id"), nullable=True)
+    team_abbreviation = Column(String(10))
+    gp = Column(Integer, default=0)
+    minutes = Column(Float)
+    contested_shots = Column(Float)
+    deflections = Column(Float)
+    charges_drawn = Column(Float)
+    screen_assists = Column(Float)
+    screen_assist_points = Column(Float)
+    loose_balls_recovered = Column(Float)
+    box_outs = Column(Float)
+    raw_payload = Column(JSON)
+    updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
+
+    player = relationship("Player")
+
+
+class PlayerGravityStat(Base):
+    """Official or CourtVue-derived player gravity profile."""
+    __tablename__ = "player_gravity_stats"
+    __table_args__ = (
+        UniqueConstraint(
+            "player_id",
+            "season",
+            "season_type",
+            "source",
+            name="uq_player_gravity_stat",
+        ),
+        Index("ix_player_gravity_stats_season", "season"),
+        Index("ix_player_gravity_stats_player_season", "player_id", "season"),
+    )
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    player_id = Column(Integer, ForeignKey("players.id"), nullable=False)
+    season = Column(String(10), nullable=False)
+    season_type = Column(String(30), nullable=False, default="Regular Season")
+    source = Column(String(80), nullable=False, default="courtvue_proxy")
+    team_id = Column(Integer, ForeignKey("teams.id"), nullable=True)
+    team_abbreviation = Column(String(10))
+    gravity_minutes = Column(Float)
+    overall_gravity = Column(Float)
+    shooting_gravity = Column(Float)
+    rim_gravity = Column(Float)
+    creation_gravity = Column(Float)
+    roll_or_screen_gravity = Column(Float)
+    off_ball_gravity = Column(Float)
+    spacing_lift = Column(Float)
+    on_ball_perimeter_gravity = Column(Float)
+    off_ball_perimeter_gravity = Column(Float)
+    on_ball_interior_gravity = Column(Float)
+    off_ball_interior_gravity = Column(Float)
+    gravity_confidence = Column(String(20), nullable=False, default="low")
+    source_note = Column(String(500))
+    warnings = Column(JSON)
+    raw_payload = Column(JSON)
+    updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
+
+    player = relationship("Player")
+
+
 class PreReadSnapshot(Base):
     __tablename__ = "pre_read_snapshots"
     __table_args__ = (

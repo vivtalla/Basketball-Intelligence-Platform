@@ -153,15 +153,25 @@ Likely shape:
 
 ## MVP Tracking
 
-### MVP Award-Race Tracker
+### MVP Award-Race Follow-Ons
 Why it matters:
-CourtVue Labs is increasingly good at telling player-value and team-context stories, which makes a future MVP lens feel natural. A dedicated award-race tracker could turn existing player, trend, and matchup context into a staff-readable season narrative without pretending the product is itself the official vote.
+Sprints 48-51 turned the MVP tracker into a case platform with eligibility, opponent context, support burden, a case map, and a Gravity context layer. The next gains are calibration, richer official-data coverage, and longitudinal storytelling rather than another static leaderboard.
 
 Likely shape:
-- track a living MVP board with movement over time instead of a static leaderboard snapshot
-- combine player value indicators, team success context, recent trend momentum, and evidence-backed narrative bullets
-- make the workflow transparent about what is model-driven versus editorial framing so the race view stays interpretable
-- connect award-race entries back into player pages, compare, and trend workflows rather than creating a disconnected microsite
+- persist daily MVP snapshots so rank, score, and case-strength movement can be shown over time
+- add an MVP voter-room compare mode for two or three candidates using the existing case context
+- broaden official play-type/tracking/hustle refresh coverage and make coverage health visible per candidate
+- add player-page MVP embeds once the context-map payload is stable enough to reuse outside `/mvp`
+
+### Gravity Calibration and Official Coverage
+Why it matters:
+Sprint 51 shipped DB-first Gravity contracts and CourtVue proxy Gravity, but the next step is proving the proxy against richer official tracking domains and official NBA Gravity rows when the source stabilizes.
+
+Likely shape:
+- add scheduled/backfill jobs for the new play-type, tracking, hustle, and gravity tables
+- compare CourtVue proxy Gravity against official NBA Gravity wherever rows are available
+- improve spacing-lift and off-ball components with teammate efficiency and lineup-with/without patterns
+- keep Gravity as a capped context adjustment until validation shows it is stable enough for stronger scoring influence
 
 ---
 
