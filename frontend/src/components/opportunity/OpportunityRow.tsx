@@ -1,7 +1,11 @@
 "use client";
 
 import type { OpportunityPlayerRow } from "@/lib/types";
-import { OpportunityDriverBar, SIGNAL_LABELS } from "./OpportunityDriverBar";
+import {
+  OpportunityDriverBar,
+  SIGNAL_DESCRIPTIONS,
+  SIGNAL_LABELS,
+} from "./OpportunityDriverBar";
 
 function confidencePill(confidence: OpportunityPlayerRow["confidence"]) {
   if (confidence === "high") {
@@ -70,7 +74,10 @@ export function OpportunityRow({ row, rank, isSelected, onSelect }: Props) {
       {row.top_driver ? (
         <div className="mt-2 text-[11px] text-[var(--muted-strong)]">
           Top driver ·{" "}
-          <span className="font-semibold text-[var(--foreground)]">
+          <span
+            className="cursor-help font-semibold text-[var(--foreground)] underline decoration-dotted decoration-[var(--muted)] underline-offset-2"
+            title={SIGNAL_DESCRIPTIONS[row.top_driver] ?? ""}
+          >
             {SIGNAL_LABELS[row.top_driver] ?? row.top_driver}
           </span>
           {row.cohort_percentile != null

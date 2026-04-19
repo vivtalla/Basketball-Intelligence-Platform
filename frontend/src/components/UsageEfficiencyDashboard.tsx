@@ -16,7 +16,11 @@ import { RoleFitCard } from "./opportunity/RoleFitCard";
 import { CohortPositionCard } from "./opportunity/CohortPositionCard";
 import { DirectionalHintBanner } from "./opportunity/DirectionalHintBanner";
 import { MethodologyDrawer } from "./opportunity/MethodologyDrawer";
-import { OpportunityDriverBar, SIGNAL_LABELS } from "./opportunity/OpportunityDriverBar";
+import {
+  OpportunityDriverBar,
+  SIGNAL_DESCRIPTIONS,
+  SIGNAL_LABELS,
+} from "./opportunity/OpportunityDriverBar";
 
 type SignalFilter = "all" | OpportunitySignal;
 
@@ -164,6 +168,11 @@ export default function UsageEfficiencyDashboard() {
               key={opt.value}
               type="button"
               onClick={() => setSignalFilter(opt.value)}
+              title={
+                opt.value === "all"
+                  ? "Show every candidate regardless of which driver is leading their Opportunity Score."
+                  : SIGNAL_DESCRIPTIONS[opt.value]
+              }
               className={`rounded-full border px-3 py-1 text-[11px] font-medium transition ${
                 signalFilter === opt.value
                   ? "border-[var(--accent-strong)] bg-[var(--accent-strong)] text-white"

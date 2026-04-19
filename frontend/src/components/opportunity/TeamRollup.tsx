@@ -1,7 +1,7 @@
 "use client";
 
 import type { OpportunityResponse } from "@/lib/types";
-import { SIGNAL_LABELS } from "./OpportunityDriverBar";
+import { SIGNAL_DESCRIPTIONS, SIGNAL_LABELS } from "./OpportunityDriverBar";
 
 interface Props {
   report: OpportunityResponse;
@@ -31,7 +31,8 @@ export function TeamRollup({ report }: Props) {
         {sorted.map(([signal, count]) => (
           <div
             key={signal}
-            className="rounded-xl border border-[rgba(33,72,59,0.12)] bg-[rgba(255,255,255,0.75)] p-4"
+            title={SIGNAL_DESCRIPTIONS[signal] ?? ""}
+            className="cursor-help rounded-xl border border-[rgba(33,72,59,0.12)] bg-[rgba(255,255,255,0.75)] p-4"
           >
             <div className="text-[10px] font-semibold uppercase tracking-[0.14em] text-[var(--muted)]">
               {SIGNAL_LABELS[signal] ?? signal}

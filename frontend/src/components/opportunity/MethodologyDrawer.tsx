@@ -1,7 +1,7 @@
 "use client";
 
 import type { OpportunityMethodology } from "@/lib/types";
-import { SIGNAL_LABELS } from "./OpportunityDriverBar";
+import { SIGNAL_DESCRIPTIONS, SIGNAL_LABELS } from "./OpportunityDriverBar";
 
 interface Props {
   methodology: OpportunityMethodology;
@@ -18,16 +18,23 @@ export function MethodologyDrawer({ methodology }: Props) {
           <div className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--muted)]">
             Weights (clamped ±{methodology.z_score_cap} per signal)
           </div>
-          <ul className="mt-2 grid gap-1 text-xs sm:grid-cols-2">
+          <ul className="mt-2 grid gap-2 text-xs sm:grid-cols-2">
             {Object.entries(methodology.weights).map(([signal, weight]) => (
               <li
                 key={signal}
-                className="flex items-center justify-between rounded-lg border border-[var(--border)] bg-[var(--surface-alt)] px-3 py-1.5"
+                className="flex flex-col gap-1 rounded-lg border border-[var(--border)] bg-[var(--surface-alt)] px-3 py-2"
               >
-                <span className="font-medium text-[var(--foreground)]">
-                  {SIGNAL_LABELS[signal] ?? signal}
-                </span>
-                <span className="tabular-nums">{weight.toFixed(2)}</span>
+                <div className="flex items-center justify-between">
+                  <span className="font-semibold text-[var(--foreground)]">
+                    {SIGNAL_LABELS[signal] ?? signal}
+                  </span>
+                  <span className="tabular-nums text-[var(--muted-strong)]">
+                    weight {weight.toFixed(2)}
+                  </span>
+                </div>
+                <p className="text-[11px] leading-4 text-[var(--muted-strong)]">
+                  {SIGNAL_DESCRIPTIONS[signal] ?? ""}
+                </p>
               </li>
             ))}
           </ul>

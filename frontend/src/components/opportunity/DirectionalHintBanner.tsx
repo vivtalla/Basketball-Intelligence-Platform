@@ -1,7 +1,7 @@
 "use client";
 
 import type { OpportunityPlayerRow } from "@/lib/types";
-import { SIGNAL_LABELS } from "./OpportunityDriverBar";
+import { SIGNAL_DESCRIPTIONS, SIGNAL_LABELS } from "./OpportunityDriverBar";
 
 interface Props {
   row: OpportunityPlayerRow;
@@ -22,7 +22,8 @@ export function DirectionalHintBanner({ row }: Props) {
           {row.hint_basis.map((s) => (
             <span
               key={s}
-              className="rounded-full border border-[rgba(33,72,59,0.2)] bg-[rgba(255,255,255,0.7)] px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-[0.12em] text-[var(--accent-strong)]"
+              title={SIGNAL_DESCRIPTIONS[s] ?? ""}
+              className="cursor-help rounded-full border border-[rgba(33,72,59,0.2)] bg-[rgba(255,255,255,0.7)] px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-[0.12em] text-[var(--accent-strong)]"
             >
               {SIGNAL_LABELS[s] ?? s}
             </span>
