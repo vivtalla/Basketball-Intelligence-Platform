@@ -1,6 +1,6 @@
 # Agent Coordination
 
-Last updated: 2026-04-19 by Codex (Sprint 56 closeout - ready for next sprint)
+Last updated: 2026-04-18 by Claude (Sprint 57 kickoff)
 
 > Both agents read this file before touching code at the start of every session.
 > The canonical source of truth is the clean `master` checkout at `/Users/viv/Documents/Basketball Intelligence Platform`.
@@ -14,13 +14,13 @@ Last updated: 2026-04-19 by Codex (Sprint 56 closeout - ready for next sprint)
 
 | Field | Value |
 |-------|-------|
-| Sprint | Next kickoff TBD |
-| Goal | TBD |
-| Started | TBD |
+| Sprint | 57 — Insights Revamp: Trajectory Depth + Story |
+| Goal | Revamp /insights Trajectory into a multi-signal evidence-backed workspace; add lineup-aware on/off context service; light polish on Usage/Trends/WhatIf tabs; integrate lineup context into MVP Team Impact and player-profile Team Impact & Clutch |
+| Started | 2026-04-18 |
 | Target merge | TBD |
-| Sprint shape | TBD |
-| Branch | `master` |
-| Worker policy | Assign per sprint plan |
+| Sprint shape | Single-stream (Claude) |
+| Branch | `feature/sprint-57-insights-revamp` |
+| Worker policy | Subagents for parallel backend + frontend tracks |
 
 ---
 
@@ -38,9 +38,9 @@ If repo state, sprint numbering, or shipped features appear to disagree across l
 ## Current Assignments
 
 ### Claude
-- Branch: -
-- Scope: -
-- Status: Not assigned
+- Branch: `feature/sprint-57-insights-revamp`
+- Scope: Full sprint — backend trajectory depth, lineup context service, frontend Trajectory revamp, insights tab polish, MVP/player-profile lineup integration
+- Status: In progress
 
 ### Codex
 - Branch: -
@@ -58,7 +58,11 @@ Claim a shared file here before editing. If a file is already claimed, read that
 
 | File | Claimed by | Purpose |
 |------|------------|---------|
-| - | - | - |
+| `backend/services/trajectory_service.py` | Claude | Trajectory depth: new signals (off/def rating, clutch, on/off, shot quality, position percentile, driver contributions, evidence games) |
+| `backend/models/insights.py` | Claude | Extend TrajectoryPlayerRow + new LineupContextResponse schema |
+| `backend/routers/insights.py` | Claude | New /lineup-context route + trajectory endpoint new fields |
+| `frontend/src/components/TrajectoryTracker.tsx` | Claude | Full redesign — two-column workspace |
+| `frontend/src/app/insights/page.tsx` | Claude | Extract InsightsHeader, shared filter state, cross-tab handoffs |
 
 ---
 
@@ -75,7 +79,7 @@ Specs or review notes written by one stream for another. Check this before start
 
 ## Merge Order
 
-1. Next sprint branch TBD
+1. `feature/sprint-57-insights-revamp` — full sprint work
 2. Final integration / verification / merge to `master`
 
 ---
@@ -84,7 +88,23 @@ Specs or review notes written by one stream for another. Check this before start
 
 | Files / Directories | Assigned this sprint |
 |---------------------|----------------------|
-| - | - |
+| `backend/services/trajectory_service.py` | Claude |
+| `backend/services/lineup_context_service.py` (new) | Claude |
+| `backend/models/insights.py` | Claude |
+| `backend/routers/insights.py` | Claude |
+| `backend/tests/test_trajectory_service.py` | Claude |
+| `backend/tests/test_lineup_context_service.py` (new) | Claude |
+| `backend/services/mvp_service.py` | Claude (additive lineup context only) |
+| `frontend/src/components/TrajectoryTracker.tsx` | Claude |
+| `frontend/src/components/trajectory/` (new folder) | Claude |
+| `frontend/src/components/InsightsHeader.tsx` (new) | Claude |
+| `frontend/src/app/insights/page.tsx` | Claude |
+| `frontend/src/hooks/useTrajectory.ts` | Claude |
+| `frontend/src/lib/api.ts` | Claude (append-only) |
+| `frontend/src/lib/types.ts` | Claude (append-only) |
+| `frontend/src/components/UsageEfficiencyDashboard.tsx` | Claude (polish only) |
+| `frontend/src/components/TrendCardsPanel.tsx` | Claude (polish only) |
+| `frontend/src/components/WhatIfPanel.tsx` | Claude (polish only) |
 
 ---
 
