@@ -368,6 +368,7 @@ function CandidateCase({ candidate, asOfDate }: { candidate: MvpCandidate; asOfD
   const topStyle = styleRows.slice(0, 4);
   const advanced = candidate.advanced_profile;
   const onOff = candidate.on_off;
+  const teamImpact = candidate.team_impact;
   const clutch = candidate.clutch_and_pace;
   const team = candidate.team_context;
   const eligibility = candidate.eligibility;
@@ -550,18 +551,29 @@ function CandidateCase({ candidate, asOfDate }: { candidate: MvpCandidate; asOfD
         </section>
 
         <section>
-          <h3 className="text-sm font-semibold text-[var(--foreground)]">Team Lift</h3>
+          <h3 className="text-sm font-semibold text-[var(--foreground)]">Team Impact</h3>
           <p className="mt-1 text-xs leading-5 text-[var(--muted)]">
-            Mixed signal. Team Value helps the Basketball Value score when tied to the player&apos;s participation; full team record and support burden explain the environment around that value.
+            Context signal. Net rating is team point differential per 100 possessions. On/off compares the team with this player on the floor against the team when he sits, so confidence reflects lineup context and sample size.
           </p>
           <div className="mt-3 grid gap-3 sm:grid-cols-2">
             <MetricBlock label="Team Record" value={team?.wins != null && team.losses != null ? `${team.wins}-${team.losses}` : "-"} sub={team?.win_pct_rank ? `Win% rank ${team.win_pct_rank}` : undefined} />
-            <MetricBlock label="Team Net" value={fmtSigned(team?.net_rating)} sub={team?.net_rating_rank ? `Net rank ${team.net_rating_rank}` : undefined} />
-            <MetricBlock label="On Net" value={fmtSigned(onOff?.on_net_rating)} sub={`${fmt(onOff?.on_minutes, 0)} on minutes`} />
-            <MetricBlock label="Off Net" value={fmtSigned(onOff?.off_net_rating)} sub={`${fmt(onOff?.off_minutes, 0)} off minutes`} />
+            <MetricBlock label="Candidate Games" value={teamImpact?.candidate_game_wins != null && teamImpact.candidate_game_losses != null ? `${teamImpact.candidate_game_wins}-${teamImpact.candidate_game_losses}` : "-"} sub={teamImpact?.candidate_game_win_pct != null ? `${fmtPct(teamImpact.candidate_game_win_pct)} win rate` : undefined} />
+            <MetricBlock label="Team Net" value={fmtSigned(teamImpact?.team_net_rating ?? team?.net_rating)} sub={teamImpact?.team_net_rating_rank ? `Net rank ${teamImpact.team_net_rating_rank}` : team?.net_rating_rank ? `Net rank ${team.net_rating_rank}` : undefined} />
+            <MetricBlock label="On Net" value={fmtSigned(teamImpact?.on_net_rating ?? onOff?.on_net_rating)} sub={`${fmt(teamImpact?.on_minutes ?? onOff?.on_minutes, 0)} on minutes`} />
+            <MetricBlock label="Off Net" value={fmtSigned(teamImpact?.off_net_rating ?? onOff?.off_net_rating)} sub={`${fmt(teamImpact?.off_minutes ?? onOff?.off_minutes, 0)} off minutes`} />
+            <MetricBlock label="On/Off Swing" value={fmtSigned(teamImpact?.on_off_net ?? onOff?.on_off_net)} sub={`confidence ${teamImpact?.confidence ?? onOff?.confidence ?? "low"}`} />
+            <MetricBlock label="On ORTG/DRTG" value={`${fmt(teamImpact?.on_off_rating ?? onOff?.on_ortg)} / ${fmt(teamImpact?.on_def_rating ?? onOff?.on_drtg)}`} sub="team rates while on court" />
+            <MetricBlock label="Off ORTG/DRTG" value={`${fmt(teamImpact?.off_off_rating ?? onOff?.off_ortg)} / ${fmt(teamImpact?.off_def_rating ?? onOff?.off_drtg)}`} sub="team rates while off court" />
             <MetricBlock label="Top Support" value={support?.top_teammate_name ?? "-"} sub={support?.top_teammate_pts_pg != null ? `${fmt(support.top_teammate_pts_pg)} PPG, ${support.top_teammate_games ?? "-"} GP` : support?.support_note ?? undefined} />
             <MetricBlock label="Usage Burden" value={fmtPercentish(support?.candidate_usage_pct)} sub={support?.teammate_availability_avg_gp != null ? `Avg teammate GP ${fmt(support.teammate_availability_avg_gp)}` : undefined} />
           </div>
+          {teamImpact?.notes?.length ? (
+            <ul className="mt-3 space-y-1 rounded-lg border border-[var(--border)] bg-[var(--surface-alt)] p-3 text-xs leading-5 text-[var(--muted)]">
+              {teamImpact.notes.map((note) => (
+                <li key={note}>{note}</li>
+              ))}
+            </ul>
+          ) : null}
         </section>
 
         <section>

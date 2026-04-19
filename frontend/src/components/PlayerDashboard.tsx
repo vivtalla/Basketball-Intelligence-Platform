@@ -1,13 +1,12 @@
 "use client";
 
 import { useState } from "react";
-import { usePlayerProfile, usePlayerCareerStats, usePlayerGravity, usePlayerPercentiles, usePlayerZoneProfile } from "@/hooks/usePlayerStats";
+import { usePlayerProfile, usePlayerCareerStats, usePlayerGravity, usePlayerPercentiles } from "@/hooks/usePlayerStats";
 import PlayerHeader from "./PlayerHeader";
 import StatTable from "./StatTable";
 import RadarChart from "./RadarChart";
 import CareerArcChart from "./CareerArcChart";
 import ShotChart from "./ShotChart";
-import ZoneProfilePanel from "./ZoneProfilePanel";
 import PlayerPbpInsights from "./PlayerPbpInsights";
 import PlayerTrendIntelligencePanel from "./PlayerTrendIntelligencePanel";
 import GameLogTable from "./GameLogTable";
@@ -16,7 +15,6 @@ import SeasonSplits from "./SeasonSplits";
 import ExternalMetricsPanel from "./ExternalMetricsPanel";
 import ChartStatusBadge from "./ChartStatusBadge";
 import PerformanceCalendar from "./PerformanceCalendar";
-import ShotSeasonEvolution from "./ShotSeasonEvolution";
 import PlayerGravityPanel from "./PlayerGravityPanel";
 import MvpPlayerCaseEmbed from "./MvpPlayerCaseEmbed";
 
@@ -33,16 +31,10 @@ export default function PlayerDashboard({ playerId }: PlayerDashboardProps) {
   const { data: profile, error: profileError } = usePlayerProfile(playerId);
   const { data: careerStats, error: statsError } = usePlayerCareerStats(playerId);
 
-  // Sprint 29 — zone profile (Regular Season, latest season resolved after careerStats loads)
-  // Must be declared unconditionally here; SWR key is null-guarded inside the hook.
   const latestRegularSeason =
     careerStats && careerStats.seasons.length > 0
       ? careerStats.seasons[careerStats.seasons.length - 1].season
       : null;
-  const { data: zoneData, isLoading: zoneLoading } = usePlayerZoneProfile(
-    playerId,
-    latestRegularSeason
-  );
   const percentileSeason =
     mode === "regular"
       ? selectedSeasonStr || latestRegularSeason
@@ -237,30 +229,14 @@ export default function PlayerDashboard({ playerId }: PlayerDashboardProps) {
         />
       )}
 
-      {/* Shot profile evolution — small multiples across all seasons */}
-      {shotLabSeasons.length > 1 && (
-        <ShotSeasonEvolution
-          playerId={playerId}
-          seasons={careerStats.seasons.map((s) => s.season).filter(Boolean)}
-          playoffSeasons={careerStats.playoff_seasons.map((s) => s.season).filter(Boolean)}
-        />
-      )}
-
-      {/* Zone efficiency panel — Regular Season, latest season */}
-      {careerStats.seasons.length > 0 && (
-        <ZoneProfilePanel data={zoneData} isLoading={zoneLoading} />
-      )}
-
-      {/* PBP insights are regular-season only */}
+      {/* Team Impact & Clutch are regular-season only */}
       {isPlayoffs ? (
         <div className="bip-empty rounded-2xl p-5 text-center text-sm">
-          Play-by-play insights (on/off splits, clutch) are available for regular season only.
+          Team Impact & Clutch metrics are available for regular season only.
         </div>
       ) : (
         <PlayerPbpInsights playerId={playerId} season={effectiveSeasonStr} />
       )}
-
-      <PlayerSimilarity playerId={playerId} season={effectiveSeasonStr} />
 
       {/* Season splits — regular season only, needs game log data */}
       {!isPlayoffs && effectiveSeasonStr && (
@@ -274,6 +250,8 @@ export default function PlayerDashboard({ playerId }: PlayerDashboardProps) {
 
       {/* Game Log has its own internal RS/Playoffs toggle */}
       <GameLogTable playerId={playerId} season={effectiveSeasonStr} />
+
+      <PlayerSimilarity playerId={playerId} season={effectiveSeasonStr} />
 
       <StatTable
         seasons={careerStats.seasons}

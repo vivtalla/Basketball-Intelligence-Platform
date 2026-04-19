@@ -1,9 +1,21 @@
 # Sprint History Archive
 
-Sprints 1–55. Current sprint summaries also live in `CLAUDE.md` under "Recent Sprints".
+Sprints 1–56. Current sprint summaries also live in `CLAUDE.md` under "Recent Sprints".
 
 For detailed per-sprint records, see the individual closeout files in this directory:
-`specs/sprint-09-closeout.md` through `specs/sprint-55-closeout.md`
+`specs/sprint-09-closeout.md` through `specs/sprint-56-closeout.md`
+
+---
+
+### Sprint 56 — Player Impact + Profile Clarity
+**Branch:** `codex/sprint-56-player-impact-profile-clarity`
+
+- Added additive MVP Team Impact contracts and payloads with team net, candidate game W-L, on/off net swing, on/off ORTG/DRTG, minutes, confidence, and notes.
+- Added a dedicated Team Impact lens to `/mvp` candidate detail and Team Impact evidence to Voter Room comparisons.
+- Reworked player-page play-by-play context into **Team Impact & Clutch** with net-rating and on/off caveats.
+- Cleaned the player profile by removing default `ShotSeasonEvolution` and standalone `ZoneProfilePanel`.
+- Preserved important Shot Lab functions inside the right views: action fingerprint and distance profile in Diet, recent filtered shots and Game Explorer links in Creation.
+- Verified with targeted MVP backend tests, frontend lint/build, and `git diff --check`.
 
 ---
 

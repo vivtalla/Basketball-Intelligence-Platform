@@ -58,6 +58,7 @@ from models.mvp import (
     MvpSplitRow,
     MvpSupportBurden,
     MvpTeamContext,
+    MvpTeamImpactProfile,
     MvpSnapshotFreshness,
     MvpVisualCoordinates,
     MvpVoterRoomCandidate,
@@ -788,12 +789,62 @@ def _pace_points_from_pbp(db: Session, player_ids: List[int], season: str) -> Di
 
 
 def _on_off_confidence(row: Optional[PlayerOnOff]) -> str:
-    minutes = float(row.on_minutes or 0.0) if row else 0.0
-    if minutes >= 1500:
+    on_minutes = float(row.on_minutes or 0.0) if row else 0.0
+    off_minutes = float(row.off_minutes or 0.0) if row else 0.0
+    if on_minutes >= 1500 and off_minutes >= 400:
         return "high"
-    if minutes >= 700:
+    if on_minutes >= 700 and off_minutes >= 200:
         return "medium"
     return "low"
+
+
+def _team_impact_profile(
+    *,
+    team_abbreviation: str,
+    team_context: Optional[MvpTeamContext],
+    on_off: Optional[MvpOnOffProfile],
+    player_logs: Sequence[PlayerGameLog],
+) -> Optional[MvpTeamImpactProfile]:
+    wins = sum(1 for log in player_logs if _played_log(log) and (log.wl or "").upper() == "W")
+    losses = sum(1 for log in player_logs if _played_log(log) and (log.wl or "").upper() == "L")
+    win_pct = (wins / (wins + losses)) if wins + losses else None
+    notes: List[str] = []
+    if team_context and team_context.net_rating is not None:
+        rank_note = f" (rank {team_context.net_rating_rank})" if team_context.net_rating_rank else ""
+        notes.append(f"{team_abbreviation} team net rating is {team_context.net_rating:+.1f}{rank_note}.")
+    if win_pct is not None:
+        notes.append(f"Candidate games: {wins}-{losses}, {win_pct * 100.0:.1f}% win rate.")
+    if on_off and on_off.on_off_net is not None:
+        notes.append(f"Team is {on_off.on_off_net:+.1f} points per 100 better with him on the floor.")
+        if on_off.confidence != "high":
+            notes.append(f"{on_off.confidence.title()} confidence because on/off samples are sensitive to lineup context.")
+        if on_off.off_net_rating is not None:
+            notes.append(f"Off-court minutes sit at {on_off.off_net_rating:+.1f} net rating.")
+    else:
+        notes.append("On/off net rating is not available for this candidate yet.")
+
+    if not team_context and not on_off and win_pct is None:
+        return None
+
+    return MvpTeamImpactProfile(
+        team_abbreviation=team_abbreviation,
+        team_net_rating=team_context.net_rating if team_context else None,
+        team_net_rating_rank=team_context.net_rating_rank if team_context else None,
+        candidate_game_wins=wins if wins + losses else None,
+        candidate_game_losses=losses if wins + losses else None,
+        candidate_game_win_pct=_round(win_pct, 3),
+        on_minutes=on_off.on_minutes if on_off else None,
+        off_minutes=on_off.off_minutes if on_off else None,
+        on_off_net=on_off.on_off_net if on_off else None,
+        on_net_rating=on_off.on_net_rating if on_off else None,
+        on_off_rating=on_off.on_ortg if on_off else None,
+        on_def_rating=on_off.on_drtg if on_off else None,
+        off_net_rating=on_off.off_net_rating if on_off else None,
+        off_off_rating=on_off.off_ortg if on_off else None,
+        off_def_rating=on_off.off_drtg if on_off else None,
+        confidence=on_off.confidence if on_off else "low",
+        notes=notes[:4],
+    )
 
 
 def _coverage(
@@ -858,8 +909,8 @@ def _case_summary(candidate: MvpCandidate) -> List[str]:
         if candidate.team_context.wins is not None and candidate.team_context.losses is not None:
             record = " ({0}-{1})".format(candidate.team_context.wins, candidate.team_context.losses)
         summary.append("{0}{1} owns a {2:.1f}% win rate.".format(candidate.team_abbreviation, record, candidate.team_context.win_pct * 100.0))
-    if candidate.on_off and candidate.on_off.on_off_net is not None:
-        summary.append("Team is {0:+.1f} points per 100 better with him on the floor.".format(candidate.on_off.on_off_net))
+    if candidate.team_impact and candidate.team_impact.on_off_net is not None:
+        summary.append("Team is {0:+.1f} points per 100 better with him on the floor.".format(candidate.team_impact.on_off_net))
     if candidate.eligibility:
         if candidate.eligibility.eligibility_status == "eligible":
             summary.append("Award eligibility cleared with {0} qualified games.".format(candidate.eligibility.eligible_games))
@@ -899,6 +950,12 @@ def _methodology_labels() -> List[MvpMethodologyLabel]:
             label="Award Case Score",
             category="award_modifier",
             description="Basketball Value plus capped award-facing modifiers for team framing, eligibility, clutch, momentum, and signature games.",
+        ),
+        MvpMethodologyLabel(
+            key="team_impact",
+            label="Team Impact",
+            category="context_signal",
+            description="Team net rating and player on/off compare team performance with the candidate on court and off court. This informs Team Value but is caveated for lineup and sample effects.",
         ),
         MvpMethodologyLabel(
             key="context_signals",
@@ -1782,6 +1839,16 @@ def _build_ranked_candidates(
                 off_drtg=_round(on_off_row.off_drtg, 1),
                 confidence=_on_off_confidence(on_off_row),
             )
+        team_impact = _team_impact_profile(
+            team_abbreviation=(
+                stat.team_abbreviation
+                if (stat.team_abbreviation or "").upper() not in {"TOT", ""}
+                else (team.abbreviation if team else stat.team_abbreviation or "")
+            ),
+            team_context=team_context,
+            on_off=on_off,
+            player_logs=player_logs,
+        )
         eligibility = eligibility_profiles[arr_idx]
         opponent_context, split_profile = _opponent_context(
             player_logs,
@@ -1916,6 +1983,7 @@ def _build_ranked_candidates(
             methodology_labels=_methodology_labels(),
             team_context=team_context,
             on_off=on_off,
+            team_impact=team_impact,
             advanced_profile=advanced,
             clutch_and_pace=clutch,
             play_style=play_style,
@@ -2031,6 +2099,16 @@ def build_mvp_candidate_case(
 
 def _candidate_voter_evidence(candidate: MvpCandidate) -> List[str]:
     evidence = list((candidate.case_summary or [])[:2])
+    if candidate.team_impact:
+        if candidate.team_impact.on_off_net is not None:
+            evidence.append(
+                "Team impact: {0:+.1f} on/off net swing; {1} confidence.".format(
+                    candidate.team_impact.on_off_net,
+                    candidate.team_impact.confidence,
+                )
+            )
+        elif candidate.team_impact.team_net_rating is not None:
+            evidence.append("Team impact: {0:+.1f} team net rating.".format(candidate.team_impact.team_net_rating))
     if candidate.eligibility:
         evidence.append(
             "{0} award-qualified games; {1}.".format(
@@ -2056,9 +2134,11 @@ def _voter_value(candidate: MvpCandidate, key: str) -> Optional[float]:
     if key == "availability":
         return float(candidate.eligibility.eligible_games) if candidate.eligibility else None
     if key == "team_value":
-        if candidate.team_context and candidate.team_context.win_pct is not None:
-            return round(float(candidate.team_context.win_pct) * 100.0, 1)
-        return None
+        return _avg([
+            candidate.team_impact.on_off_net if candidate.team_impact else None,
+            candidate.team_impact.team_net_rating if candidate.team_impact else None,
+            (candidate.team_impact.candidate_game_win_pct * 10.0) if candidate.team_impact and candidate.team_impact.candidate_game_win_pct is not None else None,
+        ])
     if key == "impact_confidence":
         if candidate.impact_consensus and candidate.impact_consensus.consensus_score is not None:
             return candidate.impact_consensus.consensus_score
@@ -2083,7 +2163,7 @@ def _category_summary(key: str, winner: Optional[MvpCandidate], value: Optional[
     if key == "availability":
         return "{0} has the strongest availability footing at {1:.0f} qualified games.".format(winner.player_name, value or 0.0)
     if key == "team_value":
-        return "{0} has the strongest team framing among the selected cases.".format(winner.player_name)
+        return "{0} has the strongest team-impact context among the selected cases.".format(winner.player_name)
     if key == "impact_confidence":
         return "{0} carries the strongest impact/context confidence signal.".format(winner.player_name)
     if key == "clutch_signature":
@@ -2170,6 +2250,7 @@ def build_mvp_voter_room(
             context_adjusted_score=candidate.context_adjusted_score,
             eligibility_status=candidate.eligibility.eligibility_status if candidate.eligibility else "unknown",
             confidence=candidate.confidence,
+            team_impact=candidate.team_impact,
             case_summary=list(candidate.case_summary or [])[:3],
             evidence=_candidate_voter_evidence(candidate),
         )

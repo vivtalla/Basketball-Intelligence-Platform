@@ -17,16 +17,16 @@ import type {
   ShotLabSituationalFilters,
   ShotLabWindowPreset,
 } from "@/lib/types";
-import { LEAGUE_AVG_FG, ZONE_POINTS, ZONE_ORDER, heatColor } from "@/lib/shotchart-constants";
+import { LEAGUE_AVG_FG, heatColor } from "@/lib/shotchart-constants";
 import { clampShotLabCustomRange, resolveShotLabRange } from "@/lib/shotlab";
 import ChartStatusBadge from "./ChartStatusBadge";
 import ShotCourt from "./ShotCourt";
 import ShotValueMap from "./ShotValueMap";
 import ShotSprawlMap from "./ShotSprawlMap";
-import ShotDistanceProfile from "./ShotDistanceProfile";
 import ShotActionSignature from "./ShotActionSignature";
-import ShotLabControls from "./ShotLabControls";
+import ShotDistanceProfile from "./ShotDistanceProfile";
 import ShotContextPanel from "./ShotContextPanel";
+import ShotLabControls from "./ShotLabControls";
 import ShotSnapshotButton from "./ShotSnapshotButton";
 import ShotIntelligencePanel from "./ShotIntelligencePanel";
 
@@ -55,24 +55,7 @@ function toSvg(locX: number, locY: number): [number, number] {
   return [locX + 250, 430 - locY];
 }
 
-// Zone constants imported from shared module
 const LEAGUE_AVG = LEAGUE_AVG_FG;
-
-interface ZoneStat {
-  made: number;
-  attempted: number;
-}
-
-function buildZoneStats(shots: ShotChartShot[]): Record<string, ZoneStat> {
-  const stats: Record<string, ZoneStat> = {};
-  for (const shot of shots) {
-    const z = shot.zone_basic || "Unknown";
-    if (!stats[z]) stats[z] = { made: 0, attempted: 0 };
-    stats[z].attempted++;
-    if (shot.shot_made) stats[z].made++;
-  }
-  return stats;
-}
 
 const HEAT_COLS = 28;
 const HEAT_ROWS = 26;
@@ -282,118 +265,6 @@ function HeatmapZones({ shots }: { shots: ShotChartShot[] }) {
           ))}
       </g>
     </>
-  );
-}
-
-function ZoneBreakdown({ shots }: { shots: ShotChartShot[] }) {
-  const zoneStats = buildZoneStats(shots);
-  const zones = ZONE_ORDER.filter((z) => zoneStats[z]);
-  const total = shots.length;
-
-  if (zones.length === 0) return null;
-
-  return (
-    <div className="mt-6 border-t border-gray-100 dark:border-gray-700 pt-5">
-      <h4 className="text-xs font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500 mb-3">
-        Zone Breakdown
-      </h4>
-      <div className="overflow-x-auto">
-        <table className="w-full text-xs">
-          <thead>
-            <tr className="text-gray-400 dark:text-gray-500 border-b border-gray-100 dark:border-gray-700">
-              <th className="text-left pb-2 font-medium">Zone</th>
-              <th className="text-right pb-2 font-medium">Freq</th>
-              <th className="text-right pb-2 font-medium">FGM-A</th>
-              <th className="text-right pb-2 font-medium">FG%</th>
-              <th className="text-right pb-2 font-medium">PPS</th>
-              <th className="pb-2 pl-4 font-medium w-36">vs League Avg</th>
-            </tr>
-          </thead>
-          <tbody>
-            {zones.map((zone) => {
-              const { made, attempted } = zoneStats[zone];
-              const pct = attempted > 0 ? made / attempted : null;
-              const avg = LEAGUE_AVG[zone] ?? null;
-              const pts = ZONE_POINTS[zone] ?? 2;
-              const pps = pct !== null ? pct * pts : null;
-              const avgPps = avg !== null ? avg * pts : null;
-              const diff = pct !== null && avg !== null ? pct - avg : null;
-              const freqPct = total > 0 ? (attempted / total) * 100 : 0;
-              const lowSample = attempted < 5;
-
-              let diffCls = "text-gray-400 dark:text-gray-500";
-              if (!lowSample && diff !== null) {
-                diffCls =
-                  diff >= 0.03
-                    ? "text-emerald-600 dark:text-emerald-400"
-                    : diff <= -0.03
-                    ? "text-red-500 dark:text-red-400"
-                    : "text-gray-500 dark:text-gray-400";
-              }
-
-              const barMax = avg ? avg * 1.6 : 0.8;
-              const playerBarW = pct !== null && !lowSample ? Math.min(100, (pct / barMax) * 100) : 0;
-              const avgBarW = avg ? Math.min(100, (avg / barMax) * 100) : 0;
-
-              return (
-                <tr
-                  key={zone}
-                  className="border-b border-gray-50 dark:border-gray-700/50 last:border-0"
-                >
-                  <td className="py-2 pr-3 text-gray-700 dark:text-gray-300 whitespace-nowrap">
-                    {zone}
-                  </td>
-                  <td className="py-2 text-right tabular-nums text-gray-500 dark:text-gray-400">
-                    {freqPct.toFixed(0)}%
-                  </td>
-                  <td className="py-2 text-right tabular-nums text-gray-600 dark:text-gray-400">
-                    {made}-{attempted}
-                  </td>
-                  <td className="py-2 text-right tabular-nums font-medium text-gray-900 dark:text-gray-100">
-                    {lowSample ? (
-                      <span className="text-gray-400 dark:text-gray-500">—</span>
-                    ) : pct !== null ? (
-                      `${(pct * 100).toFixed(1)}%`
-                    ) : "—"}
-                  </td>
-                  <td className={`py-2 text-right tabular-nums font-medium ${lowSample ? "text-gray-400" : diffCls}`}>
-                    {lowSample ? "—" : pps !== null ? pps.toFixed(2) : "—"}
-                  </td>
-                  <td className="py-2 pl-4">
-                    {lowSample ? (
-                      <span className="text-gray-400 dark:text-gray-500">small sample</span>
-                    ) : (
-                      <div className="space-y-0.5">
-                        <div className="h-1.5 w-32 rounded-full bg-gray-100 dark:bg-gray-700 overflow-hidden">
-                          <div
-                            className={`h-full rounded-full ${diff !== null && diff >= 0 ? "bg-emerald-500" : "bg-red-400"}`}
-                            style={{ width: `${playerBarW}%` }}
-                          />
-                        </div>
-                        <div className="h-1.5 w-32 rounded-full bg-gray-100 dark:bg-gray-700 overflow-hidden">
-                          <div
-                            className="h-full rounded-full bg-gray-400 dark:bg-gray-500"
-                            style={{ width: `${avgBarW}%` }}
-                          />
-                        </div>
-                        <div className={`text-[10px] tabular-nums ${diffCls}`}>
-                          {diff !== null
-                            ? `${diff >= 0 ? "+" : ""}${(diff * 100).toFixed(1)}% · avg PPS ${avgPps?.toFixed(2)}`
-                            : ""}
-                        </div>
-                      </div>
-                    )}
-                  </td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
-      </div>
-      <p className="text-[10px] text-gray-400 dark:text-gray-500 mt-3">
-        Freq = % of total FGA · PPS = FG% × point value · Top bar = player, bottom bar = league avg · &lt;5 attempts shown as —
-      </p>
-    </div>
   );
 }
 
@@ -998,27 +869,20 @@ export default function ShotChart({
         </div>{/* end hidden wrapper for scatter/heat/hex */}
       </div>
 
-      {/* Action fingerprint — complementary non-court view */}
-      {activeShotChart && activeShotChart.shots.length > 0 && (
-        <div className="mt-6 border-t border-[rgba(25,52,42,0.08)] pt-5">
-          <ShotActionSignature shots={activeShotChart.shots} />
+      {activeShotChart && activeShotChart.shots.length > 0 && !isIntelligenceView && (
+        <div className="mt-5 rounded-[1rem] border border-[rgba(25,52,42,0.1)] bg-[rgba(255,255,255,0.58)] px-4 py-3 text-xs leading-5 text-[var(--muted-strong)]">
+          Shot Lab keeps detailed zone, quality, making, creation, and scout identity analysis inside the view tabs above. Use Quality for expected value, Making for actual-minus-expected, and Creation for proxy-labeled shot context.
         </div>
       )}
 
-      {/* Zone breakdown table — secondary detail */}
-      {activeShotChart && activeShotChart.shots.length > 0 && (
-        <ZoneBreakdown shots={activeShotChart.shots} />
-      )}
-
-      {/* Distance signature strip */}
-      {activeShotChart && activeShotChart.shots.length > 0 && (
-        <div className="mt-6 border-t border-[rgba(25,52,42,0.08)] pt-5">
-          <p className="bip-kicker mb-3">Distance Signature</p>
+      {chartView === "diet" && activeShotChart && activeShotChart.shots.length > 0 && (
+        <div className="mt-5 space-y-5">
+          <ShotActionSignature shots={activeShotChart.shots} />
           <ShotDistanceProfile shots={activeShotChart.shots} playerLabel={windowLabel} />
         </div>
       )}
 
-      {activeShotChart && activeShotChart.shots.length > 0 && (
+      {chartView === "creation" && activeShotChart && activeShotChart.shots.length > 0 && (
         <ShotContextPanel shots={activeShotChart.shots} season={selectedSeason} />
       )}
     </div>
