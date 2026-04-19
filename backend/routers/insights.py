@@ -10,8 +10,9 @@ from sqlalchemy.orm import Session
 
 from db.database import get_db
 from db.models import Player, SeasonStat
-from models.insights import TrajectoryResponse, UsageEfficiencyResponse
-from services.trajectory_service import build_trajectory_report
+from models.insights import LineupContextResponse, TrajectoryResponse, TrajectorySeriesResponse, UsageEfficiencyResponse
+from services.lineup_context_service import build_lineup_context
+from services.trajectory_service import build_trajectory_report, build_trajectory_series
 from services.usage_efficiency_service import build_usage_efficiency_report
 
 router = APIRouter()
@@ -104,6 +105,30 @@ def get_trajectory(
         team_abbreviation=team_abbreviation,
         position=position,
     )
+
+
+@router.get("/trajectory/{player_id}/series", response_model=TrajectorySeriesResponse)
+def get_trajectory_series(
+    player_id: int,
+    season: str = Query("2025-26"),
+    last_n_games: int = Query(10, ge=3, le=30),
+    db: Session = Depends(get_db),
+):
+    return build_trajectory_series(
+        db=db,
+        player_id=player_id,
+        season=season,
+        last_n_games=last_n_games,
+    )
+
+
+@router.get("/lineup-context/{player_id}", response_model=LineupContextResponse)
+def get_lineup_context(
+    player_id: int,
+    season: str = Query("2025-26"),
+    db: Session = Depends(get_db),
+):
+    return build_lineup_context(db=db, player_id=player_id, season=season)
 
 
 @router.get("/usage-efficiency", response_model=UsageEfficiencyResponse)

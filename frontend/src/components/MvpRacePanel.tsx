@@ -7,6 +7,7 @@ import type { MvpCandidate, MvpRaceResponse, MvpScorePillar } from "@/lib/types"
 import MvpImpactRadar from "./MvpImpactRadar";
 import MvpClutchCard from "./MvpClutchCard";
 import MvpSignatureGames from "./MvpSignatureGames";
+import { useLineupContext } from "@/hooks/useTrajectory";
 
 interface MvpRacePanelProps {
   data: MvpRaceResponse;
@@ -360,7 +361,8 @@ function MethodNote({ label, children }: { label: string; children: ReactNode })
   );
 }
 
-function CandidateCase({ candidate, asOfDate }: { candidate: MvpCandidate; asOfDate: string }) {
+function CandidateCase({ candidate, asOfDate, season }: { candidate: MvpCandidate; asOfDate: string; season: string }) {
+  const { data: lineupCtx } = useLineupContext(candidate.player_id, season);
   const valuePillars = candidate.basketball_value_pillars ?? {};
   const awardModifiers = candidate.award_modifiers ?? {};
   const warnings = candidate.data_coverage?.warnings ?? [];
@@ -574,6 +576,32 @@ function CandidateCase({ candidate, asOfDate }: { candidate: MvpCandidate; asOfD
               ))}
             </ul>
           ) : null}
+          {lineupCtx && lineupCtx.top_teammates.length > 0 && (
+            <details className="mt-3 rounded-lg border border-[var(--border)] bg-[var(--surface-alt)] p-3">
+              <summary className="cursor-pointer text-xs font-semibold uppercase tracking-wide text-[var(--muted)]">
+                Lineup partners — top teammates by shared minutes
+              </summary>
+              <div className="mt-3 space-y-2">
+                {lineupCtx.top_teammates.slice(0, 4).map((t) => (
+                  <div key={t.teammate_id} className="flex items-center justify-between text-xs">
+                    <span className="font-medium text-[var(--foreground)]">{t.teammate_name}</span>
+                    <div className="flex items-center gap-3 text-[var(--muted)]">
+                      <span>{t.possessions?.toLocaleString() ?? "—"} poss</span>
+                      {t.net_rating_with !== null && (
+                        <span className={`font-semibold ${t.net_rating_with >= 0 ? "text-[var(--accent-strong)]" : "text-[var(--danger-ink)]"}`}>
+                          {t.net_rating_with >= 0 ? "+" : ""}{t.net_rating_with.toFixed(1)} NR
+                        </span>
+                      )}
+                      <span className="text-[10px] text-[var(--muted)]">{t.confidence}</span>
+                    </div>
+                  </div>
+                ))}
+                <p className="text-[10px] text-[var(--muted)]">
+                  Net rating of qualifying lineups · min. 100 possessions · sourced from play-by-play stints
+                </p>
+              </div>
+            </details>
+          )}
         </section>
 
         <section>
@@ -744,7 +772,7 @@ export default function MvpRacePanel({ data }: MvpRacePanelProps) {
             />
           ))}
         </div>
-        <CandidateCase candidate={selected} asOfDate={data.as_of_date} />
+        <CandidateCase candidate={selected} asOfDate={data.as_of_date} season={data.season} />
       </div>
     </div>
   );

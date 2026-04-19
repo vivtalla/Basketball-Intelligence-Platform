@@ -1112,15 +1112,51 @@ export interface CustomMetricResponse {
   validation_warnings: string[];
 }
 
+export interface TrajectoryDriverContribution {
+  signal: string;
+  delta: number;
+  weighted_contribution: number;
+}
+
+export interface TrajectoryEvidenceGame {
+  game_id: string;
+  date: string | null;
+  opponent: string | null;
+  result: string | null;
+  headline_stat: string;
+}
+
+export interface TrajectoryClutchContext {
+  clutch_pts: number | null;
+  clutch_fg_pct: number | null;
+  clutch_fga: number | null;
+}
+
+export interface TrajectoryOnOffContext {
+  on_off_net: number | null;
+  on_minutes: number | null;
+  off_minutes: number | null;
+  confidence: string;
+}
+
 export interface TrajectoryPlayerRow {
   rank: number;
+  player_id: number;
   player_name: string;
   team: string;
+  position: string | null;
   trajectory_label: string;
   trajectory_score: number;
+  position_percentile: number | null;
   key_stat_deltas: Record<string, number>;
+  driver_contributions: TrajectoryDriverContribution[];
   narrative: string;
   context_flags: string[];
+  evidence_games: TrajectoryEvidenceGame[];
+  clutch_context: TrajectoryClutchContext | null;
+  on_off_context: TrajectoryOnOffContext | null;
+  recent_averages: Record<string, number | null>;
+  baseline_averages: Record<string, number | null>;
 }
 
 export interface TrajectoryResponse {
@@ -1129,6 +1165,45 @@ export interface TrajectoryResponse {
   decline_watch: TrajectoryPlayerRow[];
   excluded_players: string[];
   warnings: string[];
+}
+
+export interface TrajectorySeriesGame {
+  game_id: string;
+  date: string | null;
+  pts: number | null;
+  reb: number | null;
+  ast: number | null;
+  ts_pct: number | null;
+  usg_pct: number | null;
+  plus_minus: number | null;
+  is_recent: boolean;
+}
+
+export interface TrajectorySeriesResponse {
+  player_id: number;
+  player_name: string;
+  season: string;
+  series: TrajectorySeriesGame[];
+}
+
+export interface TeammateOnOff {
+  teammate_id: number;
+  teammate_name: string;
+  shared_minutes: number | null;
+  possessions: number | null;
+  net_rating_with: number | null;
+  confidence: string;
+}
+
+export interface LineupContextResponse {
+  player_id: number;
+  player_name: string;
+  season: string;
+  on_off_net: number | null;
+  on_minutes: number | null;
+  off_minutes: number | null;
+  top_teammates: TeammateOnOff[];
+  notes: string[];
 }
 
 export interface CourtVueMetricPlayerRanking {

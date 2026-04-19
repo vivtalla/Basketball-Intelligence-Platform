@@ -30,6 +30,8 @@ import type {
   InjuryReportResponse,
   StandingsHistoryEntry,
   ZoneProfileResponse,
+  TrajectorySeriesResponse,
+  LineupContextResponse,
 } from "./types";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
@@ -1393,5 +1395,28 @@ export async function refreshTeamDefenseShotChart(
   return fetchApi<import("./types").QueueResponse>(
     `/api/shotchart/team-defense/${teamId}/refresh?${params.toString()}`,
     { method: "POST" }
+  );
+}
+
+export function fetchTrajectorySeries(
+  playerId: number,
+  season: string,
+  lastNGames: number
+): Promise<TrajectorySeriesResponse> {
+  const params = new URLSearchParams({
+    season,
+    last_n_games: String(lastNGames),
+  });
+  return fetchApi<TrajectorySeriesResponse>(
+    `/api/insights/trajectory/${playerId}/series?${params.toString()}`
+  );
+}
+
+export function fetchLineupContext(
+  playerId: number,
+  season: string
+): Promise<LineupContextResponse> {
+  return fetchApi<LineupContextResponse>(
+    `/api/insights/lineup-context/${playerId}?season=${encodeURIComponent(season)}`
   );
 }

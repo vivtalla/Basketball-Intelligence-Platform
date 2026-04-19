@@ -10,8 +10,8 @@ from sqlalchemy.orm import sessionmaker
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from db.database import Base  # noqa: E402
-from db.models import GamePlayerStat, GameTeamStat, Player, Team  # noqa: E402
-from services.trajectory_service import build_trajectory_report  # noqa: E402
+from db.models import GamePlayerStat, GameTeamStat, Player, PlayerOnOff, SeasonStat, Team  # noqa: E402
+from services.trajectory_service import build_trajectory_report, build_trajectory_series  # noqa: E402
 
 
 def make_session():
@@ -171,5 +171,134 @@ def test_trajectory_report_enforces_supported_season():
                 min_minutes_per_game=15.0,
             )
         assert exc_info.value.status_code == 422
+    finally:
+        session.close()
+
+
+def test_trajectory_report_has_player_id_and_position():
+    session = make_session()
+    try:
+        seed_trajectory_pool(session)
+        report = build_trajectory_report(
+            session,
+            season="2025-26",
+            last_n_games=5,
+            player_pool="all",
+            min_minutes_per_game=20.0,
+        )
+        leader = report.breakout_leaders[0]
+        assert leader.player_id == 1
+        assert leader.position == "G"
+    finally:
+        session.close()
+
+
+def test_trajectory_report_driver_contributions_all_signals():
+    session = make_session()
+    try:
+        seed_trajectory_pool(session)
+        report = build_trajectory_report(
+            session,
+            season="2025-26",
+            last_n_games=5,
+            player_pool="all",
+            min_minutes_per_game=20.0,
+        )
+        leader = report.breakout_leaders[0]
+        assert len(leader.driver_contributions) > 0
+        signals = {d.signal for d in leader.driver_contributions}
+        # All weighted signals that had data should appear.
+        assert "ts_pct" in signals or "pts" in signals
+        # Sorted by abs contribution descending.
+        contribs = [abs(d.weighted_contribution) for d in leader.driver_contributions]
+        assert contribs == sorted(contribs, reverse=True)
+    finally:
+        session.close()
+
+
+def test_trajectory_report_position_percentile_within_bounds():
+    session = make_session()
+    try:
+        seed_trajectory_pool(session)
+        report = build_trajectory_report(
+            session,
+            season="2025-26",
+            last_n_games=5,
+            player_pool="all",
+            min_minutes_per_game=20.0,
+        )
+        for row in report.breakout_leaders + report.decline_watch:
+            assert row.position_percentile is not None
+            assert 0.0 <= row.position_percentile <= 100.0
+    finally:
+        session.close()
+
+
+def test_trajectory_report_evidence_games_present():
+    session = make_session()
+    try:
+        seed_trajectory_pool(session)
+        report = build_trajectory_report(
+            session,
+            season="2025-26",
+            last_n_games=5,
+            player_pool="all",
+            min_minutes_per_game=20.0,
+        )
+        leader = report.breakout_leaders[0]
+        assert len(leader.evidence_games) > 0
+        eg = leader.evidence_games[0]
+        assert eg.game_id
+        assert eg.headline_stat
+    finally:
+        session.close()
+
+
+def test_trajectory_report_recent_and_baseline_averages():
+    session = make_session()
+    try:
+        seed_trajectory_pool(session)
+        report = build_trajectory_report(
+            session,
+            season="2025-26",
+            last_n_games=5,
+            player_pool="all",
+            min_minutes_per_game=20.0,
+        )
+        leader = report.breakout_leaders[0]
+        assert "pts" in leader.recent_averages
+        assert "pts" in leader.baseline_averages
+        # Breakout Guard should have higher recent pts than baseline.
+        assert leader.recent_averages["pts"] > leader.baseline_averages["pts"]
+    finally:
+        session.close()
+
+
+def test_trajectory_series_returns_game_rows():
+    session = make_session()
+    try:
+        seed_trajectory_pool(session)
+        series_resp = build_trajectory_series(
+            session,
+            player_id=1,
+            season="2025-26",
+            last_n_games=5,
+        )
+        assert series_resp.player_id == 1
+        assert series_resp.player_name == "Breakout Guard"
+        assert len(series_resp.series) == 15  # 15 games seeded
+        recent_count = sum(1 for g in series_resp.series if g.is_recent)
+        assert recent_count == 5
+    finally:
+        session.close()
+
+
+def test_trajectory_series_unknown_player_raises_404():
+    session = make_session()
+    try:
+        seed_trajectory_pool(session)
+        with pytest.raises(HTTPException) as exc_info:
+            build_trajectory_series(session, player_id=9999, season="2025-26", last_n_games=5)
+        assert exc_info.value.status_code == 404
     finally:
         session.close()

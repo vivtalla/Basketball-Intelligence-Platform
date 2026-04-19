@@ -1,15 +1,23 @@
 from __future__ import annotations
 
-import math
 import statistics
 from collections import defaultdict
-from typing import Dict, Iterable, List, Optional, Sequence, Tuple
+from typing import Dict, List, Optional, Sequence, Tuple
 
 from fastapi import HTTPException
 from sqlalchemy.orm import Session
 
-from db.models import GamePlayerStat, GameTeamStat, Player
-from models.insights import TrajectoryPlayerRow, TrajectoryResponse
+from db.models import GamePlayerStat, GameTeamStat, Player, PlayerOnOff, SeasonStat
+from models.insights import (
+    TrajectoryClutchContext,
+    TrajectoryDriverContribution,
+    TrajectoryEvidenceGame,
+    TrajectoryOnOffContext,
+    TrajectoryPlayerRow,
+    TrajectoryResponse,
+    TrajectorySeriesGame,
+    TrajectorySeriesResponse,
+)
 
 
 TRAJECTORY_WEIGHTS = {
@@ -21,8 +29,27 @@ TRAJECTORY_WEIGHTS = {
     "reb": 0.10,
 }
 
+_POSITION_BUCKET_MAP: Dict[str, str] = {
+    "pg": "G", "sg": "G", "g": "G",
+    "sf": "F", "pf": "F", "f": "F",
+    "c": "C",
+}
 
-def _estimate_possessions(fga: Optional[float], oreb: Optional[float], tov: Optional[float], fta: Optional[float]) -> Optional[float]:
+_DISPLAY_KEYS = {"pts", "reb", "ast", "ts_pct", "usg_pct", "plus_minus"}
+
+
+def _position_bucket(position: Optional[str]) -> str:
+    if not position:
+        return "other"
+    return _POSITION_BUCKET_MAP.get(position.lower().strip(), "other")
+
+
+def _estimate_possessions(
+    fga: Optional[float],
+    oreb: Optional[float],
+    tov: Optional[float],
+    fta: Optional[float],
+) -> Optional[float]:
     if fga is None or oreb is None or tov is None or fta is None:
         return None
     possessions = float(fga) - float(oreb) + float(tov) + (0.44 * float(fta))
@@ -31,7 +58,10 @@ def _estimate_possessions(fga: Optional[float], oreb: Optional[float], tov: Opti
     return possessions
 
 
-def _aggregate_split(rows: Sequence[GamePlayerStat], team_rows: Dict[Tuple[str, str], GameTeamStat]) -> Dict[str, Optional[float]]:
+def _aggregate_split(
+    rows: Sequence[GamePlayerStat],
+    team_rows: Dict[Tuple[str, str], GameTeamStat],
+) -> Dict[str, Optional[float]]:
     if not rows:
         return {
             "games": 0,
@@ -66,10 +96,7 @@ def _aggregate_split(rows: Sequence[GamePlayerStat], team_rows: Dict[Tuple[str, 
         team_possessions = None
         if team_row is not None:
             team_possessions = _estimate_possessions(
-                team_row.fga,
-                team_row.oreb,
-                team_row.tov,
-                team_row.fta,
+                team_row.fga, team_row.oreb, team_row.tov, team_row.fta,
             )
         usage_numerator = float(row.fga or 0.0) + (0.44 * float(row.fta or 0.0)) + float(row.tov or 0.0)
         if team_possessions:
@@ -105,7 +132,11 @@ def _aggregate_split(rows: Sequence[GamePlayerStat], team_rows: Dict[Tuple[str, 
     }
 
 
-def _delta(recent: Dict[str, Optional[float]], baseline: Dict[str, Optional[float]], key: str) -> Optional[float]:
+def _delta(
+    recent: Dict[str, Optional[float]],
+    baseline: Dict[str, Optional[float]],
+    key: str,
+) -> Optional[float]:
     recent_value = recent.get(key)
     baseline_value = baseline.get(key)
     if recent_value is None or baseline_value is None:
@@ -170,6 +201,40 @@ def _opponent_from_matchup(matchup: Optional[str], team_abbreviation: str) -> Op
     return right
 
 
+def _build_evidence_games(
+    recent_rows: Sequence[GamePlayerStat],
+    team_abbr: str,
+) -> List[TrajectoryEvidenceGame]:
+    sorted_rows = sorted(recent_rows, key=lambda r: float(r.pts or 0), reverse=True)
+    evidence: List[TrajectoryEvidenceGame] = []
+    for row in sorted_rows[:3]:
+        opponent = _opponent_from_matchup(row.matchup, team_abbr)
+        pts_val = int(row.pts or 0)
+        pm_val = float(row.plus_minus or 0)
+        pm_str = "+{0:.0f}".format(pm_val) if pm_val >= 0 else "{0:.0f}".format(pm_val)
+        headline = "{0} PTS, {1} +/-".format(pts_val, pm_str)
+        evidence.append(TrajectoryEvidenceGame(
+            game_id=row.game_id,
+            date=str(row.game_date) if row.game_date else None,
+            opponent=opponent,
+            result=row.wl,
+            headline_stat=headline,
+        ))
+    return evidence
+
+
+def _on_off_confidence(on_minutes: Optional[float]) -> str:
+    if on_minutes is None:
+        return "insufficient"
+    if on_minutes >= 800:
+        return "high"
+    if on_minutes >= 300:
+        return "medium"
+    if on_minutes >= 100:
+        return "low"
+    return "insufficient"
+
+
 def build_trajectory_report(
     db: Session,
     season: str,
@@ -191,7 +256,10 @@ def build_trajectory_report(
     if player_pool == "position_filter":
         if not position:
             raise HTTPException(status_code=422, detail="position is required for position_filter pools.")
-        players_query = players_query.filter(Player.position.isnot(None), Player.position.ilike("%{0}%".format(position)))
+        players_query = players_query.filter(
+            Player.position.isnot(None),
+            Player.position.ilike("%{0}%".format(position)),
+        )
     elif player_pool not in {"all", "team_filter"}:
         raise HTTPException(status_code=422, detail="Unsupported player_pool '{0}'.".format(player_pool))
 
@@ -225,7 +293,9 @@ def build_trajectory_report(
 
     team_rows_query = db.query(GameTeamStat).filter(GameTeamStat.season == season)
     if active_teams:
-        team_rows_query = team_rows_query.filter(GameTeamStat.team_abbreviation.in_(list(active_teams)))
+        team_rows_query = team_rows_query.filter(
+            GameTeamStat.team_abbreviation.in_(list(active_teams))
+        )
     team_rows = team_rows_query.all()
     team_row_lookup: Dict[Tuple[str, str], GameTeamStat] = {
         (row.game_id, row.team_abbreviation or ""): row
@@ -237,14 +307,14 @@ def build_trajectory_report(
         if team_row.team_abbreviation:
             team_games_lookup[team_row.team_abbreviation].append(team_row)
     for rows in team_games_lookup.values():
-        rows.sort(key=lambda row: (row.game_id))
+        rows.sort(key=lambda row: row.game_id)
 
-    opponent_allowed_points: Dict[str, List[float]] = defaultdict(list)
-    opponent_possessions: Dict[str, List[float]] = defaultdict(list)
     by_game_id: Dict[str, List[GameTeamStat]] = defaultdict(list)
     for row in team_rows:
         by_game_id[row.game_id].append(row)
 
+    opponent_allowed_points: Dict[str, List[float]] = defaultdict(list)
+    opponent_possessions: Dict[str, List[float]] = defaultdict(list)
     for game_id, rows in by_game_id.items():
         if len(rows) != 2:
             continue
@@ -268,6 +338,38 @@ def build_trajectory_report(
     top_five_defenses = {team for team, _ in sorted_defenses[:5]}
     bottom_five_defenses = {team for team, _ in sorted_defenses[-5:]}
 
+    # Bulk-fetch PlayerOnOff and SeasonStat for all candidate players.
+    eligible_player_ids = list(player_games.keys())
+    on_off_lookup: Dict[int, PlayerOnOff] = {}
+    if eligible_player_ids:
+        on_off_rows = (
+            db.query(PlayerOnOff)
+            .filter(
+                PlayerOnOff.player_id.in_(eligible_player_ids),
+                PlayerOnOff.season == season,
+                PlayerOnOff.is_playoff == False,  # noqa: E712
+            )
+            .all()
+        )
+        on_off_lookup = {row.player_id: row for row in on_off_rows}
+
+    season_stat_lookup: Dict[int, SeasonStat] = {}
+    if eligible_player_ids:
+        season_stat_rows = (
+            db.query(SeasonStat)
+            .filter(
+                SeasonStat.player_id.in_(eligible_player_ids),
+                SeasonStat.season == season,
+                SeasonStat.is_playoff == False,  # noqa: E712
+            )
+            .all()
+        )
+        # Keep highest-GP row when a player was traded mid-season.
+        for row in season_stat_rows:
+            existing = season_stat_lookup.get(row.player_id)
+            if existing is None or (row.gp or 0) > (existing.gp or 0):
+                season_stat_lookup[row.player_id] = row
+
     raw_scores: Dict[int, float] = {}
     candidate_rows = []
 
@@ -278,8 +380,7 @@ def build_trajectory_report(
             excluded_players.append("{0} — insufficient sample".format(player.full_name))
             continue
         if last_n_games > (total_games / 2.0):
-            message = "Window too large relative to sample for {0}.".format(player.full_name)
-            warnings.append(message)
+            warnings.append("Window too large relative to sample for {0}.".format(player.full_name))
             excluded_players.append("{0} — window too large relative to sample".format(player.full_name))
             continue
 
@@ -343,30 +444,106 @@ def build_trajectory_report(
                 opponent_ratings.append(team_def_ratings[opponent])
         if opponent_ratings:
             opponent_average = sum(opponent_ratings) / len(opponent_ratings)
-            elite_cutoff = max((team_def_ratings[team] for team in top_five_defenses), default=None)
-            weak_cutoff = min((team_def_ratings[team] for team in bottom_five_defenses), default=None)
+            elite_cutoff = max((team_def_ratings[t] for t in top_five_defenses), default=None)
+            weak_cutoff = min((team_def_ratings[t] for t in bottom_five_defenses), default=None)
             if elite_cutoff is not None and opponent_average <= elite_cutoff:
                 context_flags.append("Schedule flag: elite defenses")
             elif weak_cutoff is not None and opponent_average >= weak_cutoff:
                 context_flags.append("Schedule flag: soft defenses")
 
-        candidate_rows.append(
-            {
-                "player_name": player.full_name,
-                "team": recent_rows[0].team_abbreviation or "",
-                "player_id": player_id,
-                "raw_score": raw_score,
-                "deltas": deltas,
-                "context_flags": context_flags,
-            }
-        )
+        # Build driver contributions for all weighted signals.
+        driver_contributions: List[TrajectoryDriverContribution] = []
+        for key, weight in TRAJECTORY_WEIGHTS.items():
+            delta_value = deltas.get(key)
+            if delta_value is None:
+                continue
+            driver_contributions.append(TrajectoryDriverContribution(
+                signal=key,
+                delta=round(delta_value, 3),
+                weighted_contribution=round(delta_value * weight, 4),
+            ))
+        driver_contributions.sort(key=lambda d: abs(d.weighted_contribution), reverse=True)
+
+        # On/off context from PlayerOnOff (season-level).
+        on_off_context: Optional[TrajectoryOnOffContext] = None
+        on_off_row = on_off_lookup.get(player_id)
+        if on_off_row is not None:
+            confidence = _on_off_confidence(on_off_row.on_minutes)
+            on_off_context = TrajectoryOnOffContext(
+                on_off_net=round(on_off_row.on_off_net, 1) if on_off_row.on_off_net is not None else None,
+                on_minutes=on_off_row.on_minutes,
+                off_minutes=on_off_row.off_minutes,
+                confidence=confidence,
+            )
+
+        # Clutch context from SeasonStat (season-level).
+        clutch_context: Optional[TrajectoryClutchContext] = None
+        season_stat_row = season_stat_lookup.get(player_id)
+        if season_stat_row is not None and (
+            season_stat_row.clutch_pts is not None or season_stat_row.clutch_fg_pct is not None
+        ):
+            clutch_context = TrajectoryClutchContext(
+                clutch_pts=round(season_stat_row.clutch_pts, 1) if season_stat_row.clutch_pts is not None else None,
+                clutch_fg_pct=round(season_stat_row.clutch_fg_pct, 3) if season_stat_row.clutch_fg_pct is not None else None,
+                clutch_fga=season_stat_row.clutch_fga,
+            )
+
+        # Evidence games: top 3 from recent window by pts.
+        evidence_games = _build_evidence_games(recent_rows, team_abbr)
+
+        # Recent and baseline averages for sparkline rendering.
+        recent_avgs: Dict[str, Optional[float]] = {
+            key: round(recent[key], 3) if recent.get(key) is not None else None
+            for key in _DISPLAY_KEYS
+        }
+        baseline_avgs: Dict[str, Optional[float]] = {
+            key: round(baseline[key], 3) if baseline.get(key) is not None else None
+            for key in _DISPLAY_KEYS
+        }
+
+        candidate_rows.append({
+            "player_id": player_id,
+            "player_name": player.full_name,
+            "team": team_abbr,
+            "position": player.position,
+            "raw_score": raw_score,
+            "deltas": deltas,
+            "context_flags": context_flags,
+            "driver_contributions": driver_contributions,
+            "on_off_context": on_off_context,
+            "clutch_context": clutch_context,
+            "evidence_games": evidence_games,
+            "recent_avgs": recent_avgs,
+            "baseline_avgs": baseline_avgs,
+        })
 
     zscores = _zscore_map(raw_scores)
+
+    # Compute per-position-bucket z-scores for position_percentile.
+    bucket_scores: Dict[str, Dict[int, float]] = defaultdict(dict)
+    for candidate in candidate_rows:
+        bucket = _position_bucket(candidate["position"])
+        bucket_scores[bucket][candidate["player_id"]] = raw_scores[candidate["player_id"]]
+
+    bucket_zscores: Dict[str, Dict[int, float]] = {}
+    for bucket, scores in bucket_scores.items():
+        bucket_zscores[bucket] = _zscore_map(scores)
+
+    def _percentile_from_zscore(z: float) -> float:
+        # Approximate normal CDF → percentile (0–100).
+        import math
+        return round(50.0 * (1.0 + math.erf(z / math.sqrt(2.0))), 1)
+
     breakout_candidates: List[TrajectoryPlayerRow] = []
     decline_candidates: List[TrajectoryPlayerRow] = []
 
     for candidate in candidate_rows:
-        zscore = round(zscores.get(candidate["player_id"], 0.0), 2)
+        player_id = candidate["player_id"]
+        zscore = round(zscores.get(player_id, 0.0), 2)
+        bucket = _position_bucket(candidate["position"])
+        bucket_z = bucket_zscores.get(bucket, {}).get(player_id, 0.0)
+        position_percentile = _percentile_from_zscore(bucket_z)
+
         deltas = {
             key: value
             for key, value in candidate["deltas"].items()
@@ -374,15 +551,25 @@ def build_trajectory_report(
         }
         top_drivers = sorted(deltas.items(), key=lambda item: abs(item[1]), reverse=True)[:2]
         label = _trajectory_label(zscore)
+
         row = TrajectoryPlayerRow(
             rank=0,
+            player_id=player_id,
             player_name=candidate["player_name"],
             team=candidate["team"],
+            position=candidate["position"],
             trajectory_label=label,
             trajectory_score=zscore,
+            position_percentile=position_percentile,
             key_stat_deltas={key: round(value, 2) for key, value in top_drivers},
+            driver_contributions=candidate["driver_contributions"],
             narrative=_narrative(candidate["player_name"], label, top_drivers),
             context_flags=candidate["context_flags"],
+            evidence_games=candidate["evidence_games"],
+            on_off_context=candidate["on_off_context"],
+            clutch_context=candidate["clutch_context"],
+            recent_averages=candidate["recent_avgs"],
+            baseline_averages=candidate["baseline_avgs"],
         )
         if zscore > 0:
             breakout_candidates.append(row)
@@ -407,4 +594,76 @@ def build_trajectory_report(
         decline_watch=decline_watch,
         excluded_players=excluded_players,
         warnings=warnings,
+    )
+
+
+def build_trajectory_series(
+    db: Session,
+    player_id: int,
+    season: str,
+    last_n_games: int,
+) -> TrajectorySeriesResponse:
+    """Return per-game time-series for a single player for sparkline rendering."""
+    if season != "2025-26":
+        raise HTTPException(status_code=422, detail="Trajectory series currently supports the 2025-26 season only.")
+
+    player = db.query(Player).filter(Player.id == player_id).first()
+    if player is None:
+        raise HTTPException(status_code=404, detail="Player not found.")
+
+    game_rows = (
+        db.query(GamePlayerStat)
+        .filter(GamePlayerStat.player_id == player_id, GamePlayerStat.season == season)
+        .order_by(GamePlayerStat.game_date.desc(), GamePlayerStat.game_id.desc())
+        .all()
+    )
+
+    # Collect team game stats for usg_pct computation.
+    team_abbrs = {row.team_abbreviation for row in game_rows if row.team_abbreviation}
+    team_rows_by_key: Dict[Tuple[str, str], GameTeamStat] = {}
+    if team_abbrs:
+        team_rows = (
+            db.query(GameTeamStat)
+            .filter(
+                GameTeamStat.season == season,
+                GameTeamStat.team_abbreviation.in_(list(team_abbrs)),
+            )
+            .all()
+        )
+        team_rows_by_key = {(r.game_id, r.team_abbreviation or ""): r for r in team_rows}
+
+    series: List[TrajectorySeriesGame] = []
+    for index, row in enumerate(game_rows):
+        is_recent = index < last_n_games
+
+        ts_pct: Optional[float] = None
+        ts_denom = 2.0 * (float(row.fga or 0) + 0.44 * float(row.fta or 0))
+        if ts_denom > 0:
+            ts_pct = round(float(row.pts or 0) / ts_denom, 3)
+
+        usg_pct: Optional[float] = None
+        team_row = team_rows_by_key.get((row.game_id, row.team_abbreviation or ""))
+        if team_row is not None:
+            team_poss = _estimate_possessions(team_row.fga, team_row.oreb, team_row.tov, team_row.fta)
+            if team_poss:
+                usage_num = float(row.fga or 0) + 0.44 * float(row.fta or 0) + float(row.tov or 0)
+                usg_pct = round((usage_num / team_poss) * 100.0, 1)
+
+        series.append(TrajectorySeriesGame(
+            game_id=row.game_id,
+            date=str(row.game_date) if row.game_date else None,
+            pts=float(row.pts) if row.pts is not None else None,
+            reb=float(row.reb) if row.reb is not None else None,
+            ast=float(row.ast) if row.ast is not None else None,
+            ts_pct=ts_pct,
+            usg_pct=usg_pct,
+            plus_minus=float(row.plus_minus) if row.plus_minus is not None else None,
+            is_recent=is_recent,
+        ))
+
+    return TrajectorySeriesResponse(
+        player_id=player_id,
+        player_name=player.full_name,
+        season=season,
+        series=series,
     )
