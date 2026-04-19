@@ -1,6 +1,6 @@
 # Agent Coordination
 
-Last updated: 2026-04-19 by Claude (Sprint 58 kickoff)
+Last updated: 2026-04-19 by Claude (Sprint 58 closeout / Sprint 59 reset)
 
 > Both agents read this file before touching code at the start of every session.
 > The canonical source of truth is the clean `master` checkout at `/Users/viv/Documents/Basketball Intelligence Platform`.
@@ -14,13 +14,13 @@ Last updated: 2026-04-19 by Claude (Sprint 58 kickoff)
 
 | Field | Value |
 |-------|-------|
-| Sprint | 58 — Usage vs Efficiency Revamp: Opportunity Workspace |
-| Goal | Replace narrow USG/TS two-lane view with multi-axis Opportunity Score (efficiency-load gap, team impact swing, lineup synergy, role-fit, cohort percentile), capped per-signal z-scores with confidence bands, team-specific calibration, directional hints, and a reusable driver-decomposition UI |
-| Started | 2026-04-19 |
+| Sprint | 59 |
+| Goal | TBD — awaiting Vivek's sprint kickoff |
+| Started | TBD |
 | Target merge | TBD |
-| Sprint shape | Single-stream (Claude) |
-| Branch | `feature/sprint-58-usage-opportunity-workspace` |
-| Worker policy | Subagents for bounded research only; main stream implements |
+| Sprint shape | TBD |
+| Branch | `feature/sprint-59-[slug]` |
+| Worker policy | TBD |
 
 ---
 
@@ -38,14 +38,14 @@ If repo state, sprint numbering, or shipped features appear to disagree across l
 ## Current Assignments
 
 ### Claude
-- Branch: `feature/sprint-58-usage-opportunity-workspace`
-- Scope: Full sprint — backend opportunity service, frontend workspace rebuild, legacy dashboard retirement
-- Status: In progress
+- Branch: `feature/sprint-59-[slug]`
+- Scope: TBD
+- Status: Not started
 
 ### Codex
-- Branch: -
-- Scope: -
-- Status: Not assigned
+- Branch: `codex-sprint-59-[slug]`
+- Scope: TBD
+- Status: Not started
 
 ---
 
@@ -58,11 +58,7 @@ Claim a shared file here before editing. If a file is already claimed, read that
 
 | File | Claimed by | Purpose |
 |------|------------|---------|
-| `backend/services/opportunity_service.py` (new) | Claude | Opportunity Score composite: z-scores, clamping, confidence, drivers, hints |
-| `backend/models/insights.py` | Claude | Append OpportunityPlayerRow/OpportunityResponse schemas |
-| `backend/routers/insights.py` | Claude | New /opportunity route (additive) |
-| `frontend/src/components/UsageEfficiencyDashboard.tsx` | Claude | Full rewrite to Opportunity Workspace |
-| `frontend/src/components/opportunity/` (new folder) | Claude | New subcomponents |
+| — | — | Sprint 59 allocation TBD at kickoff |
 
 ---
 
@@ -73,32 +69,19 @@ Specs or review notes written by one stream for another. Check this before start
 | Spec file | From | To | Status |
 |-----------|------|----|--------|
 | `specs/data-architecture.md` | Sprint 26 | Next sprint | Reference — read before touching data layer |
-| `specs/sprint-57-closeout.md` | Sprint 57 | Next sprint | Reference — Trajectory revamp and lineup context baseline |
+| `specs/sprint-58-closeout.md` | Sprint 58 | Next sprint | Reference — Opportunity Workspace baseline and top follow-ons |
 
 ---
 
 ## Merge Order
 
-1. `feature/sprint-58-usage-opportunity-workspace` — full sprint work
-2. Final integration / verification / merge to `master`
+TBD at kickoff
 
 ---
 
 ## Sprint Work Allocation
 
-| Files / Directories | Assigned this sprint |
-|---------------------|----------------------|
-| `backend/services/opportunity_service.py` (new) | Claude |
-| `backend/services/usage_efficiency_service.py` | Claude (deprecate marker only) |
-| `backend/routers/insights.py` | Claude (additive route) |
-| `backend/models/insights.py` | Claude (append-only) |
-| `backend/tests/test_opportunity_service.py` (new) | Claude |
-| `frontend/src/components/UsageEfficiencyDashboard.tsx` | Claude |
-| `frontend/src/components/opportunity/` (new folder) | Claude |
-| `frontend/src/components/UsageLoadBoard.tsx` | Claude (delete) |
-| `frontend/src/hooks/usePlayerStats.ts` | Claude |
-| `frontend/src/lib/api.ts` | Claude (append-only) |
-| `frontend/src/lib/types.ts` | Claude (append-only) |
+Sprint 59 allocation — TBD at kickoff
 
 ---
 
@@ -171,6 +154,7 @@ Specs or review notes written by one stream for another. Check this before start
 
 *Free-form, dated, newest first. Use this for coordination and repo-state exceptions.*
 
+2026-04-19 (Claude): Sprint 58 closed. Shipped multi-axis Opportunity Workspace replacing USG/TS two-lane board: 5-signal capped z-score service, new /api/insights/opportunity endpoint, full UsageEfficiencyDashboard rewrite, 8 opportunity/ components with hover driver descriptions, and 13 backend tests. Deprecated (not deleted) old usage-efficiency endpoint. Next: hard-delete deprecated endpoint, cross-tab chip in InsightsHeader, opportunity score caching.
 2026-04-19 (Claude): Sprint 57 closed on `feature/sprint-57-insights-revamp` and merged to `master`. Shipped Trajectory two-column revamp with rolling sparklines, driver decomp, clutch/on-off/shot-quality cards, evidence games, lineup context service, shared InsightsHeader, and lineup context integration in MVP + player profile. Closeout: `specs/sprint-57-closeout.md`.
 2026-04-19 (Codex): Sprint 56 closed on `codex/sprint-56-player-impact-profile-clarity` and prepared for merge to `master`. Shipped MVP Team Impact, Voter Room team-impact evidence, Team Impact & Clutch profile panel, player profile cleanup, and Shot Lab tab relocation for action/distance/context workflows. Closeout: `specs/sprint-56-closeout.md`.
 2026-04-19 (Codex): Sprint 56 kicked off on `codex/sprint-56-player-impact-profile-clarity`. Goal: add an MVP Team Impact lens from existing on/off and team context, then clean up player profiles so Shot Lab owns shot analysis without redundant surrounding panels.

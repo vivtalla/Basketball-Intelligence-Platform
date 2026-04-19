@@ -270,6 +270,16 @@ CourtVue Labs uses a hybrid sprint model: major feature sprints typically run as
 - Integrated lineup context collapsibles into MVP Team Impact and player-profile Team Impact & Clutch.
 - Verified with 17 backend tests (all pass), frontend `npm run lint`, frontend `npm run build`, and `git diff --check`.
 
+### Sprint 58 — Usage vs Efficiency: Opportunity Workspace
+
+- Replaced two-lane USG/TS board with a multi-axis **Opportunity Workspace**: 5 capped z-scores (±2.0) per position bucket (G/F/C) — efficiency-load gap, team impact swing, lineup synergy lift, role-fit gap, cohort position — weighted into a composite `opportunity_score`.
+- New `opportunity_service.py`: bulk lineup synergy (single `LineupStats` query, Python partition), confidence bands (high/medium/low), directional hints with `hint_basis`, team roll-up of top 3 drivers across roster.
+- New `GET /api/insights/opportunity` with methodology block in response; deprecated `/api/insights/usage-efficiency` (kept live).
+- Full `UsageEfficiencyDashboard.tsx` rewrite: two-column workspace with team/position/signal filters, ranked `OpportunityRow` list, and detail panel with 4 cards + hint banner + methodology drawer.
+- 8 new `opportunity/` components: `OpportunityDriverBar` (with `SIGNAL_DESCRIPTIONS` hover tooltips), `OpportunityRow`, `EfficiencyLoadCard`, `TeamImpactCard`, `RoleFitCard`, `CohortPositionCard`, `DirectionalHintBanner`, `MethodologyDrawer`, `TeamRollup`.
+- Deleted `UsageLoadBoard.tsx` (superseded).
+- Verified with 13 new backend tests (all pass), frontend `npm run lint`, frontend `npm run build`, and `git diff --check`.
+
 ### Sprint 56 — Player Impact + Profile Clarity
 
 - Added additive MVP Team Impact contracts with team net rating, candidate game W-L, on/off net swing, on/off ORTG/DRTG, minutes, confidence, and explanatory notes.
@@ -287,6 +297,7 @@ CourtVue Labs uses a hybrid sprint model: major feature sprints typically run as
 |--------|-------|--------|
 | `master` | — | Stable |
 | `feature/sprint-57-insights-revamp` | Claude | Merged to master |
+| `feature/sprint-58-usage-opportunity-workspace` | Claude | Merged to master |
 
 Sprint branches are created at kickoff and listed in `AGENTS.md`.
 
@@ -329,3 +340,12 @@ Sprint branches are created at kickoff and listed in `AGENTS.md`.
 | `OnOffSwingCard` | `components/trajectory/` | On/off net swing + lineup teammate context card (Sprint 57) |
 | `ClutchSplitCard` | `components/trajectory/` | Clutch pts/FG% split card with sample-size caveat (Sprint 57) |
 | `ShotQualityDeltaCard` | `components/trajectory/` | TS% delta (recent vs baseline) linking to Shot Lab (Sprint 57) |
+| `OpportunityDriverBar` | `components/opportunity/` | Horizontal driver-contribution bar with SIGNAL_LABELS + hover descriptions (Sprint 58) |
+| `OpportunityRow` | `components/opportunity/` | Left-column ranked player card with compact DriverBar + confidence pill (Sprint 58) |
+| `EfficiencyLoadCard` | `components/opportunity/` | CSS scatter dot locating player on USG% vs TS% axes within cohort (Sprint 58) |
+| `TeamImpactCard` | `components/opportunity/` | On/off net swing block + top lineup partners from lineup context (Sprint 58) |
+| `RoleFitCard` | `components/opportunity/` | Shot diet table (3PA rate, FTr, eFG%) vs position-cohort averages with delta column (Sprint 58) |
+| `CohortPositionCard` | `components/opportunity/` | 4 pills: cohort percentile, opportunity score, team opportunity score, GP (Sprint 58) |
+| `DirectionalHintBanner` | `components/opportunity/` | Conditional green banner with hint text + signal basis chips (Sprint 58) |
+| `MethodologyDrawer` | `components/opportunity/` | Collapsible details: weights, z-score cap, gating thresholds, confidence definitions (Sprint 58) |
+| `TeamRollup` | `components/opportunity/` | Top 3 opportunity drivers across filtered roster with player counts (Sprint 58) |

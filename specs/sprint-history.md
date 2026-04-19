@@ -637,3 +637,18 @@ Eliminated live NBA API calls on every player profile load:
 - Extracted shared `InsightsHeader` component with cross-tab handoff chips; all four insights tabs share the same team/season/opponent URL state.
 - Integrated lineup context collapsibles into `MvpRacePanel` Team Impact section and `PlayerPbpInsights` Team Impact & Clutch panel.
 - Verified with 17 backend tests (all pass), frontend `npm run lint`, frontend `npm run build`, and `git diff --check`.
+
+---
+
+### Sprint 58 — Usage vs Efficiency: Opportunity Workspace
+**Branch:** `feature/sprint-58-usage-opportunity-workspace` (Claude, single-stream)
+
+- Replaced two-lane USG/TS board with a multi-axis **Opportunity Workspace**: 5 capped z-scores (±2.0) per position bucket (G/F/C) — `efficiency_load_gap` (0.30), `team_impact_swing` (0.25), `lineup_synergy_lift` (0.20), `role_fit_gap` (0.15), `cohort_percentile` (0.10) — weighted into composite `opportunity_score` and separate `team_opportunity_score`.
+- New `backend/services/opportunity_service.py`: bulk lineup synergy (single `LineupStats` query per season, Python partition by player), per-bucket z-scoring via `math.erf` normal CDF, confidence bands (high/medium/low), directional hints with structured `hint_basis` list, team roll-up of top 3 drivers across filtered roster.
+- New `GET /api/insights/opportunity` (season, team, min_minutes, position params) returning ranked rows, methodology block (weights, z-score cap, gating thresholds, confidence definitions), warnings, and optional team rollup.
+- Old `/api/insights/usage-efficiency` marked `deprecated=True` in FastAPI; kept live, no frontend callers remain.
+- Full `UsageEfficiencyDashboard.tsx` rewrite: hero/filter panel (team, season, position, min MPG, signal filter chips), Team Rollup section, two-column layout (ranked list left, detail panel right).
+- 8 new `opportunity/` components: `OpportunityDriverBar` (with `SIGNAL_LABELS` + `SIGNAL_DESCRIPTIONS` hover tooltips via `title` + `cursor-help` + dotted underline), `OpportunityRow`, `EfficiencyLoadCard` (CSS scatter dot), `TeamImpactCard`, `RoleFitCard` (shot diet vs cohort table), `CohortPositionCard`, `DirectionalHintBanner`, `MethodologyDrawer` (collapsible `<details>`), `TeamRollup`.
+- Deleted `UsageLoadBoard.tsx` (retired).
+- 13 new backend tests covering all z-score signal paths, capping, confidence bands, directional hint triggers, possession gate, team rollup, position filter, and empty-pool edge case.
+- Verified with `npm run lint`, `npm run build`, and `git diff --check`.
