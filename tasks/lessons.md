@@ -19,6 +19,12 @@ Each lesson:
 
 <!-- Add entries below in reverse-chronological order (newest first). -->
 
+### 2026-04-19 — UI cleanup must preserve unique workflows
+
+- **Context**: Sprint 56 player profile cleanup removed redundant Shot Lab sections, but the shot action table, distance profile, and shot-context Game Explorer links were useful unique workflows.
+- **Mistake**: Removed whole components from the visible flow while treating them as redundant because they lived near duplicate shot summaries.
+- **Rule**: When reducing UI redundancy, audit each removed component for unique user jobs. Relocate useful unique workflows into the appropriate tab or progressive-detail area instead of removing them outright.
+
 ### 2026-04-01 — Last-name-only player full_name (recurring)
 
 - **Context**: Player names showing as last-name-only (e.g. "Williams", "James") on Insights/TrajectoryTracker and other surfaces. Recurs across sprints.

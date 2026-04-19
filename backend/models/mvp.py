@@ -79,6 +79,26 @@ class MvpOnOffProfile(BaseModel):
     confidence: Confidence = "low"
 
 
+class MvpTeamImpactProfile(BaseModel):
+    team_abbreviation: Optional[str] = None
+    team_net_rating: Optional[float] = None
+    team_net_rating_rank: Optional[int] = None
+    candidate_game_wins: Optional[int] = None
+    candidate_game_losses: Optional[int] = None
+    candidate_game_win_pct: Optional[float] = None
+    on_minutes: Optional[float] = None
+    off_minutes: Optional[float] = None
+    on_off_net: Optional[float] = None
+    on_net_rating: Optional[float] = None
+    on_off_rating: Optional[float] = None
+    on_def_rating: Optional[float] = None
+    off_net_rating: Optional[float] = None
+    off_off_rating: Optional[float] = None
+    off_def_rating: Optional[float] = None
+    confidence: Confidence = "low"
+    notes: List[str] = Field(default_factory=list)
+
+
 class MvpAdvancedProfile(BaseModel):
     usg_pct: Optional[float] = None
     ts_pct: Optional[float] = None
@@ -323,6 +343,7 @@ class MvpCandidate(BaseModel):
     case_summary: List[str] = Field(default_factory=list)
     team_context: Optional[MvpTeamContext] = None
     on_off: Optional[MvpOnOffProfile] = None
+    team_impact: Optional[MvpTeamImpactProfile] = None
     advanced_profile: Optional[MvpAdvancedProfile] = None
     clutch_and_pace: Optional[MvpClutchAndPaceProfile] = None
     play_style: List[MvpPlayStyleRow] = Field(default_factory=list)
@@ -471,6 +492,7 @@ class MvpVoterRoomCandidate(BaseModel):
     context_adjusted_score: Optional[float] = None
     eligibility_status: str = "unknown"
     confidence: Optional[MvpCandidateConfidence] = None
+    team_impact: Optional[MvpTeamImpactProfile] = None
     case_summary: List[str] = Field(default_factory=list)
     evidence: List[str] = Field(default_factory=list)
 

@@ -2445,6 +2445,7 @@ export interface MvpCandidate {
   case_summary?: string[];
   team_context?: MvpTeamContext | null;
   on_off?: MvpOnOffProfile | null;
+  team_impact?: MvpTeamImpactProfile | null;
   advanced_profile?: MvpAdvancedProfile | null;
   clutch_and_pace?: MvpClutchAndPaceProfile | null;
   play_style?: MvpPlayStyleRow[];
@@ -2633,6 +2634,7 @@ export interface MvpVoterRoomCandidate {
   context_adjusted_score: number | null;
   eligibility_status: string;
   confidence?: MvpCandidateConfidence | null;
+  team_impact?: MvpTeamImpactProfile | null;
   case_summary: string[];
   evidence: string[];
 }
@@ -2764,6 +2766,26 @@ export interface MvpOnOffProfile {
   off_ortg: number | null;
   off_drtg: number | null;
   confidence: "high" | "medium" | "low";
+}
+
+export interface MvpTeamImpactProfile {
+  team_abbreviation: string | null;
+  team_net_rating: number | null;
+  team_net_rating_rank: number | null;
+  candidate_game_wins: number | null;
+  candidate_game_losses: number | null;
+  candidate_game_win_pct: number | null;
+  on_minutes: number | null;
+  off_minutes: number | null;
+  on_off_net: number | null;
+  on_net_rating: number | null;
+  on_off_rating: number | null;
+  on_def_rating: number | null;
+  off_net_rating: number | null;
+  off_off_rating: number | null;
+  off_def_rating: number | null;
+  confidence: "high" | "medium" | "low";
+  notes: string[];
 }
 
 export interface MvpAdvancedProfile {

@@ -45,6 +45,14 @@ function MetricCard({
   );
 }
 
+function ImpactNote({ children }: { children: string }) {
+  return (
+    <p className="rounded-lg border border-gray-200 bg-white/70 p-3 text-xs leading-5 text-gray-600 dark:border-gray-700 dark:bg-gray-800/70 dark:text-gray-300">
+      {children}
+    </p>
+  );
+}
+
 function SmallMetric({ label, value }: { label: string; value: string }) {
   return (
     <div className="flex flex-col gap-0.5">
@@ -94,9 +102,9 @@ export default function PlayerPbpInsights({ playerId, season }: PlayerPbpInsight
   return (
     <section className="space-y-3">
       <div>
-        <h2 className="text-lg font-semibold">Play-by-Play Insights</h2>
+        <h2 className="text-lg font-semibold">Team Impact & Clutch</h2>
         <p className="text-sm text-gray-500 dark:text-gray-400">
-          Derived from possession-level events for {season}.
+          How the team performs with this player on the court, plus late-game and pace context from possession-level events for {season}.
         </p>
       </div>
 
@@ -187,11 +195,10 @@ export default function PlayerPbpInsights({ playerId, season }: PlayerPbpInsight
 
       {!hasError && (onOff || clutch) ? (
         <div className="space-y-3">
-          {/* On/Off row */}
           {onOff && (
             <div className="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-4">
               <div className="flex items-center justify-between mb-3">
-                <span className="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400 font-semibold">On / Off Impact</span>
+                <span className="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400 font-semibold">Team performance with him on/off</span>
                 <span className="text-xs text-gray-400 dark:text-gray-500">
                   {fmt(onOff.on_minutes)} on-court min &middot; {fmt(onOff.off_minutes)} off
                 </span>
@@ -208,10 +215,18 @@ export default function PlayerPbpInsights({ playerId, season }: PlayerPbpInsight
                   </span>
                 </div>
               </div>
+              <div className="mt-4 grid gap-2 md:grid-cols-2">
+                <ImpactNote>
+                  Net rating is point differential per 100 possessions. The on/off difference is a team-context signal, not a one-number verdict on the player.
+                </ImpactNote>
+                <ImpactNote>
+                  Bench groups, stagger patterns, opponent timing, and garbage-time minutes can move this number, so use it alongside role, usage, and lineup context.
+                </ImpactNote>
+              </div>
             </div>
           )}
 
-          {/* Clutch + creation row */}
+          {/* Clutch + pace row */}
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
             <MetricCard
               label="Clutch Points"

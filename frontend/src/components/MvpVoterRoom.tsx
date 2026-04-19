@@ -8,6 +8,11 @@ function fmt(value?: number | null, digits = 1) {
   return value == null ? "-" : value.toFixed(digits);
 }
 
+function signed(value?: number | null, digits = 1) {
+  if (value == null) return "-";
+  return `${value > 0 ? "+" : ""}${value.toFixed(digits)}`;
+}
+
 export default function MvpVoterRoom({
   season,
   candidates,
@@ -39,7 +44,7 @@ export default function MvpVoterRoom({
           <p className="bip-kicker">Voter Room</p>
           <h2 className="bip-display mt-1 text-2xl font-semibold text-[var(--foreground)]">Case comparison, not a ballot simulator</h2>
           <p className="mt-2 max-w-3xl text-sm leading-6 text-[var(--muted)]">
-            Compare two or three MVP cases across Basketball Value, Award Case, availability, team framing, confidence, clutch evidence, and momentum.
+            Compare two or three MVP cases across Basketball Value, Award Case, availability, team impact, confidence, clutch evidence, and momentum.
           </p>
         </div>
         <div className="flex max-w-xl flex-wrap gap-2">
@@ -85,6 +90,13 @@ export default function MvpVoterRoom({
                   <div><p className="text-[var(--muted)]">Value rank</p><p className="font-semibold">#{candidate.basketball_value_rank ?? "-"}</p></div>
                   <div><p className="text-[var(--muted)]">Confidence</p><p className="font-semibold">{candidate.confidence?.overall ?? "-"}</p></div>
                 </div>
+                {candidate.team_impact ? (
+                  <div className="mt-3 grid grid-cols-3 gap-2 rounded-lg border border-[var(--border)] bg-[var(--surface)] p-3 text-xs">
+                    <div><p className="text-[var(--muted)]">On/Off</p><p className="font-semibold">{signed(candidate.team_impact.on_off_net)}</p></div>
+                    <div><p className="text-[var(--muted)]">On Net</p><p className="font-semibold">{signed(candidate.team_impact.on_net_rating)}</p></div>
+                    <div><p className="text-[var(--muted)]">Off Net</p><p className="font-semibold">{signed(candidate.team_impact.off_net_rating)}</p></div>
+                  </div>
+                ) : null}
                 <ul className="mt-3 space-y-2 text-xs leading-5 text-[var(--muted)]">
                   {candidate.evidence.slice(0, 3).map((item) => <li key={item}>- {item}</li>)}
                 </ul>

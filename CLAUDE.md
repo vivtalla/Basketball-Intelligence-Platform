@@ -260,6 +260,15 @@ CourtVue Labs uses a hybrid sprint model: major feature sprints typically run as
 
 > Full history → `specs/sprint-history.md`
 
+### Sprint 56 — Player Impact + Profile Clarity
+
+- Added additive MVP Team Impact contracts with team net rating, candidate game W-L, on/off net swing, on/off ORTG/DRTG, minutes, confidence, and explanatory notes.
+- Added a dedicated Team Impact lens to `/mvp` candidate detail and Team Impact evidence in Voter Room comparisons.
+- Reworked player-page play-by-play context into **Team Impact & Clutch** with clearer on/off caveats.
+- Cleaned the player profile by removing low-value default `ShotSeasonEvolution` and the standalone `ZoneProfilePanel`.
+- Preserved unique Shot Lab workflows inside the right views: action fingerprint and distance profile in Diet, recent filtered shots and Game Explorer links in Creation.
+- Verified with targeted MVP backend tests, frontend `npm run lint`, frontend `npm run build`, and `git diff --check`.
+
 ### Sprint 55 — Shot Lab Intelligence
 
 - Added `shot_quality_v1`, an on-demand DB-first Shot Lab intelligence service for expected shot quality, actual shot making, PPS/eFG deltas, and sparse-bin fallback smoothing.
@@ -268,14 +277,6 @@ CourtVue Labs uses a hybrid sprint model: major feature sprints typically run as
 - Upgraded player Shot Lab, Compare Shot Lab, and Team Defense Shot Lab with Quality, Making, Creation, and Scout Summary views while preserving classic shot views.
 - Extended Shot Lab snapshot metadata with intelligence view, coverage state, methodology version, and split mode.
 - Verified with targeted shotchart/schema backend tests, frontend `npm run lint`, frontend `npm run build`, and `git diff --check`.
-
-### Sprint 54 — MVP Platform+
-
-- Added MVP Voter Room case comparison inside `/mvp`, backed by `GET /api/mvp/voter-room`, with category winners and explicit non-simulation language.
-- Added compact MVP player-page embeds for current candidate-pool players.
-- Added MVP coverage ops through `GET /api/mvp/coverage` and a `/coverage` MVP Coverage panel.
-- Operationalized daily snapshots with `POST /api/warehouse/queue/mvp-snapshot`, current-season queue inclusion, `/api/mvp/snapshot-freshness`, and a `/mvp` freshness badge.
-- Verified with targeted MVP/schema backend tests, frontend `npm run lint`, frontend `npm run build`, API/page smokes, and `git diff --check`.
 
 ---
 

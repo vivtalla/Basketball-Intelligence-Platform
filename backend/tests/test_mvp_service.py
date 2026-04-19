@@ -323,6 +323,16 @@ def test_mvp_race_builds_case_payload_and_dedupes_trade_rows():
         assert alpha_case.on_off is not None
         assert alpha_case.on_off.on_off_net == 13.0
         assert alpha_case.on_off.confidence == "medium"
+        assert alpha_case.team_impact is not None
+        assert alpha_case.team_impact.team_abbreviation == "BOS"
+        assert alpha_case.team_impact.team_net_rating == 10.2
+        assert alpha_case.team_impact.candidate_game_wins == 8
+        assert alpha_case.team_impact.candidate_game_losses == 4
+        assert alpha_case.team_impact.on_off_net == 13.0
+        assert alpha_case.team_impact.on_off_rating == 122.0
+        assert alpha_case.team_impact.off_net_rating == 1.0
+        assert alpha_case.team_impact.confidence == "medium"
+        assert any("points per 100 better" in note for note in alpha_case.team_impact.notes)
         assert alpha_case.advanced_profile is not None
         assert alpha_case.advanced_profile.obpm == 6.0
         assert alpha_case.advanced_profile.win_shares_per_48 == round(6.0 * 48.0 / 850.0, 3)
@@ -389,6 +399,25 @@ def test_mvp_eligibility_counts_near_miss_games():
         session.close()
 
 
+def test_mvp_team_impact_confidence_drops_with_limited_off_sample():
+    session = make_session()
+    try:
+        alpha, _, _ = _seed_player_case(session)
+        row = session.query(PlayerOnOff).filter_by(player_id=alpha.id, season="2025-26").one()
+        row.on_minutes = 1600
+        row.off_minutes = 100
+        session.commit()
+
+        response = build_mvp_race(session, season="2025-26", top=3)
+        alpha_case = next(row for row in response.candidates if row.player_id == alpha.id)
+
+        assert alpha_case.team_impact is not None
+        assert alpha_case.team_impact.confidence == "low"
+        assert any("Low confidence" in note for note in alpha_case.team_impact.notes)
+    finally:
+        session.close()
+
+
 def test_mvp_race_keeps_missing_impact_data_candidates_with_warnings():
     session = make_session()
     try:
@@ -398,6 +427,9 @@ def test_mvp_race_keeps_missing_impact_data_candidates_with_warnings():
 
         assert gamma_case.bpm is None
         assert gamma_case.on_off is None
+        assert gamma_case.team_impact is not None
+        assert gamma_case.team_impact.on_off_net is None
+        assert gamma_case.team_impact.confidence == "low"
         assert gamma_case.play_style == []
         assert gamma_case.gravity_profile is not None
         assert gamma_case.gravity_profile.source == "courtvue_proxy"
@@ -450,6 +482,9 @@ def test_mvp_voter_room_compares_selected_candidates_and_route_trims_invalid_ids
         assert len(response.candidates) == 3
         assert response.categories
         assert any(row.key == "award_case" and row.winner_player_id for row in response.categories)
+        assert any(row.key == "team_value" and row.winner_player_id for row in response.categories)
+        assert response.candidates[0].team_impact is not None
+        assert any("Team impact" in item for item in response.candidates[0].evidence)
         assert response.ballot_summary
         assert response.warnings == []
 

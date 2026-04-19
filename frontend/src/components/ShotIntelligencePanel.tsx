@@ -64,6 +64,22 @@ function Methodology({ notes }: { notes?: Array<{ title: string; body: string }>
   );
 }
 
+function WhyItMatters({ mode }: { mode: ShotIntelligenceMode }) {
+  const copy =
+    mode === "quality"
+      ? "Quality asks whether the shot diet itself is favorable before makes and misses are credited."
+      : mode === "making"
+        ? "Making shows conversion above or below expectation, separating skill and hot shooting from shot selection."
+        : mode === "creation"
+          ? "Creation labels are useful scouting proxies from action, shot type, clock, and linked context; they are not official assisted/self-created truth."
+          : "Scout Summary condenses the shot profile into role language so the chart supports a faster basketball read.";
+  return (
+    <div className="rounded-[1rem] border border-[rgba(25,52,42,0.1)] bg-[rgba(255,255,255,0.66)] px-4 py-3 text-xs leading-5 text-[var(--muted-strong)]">
+      <span className="font-semibold text-[var(--foreground)]">Why this matters:</span> {copy}
+    </div>
+  );
+}
+
 function SummaryCards({ quality }: { quality?: ShotQualityResponse | null }) {
   const summary = quality?.summary;
   const items = [
@@ -129,10 +145,12 @@ function BinRows({ bins, mode }: { bins: ShotQualityBin[]; mode: "quality" | "ma
 
 function CreationSplits({ creation }: { creation?: ShotCreationResponse | null }) {
   const splits = creation?.splits ?? [];
+  const palette = ["#21483b", "#6e7f52", "#b25b4f", "#7c6bb0", "#d79b55", "#537f8d"];
   return (
     <div className="grid gap-3 md:grid-cols-2">
-      {splits.map((split) => (
+      {splits.map((split, index) => (
         <div key={split.split_key} className="rounded-[1rem] border border-[rgba(25,52,42,0.1)] bg-[rgba(255,255,255,0.62)] p-4">
+          <div className="mb-3 h-1.5 rounded-full" style={{ backgroundColor: palette[index % palette.length] }} />
           <div className="flex items-start justify-between gap-3">
             <div>
               <p className="text-sm font-semibold text-[var(--foreground)]">{split.label}</p>
@@ -232,6 +250,8 @@ export default function ShotIntelligencePanel({
           {coverage.note}
         </div>
       ) : null}
+
+      <WhyItMatters mode={mode} />
 
       {(mode === "quality" || mode === "making") && quality ? (
         <>

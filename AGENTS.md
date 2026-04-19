@@ -1,6 +1,6 @@
 # Agent Coordination
 
-Last updated: 2026-04-19 by Codex (Sprint 55 closeout - ready for next sprint)
+Last updated: 2026-04-19 by Codex (Sprint 56 closeout - ready for next sprint)
 
 > Both agents read this file before touching code at the start of every session.
 > The canonical source of truth is the clean `master` checkout at `/Users/viv/Documents/Basketball Intelligence Platform`.
@@ -69,7 +69,7 @@ Specs or review notes written by one stream for another. Check this before start
 | Spec file | From | To | Status |
 |-----------|------|----|--------|
 | `specs/data-architecture.md` | Sprint 26 | Next sprint | Reference — read before touching data layer |
-| `specs/sprint-55-closeout.md` | Sprint 55 | Next sprint | Reference — Shot Lab Intelligence baseline |
+| `specs/sprint-56-closeout.md` | Sprint 56 | Next sprint | Reference — Team Impact and player profile cleanup baseline |
 
 ---
 
@@ -81,8 +81,6 @@ Specs or review notes written by one stream for another. Check this before start
 ---
 
 ## Sprint Work Allocation
-
-No active sprint allocation.
 
 | Files / Directories | Assigned this sprint |
 |---------------------|----------------------|
@@ -159,6 +157,8 @@ No active sprint allocation.
 
 *Free-form, dated, newest first. Use this for coordination and repo-state exceptions.*
 
+2026-04-19 (Codex): Sprint 56 closed on `codex/sprint-56-player-impact-profile-clarity` and prepared for merge to `master`. Shipped MVP Team Impact, Voter Room team-impact evidence, Team Impact & Clutch profile panel, player profile cleanup, and Shot Lab tab relocation for action/distance/context workflows. Closeout: `specs/sprint-56-closeout.md`.
+2026-04-19 (Codex): Sprint 56 kicked off on `codex/sprint-56-player-impact-profile-clarity`. Goal: add an MVP Team Impact lens from existing on/off and team context, then clean up player profiles so Shot Lab owns shot analysis without redundant surrounding panels.
 2026-04-19 (Codex): Sprint 55 closed on `codex/sprint-55-shot-lab-intelligence` and prepared for merge to `master`. Shipped Shot Lab Intelligence with `shot_quality_v1`, player and team-defense quality/creation/identity/coverage endpoints, compare and team-defense parity, snapshot intelligence metadata, and coverage-aware methodology. Closeout: `specs/sprint-55-closeout.md`.
 2026-04-19 (Codex): Sprint 55 kicked off on `codex/sprint-55-shot-lab-intelligence`. Goal: make Shot Lab intelligence-ready with quality vs making, creation-context splits, scouting identity, coverage-aware methodology, and player/compare/team-defense parity. Planning inputs: `specs/shot-chart-synopsis-sprint-planning.md` and `specs/shot-lab-intelligence-sprint-spec.md`.
 2026-04-18 (Codex): Sprint 54 closed on `codex/sprint-54-mvp-platform-plus` and merged to `master` at `3f8bf1d`. Shipped Voter Room, MVP player embeds, MVP coverage ops, daily snapshot queueing/freshness, and coverage tests. Closeout: `specs/sprint-54-closeout.md`.

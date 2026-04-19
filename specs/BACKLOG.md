@@ -66,13 +66,13 @@ Likely shape:
 
 ### Shot Lab Visual Polish and Replay Examples
 Why it matters:
-Sprint 55 made Shot Lab analytically sharper, but the final layer of trust and delight still depends on court geometry polish, richer hover/tap behavior, and replay handoffs from intelligence bins into examples.
+Sprints 55-56 made Shot Lab analytically sharper and moved unique action, distance, and shot-context workflows into the right tabs. The final layer of trust and delight still depends on court geometry polish, richer hover/tap behavior, and deeper replay handoffs from intelligence bins into examples.
 
 Likely shape:
 - Finish the shared `ShotCourt` silhouette so the three-point shell, baseline, lane, and free-throw geometry unmistakably match a real half-court
 - Keep tuning shot-frequency heatmaps so the hottest pockets pop on neutral backgrounds without making the whole surface feel heavy
 - add richer hover/tap affordances to quality, making, creation, sprawl, value, and distance views with sample size, expectation, delta, and confidence
-- add “show me examples” links from quality/making/creation bins into Game Explorer for linked shots
+- add “show me examples” links from quality/making/creation bins into Game Explorer for linked shots, beyond the current recent filtered-shot links in Creation
 - extend shot identity takeaways into player cards, compare summaries, and prep surfaces where they help users move from chart to decision
 
 ### Replay Workflow Expansion
@@ -157,7 +157,7 @@ Likely shape:
 
 ### MVP Award-Race Follow-Ons
 Why it matters:
-Sprints 48-54 turned the MVP tracker into a case platform with eligibility, opponent context, support burden, Gravity context, refined Basketball Value/Award Case scoring, weekly voter timeline, Voter Room case comparison, player embeds, and MVP coverage ops. The next gains are calibration, richer official-data coverage, and more historically faithful longitudinal modeling.
+Sprints 48-56 turned the MVP tracker into a case platform with eligibility, opponent context, support burden, Gravity context, refined Basketball Value/Award Case scoring, weekly voter timeline, Voter Room case comparison, player embeds, MVP coverage ops, and a Team Impact lens. The next gains are calibration, richer official-data coverage, lineup-aware on/off explanations, and more historically faithful longitudinal modeling.
 
 Likely shape:
 - decide when persisted daily snapshots should become a visible daily timeline toggle alongside weekly reconstruction
@@ -166,6 +166,7 @@ Likely shape:
 - add historical dated rows for impact, Gravity, clutch, opponent-adjusted context, and signature-game leverage so the timeline can evolve beyond game-log-only reconstruction
 - calibrate Award Case modifier caps after more live review of ranking movement
 - broaden official play-type/tracking/hustle refresh coverage and improve coverage health explanations per candidate
+- add lineup-with/without teammate context and dated on/off history so Team Impact explains why a candidate's team changes when he sits or plays
 
 ### Gravity Calibration and Official Coverage
 Why it matters:
