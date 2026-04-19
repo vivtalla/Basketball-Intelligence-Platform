@@ -32,6 +32,7 @@ import type {
   ZoneProfileResponse,
   TrajectorySeriesResponse,
   LineupContextResponse,
+  OpportunityResponse,
 } from "./types";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
@@ -1418,5 +1419,21 @@ export function fetchLineupContext(
 ): Promise<LineupContextResponse> {
   return fetchApi<LineupContextResponse>(
     `/api/insights/lineup-context/${playerId}?season=${encodeURIComponent(season)}`
+  );
+}
+
+export function fetchOpportunityReport(
+  season: string,
+  team?: string | null,
+  minMinutes: number = 15,
+  position?: string | null
+): Promise<OpportunityResponse> {
+  const params = new URLSearchParams();
+  params.set("season", season);
+  if (team) params.set("team", team);
+  params.set("min_minutes", String(minMinutes));
+  if (position) params.set("position", position);
+  return fetchApi<OpportunityResponse>(
+    `/api/insights/opportunity?${params.toString()}`
   );
 }

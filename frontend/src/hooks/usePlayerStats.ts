@@ -18,6 +18,7 @@ import type {
   TeamComparisonResponse,
   TeamFocusLeversReport,
   UsageEfficiencyResponse,
+  OpportunityResponse,
   PreReadDeckResponse,
   PreReadSnapshotListResponse,
   PreReadSnapshotResponse,
@@ -94,6 +95,7 @@ import {
   getTeamComparison,
   getTeamFocusLevers,
   getUsageEfficiencyReport,
+  fetchOpportunityReport,
   getPreReadDeck,
   getPreReadSnapshots,
   getPreReadSnapshot,
@@ -601,6 +603,20 @@ export function useUsageEfficiencyReport(
   return useSWR<UsageEfficiencyResponse>(
     season ? `usage-efficiency-${season}-${team ?? "all"}-${minMinutes}` : null,
     () => getUsageEfficiencyReport(season!, team, minMinutes)
+  );
+}
+
+export function useOpportunityReport(
+  season: string | null,
+  team?: string | null,
+  minMinutes = 15,
+  position?: string | null
+) {
+  return useSWR<OpportunityResponse>(
+    season
+      ? `opportunity-${season}-${team ?? "all"}-${minMinutes}-${position ?? "all"}`
+      : null,
+    () => fetchOpportunityReport(season!, team ?? null, minMinutes, position ?? null)
   );
 }
 

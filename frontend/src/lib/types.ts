@@ -3056,3 +3056,98 @@ export interface MvpGravityLeaderboardResponse {
   source_policy: string;
   profiles: MvpGravityProfile[];
 }
+
+// ────────────────────────────────────────────────────────────────────────────
+// Sprint 58 — Opportunity Workspace contracts
+// ────────────────────────────────────────────────────────────────────────────
+
+export type OpportunitySignal =
+  | "efficiency_load_gap"
+  | "team_impact_swing"
+  | "lineup_synergy_lift"
+  | "role_fit_gap"
+  | "cohort_percentile";
+
+export interface OpportunityDriverContribution {
+  signal: OpportunitySignal;
+  z_score: number;
+  weighted_contribution: number;
+}
+
+export interface OpportunityTeammate {
+  teammate_id: number;
+  teammate_name: string;
+  shared_possessions: number;
+  net_rating_with: number | null;
+}
+
+export interface OpportunityRoleFit {
+  par3: number | null;
+  par3_bucket_avg: number | null;
+  ftr: number | null;
+  ftr_bucket_avg: number | null;
+  efg_pct: number | null;
+  efg_bucket_avg: number | null;
+}
+
+export interface OpportunityPlayerRow {
+  player_id: number;
+  player_name: string;
+  team_abbreviation: string;
+  position: string | null;
+  position_bucket: string;
+  minutes_pg: number | null;
+  gp: number | null;
+
+  usg_pct: number | null;
+  ts_pct: number | null;
+  off_rating: number | null;
+  def_rating: number | null;
+  net_rating: number | null;
+  pts_pg: number | null;
+  ast_pg: number | null;
+  tov_pg: number | null;
+
+  on_off_net: number | null;
+  on_minutes: number | null;
+  off_minutes: number | null;
+
+  top_teammate: OpportunityTeammate | null;
+  role_fit: OpportunityRoleFit | null;
+
+  opportunity_score: number;
+  team_opportunity_score: number | null;
+  cohort_percentile: number | null;
+  confidence: "high" | "medium" | "low";
+  driver_contributions: OpportunityDriverContribution[];
+  directional_hint: string | null;
+  hint_basis: string[];
+  top_driver: OpportunitySignal | null;
+}
+
+export interface OpportunityMethodology {
+  version: string;
+  weights: Record<OpportunitySignal, number>;
+  z_score_cap: number;
+  min_minutes: number;
+  min_lineup_possessions: number;
+  confidence_thresholds: Record<string, Record<string, number>>;
+  notes: string[];
+}
+
+export interface OpportunityTeamRollup {
+  team_abbreviation: string;
+  top_drivers: Record<string, number>;
+  sample_size: number;
+}
+
+export interface OpportunityResponse {
+  season: string;
+  team: string | null;
+  min_minutes: number;
+  position_filter: string | null;
+  rows: OpportunityPlayerRow[];
+  team_rollup: OpportunityTeamRollup | null;
+  methodology: OpportunityMethodology;
+  warnings: string[];
+}

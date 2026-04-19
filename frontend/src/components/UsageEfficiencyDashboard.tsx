@@ -2,189 +2,306 @@
 
 import Link from "next/link";
 import { useState } from "react";
-import { useTeams, useUsageEfficiencyReport } from "@/hooks/usePlayerStats";
-import UsageLoadBoard from "./UsageLoadBoard";
+import {
+  useOpportunityReport,
+  useTeams,
+} from "@/hooks/usePlayerStats";
+import { useLineupContext } from "@/hooks/useTrajectory";
+import type { OpportunityPlayerRow, OpportunitySignal } from "@/lib/types";
+import { OpportunityRow } from "./opportunity/OpportunityRow";
+import { TeamRollup } from "./opportunity/TeamRollup";
+import { EfficiencyLoadCard } from "./opportunity/EfficiencyLoadCard";
+import { TeamImpactCard } from "./opportunity/TeamImpactCard";
+import { RoleFitCard } from "./opportunity/RoleFitCard";
+import { CohortPositionCard } from "./opportunity/CohortPositionCard";
+import { DirectionalHintBanner } from "./opportunity/DirectionalHintBanner";
+import { MethodologyDrawer } from "./opportunity/MethodologyDrawer";
+import { OpportunityDriverBar, SIGNAL_LABELS } from "./opportunity/OpportunityDriverBar";
 
-function pillTone(category: "overused" | "underused") {
-  return category === "overused"
-    ? "bg-[rgba(140,58,42,0.08)] text-[var(--danger-ink)]"
-    : "bg-[rgba(33,72,59,0.08)] text-[var(--accent-strong)]";
-}
+type SignalFilter = "all" | OpportunitySignal;
+
+const POSITION_OPTIONS: Array<{ value: string; label: string }> = [
+  { value: "", label: "All positions" },
+  { value: "G", label: "Guards" },
+  { value: "F", label: "Forwards" },
+  { value: "C", label: "Centers" },
+];
+
+const SIGNAL_FILTER_OPTIONS: Array<{ value: SignalFilter; label: string }> = [
+  { value: "all", label: "All drivers" },
+  { value: "efficiency_load_gap", label: SIGNAL_LABELS.efficiency_load_gap },
+  { value: "team_impact_swing", label: SIGNAL_LABELS.team_impact_swing },
+  { value: "lineup_synergy_lift", label: SIGNAL_LABELS.lineup_synergy_lift },
+  { value: "role_fit_gap", label: SIGNAL_LABELS.role_fit_gap },
+  { value: "cohort_percentile", label: SIGNAL_LABELS.cohort_percentile },
+];
 
 export default function UsageEfficiencyDashboard() {
-  const [season, setSeason] = useState("2024-25");
+  const [season, setSeason] = useState("2025-26");
   const [team, setTeam] = useState("");
-  const [minMinutes, setMinMinutes] = useState(20);
+  const [position, setPosition] = useState("");
+  const [minMinutes, setMinMinutes] = useState(15);
+  const [signalFilter, setSignalFilter] = useState<SignalFilter>("all");
+  const [selectedId, setSelectedId] = useState<number | null>(null);
+
   const { data: teams } = useTeams();
-  const { data, isLoading } = useUsageEfficiencyReport(season, team || undefined, minMinutes);
+  const { data: report, isLoading, error } = useOpportunityReport(
+    season,
+    team || null,
+    minMinutes,
+    position || null
+  );
+
+  // Apply signal filter in the client so the methodology stays consistent.
+  const allRows: OpportunityPlayerRow[] = report?.rows ?? [];
+  const filteredRows: OpportunityPlayerRow[] =
+    signalFilter === "all"
+      ? allRows
+      : allRows.filter((r) => r.top_driver === signalFilter);
+
+  const selectedMatch =
+    selectedId != null
+      ? filteredRows.find((r) => r.player_id === selectedId)
+      : undefined;
+  const selectedRow: OpportunityPlayerRow | null =
+    selectedMatch ?? filteredRows[0] ?? null;
+
+  // Hooks must be pre-allocated: always call useLineupContext, even when no player.
+  const lineupCtxQuery = useLineupContext(
+    selectedRow?.player_id ?? null,
+    season
+  );
 
   return (
-    <div className="mx-auto max-w-7xl space-y-8">
-      <section className="rounded-[2rem] border border-[var(--border-strong)] bg-[linear-gradient(135deg,rgba(248,244,232,0.98),rgba(239,232,214,0.96))] p-6 shadow-[0_24px_80px_rgba(47,43,36,0.08)] sm:p-7">
+    <div className="mx-auto max-w-7xl space-y-6">
+      {/* Hero + filters */}
+      <section className="rounded-[2rem] border border-[var(--border-strong)] bg-[linear-gradient(135deg,rgba(248,244,232,0.98),rgba(239,232,214,0.96))] p-6 shadow-[0_24px_80px_rgba(47,43,36,0.08)]">
         <div className="flex flex-wrap items-end justify-between gap-5">
           <div className="max-w-3xl">
             <p className="bip-kicker mb-2">Coach Workflow</p>
             <h1 className="bip-display text-4xl font-semibold text-[var(--foreground)]">
-              Usage vs Efficiency
+              Opportunity Workspace
             </h1>
             <p className="mt-3 text-sm leading-6 text-[var(--muted-strong)]">
-              Find where offensive burden may be misallocated by surfacing over-used inefficients and under-used efficient players.
+              Multi-axis ranking that explains <em>why</em> a qualifying player has
+              untapped role opportunity — efficiency vs load, team impact, lineup
+              synergy, role fit, and cohort position. Every score is decomposed into
+              capped z-scores; every hint is labeled with confidence.
             </p>
           </div>
-
-          <div className="grid gap-3 sm:grid-cols-3">
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
             <label className="space-y-2">
-              <span className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--muted)]">Season</span>
-              <select value={season} onChange={(event) => setSeason(event.target.value)} className="bip-input w-full rounded-2xl px-4 py-3 text-sm">
-                {["2025-26", "2024-25", "2023-24", "2022-23"].map((option) => (
-                  <option key={option} value={option}>{option}</option>
-                ))}
-              </select>
-            </label>
-            <label className="space-y-2">
-              <span className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--muted)]">Team</span>
-              <select value={team} onChange={(event) => setTeam(event.target.value)} className="bip-input w-full rounded-2xl px-4 py-3 text-sm">
-                <option value="">All teams</option>
-                {(teams ?? []).map((entry) => (
-                  <option key={entry.abbreviation} value={entry.abbreviation}>
-                    {entry.abbreviation} · {entry.name}
+              <span className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--muted)]">
+                Season
+              </span>
+              <select
+                value={season}
+                onChange={(e) => setSeason(e.target.value)}
+                className="bip-input w-full rounded-2xl px-4 py-3 text-sm"
+              >
+                {["2025-26", "2024-25", "2023-24", "2022-23"].map((s) => (
+                  <option key={s} value={s}>
+                    {s}
                   </option>
                 ))}
               </select>
             </label>
             <label className="space-y-2">
-              <span className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--muted)]">Min MPG</span>
+              <span className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--muted)]">
+                Team
+              </span>
+              <select
+                value={team}
+                onChange={(e) => setTeam(e.target.value)}
+                className="bip-input w-full rounded-2xl px-4 py-3 text-sm"
+              >
+                <option value="">All teams</option>
+                {(teams ?? []).map((t) => (
+                  <option key={t.abbreviation} value={t.abbreviation}>
+                    {t.abbreviation} · {t.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="space-y-2">
+              <span className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--muted)]">
+                Position
+              </span>
+              <select
+                value={position}
+                onChange={(e) => setPosition(e.target.value)}
+                className="bip-input w-full rounded-2xl px-4 py-3 text-sm"
+              >
+                {POSITION_OPTIONS.map((o) => (
+                  <option key={o.value} value={o.value}>
+                    {o.label}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="space-y-2">
+              <span className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--muted)]">
+                Min MPG
+              </span>
               <input
                 type="number"
-                min="0"
-                step="1"
+                min={0}
+                step={1}
                 value={minMinutes}
-                onChange={(event) => setMinMinutes(Number(event.target.value) || 0)}
+                onChange={(e) => setMinMinutes(Number(e.target.value) || 0)}
                 className="bip-input w-full rounded-2xl px-4 py-3 text-sm"
               />
             </label>
           </div>
         </div>
+
+        <div className="mt-5 flex flex-wrap items-center gap-2">
+          <span className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--muted)]">
+            Top driver
+          </span>
+          {SIGNAL_FILTER_OPTIONS.map((opt) => (
+            <button
+              key={opt.value}
+              type="button"
+              onClick={() => setSignalFilter(opt.value)}
+              className={`rounded-full border px-3 py-1 text-[11px] font-medium transition ${
+                signalFilter === opt.value
+                  ? "border-[var(--accent-strong)] bg-[var(--accent-strong)] text-white"
+                  : "border-[var(--border)] bg-[var(--surface)] text-[var(--muted-strong)] hover:border-[var(--accent-strong)] hover:text-[var(--accent-strong)]"
+              }`}
+            >
+              {opt.label}
+            </button>
+          ))}
+        </div>
       </section>
 
-      {data?.warnings?.length ? (
-        <section className="rounded-[1.5rem] border border-[rgba(181,145,78,0.24)] bg-[rgba(181,145,78,0.08)] px-5 py-4">
-          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--muted)]">Warnings</p>
-          <ul className="mt-3 space-y-2 text-sm text-[var(--muted-strong)]">
-            {data.warnings.map((warning) => <li key={warning}>{warning}</li>)}
+      {report?.team_rollup ? <TeamRollup report={report} /> : null}
+
+      {error ? (
+        <section className="rounded-[1.25rem] border border-[rgba(159,63,49,0.24)] bg-[rgba(159,63,49,0.08)] px-5 py-4 text-sm text-[var(--danger-ink)]">
+          Opportunity report failed to load. Try relaxing the filters.
+        </section>
+      ) : null}
+
+      {report?.warnings?.length ? (
+        <section className="rounded-[1.25rem] border border-[rgba(181,145,78,0.24)] bg-[rgba(181,145,78,0.08)] px-5 py-4">
+          <ul className="space-y-1 text-sm text-[var(--muted-strong)]">
+            {report.warnings.map((w) => (
+              <li key={w}>{w}</li>
+            ))}
           </ul>
         </section>
       ) : null}
 
-      <UsageLoadBoard
-        featureMore={data?.underused_efficients ?? []}
-        reduceLoad={data?.overused_inefficients ?? []}
-      />
-
-      <div className="grid gap-6 xl:grid-cols-2">
-        <section className="rounded-[1.75rem] border border-[var(--border)] bg-[var(--surface)]">
-          <div className="border-b border-[var(--border)] px-5 py-4">
-            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--muted)]">Burden Watch</p>
-            <h2 className="mt-1 text-2xl font-semibold text-[var(--foreground)]">Over-Used Inefficients</h2>
+      {/* Two-column workspace */}
+      <div className="grid gap-6 xl:grid-cols-[minmax(320px,400px),1fr]">
+        {/* Left: ranked list */}
+        <section className="space-y-3">
+          <div className="flex items-center justify-between">
+            <h2 className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--muted)]">
+              Ranked Opportunities{signalFilter !== "all" ? ` · ${SIGNAL_LABELS[signalFilter]}` : ""}
+            </h2>
+            <span className="text-[11px] text-[var(--muted)]">
+              {filteredRows.length} shown
+            </span>
           </div>
-          <div className="space-y-4 p-5">
+          <div className="space-y-3">
             {isLoading ? (
-              Array.from({ length: 4 }).map((_, index) => (
-                <div key={index} className="h-24 animate-pulse rounded-[1.25rem] bg-[var(--surface-alt)]" />
+              Array.from({ length: 6 }).map((_, i) => (
+                <div
+                  key={i}
+                  className="h-32 animate-pulse rounded-[1.25rem] bg-[var(--surface-alt)]"
+                />
               ))
-            ) : data?.overused_inefficients?.length ? (
-              data.overused_inefficients.map((row) => (
-                <article key={`${row.player_id}-${row.team_abbreviation}-overused`} className="rounded-[1.25rem] border border-[var(--border)] bg-[rgba(255,255,255,0.7)] p-4">
-                  <div className="flex items-start justify-between gap-3">
-                    <div>
-                      <div className="text-lg font-semibold text-[var(--foreground)]">
-                        <Link href={`/players/${row.player_id}`} className="bip-link">
-                          {row.player_name}
-                        </Link>{" "}
-                        <span className="text-sm font-medium text-[var(--muted-strong)]">{row.team_abbreviation}</span>
-                      </div>
-                      <div className="mt-1 text-sm text-[var(--muted)]">
-                        {row.minutes_pg?.toFixed(1) ?? "—"} MPG · ORTG {row.off_rating?.toFixed(1) ?? "—"}
-                      </div>
-                    </div>
-                    <span className={`rounded-full px-2.5 py-1 text-xs font-semibold uppercase tracking-[0.14em] ${pillTone("overused")}`}>
-                      overused
-                    </span>
-                  </div>
-                  <div className="mt-3 grid grid-cols-3 gap-3 text-sm text-[var(--muted-strong)]">
-                    <div>USG {row.usg_pct?.toFixed(1) ?? "—"}</div>
-                    <div>TS {row.ts_pct != null ? `${(row.ts_pct * 100).toFixed(1)}%` : "—"}</div>
-                    <div>TOV {row.tov_pg?.toFixed(1) ?? "—"}</div>
-                  </div>
-                </article>
+            ) : filteredRows.length ? (
+              filteredRows.map((r, i) => (
+                <OpportunityRow
+                  key={`${r.player_id}-${r.team_abbreviation}`}
+                  row={r}
+                  rank={i + 1}
+                  isSelected={selectedRow?.player_id === r.player_id}
+                  onSelect={() => setSelectedId(r.player_id)}
+                />
               ))
             ) : (
-              <div className="rounded-[1.25rem] border border-[var(--border)] px-5 py-8 text-sm text-[var(--muted-strong)]">
-                No over-used inefficients crossed the current threshold.
+              <div className="rounded-[1.25rem] border border-[var(--border)] bg-[var(--surface)] px-5 py-8 text-sm text-[var(--muted-strong)]">
+                No qualifying candidates. Try loosening minutes or clearing the top-driver
+                filter.
               </div>
             )}
           </div>
         </section>
 
-        <section className="rounded-[1.75rem] border border-[var(--border)] bg-[var(--surface)]">
-          <div className="border-b border-[var(--border)] px-5 py-4">
-            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--muted)]">Opportunity Watch</p>
-            <h2 className="mt-1 text-2xl font-semibold text-[var(--foreground)]">Under-Used Efficient Players</h2>
-          </div>
-          <div className="space-y-4 p-5">
-            {isLoading ? (
-              Array.from({ length: 4 }).map((_, index) => (
-                <div key={index} className="h-24 animate-pulse rounded-[1.25rem] bg-[var(--surface-alt)]" />
-              ))
-            ) : data?.underused_efficients?.length ? (
-              data.underused_efficients.map((row) => (
-                <article key={`${row.player_id}-${row.team_abbreviation}-underused`} className="rounded-[1.25rem] border border-[var(--border)] bg-[rgba(255,255,255,0.7)] p-4">
-                  <div className="flex items-start justify-between gap-3">
-                    <div>
-                      <div className="text-lg font-semibold text-[var(--foreground)]">
-                        <Link href={`/players/${row.player_id}`} className="bip-link">
-                          {row.player_name}
-                        </Link>{" "}
-                        <span className="text-sm font-medium text-[var(--muted-strong)]">{row.team_abbreviation}</span>
-                      </div>
-                      <div className="mt-1 text-sm text-[var(--muted)]">
-                        {row.minutes_pg?.toFixed(1) ?? "—"} MPG · ORTG {row.off_rating?.toFixed(1) ?? "—"}
-                      </div>
-                    </div>
-                    <span className={`rounded-full px-2.5 py-1 text-xs font-semibold uppercase tracking-[0.14em] ${pillTone("underused")}`}>
-                      underused
-                    </span>
+        {/* Right: detail panel */}
+        <section className="space-y-4">
+          {selectedRow ? (
+            <>
+              <div className="rounded-[1.5rem] border border-[var(--border)] bg-[var(--surface)] p-5">
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <div>
+                    <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[var(--muted)]">
+                      {selectedRow.position_bucket} cohort · {selectedRow.team_abbreviation}
+                    </p>
+                    <h2 className="mt-0.5 text-2xl font-semibold text-[var(--foreground)]">
+                      <Link
+                        href={`/players/${selectedRow.player_id}`}
+                        className="bip-link"
+                      >
+                        {selectedRow.player_name}
+                      </Link>
+                    </h2>
+                    <p className="mt-1 text-sm text-[var(--muted-strong)]">
+                      {selectedRow.minutes_pg != null
+                        ? `${selectedRow.minutes_pg.toFixed(1)} MPG`
+                        : "— MPG"}{" "}
+                      · Opportunity Score{" "}
+                      <span className="font-semibold text-[var(--foreground)]">
+                        {selectedRow.opportunity_score > 0 ? "+" : ""}
+                        {selectedRow.opportunity_score.toFixed(2)}
+                      </span>
+                    </p>
                   </div>
-                  <div className="mt-3 grid grid-cols-3 gap-3 text-sm text-[var(--muted-strong)]">
-                    <div>USG {row.usg_pct?.toFixed(1) ?? "—"}</div>
-                    <div>TS {row.ts_pct != null ? `${(row.ts_pct * 100).toFixed(1)}%` : "—"}</div>
-                    <div>AST {row.ast_pg?.toFixed(1) ?? "—"}</div>
+                  <div className="flex items-center gap-2">
+                    <Link
+                      href={`/insights?tab=trajectory`}
+                      className="rounded-full border border-[var(--border)] bg-[var(--surface)] px-3 py-1 text-[11px] font-medium text-[var(--muted-strong)] transition hover:border-[var(--accent-strong)] hover:text-[var(--accent-strong)]"
+                    >
+                      See Trajectory →
+                    </Link>
+                    <Link
+                      href={`/players/${selectedRow.player_id}`}
+                      className="rounded-full border border-[var(--border)] bg-[var(--surface)] px-3 py-1 text-[11px] font-medium text-[var(--muted-strong)] transition hover:border-[var(--accent-strong)] hover:text-[var(--accent-strong)]"
+                    >
+                      Player page →
+                    </Link>
                   </div>
-                </article>
-              ))
-            ) : (
-              <div className="rounded-[1.25rem] border border-[var(--border)] px-5 py-8 text-sm text-[var(--muted-strong)]">
-                No under-used efficient players crossed the current threshold.
+                </div>
+                <div className="mt-4">
+                  <OpportunityDriverBar contributions={selectedRow.driver_contributions} />
+                </div>
               </div>
-            )}
-          </div>
+
+              <DirectionalHintBanner row={selectedRow} />
+
+              <div className="grid gap-4 md:grid-cols-2">
+                <EfficiencyLoadCard row={selectedRow} />
+                <TeamImpactCard row={selectedRow} lineupCtx={lineupCtxQuery.data} />
+                <RoleFitCard row={selectedRow} />
+                <CohortPositionCard row={selectedRow} />
+              </div>
+
+              {report?.methodology ? (
+                <MethodologyDrawer methodology={report.methodology} />
+              ) : null}
+            </>
+          ) : !isLoading ? (
+            <div className="rounded-[1.5rem] border border-[var(--border)] bg-[var(--surface)] px-6 py-16 text-center text-sm text-[var(--muted-strong)]">
+              Select a player on the left to see the full opportunity breakdown.
+            </div>
+          ) : null}
         </section>
       </div>
-
-      <section className="rounded-[1.75rem] border border-[var(--border)] bg-[var(--surface)] p-5">
-        <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--muted)]">Coach Notes</p>
-        <div className="mt-4 space-y-3 text-sm leading-6 text-[var(--muted-strong)]">
-          {data?.suggestions?.length ? (
-            data.suggestions.map((suggestion) => (
-              <div key={`${suggestion.player_name}-${suggestion.category}`} className="rounded-2xl border border-[var(--border)] bg-[rgba(255,255,255,0.7)] px-4 py-3">
-                {suggestion.suggestion}
-              </div>
-            ))
-          ) : (
-            <div>No redistribution suggestions available for the current filter set.</div>
-          )}
-        </div>
-      </section>
     </div>
   );
 }
