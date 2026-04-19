@@ -7,6 +7,7 @@ import {
   usePlayerOnOff,
   usePlayerPbpCoverage,
 } from "@/hooks/usePlayerStats";
+import { useLineupContext } from "@/hooks/useTrajectory";
 
 interface PlayerPbpInsightsProps {
   playerId: number;
@@ -66,6 +67,7 @@ export default function PlayerPbpInsights({ playerId, season }: PlayerPbpInsight
   const onOffQuery = usePlayerOnOff(playerId, season);
   const clutchQuery = usePlayerClutch(playerId, season);
   const coverageQuery = usePlayerPbpCoverage(playerId, season);
+  const { data: lineupCtx } = useLineupContext(playerId, season ?? "2025-26");
   const { data: onOff, error: onOffError } = onOffQuery;
   const { data: clutch, error: clutchError } = clutchQuery;
   const { data: coverage } = coverageQuery;
@@ -224,6 +226,33 @@ export default function PlayerPbpInsights({ playerId, season }: PlayerPbpInsight
                 </ImpactNote>
               </div>
             </div>
+          )}
+
+          {/* Lineup context (collapsible) */}
+          {lineupCtx && lineupCtx.top_teammates.length > 0 && (
+            <details className="rounded-xl border border-gray-200 dark:border-gray-700 bg-white/60 dark:bg-gray-800/60 p-3">
+              <summary className="cursor-pointer text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
+                Top lineup partners · min. 100 possessions
+              </summary>
+              <div className="mt-3 space-y-2">
+                {lineupCtx.top_teammates.slice(0, 4).map((t) => (
+                  <div key={t.teammate_id} className="flex items-center justify-between text-xs">
+                    <span className="font-medium text-gray-800 dark:text-gray-200">{t.teammate_name}</span>
+                    <div className="flex items-center gap-3 text-gray-500 dark:text-gray-400">
+                      <span>{t.possessions?.toLocaleString() ?? "—"} poss</span>
+                      {t.net_rating_with !== null && (
+                        <span className={`font-semibold ${t.net_rating_with >= 0 ? "text-green-600 dark:text-green-400" : "text-red-500 dark:text-red-400"}`}>
+                          {t.net_rating_with >= 0 ? "+" : ""}{t.net_rating_with.toFixed(1)} NR
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                ))}
+                <p className="text-[10px] text-gray-400 dark:text-gray-500">
+                  Net rating of qualifying lineups together · lineup data from play-by-play stints
+                </p>
+              </div>
+            </details>
           )}
 
           {/* Clutch + pace row */}
