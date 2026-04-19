@@ -260,6 +260,14 @@ CourtVue Labs uses a hybrid sprint model: major feature sprints typically run as
 
 > Full history → `specs/sprint-history.md`
 
+### Sprint 54 — MVP Platform+
+
+- Added MVP Voter Room case comparison inside `/mvp`, backed by `GET /api/mvp/voter-room`, with category winners and explicit non-simulation language.
+- Added compact MVP player-page embeds for current candidate-pool players.
+- Added MVP coverage ops through `GET /api/mvp/coverage` and a `/coverage` MVP Coverage panel.
+- Operationalized daily snapshots with `POST /api/warehouse/queue/mvp-snapshot`, current-season queue inclusion, `/api/mvp/snapshot-freshness`, and a `/mvp` freshness badge.
+- Verified with targeted MVP/schema backend tests, frontend `npm run lint`, frontend `npm run build`, API/page smokes, and `git diff --check`.
+
 ### Sprint 53 — MVP Race Timeline And Refined Methodology
 
 - Added DB-first MVP race snapshot tables, idempotent snapshot materialization, manual snapshot CLI, and `materialize_mvp_snapshot` warehouse dispatch.
@@ -268,14 +276,6 @@ CourtVue Labs uses a hybrid sprint model: major feature sprints typically run as
 - Implemented refined MVP methodology v3 with Basketball Value Score, Award Case Score, confidence, award modifiers, and structured qualitative lenses.
 - Fixed game-log-derived MVP rates so zero-minute/DNP rows do not dilute PPG in timeline and split displays.
 - Verified with targeted MVP/schema backend tests, frontend `npm run lint`, frontend `npm run build`, live API smoke, and `git diff --check`.
-
-### Sprint 51 — MVP Gravity Foundation
-
-- Added DB-first MVP context tables for persisted play-type, tracking, hustle, and gravity rows through Alembic revision `0005_player_gravity_context`
-- Added official NBA Gravity source probing plus CourtVue proxy Gravity fallback, exposed through a shared `gravity_profile` response shape
-- Extended MVP race, candidate case, context map, and new `GET /api/mvp/gravity` payloads with Gravity context and capped `context_adjusted_score`
-- Updated `/mvp` with a Gravity axis, Gravity case section, Box Score vs Gravity comparison strip, and methodology copy distinguishing official NBA Gravity from CourtVue proxy Gravity
-- Verified with MVP/gravity/schema/backend targeted tests, official sync/materialization/standings/shotchart targeted tests, frontend `npm run lint`, frontend `npm run build`, and `git diff --check`
 
 ---
 
