@@ -1075,6 +1075,113 @@ export async function getTeamDefenseZoneProfile(
   );
 }
 
+export async function getPlayerShotQuality(
+  playerId: number,
+  season: string,
+  seasonType = "Regular Season",
+  filters?: import("./types").ShotLabFilters
+): Promise<import("./types").ShotQualityResponse> {
+  return fetchApi<import("./types").ShotQualityResponse>(
+    buildSituationalShotLabQuery(playerId, season, seasonType, filters, "/quality")
+  );
+}
+
+export async function getPlayerShotCreation(
+  playerId: number,
+  season: string,
+  seasonType = "Regular Season",
+  filters?: import("./types").ShotLabFilters
+): Promise<import("./types").ShotCreationResponse> {
+  return fetchApi<import("./types").ShotCreationResponse>(
+    buildSituationalShotLabQuery(playerId, season, seasonType, filters, "/creation")
+  );
+}
+
+export async function getPlayerShotIdentity(
+  playerId: number,
+  season: string,
+  seasonType = "Regular Season",
+  filters?: import("./types").ShotLabFilters
+): Promise<import("./types").ShotIdentityResponse> {
+  return fetchApi<import("./types").ShotIdentityResponse>(
+    buildSituationalShotLabQuery(playerId, season, seasonType, filters, "/identity")
+  );
+}
+
+export async function getPlayerShotCoverage(
+  playerId: number,
+  season: string,
+  seasonType = "Regular Season",
+  filters?: import("./types").ShotLabFilters
+): Promise<import("./types").ShotIntelligenceCoverage> {
+  return fetchApi<import("./types").ShotIntelligenceCoverage>(
+    buildSituationalShotLabQuery(playerId, season, seasonType, filters, "/coverage")
+  );
+}
+
+function buildTeamDefenseShotLabQuery(
+  teamId: number,
+  season: string,
+  seasonType: string,
+  filters?: import("./types").ShotLabFilters,
+  suffix = ""
+): string {
+  const params = new URLSearchParams({
+    season,
+    season_type: seasonType,
+    period_bucket: filters?.periodBucket ?? "all",
+    result: filters?.result ?? "all",
+    shot_value: filters?.shotValue ?? "all",
+  });
+  if (filters?.startDate) params.set("start_date", filters.startDate);
+  if (filters?.endDate) params.set("end_date", filters.endDate);
+  return `/api/shotchart/team-defense/${teamId}${suffix}?${params.toString()}`;
+}
+
+export async function getTeamDefenseShotQuality(
+  teamId: number,
+  season: string,
+  seasonType = "Regular Season",
+  filters?: import("./types").ShotLabFilters
+): Promise<import("./types").ShotQualityResponse> {
+  return fetchApi<import("./types").ShotQualityResponse>(
+    buildTeamDefenseShotLabQuery(teamId, season, seasonType, filters, "/quality")
+  );
+}
+
+export async function getTeamDefenseShotCreation(
+  teamId: number,
+  season: string,
+  seasonType = "Regular Season",
+  filters?: import("./types").ShotLabFilters
+): Promise<import("./types").ShotCreationResponse> {
+  return fetchApi<import("./types").ShotCreationResponse>(
+    buildTeamDefenseShotLabQuery(teamId, season, seasonType, filters, "/creation")
+  );
+}
+
+export async function getTeamDefenseShotIdentity(
+  teamId: number,
+  season: string,
+  seasonType = "Regular Season",
+  filters?: import("./types").ShotLabFilters
+): Promise<import("./types").ShotIdentityResponse> {
+  return fetchApi<import("./types").ShotIdentityResponse>(
+    buildTeamDefenseShotLabQuery(teamId, season, seasonType, filters, "/identity")
+  );
+}
+
+export async function getTeamDefenseShotCoverage(
+  teamId: number,
+  season: string,
+  seasonType = "Regular Season",
+  filters?: import("./types").ShotLabFilters
+): Promise<import("./types").ShotIntelligenceCoverage> {
+  return fetchApi<import("./types").ShotIntelligenceCoverage>(
+    buildTeamDefenseShotLabQuery(teamId, season, seasonType, filters, "/coverage")
+  );
+}
+
 export async function createShotLabSnapshot(
   payload: import("./types").ShotLabSnapshotPayload
 ): Promise<import("./types").ShotLabSnapshotResponse> {

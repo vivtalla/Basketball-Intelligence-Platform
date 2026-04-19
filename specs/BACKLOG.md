@@ -54,24 +54,26 @@ Likely shape:
 - keep compatibility explicit where it is still needed, but retire dead branches and stale source labels where it is not
 - continue surfacing honest readiness/runtime-policy metadata instead of mixing compatibility logic into modern paths
 
-### Shot Lab Refinement and Precision Follow-Ons
+### Shot Intelligence Ops and Materialization
 Why it matters:
-Sprint 35 turned player and compare shot charts into a real shot lab, and Sprint 38 extended that model into team-defense, snapshots, and stronger completeness signaling. The remaining gains are more about polish and exactness than core coverage.
+Sprint 55 added on-demand expected-shot quality, making deltas, creation proxies, identity cards, and team-defense parity. The next platform gains are operational: speed, freshness, baseline reuse, and explicit backfill controls.
 
 Likely shape:
-- sharpen shot-lab replay and snapshot workflows so saved states feel fully staff-ready
-- continue tightening exact shot-to-event handoff and any compare/team-defense parity gaps that still feel rough
-- add light explanatory affordances where the richer shot surfaces need more interpretation help
+- add a Shot Intelligence Ops section to `/coverage` with baseline readiness, stale players, partial linkage, and missing context warnings
+- materialize or cache season-level expected-shot baselines if on-demand reads become too slow at larger coverage
+- add backfill controls for shot context/linkage and baseline refresh without introducing request-time external calls
+- preserve methodology versioning so future tracking-grade models can coexist with `shot_quality_v1`
 
-### Shot Lab Visual Polish
+### Shot Lab Visual Polish and Replay Examples
 Why it matters:
-Sprint 36 gave the shot lab a much stronger editorial identity, but the final layer of trust and delight still depends on court geometry polish, heatmap calibration, and clearer chart storytelling.
+Sprint 55 made Shot Lab analytically sharper, but the final layer of trust and delight still depends on court geometry polish, richer hover/tap behavior, and replay handoffs from intelligence bins into examples.
 
 Likely shape:
 - Finish the shared `ShotCourt` silhouette so the three-point shell, baseline, lane, and free-throw geometry unmistakably match a real half-court
 - Keep tuning shot-frequency heatmaps so the hottest pockets pop on neutral backgrounds without making the whole surface feel heavy
-- Add lightweight annotations or explainer overlays that help users read sprawl/value/distance views faster
-- Extend the new shot-lab visual language to any remaining chart surfaces that still feel older than the player and compare shot suites
+- add richer hover/tap affordances to quality, making, creation, sprawl, value, and distance views with sample size, expectation, delta, and confidence
+- add “show me examples” links from quality/making/creation bins into Game Explorer for linked shots
+- extend shot identity takeaways into player cards, compare summaries, and prep surfaces where they help users move from chart to decision
 
 ### Replay Workflow Expansion
 Why it matters:

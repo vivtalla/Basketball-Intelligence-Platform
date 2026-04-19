@@ -5,6 +5,9 @@ import { startTransition, useEffect, useMemo, useState } from "react";
 import {
   useShotLabSnapshot,
   useTeamDefenseShotChart,
+  useTeamDefenseShotCreation,
+  useTeamDefenseShotIdentity,
+  useTeamDefenseShotQuality,
   useTeamDefenseShotChartRefresh,
   useTeamDefenseZoneProfile,
 } from "@/hooks/usePlayerStats";
@@ -16,6 +19,7 @@ import ShotSnapshotButton from "./ShotSnapshotButton";
 import ShotSprawlMap from "./ShotSprawlMap";
 import ShotValueMap from "./ShotValueMap";
 import ZoneProfilePanel from "./ZoneProfilePanel";
+import ShotIntelligencePanel from "./ShotIntelligencePanel";
 
 interface TeamDefenseShotLabProps {
   teamId: number;
@@ -24,7 +28,7 @@ interface TeamDefenseShotLabProps {
   defaultSeason: string;
 }
 
-type TeamDefenseView = "value" | "sprawl" | "zone";
+type TeamDefenseView = "quality" | "making" | "creation" | "summary" | "value" | "sprawl" | "zone";
 
 const DEFAULT_SITUATIONAL_FILTERS: ShotLabSituationalFilters = {
   periodBucket: "all",
@@ -60,7 +64,7 @@ export default function TeamDefenseShotLab({
   const [preset, setPreset] = useState<ShotLabWindowPreset>("full");
   const [customRange, setCustomRange] = useState<ShotLabDateRange>({ startDate: null, endDate: null });
   const [situationalFilters, setSituationalFilters] = useState<ShotLabSituationalFilters>(DEFAULT_SITUATIONAL_FILTERS);
-  const [view, setView] = useState<TeamDefenseView>("value");
+  const [view, setView] = useState<TeamDefenseView>("quality");
   const [appliedSnapshotId, setAppliedSnapshotId] = useState<string | null>(null);
 
   const { data: baseShot } = useTeamDefenseShotChart(teamId, selectedSeason, seasonType);
@@ -88,6 +92,24 @@ export default function TeamDefenseShotLab({
     activeFilters
   );
   const { data: zoneProfile, isLoading: zoneLoading } = useTeamDefenseZoneProfile(
+    teamId,
+    selectedSeason,
+    seasonType,
+    activeFilters
+  );
+  const { data: shotQuality, isLoading: qualityLoading } = useTeamDefenseShotQuality(
+    teamId,
+    selectedSeason,
+    seasonType,
+    activeFilters
+  );
+  const { data: shotCreation, isLoading: creationLoading } = useTeamDefenseShotCreation(
+    teamId,
+    selectedSeason,
+    seasonType,
+    activeFilters
+  );
+  const { data: shotIdentity, isLoading: identityLoading } = useTeamDefenseShotIdentity(
     teamId,
     selectedSeason,
     seasonType,
@@ -130,6 +152,7 @@ export default function TeamDefenseShotLab({
       activeShotChart &&
       activeShotChart.attempted === 0
   );
+  const isIntelligenceView = view === "quality" || view === "making" || view === "creation" || view === "summary";
 
   return (
     <section className="bip-shot-shell bip-shot-shell-neutral space-y-5">
@@ -140,7 +163,7 @@ export default function TeamDefenseShotLab({
             Opponent Shot Lab
           </h3>
           <p className="mt-2 max-w-2xl text-sm leading-6 text-[var(--muted-strong)]">
-            See where opponents pressure the floor against {teamAbbreviation}, using the same filters and visual language as the player shot lab.
+            See opponent shot quality, making, creation profile, and classic shot maps against {teamAbbreviation}. Team-defense intelligence depends on opponent shot-chart and warehouse coverage.
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-3">
@@ -169,7 +192,13 @@ export default function TeamDefenseShotLab({
                 result: activeFilters.result,
                 shot_value: activeFilters.shotValue,
               },
-              metadata: { team_abbreviation: teamAbbreviation },
+              metadata: {
+                team_abbreviation: teamAbbreviation,
+                intelligence_view: view,
+                coverage_state: shotQuality?.coverage_state ?? activeShotChart?.completeness_status ?? activeShotChart?.data_status ?? "missing",
+                methodology_version: shotQuality?.methodology_version ?? "shot_quality_v1",
+                advanced_split_mode: view === "creation" ? "proxy-labeled" : "default",
+              },
             }}
           />
         </div>
@@ -193,13 +222,25 @@ export default function TeamDefenseShotLab({
 
       <div className="flex flex-wrap items-center justify-between gap-3 rounded-[1.35rem] border border-[rgba(25,52,42,0.12)] bg-[rgba(255,255,255,0.62)] px-4 py-3 text-sm text-[var(--muted-strong)]">
         <div className="flex flex-wrap gap-2">
-          {(["value", "sprawl", "zone"] as TeamDefenseView[]).map((option) => (
+          {(["quality", "making", "creation", "summary", "value", "sprawl", "zone"] as TeamDefenseView[]).map((option) => (
             <button
               key={option}
               onClick={() => setView(option)}
               className={`rounded-full px-3 py-1.5 text-xs ${view === option ? "bip-toggle-active" : "bip-toggle"}`}
             >
-              {option === "value" ? "Value map" : option === "sprawl" ? "Sprawl map" : "Zone view"}
+              {option === "quality"
+                ? "Quality"
+                : option === "making"
+                  ? "Making"
+                  : option === "creation"
+                    ? "Creation"
+                    : option === "summary"
+                      ? "Scout Summary"
+                      : option === "value"
+                        ? "Value map"
+                        : option === "sprawl"
+                          ? "Sprawl map"
+                          : "Zone view"}
             </button>
           ))}
         </div>
@@ -248,7 +289,33 @@ export default function TeamDefenseShotLab({
         </div>
       ) : null}
 
-      {!shotLoading && activeShotChart && activeShotChart.shots.length > 0 ? (
+      {isIntelligenceView ? (
+        <ShotIntelligencePanel
+          mode={view === "quality" ? "quality" : view === "making" ? "making" : view === "creation" ? "creation" : "summary"}
+          quality={shotQuality}
+          creation={shotCreation}
+          identity={shotIdentity}
+          label={
+            view === "quality"
+              ? "Opponent shot quality allowed"
+              : view === "making"
+                ? "Opponent shot making allowed"
+                : view === "creation"
+                  ? "Allowed creation profile"
+                  : "Defensive shot profile identity"
+          }
+          contextLabel={`${teamAbbreviation} defense · depends on opponent shot-chart coverage`}
+          isLoading={
+            view === "quality" || view === "making"
+              ? qualityLoading
+              : view === "creation"
+                ? creationLoading
+                : identityLoading
+          }
+        />
+      ) : null}
+
+      {!isIntelligenceView && !shotLoading && activeShotChart && activeShotChart.shots.length > 0 ? (
         view === "value" ? (
           <ShotValueMap shots={activeShotChart.shots} playerLabel="Opponent shot value" />
         ) : view === "sprawl" ? (

@@ -30,12 +30,18 @@ from routers.games import get_game_detail  # noqa: E402
 from routers.shotchart import (  # noqa: E402
     get_shot_lab_snapshot_route,
     player_shot_chart,
+    player_shot_creation,
+    player_shot_identity,
+    player_shot_quality,
     player_shot_zones,
     post_shot_lab_snapshot,
     refresh_player_shot_chart,
     refresh_team_defense_shot_chart,
     shot_completeness_report,
     team_defense_shot_chart,
+    team_defense_shot_creation,
+    team_defense_shot_identity,
+    team_defense_shot_quality,
     team_defense_shot_zones,
 )
 from models.shotchart import ShotLabSnapshotCreateRequest  # noqa: E402
@@ -208,6 +214,71 @@ def test_player_shot_chart_returns_stale_cached_row_without_remote_fetch():
         assert response.data_status == "stale"
         assert response.attempted == 1
         assert response.shots[0].zone_basic == "Above the Break 3"
+    finally:
+        session.close()
+
+
+def test_player_shot_intelligence_returns_quality_creation_and_identity():
+    session = make_session()
+    try:
+        player = seed_player(session, player_id=72)
+        session.add(
+            PlayerShotChart(
+                player_id=player.id,
+                season="2024-25",
+                season_type="Regular Season",
+                shots=[
+                    dict(
+                        shot_payload(
+                            shot_made=True,
+                            shot_type="3PT Field Goal",
+                            action_type="Pullup Jump Shot",
+                            zone_basic="Above the Break 3",
+                            distance=27,
+                            shot_value=3,
+                            minutes_remaining=0,
+                            seconds_remaining=5,
+                        ),
+                        team_id=1610612737,
+                        opponent_team_id=1610612738,
+                        event_order_index=10,
+                        action_number=10,
+                        linkage_mode="exact",
+                    ),
+                    dict(
+                        shot_payload(
+                            shot_made=False,
+                            shot_type="2PT Field Goal",
+                            action_type="Driving Layup Shot",
+                            zone_basic="Restricted Area",
+                            distance=2,
+                            shot_value=2,
+                        ),
+                        team_id=1610612737,
+                        opponent_team_id=1610612738,
+                        event_order_index=11,
+                        action_number=11,
+                        linkage_mode="derived",
+                    ),
+                ],
+                shot_count=2,
+                fetched_at=datetime(2026, 4, 5, 12, 0, 0),
+                expires_at=datetime.utcnow() + timedelta(days=1),
+            )
+        )
+        session.commit()
+
+        quality = player_shot_quality(player.id, season="2024-25", season_type="Regular Season", db=session)
+        creation = player_shot_creation(player.id, season="2024-25", season_type="Regular Season", db=session)
+        identity = player_shot_identity(player.id, season="2024-25", season_type="Regular Season", db=session)
+
+        assert quality.methodology_version == "shot_quality_v1"
+        assert quality.summary.shots == 2
+        assert quality.summary.actual_pps == 1.5
+        assert quality.bins
+        assert quality.coverage_state in {"ready", "partial"}
+        assert any(split.split_key == "late_clock" and split.attempts == 1 for split in creation.splits)
+        assert any(card.identity_key == "rim_pressure_finisher" for card in identity.cards)
     finally:
         session.close()
 
@@ -831,6 +902,24 @@ def test_team_defense_routes_filter_opponent_attempts():
             shot_value="3pt",
             db=session,
         )
+        quality = team_defense_shot_quality(
+            home_team.id,
+            season="2024-25",
+            season_type="Regular Season",
+            db=session,
+        )
+        creation = team_defense_shot_creation(
+            home_team.id,
+            season="2024-25",
+            season_type="Regular Season",
+            db=session,
+        )
+        identity = team_defense_shot_identity(
+            home_team.id,
+            season="2024-25",
+            season_type="Regular Season",
+            db=session,
+        )
 
         assert chart.team_abbreviation == "ATL"
         assert chart.attempted == 1
@@ -838,6 +927,10 @@ def test_team_defense_routes_filter_opponent_attempts():
         assert chart.completeness_status in {"partial", "ready"}
         assert zones.total_attempts == 1
         assert zones.zones[0].zone_basic == "Above the Break 3"
+        assert quality.subject_type == "team-defense"
+        assert quality.summary.shots == 2
+        assert any(split.split_key == "rim_pressure" for split in creation.splits)
+        assert identity.cards
     finally:
         session.close()
 

@@ -52,6 +52,10 @@ import type {
   TrendCardsResponse,
   ShotLabSnapshotPayload,
   ShotLabSnapshotResponse,
+  ShotCreationResponse,
+  ShotIdentityResponse,
+  ShotIntelligenceCoverage,
+  ShotQualityResponse,
   WarehouseCompletenessSummary,
   GameVisualizationResponse,
   GameSummaryResponse,
@@ -120,6 +124,14 @@ import {
   refreshPlayerShotChart as postRefreshPlayerShotChart,
   getTeamDefenseShotChart,
   getTeamDefenseZoneProfile,
+  getPlayerShotCoverage,
+  getPlayerShotCreation,
+  getPlayerShotIdentity,
+  getPlayerShotQuality,
+  getTeamDefenseShotCoverage,
+  getTeamDefenseShotCreation,
+  getTeamDefenseShotIdentity,
+  getTeamDefenseShotQuality,
   refreshTeamDefenseShotChart as postRefreshTeamDefenseShotChart,
   createShotLabSnapshot as postCreateShotLabSnapshot,
   getShotLabSnapshot,
@@ -206,6 +218,19 @@ function buildTeamDefenseZoneProfileKey(
   if (!teamId || !season) return null;
   const normalized = normalizeShotLabFilters(filters);
   return `team-defense-zone-profile-${teamId}-${season}-${seasonType}-${normalized.startDate ?? "all"}-${normalized.endDate ?? "all"}-${normalized.periodBucket}-${normalized.result}-${normalized.shotValue}`;
+}
+
+function buildShotIntelligenceKey(
+  scope: "player" | "team-defense",
+  subjectId: number | null,
+  kind: "quality" | "creation" | "identity" | "coverage",
+  season: string | null,
+  seasonType = "Regular Season",
+  filters?: Partial<ShotLabFilters>
+) {
+  if (!subjectId || !season) return null;
+  const normalized = normalizeShotLabFilters(filters);
+  return `${scope}-shot-${kind}-${subjectId}-${season}-${seasonType}-${normalized.startDate ?? "all"}-${normalized.endDate ?? "all"}-${normalized.periodBucket}-${normalized.result}-${normalized.shotValue}`;
 }
 
 export function usePlayerProfile(playerId: number | null) {
@@ -820,6 +845,102 @@ export function usePlayerZoneProfile(
         seasonType,
         normalizeShotLabFilters(filters)
       )
+  );
+}
+
+export function usePlayerShotQuality(
+  playerId: number | null,
+  season: string | null,
+  seasonType = "Regular Season",
+  filters?: Partial<ShotLabFilters>
+) {
+  return useSWR<ShotQualityResponse>(
+    buildShotIntelligenceKey("player", playerId, "quality", season, seasonType, filters),
+    () => getPlayerShotQuality(playerId!, season!, seasonType, normalizeShotLabFilters(filters))
+  );
+}
+
+export function usePlayerShotCreation(
+  playerId: number | null,
+  season: string | null,
+  seasonType = "Regular Season",
+  filters?: Partial<ShotLabFilters>
+) {
+  return useSWR<ShotCreationResponse>(
+    buildShotIntelligenceKey("player", playerId, "creation", season, seasonType, filters),
+    () => getPlayerShotCreation(playerId!, season!, seasonType, normalizeShotLabFilters(filters))
+  );
+}
+
+export function usePlayerShotIdentity(
+  playerId: number | null,
+  season: string | null,
+  seasonType = "Regular Season",
+  filters?: Partial<ShotLabFilters>
+) {
+  return useSWR<ShotIdentityResponse>(
+    buildShotIntelligenceKey("player", playerId, "identity", season, seasonType, filters),
+    () => getPlayerShotIdentity(playerId!, season!, seasonType, normalizeShotLabFilters(filters))
+  );
+}
+
+export function usePlayerShotCoverage(
+  playerId: number | null,
+  season: string | null,
+  seasonType = "Regular Season",
+  filters?: Partial<ShotLabFilters>
+) {
+  return useSWR<ShotIntelligenceCoverage>(
+    buildShotIntelligenceKey("player", playerId, "coverage", season, seasonType, filters),
+    () => getPlayerShotCoverage(playerId!, season!, seasonType, normalizeShotLabFilters(filters))
+  );
+}
+
+export function useTeamDefenseShotQuality(
+  teamId: number | null,
+  season: string | null,
+  seasonType = "Regular Season",
+  filters?: Partial<ShotLabFilters>
+) {
+  return useSWR<ShotQualityResponse>(
+    buildShotIntelligenceKey("team-defense", teamId, "quality", season, seasonType, filters),
+    () => getTeamDefenseShotQuality(teamId!, season!, seasonType, normalizeShotLabFilters(filters))
+  );
+}
+
+export function useTeamDefenseShotCreation(
+  teamId: number | null,
+  season: string | null,
+  seasonType = "Regular Season",
+  filters?: Partial<ShotLabFilters>
+) {
+  return useSWR<ShotCreationResponse>(
+    buildShotIntelligenceKey("team-defense", teamId, "creation", season, seasonType, filters),
+    () => getTeamDefenseShotCreation(teamId!, season!, seasonType, normalizeShotLabFilters(filters))
+  );
+}
+
+export function useTeamDefenseShotIdentity(
+  teamId: number | null,
+  season: string | null,
+  seasonType = "Regular Season",
+  filters?: Partial<ShotLabFilters>
+) {
+  return useSWR<ShotIdentityResponse>(
+    buildShotIntelligenceKey("team-defense", teamId, "identity", season, seasonType, filters),
+    () => getTeamDefenseShotIdentity(teamId!, season!, seasonType, normalizeShotLabFilters(filters))
+  );
+}
+
+export function useTeamDefenseShotCoverage(
+  teamId: number | null,
+  season: string | null,
+  seasonType = "Regular Season",
+  filters?: Partial<ShotLabFilters>
+) {
+  return useSWR<ShotIntelligenceCoverage>(
+    buildShotIntelligenceKey("team-defense", teamId, "coverage", season, seasonType, filters),
+    () => getTeamDefenseShotCoverage(teamId!, season!, seasonType, normalizeShotLabFilters(filters))
   );
 }
 

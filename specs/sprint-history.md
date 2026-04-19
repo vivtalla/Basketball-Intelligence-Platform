@@ -1,9 +1,33 @@
 # Sprint History Archive
 
-Sprints 1–54. Current sprint summaries also live in `CLAUDE.md` under "Recent Sprints".
+Sprints 1–55. Current sprint summaries also live in `CLAUDE.md` under "Recent Sprints".
 
 For detailed per-sprint records, see the individual closeout files in this directory:
-`specs/sprint-09-closeout.md` through `specs/sprint-54-closeout.md`
+`specs/sprint-09-closeout.md` through `specs/sprint-55-closeout.md`
+
+---
+
+### Sprint 55 — Shot Lab Intelligence
+**Branch:** `codex/sprint-55-shot-lab-intelligence`
+
+- Added `shot_quality_v1`, an on-demand DB-first Shot Lab intelligence service for expected shot quality, actual shot making, PPS/eFG deltas, and fallback smoothing.
+- Added player and team-defense endpoints for shot quality, creation-context proxies, scouting identity cards, and compact coverage/trust state.
+- Added additive Pydantic and TypeScript contracts plus SWR/API helpers for quality, creation, identity, methodology, and coverage.
+- Upgraded player Shot Lab, Compare Shot Lab, and Team Defense Shot Lab with Quality, Making, Creation, and Scout Summary views while preserving classic chart modes.
+- Tracked the shot chart synopsis and Shot Lab Intelligence sprint spec as durable planning inputs.
+- Verified with targeted shotchart/schema backend tests, frontend lint/build, and `git diff --check`.
+
+---
+
+### Sprint 53 — MVP Race Timeline And Refined Methodology
+**Branch:** `codex/sprint-53-mvp-race-timeline`
+
+- Added DB-first MVP race snapshot tables, idempotent snapshot materialization, manual snapshot CLI, and `materialize_mvp_snapshot` warehouse dispatch.
+- Added `GET /api/mvp/timeline` with weekly reconstructed voter timeline series, movement reasons, methodology labels, and horizon metadata.
+- Upgraded `/mvp` with the Voter Timeline chart, hoverable candidate paths, candidate selection, non-overlapping labels, and standalone methodology explanations.
+- Implemented refined MVP methodology v3 with Basketball Value Score, Award Case Score, confidence, award modifiers, and structured qualitative lenses.
+- Fixed game-log-derived MVP rates so zero-minute/DNP rows do not dilute PPG in timeline and split displays.
+- Verified with targeted MVP/schema backend tests, frontend lint/build, live API smoke, and `git diff --check`.
 
 ---
 

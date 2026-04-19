@@ -2,7 +2,15 @@
 
 import { startTransition, useEffect, useMemo, useState, type ReactNode } from "react";
 import { useSearchParams } from "next/navigation";
-import { usePlayerShotChart, usePlayerZoneProfile, useShotChartRefresh, useShotLabSnapshot } from "@/hooks/usePlayerStats";
+import {
+  usePlayerShotChart,
+  usePlayerShotCreation,
+  usePlayerShotIdentity,
+  usePlayerShotQuality,
+  usePlayerZoneProfile,
+  useShotChartRefresh,
+  useShotLabSnapshot,
+} from "@/hooks/usePlayerStats";
 import type {
   ShotChartShot,
   ShotLabDateRange,
@@ -18,8 +26,9 @@ import ShotSprawlMap from "./ShotSprawlMap";
 import ShotValueMap from "./ShotValueMap";
 import ZoneProfilePanel from "./ZoneProfilePanel";
 import ShotSnapshotButton from "./ShotSnapshotButton";
+import ShotIntelligencePanel from "./ShotIntelligencePanel";
 
-type CompareShotView = "value" | "sprawl" | "distance";
+type CompareShotView = "quality" | "making" | "creation" | "summary" | "value" | "sprawl" | "distance";
 
 interface CompareShotLabProps {
   playerAId: number;
@@ -32,6 +41,10 @@ interface CompareShotLabProps {
 }
 
 const VIEW_OPTIONS: Array<{ id: CompareShotView; label: string }> = [
+  { id: "quality", label: "Quality" },
+  { id: "making", label: "Making" },
+  { id: "creation", label: "Creation" },
+  { id: "summary", label: "Scout Summary" },
   { id: "value", label: "Value map" },
   { id: "sprawl", label: "Sprawl map" },
   { id: "distance", label: "Distance profile" },
@@ -154,7 +167,7 @@ export default function CompareShotLab({
   const [situationalFilters, setSituationalFilters] = useState<ShotLabSituationalFilters>(
     DEFAULT_SITUATIONAL_FILTERS
   );
-  const [view, setView] = useState<CompareShotView>("value");
+  const [view, setView] = useState<CompareShotView>("quality");
   const [appliedSnapshotId, setAppliedSnapshotId] = useState<string | null>(null);
 
   const { data: baseA } = usePlayerShotChart(playerAId, season, seasonType);
@@ -189,6 +202,12 @@ export default function CompareShotLab({
   const { data: shotB, isLoading: shotBLoading } = usePlayerShotChart(playerBId, season, seasonType, activeFilters);
   const { data: zoneA, isLoading: zoneALoading } = usePlayerZoneProfile(playerAId, season, seasonType, activeFilters);
   const { data: zoneB, isLoading: zoneBLoading } = usePlayerZoneProfile(playerBId, season, seasonType, activeFilters);
+  const { data: qualityA, isLoading: qualityALoading } = usePlayerShotQuality(playerAId, season, seasonType, activeFilters);
+  const { data: qualityB, isLoading: qualityBLoading } = usePlayerShotQuality(playerBId, season, seasonType, activeFilters);
+  const { data: creationA, isLoading: creationALoading } = usePlayerShotCreation(playerAId, season, seasonType, activeFilters);
+  const { data: creationB, isLoading: creationBLoading } = usePlayerShotCreation(playerBId, season, seasonType, activeFilters);
+  const { data: identityA, isLoading: identityALoading } = usePlayerShotIdentity(playerAId, season, seasonType, activeFilters);
+  const { data: identityB, isLoading: identityBLoading } = usePlayerShotIdentity(playerBId, season, seasonType, activeFilters);
   const { refresh: refreshA, isRefreshing: isRefreshingA } = useShotChartRefresh(playerAId, season, seasonType, activeFilters);
   const { refresh: refreshB, isRefreshing: isRefreshingB } = useShotChartRefresh(playerBId, season, seasonType, activeFilters);
 
@@ -230,6 +249,7 @@ export default function CompareShotLab({
       (shotB?.attempted ?? 0) === 0
   );
   const compareNeedsPeriodRefresh = leftNeedsPeriodRefresh || rightNeedsPeriodRefresh;
+  const isIntelligenceView = view === "quality" || view === "making" || view === "creation" || view === "summary";
 
   useEffect(() => {
     if (!snapshotId || !snapshot || appliedSnapshotId === snapshotId) return;
@@ -283,7 +303,7 @@ export default function CompareShotLab({
             Shot Lab
           </h3>
           <p className="mt-2 max-w-2xl text-sm leading-6 text-[var(--muted-strong)]">
-            A premium duel surface with shared season and date window across value, sprawl, and distance views.
+            A premium duel surface with shared filters across quality, making, creation, scouting identity, and classic shot views.
           </p>
         </div>
         <div className="flex flex-wrap gap-2 rounded-full border border-[rgba(25,52,42,0.08)] bg-[rgba(255,255,255,0.46)] p-1">
@@ -318,6 +338,10 @@ export default function CompareShotLab({
             metadata: {
               left: playerALabel,
               right: playerBLabel,
+              intelligence_view: view,
+              coverage_state: qualityA?.coverage_state ?? qualityB?.coverage_state ?? "missing",
+              methodology_version: qualityA?.methodology_version ?? qualityB?.methodology_version ?? "shot_quality_v1",
+              advanced_split_mode: view === "creation" ? "proxy-labeled" : "default",
             },
           }}
         />
@@ -392,7 +416,23 @@ export default function CompareShotLab({
           onRefresh={() => refreshA(true)}
           isRefreshing={isRefreshingA}
         >
-          {view === "value" ? (
+          {isIntelligenceView ? (
+            <ShotIntelligencePanel
+              mode={view === "quality" ? "quality" : view === "making" ? "making" : view === "creation" ? "creation" : "summary"}
+              quality={qualityA}
+              creation={creationA}
+              identity={identityA}
+              label={playerALabel}
+              contextLabel={`${windowLabel} · ${situationalLabel}`}
+              isLoading={
+                view === "quality" || view === "making"
+                  ? qualityALoading
+                  : view === "creation"
+                    ? creationALoading
+                    : identityALoading
+              }
+            />
+          ) : view === "value" ? (
             <ShotValueMap shots={shotA?.shots ?? []} playerLabel={windowLabel} scaleMaxFreq={sharedZoneFreq} idPrefix="compare-left-value" />
           ) : view === "sprawl" ? (
             <ShotSprawlMap shots={shotA?.shots ?? []} playerLabel={windowLabel} idPrefix="compare-left-sprawl" />
@@ -409,7 +449,23 @@ export default function CompareShotLab({
           onRefresh={() => refreshB(true)}
           isRefreshing={isRefreshingB}
         >
-          {view === "value" ? (
+          {isIntelligenceView ? (
+            <ShotIntelligencePanel
+              mode={view === "quality" ? "quality" : view === "making" ? "making" : view === "creation" ? "creation" : "summary"}
+              quality={qualityB}
+              creation={creationB}
+              identity={identityB}
+              label={playerBLabel}
+              contextLabel={`${windowLabel} · ${situationalLabel}`}
+              isLoading={
+                view === "quality" || view === "making"
+                  ? qualityBLoading
+                  : view === "creation"
+                    ? creationBLoading
+                    : identityBLoading
+              }
+            />
+          ) : view === "value" ? (
             <ShotValueMap shots={shotB?.shots ?? []} playerLabel={windowLabel} scaleMaxFreq={sharedZoneFreq} idPrefix="compare-right-value" />
           ) : view === "sprawl" ? (
             <ShotSprawlMap shots={shotB?.shots ?? []} playerLabel={windowLabel} idPrefix="compare-right-sprawl" />

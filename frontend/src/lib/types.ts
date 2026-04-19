@@ -2143,6 +2143,156 @@ export interface ShotLabSnapshotResponse {
   payload: ShotLabSnapshotPayload;
 }
 
+// Sprint 55 — Shot Lab intelligence
+
+export type ShotIntelligenceSubjectType = "player" | "team-defense";
+export type ShotIntelligenceCoverageState = "ready" | "partial" | "legacy" | "missing" | "stale";
+export type ShotCreationPrecision = "all_shots" | "linked_subset" | "inferred" | "partial";
+
+export interface ShotIntelligenceCoverage {
+  state: ShotIntelligenceCoverageState;
+  data_status: ShotChartDataStatus;
+  total_shots: number;
+  contextual_shots: number;
+  linked_shots: number;
+  exact_linked_shots: number;
+  derived_linked_shots: number;
+  completeness_pct: number;
+  linked_pct: number;
+  missing_context_fields: string[];
+  note: string;
+}
+
+export interface ShotMethodologyNote {
+  title: string;
+  body: string;
+}
+
+export interface ShotLabFilterEcho {
+  start_date?: string | null;
+  end_date?: string | null;
+  period_bucket: ShotLabPeriodBucket;
+  result: ShotLabResultFilter;
+  shot_value: ShotLabShotValueFilter;
+}
+
+export interface ShotQualitySummary {
+  shots: number;
+  actual_fg_pct?: number | null;
+  expected_fg_pct?: number | null;
+  fg_pct_delta?: number | null;
+  actual_efg_pct?: number | null;
+  expected_efg_pct?: number | null;
+  efg_pct_delta?: number | null;
+  actual_pps?: number | null;
+  expected_pps?: number | null;
+  pps_delta?: number | null;
+  confidence: "high" | "medium" | "low";
+}
+
+export interface ShotQualityBin {
+  bin_key: string;
+  label: string;
+  attempts: number;
+  made: number;
+  frequency: number;
+  actual_fg_pct?: number | null;
+  expected_fg_pct?: number | null;
+  fg_pct_delta?: number | null;
+  actual_efg_pct?: number | null;
+  expected_efg_pct?: number | null;
+  efg_pct_delta?: number | null;
+  actual_pps?: number | null;
+  expected_pps?: number | null;
+  pps_delta?: number | null;
+  average_loc_x?: number | null;
+  average_loc_y?: number | null;
+  sample_confidence: "high" | "medium" | "low";
+  coverage_note: string;
+}
+
+export interface ShotQualityZone {
+  zone_basic: string;
+  zone_area: string;
+  attempts: number;
+  made: number;
+  frequency: number;
+  actual_fg_pct?: number | null;
+  expected_fg_pct?: number | null;
+  fg_pct_delta?: number | null;
+  actual_pps?: number | null;
+  expected_pps?: number | null;
+  pps_delta?: number | null;
+  sample_confidence: "high" | "medium" | "low";
+}
+
+export interface ShotQualityResponse {
+  subject_type: ShotIntelligenceSubjectType;
+  subject_id: number;
+  season: string;
+  season_type: string;
+  filters: ShotLabFilterEcho;
+  methodology_version: string;
+  coverage_state: ShotIntelligenceCoverageState;
+  coverage: ShotIntelligenceCoverage;
+  methodology: ShotMethodologyNote[];
+  summary: ShotQualitySummary;
+  bins: ShotQualityBin[];
+  zones: ShotQualityZone[];
+}
+
+export interface ShotCreationSplit {
+  split_key: string;
+  label: string;
+  description: string;
+  attempts: number;
+  made: number;
+  frequency: number;
+  fg_pct?: number | null;
+  efg_pct?: number | null;
+  pps?: number | null;
+  precision: ShotCreationPrecision;
+  coverage_note: string;
+}
+
+export interface ShotCreationResponse {
+  subject_type: ShotIntelligenceSubjectType;
+  subject_id: number;
+  season: string;
+  season_type: string;
+  filters: ShotLabFilterEcho;
+  methodology_version: string;
+  coverage_state: ShotIntelligenceCoverageState;
+  coverage: ShotIntelligenceCoverage;
+  methodology: ShotMethodologyNote[];
+  summary: Record<string, number | string>;
+  splits: ShotCreationSplit[];
+}
+
+export interface ShotIdentityCard {
+  identity_key: string;
+  label: string;
+  tier: "signature" | "strong" | "present" | "low";
+  score: number;
+  summary: string;
+  evidence: string[];
+  confidence: "high" | "medium" | "low";
+}
+
+export interface ShotIdentityResponse {
+  subject_type: ShotIntelligenceSubjectType;
+  subject_id: number;
+  season: string;
+  season_type: string;
+  filters: ShotLabFilterEcho;
+  methodology_version: string;
+  coverage_state: ShotIntelligenceCoverageState;
+  coverage: ShotIntelligenceCoverage;
+  methodology: ShotMethodologyNote[];
+  cards: ShotIdentityCard[];
+  takeaways: string[];
+}
+
 export interface WarehouseCompletenessDomain {
   domain: string;
   eligible_count?: number;

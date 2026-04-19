@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Union
 
 from pydantic import BaseModel
 
@@ -44,6 +44,150 @@ class ShotCompletenessSummary(BaseModel):
     completeness_pct: float
     linked_pct: float
     missing_context_fields: List[str] = []
+
+
+class ShotIntelligenceCoverage(BaseModel):
+    state: str
+    data_status: str
+    total_shots: int
+    contextual_shots: int
+    linked_shots: int
+    exact_linked_shots: int
+    derived_linked_shots: int = 0
+    completeness_pct: float
+    linked_pct: float
+    missing_context_fields: List[str] = []
+    note: str
+
+
+class ShotMethodologyNote(BaseModel):
+    title: str
+    body: str
+
+
+class ShotLabFilterEcho(BaseModel):
+    start_date: Optional[str] = None
+    end_date: Optional[str] = None
+    period_bucket: str = "all"
+    result: str = "all"
+    shot_value: str = "all"
+
+
+class ShotQualitySummary(BaseModel):
+    shots: int
+    actual_fg_pct: Optional[float] = None
+    expected_fg_pct: Optional[float] = None
+    fg_pct_delta: Optional[float] = None
+    actual_efg_pct: Optional[float] = None
+    expected_efg_pct: Optional[float] = None
+    efg_pct_delta: Optional[float] = None
+    actual_pps: Optional[float] = None
+    expected_pps: Optional[float] = None
+    pps_delta: Optional[float] = None
+    confidence: str = "low"
+
+
+class ShotQualityBin(BaseModel):
+    bin_key: str
+    label: str
+    attempts: int
+    made: int
+    frequency: float
+    actual_fg_pct: Optional[float] = None
+    expected_fg_pct: Optional[float] = None
+    fg_pct_delta: Optional[float] = None
+    actual_efg_pct: Optional[float] = None
+    expected_efg_pct: Optional[float] = None
+    efg_pct_delta: Optional[float] = None
+    actual_pps: Optional[float] = None
+    expected_pps: Optional[float] = None
+    pps_delta: Optional[float] = None
+    average_loc_x: Optional[float] = None
+    average_loc_y: Optional[float] = None
+    sample_confidence: str = "low"
+    coverage_note: str
+
+
+class ShotQualityZone(BaseModel):
+    zone_basic: str
+    zone_area: str
+    attempts: int
+    made: int
+    frequency: float
+    actual_fg_pct: Optional[float] = None
+    expected_fg_pct: Optional[float] = None
+    fg_pct_delta: Optional[float] = None
+    actual_pps: Optional[float] = None
+    expected_pps: Optional[float] = None
+    pps_delta: Optional[float] = None
+    sample_confidence: str = "low"
+
+
+class ShotQualityResponse(BaseModel):
+    subject_type: str
+    subject_id: int
+    season: str
+    season_type: str
+    filters: ShotLabFilterEcho
+    methodology_version: str
+    coverage_state: str
+    coverage: ShotIntelligenceCoverage
+    methodology: List[ShotMethodologyNote]
+    summary: ShotQualitySummary
+    bins: List[ShotQualityBin]
+    zones: List[ShotQualityZone]
+
+
+class ShotCreationSplit(BaseModel):
+    split_key: str
+    label: str
+    description: str
+    attempts: int
+    made: int
+    frequency: float
+    fg_pct: Optional[float] = None
+    efg_pct: Optional[float] = None
+    pps: Optional[float] = None
+    precision: str
+    coverage_note: str
+
+
+class ShotCreationResponse(BaseModel):
+    subject_type: str
+    subject_id: int
+    season: str
+    season_type: str
+    filters: ShotLabFilterEcho
+    methodology_version: str
+    coverage_state: str
+    coverage: ShotIntelligenceCoverage
+    methodology: List[ShotMethodologyNote]
+    summary: Dict[str, Union[float, int, str]]
+    splits: List[ShotCreationSplit]
+
+
+class ShotIdentityCard(BaseModel):
+    identity_key: str
+    label: str
+    tier: str
+    score: float
+    summary: str
+    evidence: List[str] = []
+    confidence: str = "low"
+
+
+class ShotIdentityResponse(BaseModel):
+    subject_type: str
+    subject_id: int
+    season: str
+    season_type: str
+    filters: ShotLabFilterEcho
+    methodology_version: str
+    coverage_state: str
+    coverage: ShotIntelligenceCoverage
+    methodology: List[ShotMethodologyNote]
+    cards: List[ShotIdentityCard]
+    takeaways: List[str] = []
 
 
 class ShotChartResponse(BaseModel):

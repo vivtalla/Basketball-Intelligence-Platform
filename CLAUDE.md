@@ -260,6 +260,15 @@ CourtVue Labs uses a hybrid sprint model: major feature sprints typically run as
 
 > Full history → `specs/sprint-history.md`
 
+### Sprint 55 — Shot Lab Intelligence
+
+- Added `shot_quality_v1`, an on-demand DB-first Shot Lab intelligence service for expected shot quality, actual shot making, PPS/eFG deltas, and sparse-bin fallback smoothing.
+- Added player and team-defense intelligence endpoints for quality, creation, identity, and coverage.
+- Added proxy-labeled creation splits, scouting identity cards, methodology notes, coverage/trust objects, and additive Pydantic/TypeScript contracts.
+- Upgraded player Shot Lab, Compare Shot Lab, and Team Defense Shot Lab with Quality, Making, Creation, and Scout Summary views while preserving classic shot views.
+- Extended Shot Lab snapshot metadata with intelligence view, coverage state, methodology version, and split mode.
+- Verified with targeted shotchart/schema backend tests, frontend `npm run lint`, frontend `npm run build`, and `git diff --check`.
+
 ### Sprint 54 — MVP Platform+
 
 - Added MVP Voter Room case comparison inside `/mvp`, backed by `GET /api/mvp/voter-room`, with category winners and explicit non-simulation language.
@@ -267,15 +276,6 @@ CourtVue Labs uses a hybrid sprint model: major feature sprints typically run as
 - Added MVP coverage ops through `GET /api/mvp/coverage` and a `/coverage` MVP Coverage panel.
 - Operationalized daily snapshots with `POST /api/warehouse/queue/mvp-snapshot`, current-season queue inclusion, `/api/mvp/snapshot-freshness`, and a `/mvp` freshness badge.
 - Verified with targeted MVP/schema backend tests, frontend `npm run lint`, frontend `npm run build`, API/page smokes, and `git diff --check`.
-
-### Sprint 53 — MVP Race Timeline And Refined Methodology
-
-- Added DB-first MVP race snapshot tables, idempotent snapshot materialization, manual snapshot CLI, and `materialize_mvp_snapshot` warehouse dispatch.
-- Added `GET /api/mvp/timeline` with weekly reconstructed voter timeline series, movement reasons, methodology labels, and horizon metadata.
-- Upgraded `/mvp` with the Voter Timeline chart, hoverable candidate paths, candidate selection, non-overlapping labels, and standalone methodology explanations.
-- Implemented refined MVP methodology v3 with Basketball Value Score, Award Case Score, confidence, award modifiers, and structured qualitative lenses.
-- Fixed game-log-derived MVP rates so zero-minute/DNP rows do not dilute PPG in timeline and split displays.
-- Verified with targeted MVP/schema backend tests, frontend `npm run lint`, frontend `npm run build`, live API smoke, and `git diff --check`.
 
 ---
 

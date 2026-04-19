@@ -12,8 +12,12 @@ from models.shotchart import (
     ShotChartResponse,
     ShotChartShot,
     ShotCompletenessReportResponse,
+    ShotCreationResponse,
+    ShotIdentityResponse,
+    ShotIntelligenceCoverage,
     ShotLabSnapshotCreateRequest,
     ShotLabSnapshotResponse,
+    ShotQualityResponse,
     TeamDefenseShotChartResponse,
     TeamDefenseZoneProfileResponse,
     ZoneProfileResponse,
@@ -28,6 +32,11 @@ from services.shot_lab_service import (
     get_shot_lab_snapshot,
     get_team_defense_player_ids,
     get_team_defense_raw_shots,
+)
+from services.shot_intelligence_service import (
+    build_shot_creation_response,
+    build_shot_identity_response,
+    build_shot_quality_response,
 )
 from services.warehouse_service import queue_player_shot_chart_sync
 
@@ -319,6 +328,121 @@ def _build_zone_response(
     )
 
 
+def _parse_common_shot_filters(
+    *,
+    start_date: Optional[str],
+    end_date: Optional[str],
+    period_bucket: str,
+    result: str,
+    shot_value: str,
+) -> tuple[Optional[date], Optional[date], str, str, str]:
+    parsed_start_date = _parse_filter_date(start_date, "start_date")
+    parsed_end_date = _parse_filter_date(end_date, "end_date")
+    parsed_period_bucket = _parse_period_bucket(period_bucket)
+    parsed_result = _parse_shot_result(result)
+    parsed_shot_value = _parse_shot_value(shot_value)
+    if parsed_start_date and parsed_end_date and parsed_start_date > parsed_end_date:
+        raise HTTPException(status_code=422, detail="start_date must be on or before end_date")
+    return parsed_start_date, parsed_end_date, parsed_period_bucket, parsed_result, parsed_shot_value
+
+
+def _player_shot_context(
+    *,
+    db: Session,
+    player_id: int,
+    season: str,
+    season_type: str,
+    start_date: Optional[str],
+    end_date: Optional[str],
+    period_bucket: str,
+    result: str,
+    shot_value: str,
+) -> tuple[List[dict], List[dict], str, Optional[str], Optional[date], Optional[date], str, str, str]:
+    if season_type not in ("Regular Season", "Playoffs"):
+        raise HTTPException(status_code=422, detail='season_type must be "Regular Season" or "Playoffs"')
+    parsed_start_date, parsed_end_date, parsed_period_bucket, parsed_result, parsed_shot_value = _parse_common_shot_filters(
+        start_date=start_date,
+        end_date=end_date,
+        period_bucket=period_bucket,
+        result=result,
+        shot_value=shot_value,
+    )
+    now = datetime.utcnow()
+    cached = (
+        db.query(PlayerShotChart)
+        .filter(
+            PlayerShotChart.player_id == player_id,
+            PlayerShotChart.season == season,
+            PlayerShotChart.season_type == season_type,
+        )
+        .first()
+    )
+    available_shots = enrich_player_shot_payload(db, player_id, (cached.shots or []) if cached else [])
+    filtered_shots = _filter_shots_with_context(
+        available_shots,
+        parsed_start_date,
+        parsed_end_date,
+        parsed_period_bucket,
+        parsed_result,
+        parsed_shot_value,
+    )
+    return (
+        filtered_shots,
+        available_shots,
+        _data_status(cached, now),
+        _last_synced_at(cached),
+        parsed_start_date,
+        parsed_end_date,
+        parsed_period_bucket,
+        parsed_result,
+        parsed_shot_value,
+    )
+
+
+def _team_defense_shot_context(
+    *,
+    db: Session,
+    team_id: int,
+    season: str,
+    season_type: str,
+    start_date: Optional[str],
+    end_date: Optional[str],
+    period_bucket: str,
+    result: str,
+    shot_value: str,
+) -> tuple[object, List[dict], List[dict], str, Optional[str], Optional[date], Optional[date], str, str, str]:
+    if season_type not in ("Regular Season", "Playoffs"):
+        raise HTTPException(status_code=422, detail='season_type must be "Regular Season" or "Playoffs"')
+    parsed_start_date, parsed_end_date, parsed_period_bucket, parsed_result, parsed_shot_value = _parse_common_shot_filters(
+        start_date=start_date,
+        end_date=end_date,
+        period_bucket=period_bucket,
+        result=result,
+        shot_value=shot_value,
+    )
+    team, available_shots, data_status, last_synced_at = get_team_defense_raw_shots(db, team_id, season, season_type)
+    filtered_shots = _filter_shots_with_context(
+        available_shots,
+        parsed_start_date,
+        parsed_end_date,
+        parsed_period_bucket,
+        parsed_result,
+        parsed_shot_value,
+    )
+    return (
+        team,
+        filtered_shots,
+        available_shots,
+        data_status,
+        last_synced_at,
+        parsed_start_date,
+        parsed_end_date,
+        parsed_period_bucket,
+        parsed_result,
+        parsed_shot_value,
+    )
+
+
 @router.get("/completeness/{season}", response_model=ShotCompletenessReportResponse)
 def shot_completeness_report(
     season: str,
@@ -418,6 +542,182 @@ def team_defense_shot_zones(
     )
 
 
+@router.get("/team-defense/{team_id}/quality", response_model=ShotQualityResponse)
+def team_defense_shot_quality(
+    team_id: int,
+    season: str = Query(...),
+    season_type: str = Query("Regular Season"),
+    start_date: Optional[str] = Query(None),
+    end_date: Optional[str] = Query(None),
+    period_bucket: str = Query("all"),
+    result: str = Query("all"),
+    shot_value: str = Query("all"),
+    db: Session = Depends(get_db),
+):
+    (
+        team,
+        filtered_shots,
+        available_shots,
+        data_status,
+        _last_synced,
+        parsed_start_date,
+        parsed_end_date,
+        parsed_period_bucket,
+        parsed_result,
+        parsed_shot_value,
+    ) = _team_defense_shot_context(
+        db=db,
+        team_id=team_id,
+        season=season,
+        season_type=season_type,
+        start_date=start_date,
+        end_date=end_date,
+        period_bucket=period_bucket,
+        result=result,
+        shot_value=shot_value,
+    )
+    return build_shot_quality_response(
+        db,
+        subject_type="team-defense",
+        subject_id=team.id,
+        season=season,
+        season_type=season_type,
+        filtered_shots=filtered_shots,
+        available_shots=available_shots,
+        data_status=data_status,
+        start_date=parsed_start_date.isoformat() if parsed_start_date else None,
+        end_date=parsed_end_date.isoformat() if parsed_end_date else None,
+        period_bucket=parsed_period_bucket,
+        result=parsed_result,
+        shot_value=parsed_shot_value,
+    )
+
+
+@router.get("/team-defense/{team_id}/creation", response_model=ShotCreationResponse)
+def team_defense_shot_creation(
+    team_id: int,
+    season: str = Query(...),
+    season_type: str = Query("Regular Season"),
+    start_date: Optional[str] = Query(None),
+    end_date: Optional[str] = Query(None),
+    period_bucket: str = Query("all"),
+    result: str = Query("all"),
+    shot_value: str = Query("all"),
+    db: Session = Depends(get_db),
+):
+    (
+        team,
+        filtered_shots,
+        available_shots,
+        data_status,
+        _last_synced,
+        parsed_start_date,
+        parsed_end_date,
+        parsed_period_bucket,
+        parsed_result,
+        parsed_shot_value,
+    ) = _team_defense_shot_context(
+        db=db,
+        team_id=team_id,
+        season=season,
+        season_type=season_type,
+        start_date=start_date,
+        end_date=end_date,
+        period_bucket=period_bucket,
+        result=result,
+        shot_value=shot_value,
+    )
+    return build_shot_creation_response(
+        subject_type="team-defense",
+        subject_id=team.id,
+        season=season,
+        season_type=season_type,
+        filtered_shots=filtered_shots,
+        available_shots=available_shots,
+        data_status=data_status,
+        start_date=parsed_start_date.isoformat() if parsed_start_date else None,
+        end_date=parsed_end_date.isoformat() if parsed_end_date else None,
+        period_bucket=parsed_period_bucket,
+        result=parsed_result,
+        shot_value=parsed_shot_value,
+    )
+
+
+@router.get("/team-defense/{team_id}/identity", response_model=ShotIdentityResponse)
+def team_defense_shot_identity(
+    team_id: int,
+    season: str = Query(...),
+    season_type: str = Query("Regular Season"),
+    start_date: Optional[str] = Query(None),
+    end_date: Optional[str] = Query(None),
+    period_bucket: str = Query("all"),
+    result: str = Query("all"),
+    shot_value: str = Query("all"),
+    db: Session = Depends(get_db),
+):
+    (
+        team,
+        filtered_shots,
+        available_shots,
+        data_status,
+        _last_synced,
+        parsed_start_date,
+        parsed_end_date,
+        parsed_period_bucket,
+        parsed_result,
+        parsed_shot_value,
+    ) = _team_defense_shot_context(
+        db=db,
+        team_id=team_id,
+        season=season,
+        season_type=season_type,
+        start_date=start_date,
+        end_date=end_date,
+        period_bucket=period_bucket,
+        result=result,
+        shot_value=shot_value,
+    )
+    return build_shot_identity_response(
+        subject_type="team-defense",
+        subject_id=team.id,
+        season=season,
+        season_type=season_type,
+        filtered_shots=filtered_shots,
+        available_shots=available_shots,
+        data_status=data_status,
+        start_date=parsed_start_date.isoformat() if parsed_start_date else None,
+        end_date=parsed_end_date.isoformat() if parsed_end_date else None,
+        period_bucket=parsed_period_bucket,
+        result=parsed_result,
+        shot_value=parsed_shot_value,
+    )
+
+
+@router.get("/team-defense/{team_id}/coverage", response_model=ShotIntelligenceCoverage)
+def team_defense_shot_coverage(
+    team_id: int,
+    season: str = Query(...),
+    season_type: str = Query("Regular Season"),
+    start_date: Optional[str] = Query(None),
+    end_date: Optional[str] = Query(None),
+    period_bucket: str = Query("all"),
+    result: str = Query("all"),
+    shot_value: str = Query("all"),
+    db: Session = Depends(get_db),
+):
+    return team_defense_shot_quality(
+        team_id=team_id,
+        season=season,
+        season_type=season_type,
+        start_date=start_date,
+        end_date=end_date,
+        period_bucket=period_bucket,
+        result=result,
+        shot_value=shot_value,
+        db=db,
+    ).coverage
+
+
 @router.post("/snapshots", response_model=ShotLabSnapshotResponse)
 def post_shot_lab_snapshot(
     payload: ShotLabSnapshotCreateRequest,
@@ -459,6 +759,179 @@ def refresh_team_defense_shot_chart(
         )
     db.commit()
     return QueueResponse(queued=len(jobs), jobs=[_job_response(job) for job in jobs])
+
+
+@router.get("/{player_id}/quality", response_model=ShotQualityResponse)
+def player_shot_quality(
+    player_id: int,
+    season: str = Query(..., description='Season ID, e.g. "2023-24"'),
+    season_type: str = Query("Regular Season", description='"Regular Season" or "Playoffs"'),
+    start_date: Optional[str] = Query(None),
+    end_date: Optional[str] = Query(None),
+    period_bucket: str = Query("all"),
+    result: str = Query("all"),
+    shot_value: str = Query("all"),
+    db: Session = Depends(get_db),
+):
+    (
+        filtered_shots,
+        available_shots,
+        data_status,
+        _last_synced,
+        parsed_start_date,
+        parsed_end_date,
+        parsed_period_bucket,
+        parsed_result,
+        parsed_shot_value,
+    ) = _player_shot_context(
+        db=db,
+        player_id=player_id,
+        season=season,
+        season_type=season_type,
+        start_date=start_date,
+        end_date=end_date,
+        period_bucket=period_bucket,
+        result=result,
+        shot_value=shot_value,
+    )
+    return build_shot_quality_response(
+        db,
+        subject_type="player",
+        subject_id=player_id,
+        season=season,
+        season_type=season_type,
+        filtered_shots=filtered_shots,
+        available_shots=available_shots,
+        data_status=data_status,
+        start_date=parsed_start_date.isoformat() if parsed_start_date else None,
+        end_date=parsed_end_date.isoformat() if parsed_end_date else None,
+        period_bucket=parsed_period_bucket,
+        result=parsed_result,
+        shot_value=parsed_shot_value,
+    )
+
+
+@router.get("/{player_id}/creation", response_model=ShotCreationResponse)
+def player_shot_creation(
+    player_id: int,
+    season: str = Query(..., description='Season ID, e.g. "2023-24"'),
+    season_type: str = Query("Regular Season", description='"Regular Season" or "Playoffs"'),
+    start_date: Optional[str] = Query(None),
+    end_date: Optional[str] = Query(None),
+    period_bucket: str = Query("all"),
+    result: str = Query("all"),
+    shot_value: str = Query("all"),
+    db: Session = Depends(get_db),
+):
+    (
+        filtered_shots,
+        available_shots,
+        data_status,
+        _last_synced,
+        parsed_start_date,
+        parsed_end_date,
+        parsed_period_bucket,
+        parsed_result,
+        parsed_shot_value,
+    ) = _player_shot_context(
+        db=db,
+        player_id=player_id,
+        season=season,
+        season_type=season_type,
+        start_date=start_date,
+        end_date=end_date,
+        period_bucket=period_bucket,
+        result=result,
+        shot_value=shot_value,
+    )
+    return build_shot_creation_response(
+        subject_type="player",
+        subject_id=player_id,
+        season=season,
+        season_type=season_type,
+        filtered_shots=filtered_shots,
+        available_shots=available_shots,
+        data_status=data_status,
+        start_date=parsed_start_date.isoformat() if parsed_start_date else None,
+        end_date=parsed_end_date.isoformat() if parsed_end_date else None,
+        period_bucket=parsed_period_bucket,
+        result=parsed_result,
+        shot_value=parsed_shot_value,
+    )
+
+
+@router.get("/{player_id}/identity", response_model=ShotIdentityResponse)
+def player_shot_identity(
+    player_id: int,
+    season: str = Query(..., description='Season ID, e.g. "2023-24"'),
+    season_type: str = Query("Regular Season", description='"Regular Season" or "Playoffs"'),
+    start_date: Optional[str] = Query(None),
+    end_date: Optional[str] = Query(None),
+    period_bucket: str = Query("all"),
+    result: str = Query("all"),
+    shot_value: str = Query("all"),
+    db: Session = Depends(get_db),
+):
+    (
+        filtered_shots,
+        available_shots,
+        data_status,
+        _last_synced,
+        parsed_start_date,
+        parsed_end_date,
+        parsed_period_bucket,
+        parsed_result,
+        parsed_shot_value,
+    ) = _player_shot_context(
+        db=db,
+        player_id=player_id,
+        season=season,
+        season_type=season_type,
+        start_date=start_date,
+        end_date=end_date,
+        period_bucket=period_bucket,
+        result=result,
+        shot_value=shot_value,
+    )
+    return build_shot_identity_response(
+        subject_type="player",
+        subject_id=player_id,
+        season=season,
+        season_type=season_type,
+        filtered_shots=filtered_shots,
+        available_shots=available_shots,
+        data_status=data_status,
+        start_date=parsed_start_date.isoformat() if parsed_start_date else None,
+        end_date=parsed_end_date.isoformat() if parsed_end_date else None,
+        period_bucket=parsed_period_bucket,
+        result=parsed_result,
+        shot_value=parsed_shot_value,
+    )
+
+
+@router.get("/{player_id}/coverage", response_model=ShotIntelligenceCoverage)
+def player_shot_coverage(
+    player_id: int,
+    season: str = Query(..., description='Season ID, e.g. "2023-24"'),
+    season_type: str = Query("Regular Season", description='"Regular Season" or "Playoffs"'),
+    start_date: Optional[str] = Query(None),
+    end_date: Optional[str] = Query(None),
+    period_bucket: str = Query("all"),
+    result: str = Query("all"),
+    shot_value: str = Query("all"),
+    db: Session = Depends(get_db),
+):
+    return player_shot_quality(
+        player_id=player_id,
+        season=season,
+        season_type=season_type,
+        start_date=start_date,
+        end_date=end_date,
+        period_bucket=period_bucket,
+        result=result,
+        shot_value=shot_value,
+        db=db,
+    ).coverage
 
 
 @router.get("/{player_id}/zones", response_model=ZoneProfileResponse)

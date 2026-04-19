@@ -3,7 +3,14 @@
 import dynamic from "next/dynamic";
 import { useSearchParams } from "next/navigation";
 import { startTransition, useEffect, useMemo, useState } from "react";
-import { usePlayerShotChart, useShotChartRefresh, useShotLabSnapshot } from "@/hooks/usePlayerStats";
+import {
+  usePlayerShotChart,
+  usePlayerShotCreation,
+  usePlayerShotIdentity,
+  usePlayerShotQuality,
+  useShotChartRefresh,
+  useShotLabSnapshot,
+} from "@/hooks/usePlayerStats";
 import type {
   ShotChartShot,
   ShotLabDateRange,
@@ -21,6 +28,7 @@ import ShotActionSignature from "./ShotActionSignature";
 import ShotLabControls from "./ShotLabControls";
 import ShotContextPanel from "./ShotContextPanel";
 import ShotSnapshotButton from "./ShotSnapshotButton";
+import ShotIntelligencePanel from "./ShotIntelligencePanel";
 
 const ShotLab3DScene = dynamic(() => import("./three/ShotLab3DScene"), {
   ssr: false,
@@ -389,9 +397,14 @@ function ZoneBreakdown({ shots }: { shots: ShotChartShot[] }) {
   );
 }
 
-type ChartView = "scatter" | "heatmap" | "hex" | "value" | "sprawl" | "three";
+type ChartView = "diet" | "quality" | "making" | "creation" | "summary" | "scatter" | "heatmap" | "hex" | "value" | "sprawl" | "three";
 
 const VIEW_LABELS: Record<ChartView, string> = {
+  diet: "Diet",
+  quality: "Quality",
+  making: "Making",
+  creation: "Creation",
+  summary: "Scout Summary",
   scatter: "Scatter",
   heatmap: "Heat",
   hex: "Hex",
@@ -401,6 +414,11 @@ const VIEW_LABELS: Record<ChartView, string> = {
 };
 
 const COURT_LABEL: Record<ChartView, string> = {
+  diet: "Shot diet",
+  quality: "Shot quality",
+  making: "Shot making",
+  creation: "Creation context",
+  summary: "Scout summary",
   scatter: "Shot scatter",
   heatmap: "Frequency heat",
   hex: "Hex density",
@@ -410,6 +428,11 @@ const COURT_LABEL: Record<ChartView, string> = {
 };
 
 const VIEW_DESCRIPTIONS: Record<ChartView, string> = {
+  diet: "Where this player gets shots most often, before adding expected-value interpretation.",
+  quality: "How favorable the attempt profile is versus league expectation.",
+  making: "Where actual conversion beats or trails expected shot value.",
+  creation: "Proxy-labeled creation context from action, clock, and linked shot fields.",
+  summary: "A scouting-ready identity read built from shot diet, action mix, and coverage.",
   scatter: "Every attempt plotted one by one.",
   heatmap: "A glowing shot-frequency portrait inspired by classic NBA density maps.",
   hex: "Efficiency and volume compressed into hex bins.",
@@ -470,7 +493,7 @@ export default function ShotChart({
   const { data: snapshot } = useShotLabSnapshot(snapshotId);
   const [selectedSeason, setSelectedSeason] = useState(defaultSeason);
   const [seasonType, setSeasonType] = useState<"Regular Season" | "Playoffs">("Regular Season");
-  const [chartView, setChartView] = useState<ChartView>("scatter");
+  const [chartView, setChartView] = useState<ChartView>("diet");
   const [preset, setPreset] = useState<ShotLabWindowPreset>("full");
   const [customRange, setCustomRange] = useState<ShotLabDateRange>({ startDate: null, endDate: null });
   const [situationalFilters, setSituationalFilters] = useState<ShotLabSituationalFilters>(
@@ -535,6 +558,24 @@ export default function ShotChart({
     seasonType,
     activeFilters
   );
+  const { data: shotQuality, isLoading: isQualityLoading } = usePlayerShotQuality(
+    playerId,
+    selectedSeason,
+    seasonType,
+    activeFilters
+  );
+  const { data: shotCreation, isLoading: isCreationLoading } = usePlayerShotCreation(
+    playerId,
+    selectedSeason,
+    seasonType,
+    activeFilters
+  );
+  const { data: shotIdentity, isLoading: isIdentityLoading } = usePlayerShotIdentity(
+    playerId,
+    selectedSeason,
+    seasonType,
+    activeFilters
+  );
 
   const { refresh, isRefreshing } = useShotChartRefresh(
     playerId,
@@ -576,6 +617,7 @@ export default function ShotChart({
   const windowLabel = describeShotWindow(preset, filters);
   const situationalLabel = describeSituationalFilters(situationalFilters);
   const activeViewLabel = VIEW_LABELS[chartView];
+  const isIntelligenceView = chartView === "quality" || chartView === "making" || chartView === "creation" || chartView === "summary";
 
   useEffect(() => {
     if (!snapshotId || !snapshot || appliedSnapshotId === snapshotId) return;
@@ -583,7 +625,7 @@ export default function ShotChart({
     startTransition(() => {
       setSelectedSeason(snapshot.payload.season);
       setSeasonType(snapshot.payload.season_type === "Playoffs" ? "Playoffs" : "Regular Season");
-      setChartView((snapshot.payload.active_view as ChartView) ?? "scatter");
+      setChartView((snapshot.payload.active_view as ChartView) ?? "diet");
       setCustomRange({
         startDate: snapshot.payload.filters.start_date ?? null,
         endDate: snapshot.payload.filters.end_date ?? null,
@@ -630,13 +672,18 @@ export default function ShotChart({
                 result: situationalFilters.result,
                 shot_value: situationalFilters.shotValue,
               },
-              metadata: {},
+              metadata: {
+                intelligence_view: chartView,
+                coverage_state: shotQuality?.coverage_state ?? activeShotChart?.completeness_status ?? dataStatus,
+                methodology_version: shotQuality?.methodology_version ?? "shot_quality_v1",
+                advanced_split_mode: chartView === "creation" ? "proxy-labeled" : "default",
+              },
             }}
           />
 
-          {/* Scatter / Heat / Hex / Value / Sprawl toggle */}
+          {/* Intelligence and classic chart toggles */}
           <div className="flex flex-wrap gap-2 rounded-full border border-[rgba(25,52,42,0.08)] bg-[rgba(255,255,255,0.44)] p-1 text-xs shadow-[inset_0_1px_0_rgba(255,255,255,0.7)]">
-            {(["scatter", "heatmap", "hex", "value", "sprawl", "three"] as ChartView[]).map((view) => (
+            {(["diet", "quality", "making", "creation", "summary", "scatter", "heatmap", "hex", "value", "sprawl", "three"] as ChartView[]).map((view) => (
               <button
                 key={view}
                 onClick={() => setChartView(view)}
@@ -741,6 +788,24 @@ export default function ShotChart({
           </p>
         )}
 
+        {isIntelligenceView && (
+          <ShotIntelligencePanel
+            mode={chartView === "quality" ? "quality" : chartView === "making" ? "making" : chartView === "creation" ? "creation" : "summary"}
+            quality={shotQuality}
+            creation={shotCreation}
+            identity={shotIdentity}
+            label={activeViewLabel}
+            contextLabel={`${windowLabel} · ${situationalLabel}`}
+            isLoading={
+              chartView === "quality" || chartView === "making"
+                ? isQualityLoading
+                : chartView === "creation"
+                  ? isCreationLoading
+                  : isIdentityLoading
+            }
+          />
+        )}
+
         {/* Value map — full replacement for the SVG court section */}
         {chartView === "value" && activeShotChart && activeShotChart.shots.length > 0 && (
           <ShotValueMap shots={activeShotChart.shots} playerLabel={windowLabel} />
@@ -755,7 +820,7 @@ export default function ShotChart({
           <ShotLab3DScene shots={activeShotChart.shots} />
         )}
 
-        <div className={chartView === "value" || chartView === "sprawl" || chartView === "three" ? "hidden" : ""}>
+        <div className={chartView === "value" || chartView === "sprawl" || chartView === "three" || isIntelligenceView ? "hidden" : ""}>
         <div className="bip-shot-canvas">
           <svg viewBox={`0 0 ${W} ${H}`} className="w-full max-w-lg mx-auto block">
             <defs>
@@ -823,7 +888,7 @@ export default function ShotChart({
             </text>
 
             {/* Scatter: individual shots colored by made/missed */}
-            {chartView === "scatter" &&
+            {(chartView === "scatter" || chartView === "diet") &&
               activeShotChart?.shots.map((shot, i) => {
                 const [x, y] = toSvg(shot.loc_x, shot.loc_y);
                 return (
@@ -850,7 +915,7 @@ export default function ShotChart({
 
         {/* Legend */}
         <div className="bip-shot-legend mt-3 justify-center text-xs text-[var(--muted)]">
-          {chartView === "scatter" ? (
+          {chartView === "scatter" || chartView === "diet" ? (
             <>
               <span className="inline-flex items-center gap-1.5 rounded-full border border-[rgba(25,52,42,0.1)] bg-[rgba(255,255,255,0.72)] px-3 py-1.5">
                 <span className="inline-block w-3 h-3 rounded-full bg-[#21483b] opacity-80" />
