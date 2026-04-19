@@ -624,3 +624,16 @@ Eliminated live NBA API calls on every player profile load:
 - Added MVP source/snapshot coverage ops through `GET /api/mvp/coverage` and a `/coverage` MVP Coverage panel.
 - Operationalized daily snapshots with `POST /api/warehouse/queue/mvp-snapshot`, current-season queue inclusion, `/api/mvp/snapshot-freshness`, and a `/mvp` freshness badge.
 - Verified with targeted MVP/schema backend tests, frontend lint/build, API/page smokes, and `git diff --check`.
+
+---
+
+### Sprint 57 — Insights Revamp: Trajectory Depth + Lineup Context
+**Branch:** `feature/sprint-57-insights-revamp` (Claude, single-stream)
+
+- Redesigned Trajectory Tracker into a two-column multi-signal workspace: ranked player list with inline driver-decomposition bars (left), detail panel with rolling Recharts sparklines, full driver decomp card, clutch split, on/off swing, shot-quality delta, and evidence-game chips linking to Game Explorer (right).
+- Extended `TrajectoryPlayerRow` with position percentile (0–100 via normal CDF per-bucket z-scoring), all driver contributions sorted by abs weighted contribution, top evidence games, clutch context, on/off context, recent/baseline averages.
+- Added `GET /api/insights/trajectory/{player_id}/series` for per-game sparkline time-series.
+- Added `lineup_context_service.py` and `GET /api/insights/lineup-context/{player_id}` — top 5 teammates by shared possessions (≥100 poss gate, LIKE false-positive guard), possession-weighted net rating, confidence banding.
+- Extracted shared `InsightsHeader` component with cross-tab handoff chips; all four insights tabs share the same team/season/opponent URL state.
+- Integrated lineup context collapsibles into `MvpRacePanel` Team Impact section and `PlayerPbpInsights` Team Impact & Clutch panel.
+- Verified with 17 backend tests (all pass), frontend `npm run lint`, frontend `npm run build`, and `git diff --check`.

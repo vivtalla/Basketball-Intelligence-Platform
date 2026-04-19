@@ -260,6 +260,16 @@ CourtVue Labs uses a hybrid sprint model: major feature sprints typically run as
 
 > Full history → `specs/sprint-history.md`
 
+### Sprint 57 — Insights Revamp: Trajectory Depth + Lineup Context
+
+- Redesigned Trajectory Tracker into a two-column multi-signal workspace: ranked list with inline driver decomposition bars, detail panel with rolling sparklines (Recharts), clutch split, on/off swing, shot-quality delta, and evidence-game chips linking to Game Explorer.
+- Extended `TrajectoryPlayerRow` with position percentile (0–100 via normal CDF), all driver contributions, top evidence games, clutch context, on/off context, and recent/baseline averages.
+- Added `GET /api/insights/trajectory/{player_id}/series` for per-game sparkline time-series.
+- Added `lineup_context_service.py` and `GET /api/insights/lineup-context/{player_id}` — top 5 teammates by shared possessions (≥100 poss gate), LIKE false-positive guard.
+- Extracted shared `InsightsHeader` component with cross-tab handoff chips for all four insights tabs.
+- Integrated lineup context collapsibles into MVP Team Impact and player-profile Team Impact & Clutch.
+- Verified with 17 backend tests (all pass), frontend `npm run lint`, frontend `npm run build`, and `git diff --check`.
+
 ### Sprint 56 — Player Impact + Profile Clarity
 
 - Added additive MVP Team Impact contracts with team net rating, candidate game W-L, on/off net swing, on/off ORTG/DRTG, minutes, confidence, and explanatory notes.
@@ -269,15 +279,6 @@ CourtVue Labs uses a hybrid sprint model: major feature sprints typically run as
 - Preserved unique Shot Lab workflows inside the right views: action fingerprint and distance profile in Diet, recent filtered shots and Game Explorer links in Creation.
 - Verified with targeted MVP backend tests, frontend `npm run lint`, frontend `npm run build`, and `git diff --check`.
 
-### Sprint 55 — Shot Lab Intelligence
-
-- Added `shot_quality_v1`, an on-demand DB-first Shot Lab intelligence service for expected shot quality, actual shot making, PPS/eFG deltas, and sparse-bin fallback smoothing.
-- Added player and team-defense intelligence endpoints for quality, creation, identity, and coverage.
-- Added proxy-labeled creation splits, scouting identity cards, methodology notes, coverage/trust objects, and additive Pydantic/TypeScript contracts.
-- Upgraded player Shot Lab, Compare Shot Lab, and Team Defense Shot Lab with Quality, Making, Creation, and Scout Summary views while preserving classic shot views.
-- Extended Shot Lab snapshot metadata with intelligence view, coverage state, methodology version, and split mode.
-- Verified with targeted shotchart/schema backend tests, frontend `npm run lint`, frontend `npm run build`, and `git diff --check`.
-
 ---
 
 ## Active Branches
@@ -285,6 +286,7 @@ CourtVue Labs uses a hybrid sprint model: major feature sprints typically run as
 | Branch | Owner | Status |
 |--------|-------|--------|
 | `master` | — | Stable |
+| `feature/sprint-57-insights-revamp` | Claude | Merged to master |
 
 Sprint branches are created at kickoff and listed in `AGENTS.md`.
 
@@ -320,3 +322,10 @@ Sprint branches are created at kickoff and listed in `AGENTS.md`.
 | `ShotLab3DScene` | `components/three/` | React Three Fiber shot-lab 3D scene scaffold |
 | `GameVisualization3D` | `components/three/` | React Three Fiber Game Explorer visualizer |
 | `ThreeUnavailableState` | `components/three/` | WebGL fallback for 3D visualizers |
+| `InsightsHeader` | `components/` | Shared insights page header: team/season/opponent selectors, tab bar, cross-tab handoff chips (Sprint 57) |
+| `DriverBar` | `components/trajectory/` | Horizontal driver-contribution decomposition bar for Trajectory (Sprint 57) |
+| `RollingSparklines` | `components/trajectory/` | Multi-signal 10-game rolling Recharts line chart with baseline reference (Sprint 57) |
+| `EvidenceGames` | `components/trajectory/` | Evidence-game chips linking to Game Explorer (Sprint 57) |
+| `OnOffSwingCard` | `components/trajectory/` | On/off net swing + lineup teammate context card (Sprint 57) |
+| `ClutchSplitCard` | `components/trajectory/` | Clutch pts/FG% split card with sample-size caveat (Sprint 57) |
+| `ShotQualityDeltaCard` | `components/trajectory/` | TS% delta (recent vs baseline) linking to Shot Lab (Sprint 57) |

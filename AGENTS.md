@@ -1,6 +1,6 @@
 # Agent Coordination
 
-Last updated: 2026-04-18 by Claude (Sprint 57 kickoff)
+Last updated: 2026-04-19 by Claude (Sprint 57 closeout / Sprint 58 reset)
 
 > Both agents read this file before touching code at the start of every session.
 > The canonical source of truth is the clean `master` checkout at `/Users/viv/Documents/Basketball Intelligence Platform`.
@@ -14,13 +14,13 @@ Last updated: 2026-04-18 by Claude (Sprint 57 kickoff)
 
 | Field | Value |
 |-------|-------|
-| Sprint | 57 — Insights Revamp: Trajectory Depth + Story |
-| Goal | Revamp /insights Trajectory into a multi-signal evidence-backed workspace; add lineup-aware on/off context service; light polish on Usage/Trends/WhatIf tabs; integrate lineup context into MVP Team Impact and player-profile Team Impact & Clutch |
-| Started | 2026-04-18 |
+| Sprint | 58 — TBD |
+| Goal | TBD — awaiting Vivek's sprint kickoff |
+| Started | TBD |
 | Target merge | TBD |
-| Sprint shape | Single-stream (Claude) |
-| Branch | `feature/sprint-57-insights-revamp` |
-| Worker policy | Subagents for parallel backend + frontend tracks |
+| Sprint shape | TBD |
+| Branch | `feature/sprint-58-[slug]` |
+| Worker policy | TBD at kickoff |
 
 ---
 
@@ -38,14 +38,14 @@ If repo state, sprint numbering, or shipped features appear to disagree across l
 ## Current Assignments
 
 ### Claude
-- Branch: `feature/sprint-57-insights-revamp`
-- Scope: Full sprint — backend trajectory depth, lineup context service, frontend Trajectory revamp, insights tab polish, MVP/player-profile lineup integration
-- Status: In progress
+- Branch: `feature/sprint-58-[slug]`
+- Scope: TBD at kickoff
+- Status: Not started
 
 ### Codex
-- Branch: -
-- Scope: -
-- Status: Not assigned
+- Branch: `codex-sprint-58-[slug]`
+- Scope: TBD at kickoff
+- Status: Not started
 
 ---
 
@@ -58,11 +58,7 @@ Claim a shared file here before editing. If a file is already claimed, read that
 
 | File | Claimed by | Purpose |
 |------|------------|---------|
-| `backend/services/trajectory_service.py` | Claude | Trajectory depth: new signals (off/def rating, clutch, on/off, shot quality, position percentile, driver contributions, evidence games) |
-| `backend/models/insights.py` | Claude | Extend TrajectoryPlayerRow + new LineupContextResponse schema |
-| `backend/routers/insights.py` | Claude | New /lineup-context route + trajectory endpoint new fields |
-| `frontend/src/components/TrajectoryTracker.tsx` | Claude | Full redesign — two-column workspace |
-| `frontend/src/app/insights/page.tsx` | Claude | Extract InsightsHeader, shared filter state, cross-tab handoffs |
+| — | — | Sprint 58 allocation TBD at kickoff |
 
 ---
 
@@ -73,38 +69,19 @@ Specs or review notes written by one stream for another. Check this before start
 | Spec file | From | To | Status |
 |-----------|------|----|--------|
 | `specs/data-architecture.md` | Sprint 26 | Next sprint | Reference — read before touching data layer |
-| `specs/sprint-56-closeout.md` | Sprint 56 | Next sprint | Reference — Team Impact and player profile cleanup baseline |
+| `specs/sprint-57-closeout.md` | Sprint 57 | Next sprint | Reference — Trajectory revamp and lineup context baseline |
 
 ---
 
 ## Merge Order
 
-1. `feature/sprint-57-insights-revamp` — full sprint work
-2. Final integration / verification / merge to `master`
+TBD at kickoff
 
 ---
 
 ## Sprint Work Allocation
 
-| Files / Directories | Assigned this sprint |
-|---------------------|----------------------|
-| `backend/services/trajectory_service.py` | Claude |
-| `backend/services/lineup_context_service.py` (new) | Claude |
-| `backend/models/insights.py` | Claude |
-| `backend/routers/insights.py` | Claude |
-| `backend/tests/test_trajectory_service.py` | Claude |
-| `backend/tests/test_lineup_context_service.py` (new) | Claude |
-| `backend/services/mvp_service.py` | Claude (additive lineup context only) |
-| `frontend/src/components/TrajectoryTracker.tsx` | Claude |
-| `frontend/src/components/trajectory/` (new folder) | Claude |
-| `frontend/src/components/InsightsHeader.tsx` (new) | Claude |
-| `frontend/src/app/insights/page.tsx` | Claude |
-| `frontend/src/hooks/useTrajectory.ts` | Claude |
-| `frontend/src/lib/api.ts` | Claude (append-only) |
-| `frontend/src/lib/types.ts` | Claude (append-only) |
-| `frontend/src/components/UsageEfficiencyDashboard.tsx` | Claude (polish only) |
-| `frontend/src/components/TrendCardsPanel.tsx` | Claude (polish only) |
-| `frontend/src/components/WhatIfPanel.tsx` | Claude (polish only) |
+Sprint 58 allocation — TBD at kickoff
 
 ---
 
@@ -177,6 +154,7 @@ Specs or review notes written by one stream for another. Check this before start
 
 *Free-form, dated, newest first. Use this for coordination and repo-state exceptions.*
 
+2026-04-19 (Claude): Sprint 57 closed on `feature/sprint-57-insights-revamp` and merged to `master`. Shipped Trajectory two-column revamp with rolling sparklines, driver decomp, clutch/on-off/shot-quality cards, evidence games, lineup context service, shared InsightsHeader, and lineup context integration in MVP + player profile. Closeout: `specs/sprint-57-closeout.md`.
 2026-04-19 (Codex): Sprint 56 closed on `codex/sprint-56-player-impact-profile-clarity` and prepared for merge to `master`. Shipped MVP Team Impact, Voter Room team-impact evidence, Team Impact & Clutch profile panel, player profile cleanup, and Shot Lab tab relocation for action/distance/context workflows. Closeout: `specs/sprint-56-closeout.md`.
 2026-04-19 (Codex): Sprint 56 kicked off on `codex/sprint-56-player-impact-profile-clarity`. Goal: add an MVP Team Impact lens from existing on/off and team context, then clean up player profiles so Shot Lab owns shot analysis without redundant surrounding panels.
 2026-04-19 (Codex): Sprint 55 closed on `codex/sprint-55-shot-lab-intelligence` and prepared for merge to `master`. Shipped Shot Lab Intelligence with `shot_quality_v1`, player and team-defense quality/creation/identity/coverage endpoints, compare and team-defense parity, snapshot intelligence metadata, and coverage-aware methodology. Closeout: `specs/sprint-55-closeout.md`.
