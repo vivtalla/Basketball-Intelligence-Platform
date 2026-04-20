@@ -1,6 +1,6 @@
 # Agent Coordination
 
-Last updated: 2026-04-19 by Claude (Sprint 60 kickoff)
+Last updated: 2026-04-20 by Claude (Sprint 61 kickoff)
 
 > Both agents read this file before touching code at the start of every session.
 > The canonical source of truth is the clean `master` checkout at `/Users/viv/Documents/Basketball Intelligence Platform`.
@@ -14,12 +14,12 @@ Last updated: 2026-04-19 by Claude (Sprint 60 kickoff)
 
 | Field | Value |
 |-------|-------|
-| Sprint | 60 |
-| Goal | Play-Style X-Ray promotion + Insights explainability parity (Trajectory/Trends) + MVP lineup-aware Team Impact |
-| Started | 2026-04-19 |
+| Sprint | 61 |
+| Goal | Shot Lab visual polish + replay examples AND Shot Intelligence Ops + baseline materialization |
+| Started | 2026-04-20 |
 | Target merge | TBD |
 | Sprint shape | Single-stream Claude-only (no Codex parallel track) |
-| Branch | `feature/sprint-60-insights-xray-explainability` |
+| Branch | `feature/sprint-61-shot-lab-polish-and-ops` |
 | Worker policy | Explore agents for research only; main rollout does all implementation |
 
 ---
@@ -38,9 +38,9 @@ If repo state, sprint numbering, or shipped features appear to disagree across l
 ## Current Assignments
 
 ### Claude
-- Branch: `feature/sprint-60-insights-xray-explainability`
-- Scope: (1) Promote Play-Style X-Ray to a dedicated Insights tab with richer archetypes, neighbor quality bands, movement narrative; (2) Bring Trajectory + Trends up to Opportunity's explainability bar (methodology drawers, hover tooltips, confidence pills, sample-size caveats); (3) Add lineup-aware teammate on/off swings to MVP Team Impact.
-- Status: Complete — ready for review
+- Branch: `feature/sprint-61-shot-lab-polish-and-ops`
+- Scope: (1) Richer hover tooltips on ShotValueMap/Sprawl/Distance surfacing attempts/expected/delta/confidence; (2) "Show me examples" replay handoffs from quality/creation bins into Game Explorer; (3) Factor ShotIdentityBadges into player/compare/prep surfaces; (4) New Shot Intelligence Ops panel on `/coverage` with team readiness, stale players, missing-context warnings; (5) `shot_quality_baselines` materialization table with `get_or_build_baseline`; (6) Backfill control endpoints + action buttons.
+- Status: In progress
 
 ### Codex
 - Branch: —
@@ -58,20 +58,24 @@ Claim a shared file here before editing. If a file is already claimed, read that
 
 | File | Claimed by | Purpose |
 |------|------------|---------|
-| `backend/routers/styles.py` | Claude | X-Ray archetype taxonomy, neighbor bands, movement narrative |
-| `backend/models/styles.py` | Claude | StyleXRayResponse expansion (archetype_confidence, movement, neighbor quality) |
-| `backend/services/trend_card_service.py` | Claude | Methodology block + player_movers confidence |
-| `backend/services/mvp_service.py` | Claude | Teammate on/off swings in team impact profile |
-| `backend/models/mvp.py` | Claude | MvpTeammateSwing + MvpTeamImpactProfile extension |
-| `frontend/src/components/InsightsHeader.tsx` | Claude | Add `xray` tab mode |
-| `frontend/src/components/TrajectoryTracker.tsx` | Claude | Methodology drawer wiring |
-| `frontend/src/components/trajectory/DriverBar.tsx` | Claude | Hover tooltips on driver signals |
-| `frontend/src/components/TrendCardsPanel.tsx` | Claude | Methodology drawer + mover confidence pills |
-| `frontend/src/components/MvpRacePanel.tsx` | Claude | Teammate-swing block in Team Impact card |
-| `frontend/src/components/WhatIfPanel.tsx` | Claude | Collapse X-Ray card to summary + link |
-| `frontend/src/app/insights/page.tsx` | Claude | Route new xray mode |
-| `frontend/src/lib/api.ts` | Claude | Append-only: X-Ray response fields, trends/mvp additions |
-| `frontend/src/lib/types.ts` | Claude | Append-only: X-Ray, trend methodology, teammate swing types |
+| `backend/routers/shotchart.py` | Claude | Replay examples on quality/creation; ops + refresh endpoints |
+| `backend/services/shot_quality_service.py` | Claude | Baseline materialization path + replay sampling |
+| `backend/services/shot_intelligence_ops_service.py` | Claude | NEW — ops aggregation across roster |
+| `backend/models/shotchart.py` | Claude | `ShotReplayExample`, ops response types |
+| `backend/db/models.py` | Claude | `ShotQualityBaseline` ORM (append) |
+| `backend/alembic/versions/` | Claude | `shot_quality_baselines` migration |
+| `frontend/src/components/ShotValueMap.tsx` | Claude | Hover tooltip + examples drawer |
+| `frontend/src/components/ShotSprawlMap.tsx` | Claude | Grid-cell hover overlay |
+| `frontend/src/components/ShotDistanceProfile.tsx` | Claude | Extended Recharts tooltip |
+| `frontend/src/components/ShotIntelligencePanel.tsx` | Claude | Mount chips; factor out identity badges |
+| `frontend/src/components/PlayerHeader.tsx` | Claude | Mount ShotIdentityBadges |
+| `frontend/src/components/ComparisonView.tsx` | Claude | Mount ShotIdentityBadges |
+| `frontend/src/app/coverage/page.tsx` | Claude | Mount ShotIntelligenceOpsPanel |
+| `frontend/src/lib/api.ts` | Claude | Append-only: ops hooks, replay_examples shape |
+| `frontend/src/lib/types.ts` | Claude | Append-only: replay example, ops types |
+
+New components created this sprint (no prior claim needed):
+`ShotHoverTooltip.tsx`, `ShotExamplesChips.tsx`, `ShotIdentityBadges.tsx`, `ShotIntelligenceOpsPanel.tsx`, `useShotIntelligenceOps` hook.
 
 ---
 
@@ -82,28 +86,35 @@ Specs or review notes written by one stream for another. Check this before start
 | Spec file | From | To | Status |
 |-----------|------|----|--------|
 | `specs/data-architecture.md` | Sprint 26 | Next sprint | Reference — read before touching data layer |
-| `specs/sprint-58-closeout.md` | Sprint 58 | Next sprint | Reference — Opportunity Workspace baseline and top follow-ons |
-| `specs/sprint-59-closeout.md` | Sprint 59 | Next sprint | Reference — Trend Intelligence baseline and top follow-ons |
+| `specs/sprint-55-closeout.md` | Sprint 55 | Sprint 61 | Reference — Shot Lab Intelligence baseline |
+| `specs/sprint-60-closeout.md` | Sprint 60 | Next sprint | Reference — X-Ray promotion + explainability parity baseline |
 
 ---
 
 ## Merge Order
 
-Single-stream sprint — `feature/sprint-60-insights-xray-explainability` merges directly to `master` at sprint close.
+Single-stream sprint — `feature/sprint-61-shot-lab-polish-and-ops` merges directly to `master` at sprint close.
 
 ---
 
 ## Sprint Work Allocation
 
-Sprint 60 is single-stream (Claude only). Three workstreams executed sequentially:
+Sprint 61 is single-stream (Claude only). Six workstreams executed sequentially:
 
-1. **Play-Style X-Ray promotion** — backend taxonomy/neighbor/movement + new `StyleXRayWorkspace.tsx` tab + `xray/` component folder (ArchetypeFingerprint, NeighborQualityList, MovementTimeline, AdjacentArchetypes, XRayMethodologyDrawer).
-2. **Trajectory + Trends explainability parity** — methodology drawers, driver hover tooltips, mover confidence pills, sample-size caveats. Backend `trend_card_service.py` methodology block + `player_movers[].confidence`.
-3. **MVP lineup-aware Team Impact** — `_teammate_on_off_swings` helper reading `LineupStats`, `MvpTeammateSwing` model, Team Impact card render.
+1. **WS-A1 hover affordances** — Shared `ShotHoverTooltip.tsx`; extend ShotValueMap / ShotSprawlMap / ShotDistanceProfile tooltips with attempts, expected FG%, delta, `sample_confidence` band.
+2. **WS-A2 replay examples** — Backend: sample ≤3 highest |delta| shots per `ShotQualityBin` with `game_id`+`event_num`, attach as `replay_examples` on `/quality` and `/creation`. Frontend: `ShotExamplesChips.tsx` rendering Game Explorer deep links.
+3. **WS-A3 identity surfaces** — Factor `IdentityCards()` out of `ShotIntelligencePanel` into standalone `ShotIdentityBadges.tsx`; mount in `PlayerHeader`, `ComparisonView` summary, prep card detail.
+4. **WS-B1 ops panel** — `GET /shotchart/ops/{season}` + `shot_intelligence_ops_service.py` + `ShotIntelligenceOpsPanel.tsx` + `useShotIntelligenceOps` hook on `/coverage`.
+5. **WS-B2 baseline materialization** — New `shot_quality_baselines` table + Alembic migration + `get_or_build_baseline(season, methodology_version)` with `shot_quality_v1` default.
+6. **WS-B3 backfill controls** — `POST /shotchart/ops/{season}/refresh-baseline` and `.../refresh-stale-players` endpoints through the existing warehouse job framework; action buttons in ops panel.
 
-Reused patterns (do not rebuild): `opportunity/MethodologyDrawer.tsx`, `opportunity/OpportunityDriverBar.tsx` (SIGNAL_DESCRIPTIONS hover), `opportunity/DirectionalHintBanner.tsx`.
+Reused patterns (do not rebuild):
+- Hover tooltip pattern: `opportunity/OpportunityDriverBar.tsx` + `SIGNAL_DESCRIPTIONS`
+- Replay chip pattern: `trajectory/EvidenceGames.tsx`, `TrendCardsPanel.tsx` `replay_target.deep_link_url`
+- Methodology drawer: `opportunity/MethodologyDrawer.tsx`
+- Ops dashboard shell: `coverage/page.tsx` with `WarehousePipelinePanel` + `MvpCoveragePanel`
 
-Plan file: `~/.claude/plans/lets-plan-the-next-floofy-twilight.md`.
+Plan file: `~/.claude/plans/plan-sprint-related-to-foamy-corbato.md`.
 
 ---
 
@@ -176,19 +187,10 @@ Plan file: `~/.claude/plans/lets-plan-the-next-floofy-twilight.md`.
 
 *Free-form, dated, newest first. Use this for coordination and repo-state exceptions.*
 
-2026-04-19 (Claude): Sprint 60 kickoff on `feature/sprint-60-insights-xray-explainability`. Merged `codex-sprint-59-insights-trend-overhaul` into `master` first (Sprint 59 was unmerged at kickoff time), then branched. Plan file: `~/.claude/plans/lets-plan-the-next-floofy-twilight.md`. Goal: promote Play-Style X-Ray to its own Insights tab, raise Trajectory + Trends to Opportunity's explainability bar, and add lineup-aware teammate swings to MVP Team Impact.
+2026-04-20 (Claude): Sprint 61 kickoff on `feature/sprint-61-shot-lab-polish-and-ops`. Plan file: `~/.claude/plans/plan-sprint-related-to-foamy-corbato.md`. Two backlog themes taken to completion in one sequential single-stream sprint: Shot Lab Visual Polish + Replay Examples, and Shot Intelligence Ops + Materialization. Six workstreams sequenced A1→A2→A3→B1→B2→B3.
+2026-04-19 (Claude): Sprint 60 closed on `feature/sprint-60-insights-xray-explainability` and merged to `master`. Shipped Play-Style X-Ray tab promotion, Trajectory + Trends explainability parity, and MVP lineup-aware teammate on/off swings. 37 new backend tests. Closeout: `specs/sprint-60-closeout.md`.
 2026-04-19 (Codex): Sprint 59 implementation complete on `codex-sprint-59-insights-trend-overhaul`. Shipped Insights Trend Intelligence overhaul with canonical trend card service, expanded team/player trend contract, shared `player_id`/`signal` URL pinning across Trends/Opportunity/Trajectory, active Team Roll-Up tile pinning, and hard deletion of deprecated `/api/insights/usage-efficiency`.
 2026-04-19 (Claude): Sprint 58 closed. Shipped multi-axis Opportunity Workspace replacing USG/TS two-lane board: 5-signal capped z-score service, new /api/insights/opportunity endpoint, full UsageEfficiencyDashboard rewrite, 8 opportunity/ components with hover driver descriptions, and 13 backend tests. Deprecated (not deleted) old usage-efficiency endpoint. Next: hard-delete deprecated endpoint, cross-tab chip in InsightsHeader, opportunity score caching.
 2026-04-19 (Claude): Sprint 57 closed on `feature/sprint-57-insights-revamp` and merged to `master`. Shipped Trajectory two-column revamp with rolling sparklines, driver decomp, clutch/on-off/shot-quality cards, evidence games, lineup context service, shared InsightsHeader, and lineup context integration in MVP + player profile. Closeout: `specs/sprint-57-closeout.md`.
 2026-04-19 (Codex): Sprint 56 closed on `codex/sprint-56-player-impact-profile-clarity` and prepared for merge to `master`. Shipped MVP Team Impact, Voter Room team-impact evidence, Team Impact & Clutch profile panel, player profile cleanup, and Shot Lab tab relocation for action/distance/context workflows. Closeout: `specs/sprint-56-closeout.md`.
-2026-04-19 (Codex): Sprint 56 kicked off on `codex/sprint-56-player-impact-profile-clarity`. Goal: add an MVP Team Impact lens from existing on/off and team context, then clean up player profiles so Shot Lab owns shot analysis without redundant surrounding panels.
 2026-04-19 (Codex): Sprint 55 closed on `codex/sprint-55-shot-lab-intelligence` and prepared for merge to `master`. Shipped Shot Lab Intelligence with `shot_quality_v1`, player and team-defense quality/creation/identity/coverage endpoints, compare and team-defense parity, snapshot intelligence metadata, and coverage-aware methodology. Closeout: `specs/sprint-55-closeout.md`.
-2026-04-19 (Codex): Sprint 55 kicked off on `codex/sprint-55-shot-lab-intelligence`. Goal: make Shot Lab intelligence-ready with quality vs making, creation-context splits, scouting identity, coverage-aware methodology, and player/compare/team-defense parity. Planning inputs: `specs/shot-chart-synopsis-sprint-planning.md` and `specs/shot-lab-intelligence-sprint-spec.md`.
-2026-04-18 (Codex): Sprint 54 closed on `codex/sprint-54-mvp-platform-plus` and merged to `master` at `3f8bf1d`. Shipped Voter Room, MVP player embeds, MVP coverage ops, daily snapshot queueing/freshness, and coverage tests. Closeout: `specs/sprint-54-closeout.md`.
-2026-04-18 (Codex): Sprint 53 closed on `codex/sprint-53-mvp-race-timeline`. Shipped DB-first MVP snapshots, weekly voter timeline, refined MVP methodology v3, methodology explanations throughout `/mvp`, and the DNP-safe PPG fix. Closeout: `specs/sprint-53-closeout.md`.
-2026-04-17 (Claude): Sprint 52 kicked off on `feature/sprint-52-mvp-holistic-case`. Plan file at `~/.claude/plans/i-want-to-plan-declarative-corbato.md`. Goal: remove box-score bias from MVP tracker by introducing transparent scoring profiles (Box-First / Balanced / Impact-Consensus), ingesting external impact metrics (EPM, LEBRON, RAPTOR, PIPM, DARKO, RAPM) with source attribution, adding clutch + opponent-adjusted tables, and shipping four signature visuals: Impact Consensus Radar, Weighting-Sensitivity Slope, Clutch & High-Leverage Card, Signature-Games Timeline. No weight tuning that favors any specific player.
-2026-04-17 (Codex): Sprint 51 implemented on `codex-sprint-51-mvp-gravity-foundation`. Added DB-first MVP context tables for play-type, tracking, hustle, and gravity; official NBA Gravity source spike with CourtVue proxy fallback; MVP `gravity_profile`, `context_adjusted_score`, `/api/mvp/gravity`, Gravity map axis, Gravity case section, and methodology copy. Verification covered MVP/gravity/schema backend tests, official season sync/materialization/standings/shotchart targeted tests, frontend lint, frontend build, and `git diff --check`.
-2026-04-17 (Claude): Sprint 48 closed on `feature/sprint-48-mvp-tracker`. Shipped MVP Award Race Tracker end-to-end: composite z-score service, GET /api/mvp/race endpoint, MvpRacePanel with ranked cards and momentum signals, /mvp page with season picker, and nav link. Single-stream Claude-only sprint. MVP home widget, position filter, and team shooting splits are top follow-ons for Sprint 49. See `specs/sprint-48-closeout.md` before Sprint 49 kickoff.
-2026-04-17 (Claude): Sprint 47 closed on `feature/sprint-47-team-splits-ui`. Shipped full UI wiring of team general splits: TeamSplitsPanel, Splits tab on team page, and situational split signals on prep cards. Single-stream frontend-only sprint. Team shooting splits (DB pipeline) and ComparisonView splits wiring remain as top follow-ons.
-2026-04-17 (Codex): Sprint 46 closeout prepared on `feature/sprint-46-ask-workspace`. Shipped the CourtVue Ask workspace: `POST /api/query/ask`, examples and metric registry endpoints, deterministic player/team query interpretation, threshold filters, recent player/team form, compare deep links, `/ask` UI, sortable/explainable result tables, and nav/home entry points. Verification covered full backend `pytest`, frontend `npm run lint`, and frontend `npm run build`. See `specs/sprint-46-closeout.md` before Sprint 47 kickoff.
-2026-04-16 (Codex): Non-sprint live-QA standings pass completed on `master`. Shipped `2025-26` standings restoration by preferring official `team_season_stats` for totals/advanced metrics, preserving `team_standings` as snapshot fallback, enriching L10/home-away/streak/opponent PPG/recent trend from warehouse final-game rows, and rebuilding the standings page with side-by-side grouped stat views, sortable metric headers, hover definitions, corrected playoff/play-in separators, compact team abbreviations, and last-10 margin mini-graphs. Verification covered targeted `tests/test_standings_route.py`, frontend `npm run lint`, frontend `npm run build`, and local standings API/page smoke checks. See `specs/standings-live-qa-closeout-2026-04-16.md` before the next standings/UI pass.
