@@ -40,7 +40,7 @@ If repo state, sprint numbering, or shipped features appear to disagree across l
 ### Claude
 - Branch: `feature/sprint-60-insights-xray-explainability`
 - Scope: (1) Promote Play-Style X-Ray to a dedicated Insights tab with richer archetypes, neighbor quality bands, movement narrative; (2) Bring Trajectory + Trends up to Opportunity's explainability bar (methodology drawers, hover tooltips, confidence pills, sample-size caveats); (3) Add lineup-aware teammate on/off swings to MVP Team Impact.
-- Status: In progress
+- Status: Complete — ready for review
 
 ### Codex
 - Branch: —

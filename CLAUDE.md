@@ -260,6 +260,13 @@ CourtVue Labs uses a hybrid sprint model: major feature sprints typically run as
 
 > Full history → `specs/sprint-history.md`
 
+### Sprint 60 — Insights X-Ray + Explainability + MVP Team Impact
+
+- Promoted **Play-Style X-Ray** from a What-If stub to a dedicated Insights tab: 9 rule-based archetypes with confidence, neighbor quality bands, feature-delta movement narrative, methodology drawer, and Compare/Prep/What-If handoffs.
+- Raised **Trajectory** and **Trends** to Opportunity's explainability bar: Trajectory driver tooltips (`SIGNAL_DESCRIPTIONS`), new `TrajectoryMethodologyDrawer`, Trends confidence + thin-sample pills on player movers, supporting-stat hover descriptions, expanded Trends methodology drawer with significance bands.
+- Added **lineup-aware teammate on/off swings** to MVP Team Impact: new `MvpTeammateSwing` model, `_teammate_on_off_swings` helper (top 3 partners by shared minutes, both-on vs candidate-only nets, confidence from shared possessions, ≥100-possession gate), rendered in `MvpRacePanel` with thin-sample caveats.
+- Verified with 37 backend tests (15 style x-ray + 7 teammate swings + 15 MVP service), frontend `npm run lint`, `npm run build`, and `git diff --check` clean.
+
 ### Sprint 59 — Insights Trend Intelligence Overhaul
 
 - Rebuilt Trend Cards into a team + player **Trend Intelligence** workspace: team drift cards, player movers, pinned-player foundation detail, methodology, coverage notes, and replay-aware handoffs.
@@ -289,6 +296,8 @@ CourtVue Labs uses a hybrid sprint model: major feature sprints typically run as
 | `master` | — | Stable |
 | `feature/sprint-57-insights-revamp` | Claude | Merged to master |
 | `feature/sprint-58-usage-opportunity-workspace` | Claude | Merged to master |
+| `codex-sprint-59-insights-trend-overhaul` | Codex | Merged to master |
+| `feature/sprint-60-insights-xray-explainability` | Claude | In review |
 
 Sprint branches are created at kickoff and listed in `AGENTS.md`.
 
@@ -340,3 +349,10 @@ Sprint branches are created at kickoff and listed in `AGENTS.md`.
 | `DirectionalHintBanner` | `components/opportunity/` | Conditional green banner with hint text + signal basis chips (Sprint 58) |
 | `MethodologyDrawer` | `components/opportunity/` | Collapsible details: weights, z-score cap, gating thresholds, confidence definitions (Sprint 58) |
 | `TeamRollup` | `components/opportunity/` | Top 3 opportunity drivers across filtered roster with player counts (Sprint 58) |
+| `StyleXRayWorkspace` | `components/` | Dedicated Style X-Ray Insights tab: archetype hero, fingerprint, neighbors, movement, adjacent archetypes (Sprint 60) |
+| `ArchetypeFingerprint` | `components/xray/` | Top style contributors vs league with share bars (Sprint 60) |
+| `NeighborQualityList` | `components/xray/` | Nearest neighbor teams with high/medium/low quality band pills (Sprint 60) |
+| `MovementTimeline` | `components/xray/` | Per-feature z-score delta bars with drift narrative (Sprint 60) |
+| `AdjacentArchetypes` | `components/xray/` | Nearest different archetypes the team is drifting toward (Sprint 60) |
+| `XRayMethodologyDrawer` | `components/xray/` | Collapsible methodology drawer: archetype rules, confidence, neighbor bands, movement thresholds (Sprint 60) |
+| `TrajectoryMethodologyDrawer` | `components/trajectory/` | Signal weights, gating rules, label bands for the trajectory score (Sprint 60) |
