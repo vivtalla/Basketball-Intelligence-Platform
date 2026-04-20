@@ -1,7 +1,9 @@
 "use client";
 
-import { useId, useMemo } from "react";
+import { useId, useMemo, useState, type MouseEvent } from "react";
 import type { ShotChartShot } from "@/lib/types";
+import { confidenceBand } from "@/lib/shotchart-hover";
+import ShotHoverTooltip from "./ShotHoverTooltip";
 import {
   ShotLabLegendItem,
   ShotLabStat,
@@ -160,6 +162,11 @@ export default function ShotSprawlMap({
 }: ShotSprawlMapProps) {
   const reactId = useId();
   const scoped = (suffix: string) => `${idPrefix ?? reactId}-${suffix}`;
+  const [hover, setHover] = useState<{
+    px: number;
+    py: number;
+    nodeIndex: number;
+  } | null>(null);
   const {
     hull,
     coverageSqFt,
@@ -173,7 +180,15 @@ export default function ShotSprawlMap({
       return {
         hull: [] as Array<[number, number]>,
         coverageSqFt: 0,
-        densityNodes: [] as Array<{ x: number; y: number; levelIdx: number; density: number }>,
+        densityNodes: [] as Array<{
+          x: number;
+          y: number;
+          levelIdx: number;
+          density: number;
+          attempts: number;
+          col: number;
+          row: number;
+        }>,
         pressureZones: [] as string[],
         rimShare: 0,
         threeShare: 0,
@@ -205,7 +220,15 @@ export default function ShotSprawlMap({
 
     const smoothed = gaussianBlur(rawGrid);
     const totalShots = shots.length;
-    const nodes: Array<{ x: number; y: number; levelIdx: number; density: number }> = [];
+    const nodes: Array<{
+      x: number;
+      y: number;
+      levelIdx: number;
+      density: number;
+      attempts: number;
+      col: number;
+      row: number;
+    }> = [];
 
     for (let c = 0; c < COLS; c++) {
       for (let r = 0; r < ROWS; r++) {
@@ -223,6 +246,9 @@ export default function ShotSprawlMap({
             y: r * CELL + CELL / 2,
             levelIdx,
             density,
+            attempts: rawGrid[c][r],
+            col: c,
+            row: r,
           });
         }
       }
@@ -267,6 +293,45 @@ export default function ShotSprawlMap({
   const hullPoints = hull.map(([x, y]) => `${x.toFixed(1)},${y.toFixed(1)}`).join(" ");
   const coveragePct = coverageSqFt > 0 ? `${((coverageSqFt / 2350) * 100).toFixed(0)}%` : "—";
   const rimArcLabel = `${Math.round(rimShare * 100)} / ${Math.round(threeShare * 100)}`;
+  const totalShots = shots.length;
+
+  function handleMouseMove(event: MouseEvent<SVGSVGElement>) {
+    if (densityNodes.length === 0) return;
+    const svg = event.currentTarget;
+    const rect = svg.getBoundingClientRect();
+    const scaleX = W / rect.width;
+    const scaleY = H / rect.height;
+    const svgX = (event.clientX - rect.left) * scaleX;
+    const svgY = (event.clientY - rect.top) * scaleY;
+    let bestIdx = -1;
+    let bestDist = Infinity;
+    for (let i = 0; i < densityNodes.length; i++) {
+      const n = densityNodes[i];
+      const dx = n.x - svgX;
+      const dy = n.y - svgY;
+      const d2 = dx * dx + dy * dy;
+      if (d2 < bestDist) {
+        bestDist = d2;
+        bestIdx = i;
+      }
+    }
+    if (bestIdx < 0 || bestDist > CELL * CELL * 4) {
+      setHover(null);
+      return;
+    }
+    setHover({
+      px: event.clientX - rect.left,
+      py: event.clientY - rect.top,
+      nodeIndex: bestIdx,
+    });
+  }
+
+  const hoveredNode = hover ? densityNodes[hover.nodeIndex] : null;
+  const hoveredLevel = hoveredNode
+    ? DENSITY_LEVELS[hoveredNode.levelIdx]
+    : null;
+  const hoveredCellShare =
+    hoveredNode && totalShots > 0 ? hoveredNode.attempts / totalShots : 0;
 
   return (
     <ShotLabSurface
@@ -318,10 +383,13 @@ export default function ShotSprawlMap({
         </>
       }
     >
+      <div className="relative w-full max-w-[36rem] mx-auto">
       <svg
         viewBox={`0 0 ${W} ${H}`}
-        className="w-full max-w-[36rem] mx-auto block"
+        className="w-full block"
         aria-label="Shot sprawl density portrait with softened coverage footprint"
+        onMouseMove={handleMouseMove}
+        onMouseLeave={() => setHover(null)}
       >
         <defs>
           <linearGradient id={scoped("wash")} x1="0%" y1="0%" x2="100%" y2="100%">
@@ -417,6 +485,35 @@ export default function ShotSprawlMap({
           ) : null}
         </g>
       </svg>
+      {hover && hoveredNode && hoveredLevel ? (
+        <div
+          className="pointer-events-none absolute z-10"
+          style={{
+            left: Math.min(hover.px + 14, 320),
+            top: Math.max(hover.py - 12, 0),
+          }}
+        >
+          <ShotHoverTooltip
+            title={hoveredLevel.label}
+            subtitle="Pressure cell"
+            confidence={confidenceBand(hoveredNode.attempts)}
+            rows={[
+              { label: "Attempts in cell", value: String(hoveredNode.attempts) },
+              {
+                label: "Share of FGA",
+                value: `${(hoveredCellShare * 100).toFixed(1)}%`,
+              },
+              {
+                label: "Density",
+                value: `${(hoveredNode.density * 1000).toFixed(1)}‰`,
+              },
+            ]}
+            footnote="Density = smoothed FGA share per cell · 5×5 Gaussian blur"
+            compact
+          />
+        </div>
+      ) : null}
+      </div>
     </ShotLabSurface>
   );
 }

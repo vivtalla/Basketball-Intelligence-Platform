@@ -13,6 +13,12 @@ import {
 import type { ShotChartShot } from "@/lib/types";
 import { LEAGUE_AVG_FG, heatColor } from "@/lib/shotchart-constants";
 import {
+  confidenceBand,
+  formatPct,
+  formatPctDelta,
+} from "@/lib/shotchart-hover";
+import ShotHoverTooltip from "./ShotHoverTooltip";
+import {
   ShotLabLegendItem,
   ShotLabStat,
   ShotLabSurface,
@@ -126,12 +132,6 @@ const LANDMARKS = [
   { dist: 22,   label: "Corner 3" },
   { dist: 23.75, label: "Arc 3" },
 ];
-
-// Format tooltip values
-function fmt(val: number | null | undefined, suffix = ""): string {
-  if (val === null || val === undefined) return "—";
-  return `${(val * 100).toFixed(1)}${suffix}`;
-}
 
 export default function ShotDistanceProfile({
   shots,
@@ -368,19 +368,37 @@ export default function ShotDistanceProfile({
                 content={({ active, payload }) => {
                   if (!active || !payload || payload.length === 0) return null;
                   const d = payload[0].payload as (typeof sparkData)[number];
+                  const actual = d.fgPct !== null ? d.fgPct / 100 : null;
+                  const expected = d.expectedFg / 100;
+                  const delta = actual !== null ? actual - expected : null;
+                  const band = confidenceBand(d.attempts);
                   return (
-                    <div className="rounded-lg border border-[rgba(25,52,42,0.12)] bg-white/95 px-2.5 py-1.5 text-xs shadow-sm">
-                      <p className="font-semibold text-[var(--foreground)]">{d.dist} ft</p>
-                      <p className="text-[var(--muted)]">
-                        FG%: {d.fgPct !== null ? `${d.fgPct.toFixed(1)}%` : "—"}
-                      </p>
-                      <p className="text-[var(--muted)]">
-                        Expected: {fmt(d.expectedFg / 100)}%
-                      </p>
-                      <p className="text-[var(--muted)]">
-                        Attempts: {d.attempts}
-                      </p>
-                    </div>
+                    <ShotHoverTooltip
+                      title={`${d.dist} ft`}
+                      subtitle="Distance bin"
+                      confidence={band}
+                      rows={[
+                        { label: "Attempts", value: String(d.attempts) },
+                        { label: "Actual FG%", value: formatPct(actual) },
+                        {
+                          label: "Expected FG%",
+                          value: formatPct(expected),
+                        },
+                        {
+                          label: "Δ vs expected",
+                          value: formatPctDelta(delta),
+                          tone:
+                            delta === null
+                              ? "neutral"
+                              : delta >= 0.02
+                                ? "positive"
+                                : delta <= -0.02
+                                  ? "negative"
+                                  : "neutral",
+                        },
+                      ]}
+                      compact
+                    />
                   );
                 }}
               />
