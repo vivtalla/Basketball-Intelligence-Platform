@@ -20,8 +20,10 @@ from models.styles import (
     StyleComparisonEntity,
     StyleComparisonResponse,
     StyleFeatureContributor,
+    StyleFeatureMovement,
     StyleLaunchLinks,
     StyleMetricRow,
+    StyleMovement,
     StyleNeighbor,
     StyleScenarioLink,
     StyleScenarioBin,
@@ -359,25 +361,27 @@ def _league_vectors(db: Session, season: str) -> Tuple[Dict[int, Dict[str, Optio
     return profiles, team_names, league_values
 
 
-def _style_xray_label(metrics: Dict[str, Optional[float]], zscores: Dict[str, float]) -> Tuple[str, str, List[StyleFeatureContributor]]:
-    ranked = sorted(
-        ((metric_id, abs(zscore)) for metric_id, zscore in zscores.items() if metric_id in {"pace", "three_point_rate", "ftr", "oreb_rate", "turnover_rate", "transition_rate", "paint_pressure_proxy", "ts_pct"}),
-        key=lambda item: item[1],
-        reverse=True,
-    )
-    contributors: List[StyleFeatureContributor] = []
-    total = sum(score for _, score in ranked[:4]) or 1.0
-    for metric_id, score in ranked[:4]:
-        contributors.append(
-            StyleFeatureContributor(
-                metric_id=metric_id,
-                label=dict((m[0], m[1]) for m in _STYLE_METRICS).get(metric_id, metric_id),
-                value=_safe_round(metrics.get(metric_id), 2),
-                share=_safe_round(score / total, 3),
-                note="One of the strongest style signals for this team.",
-            )
-        )
+_STYLE_CONTRIBUTOR_KEYS = {
+    "pace",
+    "three_point_rate",
+    "ftr",
+    "oreb_rate",
+    "turnover_rate",
+    "transition_rate",
+    "paint_pressure_proxy",
+    "ts_pct",
+    "assist_rate",
+    "def_rating",
+}
 
+
+def classify_archetype(zscores: Dict[str, float]) -> Tuple[str, str, List[float]]:
+    """Classify team archetype from z-scores.
+
+    Returns (archetype, reason, trigger_magnitudes) where trigger_magnitudes is
+    the list of |z| values for the rules that fired. Confidence is derived from
+    these magnitudes downstream.
+    """
     pace_z = zscores.get("pace", 0.0)
     three_z = zscores.get("three_point_rate", 0.0)
     ftr_z = zscores.get("ftr", 0.0)
@@ -386,18 +390,112 @@ def _style_xray_label(metrics: Dict[str, Optional[float]], zscores: Dict[str, fl
     trans_z = zscores.get("transition_rate", 0.0)
     paint_z = zscores.get("paint_pressure_proxy", 0.0)
     ts_z = zscores.get("ts_pct", 0.0)
+    ast_z = zscores.get("assist_rate", 0.0)
+    def_z = zscores.get("def_rating", 0.0)
 
+    # Order matters: more specific archetypes first.
+    if ast_z >= 0.6 and three_z >= 0.6 and ts_z >= 0.3:
+        return (
+            "Spread Pick-and-Roll",
+            "Ball movement and perimeter volume combine into an orchestrated spread-PnR identity.",
+            [abs(ast_z), abs(three_z), abs(ts_z)],
+        )
+    if trans_z >= 0.6 and def_z <= -0.5:
+        return (
+            "Transition Defense Disruptors",
+            "Defense forces stops and the team cashes them in transition.",
+            [abs(trans_z), abs(def_z)],
+        )
     if pace_z >= 0.8 and three_z >= 0.7:
-        return "Tempo + Spacing", "The team plays faster than average and leans into perimeter volume.", contributors
-    if pace_z <= -0.6 and (ftr_z >= 0.7 or paint_z >= 0.7):
-        return "Halfcourt Interior Pressure", "The team slows the game and leans into paint/pressure possessions.", contributors
-    if tov_z <= -0.7 and ts_z >= 0.4:
-        return "Control + Efficiency", "The team protects possessions and converts them into cleaner scoring chances.", contributors
+        return (
+            "Tempo + Spacing",
+            "The team plays faster than average and leans into perimeter volume.",
+            [abs(pace_z), abs(three_z)],
+        )
     if trans_z >= 0.7 and pace_z >= 0.5:
-        return "Run-and-Pressure", "The team creates an up-tempo game with transition-like possessions.", contributors
+        return (
+            "Run-and-Pressure",
+            "The team creates an up-tempo game with transition-like possessions.",
+            [abs(trans_z), abs(pace_z)],
+        )
+    if pace_z <= -0.6 and (ftr_z >= 0.7 or paint_z >= 0.7):
+        return (
+            "Halfcourt Interior Pressure",
+            "The team slows the game and leans into paint/pressure possessions.",
+            [abs(pace_z), max(abs(ftr_z), abs(paint_z))],
+        )
+    if pace_z <= -0.3 and ast_z <= -0.5 and three_z <= 0.2:
+        return (
+            "Iso-Heavy Halfcourt",
+            "Slower tempo with below-average ball movement and limited perimeter diet — possessions lean on individual creation.",
+            [abs(pace_z), abs(ast_z)],
+        )
     if oreb_z >= 0.7 and three_z <= 0.1:
-        return "Glass and Grind", "The team leans on second-chance pressure and slower possessions.", contributors
-    return "Balanced", "No single style vector overwhelms the profile, so the team sits near the middle.", contributors
+        return (
+            "Glass and Grind",
+            "The team leans on second-chance pressure and slower possessions.",
+            [abs(oreb_z), abs(three_z)],
+        )
+    if tov_z <= -0.7 and ts_z >= 0.4:
+        return (
+            "Control + Efficiency",
+            "The team protects possessions and converts them into cleaner scoring chances.",
+            [abs(tov_z), abs(ts_z)],
+        )
+    if def_z <= -0.8:
+        return (
+            "Defensive Anchor",
+            "Elite defensive rating shapes the identity more than any offensive lean.",
+            [abs(def_z)],
+        )
+    return (
+        "Balanced",
+        "No single style vector overwhelms the profile, so the team sits near the middle.",
+        [],
+    )
+
+
+def _archetype_confidence(trigger_magnitudes: List[float]) -> str:
+    if not trigger_magnitudes:
+        return "low"
+    avg = sum(trigger_magnitudes) / float(len(trigger_magnitudes))
+    if avg >= 1.0:
+        return "high"
+    if avg >= 0.6:
+        return "medium"
+    return "low"
+
+
+def _style_xray_label(
+    metrics: Dict[str, Optional[float]],
+    zscores: Dict[str, float],
+) -> Tuple[str, str, List[StyleFeatureContributor], str]:
+    ranked = sorted(
+        (
+            (metric_id, abs(zscore))
+            for metric_id, zscore in zscores.items()
+            if metric_id in _STYLE_CONTRIBUTOR_KEYS
+        ),
+        key=lambda item: item[1],
+        reverse=True,
+    )
+    contributors: List[StyleFeatureContributor] = []
+    total = sum(score for _, score in ranked[:4]) or 1.0
+    label_lookup = {m[0]: m[1] for m in _STYLE_METRICS}
+    for metric_id, score in ranked[:4]:
+        contributors.append(
+            StyleFeatureContributor(
+                metric_id=metric_id,
+                label=label_lookup.get(metric_id, metric_id),
+                value=_safe_round(metrics.get(metric_id), 2),
+                share=_safe_round(score / total, 3),
+                note="One of the strongest style signals for this team.",
+            )
+        )
+
+    archetype, reason, trigger_magnitudes = classify_archetype(zscores)
+    confidence = _archetype_confidence(trigger_magnitudes)
+    return archetype, reason, contributors, confidence
 
 
 def _neighbor_summary(target: Dict[str, Optional[float]], other: Dict[str, Optional[float]]) -> float:
@@ -410,6 +508,108 @@ def _neighbor_summary(target: Dict[str, Optional[float]], other: Dict[str, Optio
             continue
         distances.append((tv - ov) ** 2)
     return math.sqrt(sum(distances)) if distances else 999.0
+
+
+def classify_neighbor_quality(distance: float, all_distances: List[float]) -> str:
+    """Band a neighbor's Euclidean distance against the league-wide distribution.
+
+    `all_distances` is the sorted list of distances from this team to every
+    other team. Closest third -> high, middle third -> medium, farthest third
+    -> low. Degenerate cases fall back to "medium".
+    """
+    if not all_distances:
+        return "medium"
+    sorted_d = sorted(all_distances)
+    n = len(sorted_d)
+    if n < 3:
+        return "high" if distance <= sorted_d[0] else "medium"
+    high_cutoff = sorted_d[max(0, n // 3 - 1)]
+    medium_cutoff = sorted_d[max(0, (2 * n) // 3 - 1)]
+    if distance <= high_cutoff:
+        return "high"
+    if distance <= medium_cutoff:
+        return "medium"
+    return "low"
+
+
+_MOVEMENT_FEATURE_KEYS: List[str] = [
+    "pace",
+    "three_point_rate",
+    "ftr",
+    "oreb_rate",
+    "turnover_rate",
+    "transition_rate",
+    "paint_pressure_proxy",
+    "ts_pct",
+    "assist_rate",
+]
+
+
+def build_style_movement(
+    baseline_zscores: Dict[str, float],
+    recent_zscores: Dict[str, float],
+    drift_archetype: Optional[str],
+    archetype: str,
+    window_games: int,
+) -> StyleMovement:
+    """Per-feature z-score deltas between season baseline and recent window."""
+    label_lookup = {m[0]: m[1] for m in _STYLE_METRICS}
+    features: List[StyleFeatureMovement] = []
+    for metric_id in _MOVEMENT_FEATURE_KEYS:
+        baseline = baseline_zscores.get(metric_id)
+        recent = recent_zscores.get(metric_id)
+        if baseline is None or recent is None:
+            continue
+        delta = recent - baseline
+        if abs(delta) < 0.25:
+            direction = "stable"
+        elif delta > 0:
+            direction = "gaining"
+        else:
+            direction = "fading"
+        features.append(
+            StyleFeatureMovement(
+                metric_id=metric_id,
+                label=label_lookup.get(metric_id, metric_id),
+                baseline_z=_safe_round(baseline, 2),
+                recent_z=_safe_round(recent, 2),
+                delta_z=_safe_round(delta, 2),
+                direction=direction,  # type: ignore[arg-type]
+            )
+        )
+
+    movers = sorted(
+        [f for f in features if f.direction != "stable"],
+        key=lambda f: abs(f.delta_z or 0.0),
+        reverse=True,
+    )
+    if not movers:
+        narrative = "Recent window looks stable across the main style vectors."
+    else:
+        phrases = []
+        for feature in movers[:3]:
+            sign = "+" if (feature.delta_z or 0.0) > 0 else ""
+            phrases.append(
+                "{0} {1} ({2}{3} z)".format(
+                    feature.label.lower(),
+                    feature.direction,
+                    sign,
+                    feature.delta_z,
+                )
+            )
+        tail = ""
+        if drift_archetype and drift_archetype != archetype:
+            tail = " — recent window resembles {0}.".format(drift_archetype)
+        else:
+            tail = "."
+        narrative = "Over the last window: " + ", ".join(phrases) + tail
+
+    return StyleMovement(
+        narrative=narrative,
+        drift_archetype=drift_archetype if drift_archetype and drift_archetype != archetype else None,
+        window_games=window_games,
+        features=features,
+    )
 
 
 def _zscore(values: List[Optional[float]], value: Optional[float]) -> float:
@@ -579,7 +779,7 @@ def build_style_xray_report(
         metric_id: _zscore([metrics.get(metric_id) for metrics in all_profiles.values()], current_metrics.get(metric_id))
         for metric_id in current_metrics.keys()
     }
-    archetype, label_reason, contributors = _style_xray_label(current_metrics, zscores)
+    archetype, label_reason, contributors, archetype_confidence = _style_xray_label(current_metrics, zscores)
 
     neighbor_rows: List[Tuple[float, int, Dict[str, Optional[float]]]] = []
     for team_id, metrics in all_profiles.items():
@@ -588,6 +788,7 @@ def build_style_xray_report(
         distance = _neighbor_summary(current_metrics, metrics)
         neighbor_rows.append((distance, team_id, metrics))
     neighbor_rows.sort(key=lambda item: item[0])
+    all_distances = [row[0] for row in neighbor_rows]
 
     nearest_neighbors: List[StyleNeighbor] = []
     for distance, team_id, metrics in neighbor_rows[:5]:
@@ -598,13 +799,14 @@ def build_style_xray_report(
             metric_id: _zscore([metrics2.get(metric_id) for metrics2 in all_profiles.values()], metrics.get(metric_id))
             for metric_id in metrics.keys()
         }
-        other_archetype, other_reason, _ = _style_xray_label(metrics, other_zscores)
+        other_archetype, other_reason, _, _ = _style_xray_label(metrics, other_zscores)
         nearest_neighbors.append(
             StyleNeighbor(
                 team_abbreviation=other_team.abbreviation,
                 team_name=other_team.name,
                 archetype=other_archetype,
                 distance=_safe_round(distance, 3) or 0.0,
+                quality=classify_neighbor_quality(distance, all_distances),  # type: ignore[arg-type]
                 net_rating=_safe_round(metrics.get("net_rating"), 2),
                 summary=other_reason,
             )
@@ -622,13 +824,21 @@ def build_style_xray_report(
         metric_id: _zscore([metrics.get(metric_id) for metrics in all_profiles.values()], value)
         for metric_id, value in recent_metrics_dict.items()
     }
-    recent_archetype, _, _ = _style_xray_label(recent_metrics_dict, recent_zscores)
+    recent_archetype, _, _, _ = _style_xray_label(recent_metrics_dict, recent_zscores)
     if recent_archetype == archetype:
         stability = "stable"
     elif sum(abs(zscores.get(metric_id, 0.0) - recent_zscores.get(metric_id, 0.0)) for metric_id in recent_zscores.keys()) <= 2.0:
         stability = "watch"
     else:
         stability = "shifted"
+
+    movement = build_style_movement(
+        baseline_zscores=zscores,
+        recent_zscores=recent_zscores,
+        drift_archetype=recent_archetype,
+        archetype=archetype,
+        window_games=window,
+    )
 
     warnings: List[str] = []
     if len(nearest_neighbors) < 3:
@@ -715,11 +925,13 @@ def build_style_xray_report(
         season=season,
         window_games=window,
         archetype=archetype,
+        archetype_confidence=archetype_confidence,  # type: ignore[arg-type]
         label_reason=label_reason,
         feature_contributors=contributors,
         nearest_neighbors=nearest_neighbors,
         adjacent_archetypes=adjacent_archetypes,
         stability=stability,  # type: ignore[arg-type]
+        movement=movement,
         scenario_links=scenario_links,
         launch_links=StyleLaunchLinks(prep_url=prep_url, compare_url=compare_url),
         source_context={
