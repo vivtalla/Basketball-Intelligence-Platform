@@ -1522,7 +1522,24 @@ export interface StyleNeighbor {
   net_rating: number | null;
   season: string;
   distance: number;
+  quality?: "high" | "medium" | "low";
   summary: string;
+}
+
+export interface StyleFeatureMovement {
+  metric_id: string;
+  label: string;
+  baseline_z: number | null;
+  recent_z: number | null;
+  delta_z: number | null;
+  direction: "gaining" | "stable" | "fading";
+}
+
+export interface StyleMovement {
+  narrative: string;
+  drift_archetype: string | null;
+  window_games: number;
+  features: StyleFeatureMovement[];
 }
 
 export interface StyleScenarioLink {
@@ -1541,8 +1558,10 @@ export interface StyleXRayResponse {
   season: string;
   window_games: number;
   archetype: string;
+  archetype_confidence?: "high" | "medium" | "low";
   label_reason: string;
   stability: string;
+  movement?: StyleMovement | null;
   feature_contributors: Array<{
     metric_id: string;
     label: string;

@@ -6,10 +6,11 @@ import { TrajectoryTracker } from "@/components/TrajectoryTracker";
 import UsageEfficiencyDashboard from "@/components/UsageEfficiencyDashboard";
 import TrendCardsPanel from "@/components/TrendCardsPanel";
 import WhatIfPanel from "@/components/WhatIfPanel";
+import StyleXRayWorkspace from "@/components/StyleXRayWorkspace";
 import { InsightsHeader } from "@/components/InsightsHeader";
 import { useTeamAnalytics, useTeams } from "@/hooks/usePlayerStats";
 
-type Mode = "trajectory" | "usage" | "trends" | "whatif";
+type Mode = "trajectory" | "usage" | "trends" | "xray" | "whatif";
 
 const SEASONS = ["2025-26", "2024-25", "2023-24", "2022-23"];
 
@@ -19,7 +20,10 @@ function InsightsPageInner() {
   const { data: teams } = useTeams();
   const modeParam = searchParams.get("tab");
   const mode: Mode =
-    modeParam === "usage" || modeParam === "trends" || modeParam === "whatif"
+    modeParam === "usage" ||
+    modeParam === "trends" ||
+    modeParam === "whatif" ||
+    modeParam === "xray"
       ? (modeParam as Mode)
       : "trajectory";
   const team = searchParams.get("team") ?? "OKC";
@@ -91,6 +95,13 @@ function InsightsPageInner() {
           signal={signal}
           onPlayerPin={(id) => handleParamChange("player_id", id == null ? null : String(id))}
           onSignalChange={(value) => handleParamChange("signal", value || null)}
+        />
+      ) : mode === "xray" ? (
+        <StyleXRayWorkspace
+          team={team}
+          season={season}
+          opponent={opponent || null}
+          onModeChange={(m) => handleModeChange(m)}
         />
       ) : (
         <WhatIfPanel

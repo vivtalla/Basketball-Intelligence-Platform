@@ -2,7 +2,7 @@
 
 import type { TeamSummary } from "@/lib/types";
 
-type Mode = "trajectory" | "usage" | "trends" | "whatif";
+type Mode = "trajectory" | "usage" | "trends" | "xray" | "whatif";
 
 interface Props {
   mode: Mode;
@@ -22,6 +22,7 @@ const TABS: { key: Mode; label: string }[] = [
   { key: "trajectory", label: "Trajectory Tracker" },
   { key: "usage", label: "Usage vs Efficiency" },
   { key: "trends", label: "Trend Cards" },
+  { key: "xray", label: "Style X-Ray" },
   { key: "whatif", label: "What-If" },
 ];
 
