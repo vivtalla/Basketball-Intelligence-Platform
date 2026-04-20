@@ -2904,6 +2904,17 @@ export interface MvpOnOffProfile {
   confidence: "high" | "medium" | "low";
 }
 
+export interface MvpTeammateSwing {
+  teammate_id: number;
+  teammate_name: string;
+  shared_minutes: number | null;
+  shared_possessions: number | null;
+  both_on_net: number | null;
+  candidate_without_teammate_net: number | null;
+  swing: number | null;
+  confidence: "high" | "medium" | "low";
+}
+
 export interface MvpTeamImpactProfile {
   team_abbreviation: string | null;
   team_net_rating: number | null;
@@ -2922,6 +2933,7 @@ export interface MvpTeamImpactProfile {
   off_def_rating: number | null;
   confidence: "high" | "medium" | "low";
   notes: string[];
+  teammate_swings?: MvpTeammateSwing[];
 }
 
 export interface MvpAdvancedProfile {
