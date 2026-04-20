@@ -4,7 +4,6 @@ import Link from "next/link";
 import { useState } from "react";
 import {
   useOpportunityReport,
-  useTeams,
 } from "@/hooks/usePlayerStats";
 import { useLineupContext } from "@/hooks/useTrajectory";
 import type { OpportunityPlayerRow, OpportunitySignal } from "@/lib/types";
@@ -24,6 +23,15 @@ import {
 
 type SignalFilter = "all" | OpportunitySignal;
 
+interface UsageEfficiencyDashboardProps {
+  season: string;
+  team: string;
+  pinnedPlayerId: number | null;
+  signal: string;
+  onPlayerPin: (playerId: number | null) => void;
+  onSignalChange: (signal: string | null) => void;
+}
+
 const POSITION_OPTIONS: Array<{ value: string; label: string }> = [
   { value: "", label: "All positions" },
   { value: "G", label: "Guards" },
@@ -40,15 +48,23 @@ const SIGNAL_FILTER_OPTIONS: Array<{ value: SignalFilter; label: string }> = [
   { value: "cohort_percentile", label: SIGNAL_LABELS.cohort_percentile },
 ];
 
-export default function UsageEfficiencyDashboard() {
-  const [season, setSeason] = useState("2025-26");
-  const [team, setTeam] = useState("");
+function isSignalFilter(value: string): value is OpportunitySignal {
+  return SIGNAL_FILTER_OPTIONS.some((option) => option.value === value && value !== "all");
+}
+
+export default function UsageEfficiencyDashboard({
+  season,
+  team,
+  pinnedPlayerId,
+  signal,
+  onPlayerPin,
+  onSignalChange,
+}: UsageEfficiencyDashboardProps) {
   const [position, setPosition] = useState("");
   const [minMinutes, setMinMinutes] = useState(15);
-  const [signalFilter, setSignalFilter] = useState<SignalFilter>("all");
   const [selectedId, setSelectedId] = useState<number | null>(null);
+  const signalFilter: SignalFilter = isSignalFilter(signal) ? signal : "all";
 
-  const { data: teams } = useTeams();
   const { data: report, isLoading, error } = useOpportunityReport(
     season,
     team || null,
@@ -64,11 +80,30 @@ export default function UsageEfficiencyDashboard() {
       : allRows.filter((r) => r.top_driver === signalFilter);
 
   const selectedMatch =
-    selectedId != null
-      ? filteredRows.find((r) => r.player_id === selectedId)
+    (pinnedPlayerId ?? selectedId) != null
+      ? filteredRows.find((r) => r.player_id === (pinnedPlayerId ?? selectedId))
       : undefined;
   const selectedRow: OpportunityPlayerRow | null =
     selectedMatch ?? filteredRows[0] ?? null;
+
+  function handleSignalSelect(nextSignal: SignalFilter) {
+    onSignalChange(nextSignal === "all" ? null : nextSignal);
+  }
+
+  function handleRollupSelect(nextSignal: string) {
+    if (!isSignalFilter(nextSignal)) return;
+    const firstMatch = allRows.find((row) => row.top_driver === nextSignal);
+    handleSignalSelect(nextSignal);
+    if (firstMatch) {
+      setSelectedId(firstMatch.player_id);
+      onPlayerPin(firstMatch.player_id);
+    }
+  }
+
+  function handlePlayerSelect(playerId: number) {
+    setSelectedId(playerId);
+    onPlayerPin(playerId);
+  }
 
   // Hooks must be pre-allocated: always call useLineupContext, even when no player.
   const lineupCtxQuery = useLineupContext(
@@ -94,39 +129,14 @@ export default function UsageEfficiencyDashboard() {
             </p>
           </div>
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-            <label className="space-y-2">
+            <div className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] px-4 py-3">
               <span className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--muted)]">
-                Season
+                Context
               </span>
-              <select
-                value={season}
-                onChange={(e) => setSeason(e.target.value)}
-                className="bip-input w-full rounded-2xl px-4 py-3 text-sm"
-              >
-                {["2025-26", "2024-25", "2023-24", "2022-23"].map((s) => (
-                  <option key={s} value={s}>
-                    {s}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <label className="space-y-2">
-              <span className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--muted)]">
-                Team
-              </span>
-              <select
-                value={team}
-                onChange={(e) => setTeam(e.target.value)}
-                className="bip-input w-full rounded-2xl px-4 py-3 text-sm"
-              >
-                <option value="">All teams</option>
-                {(teams ?? []).map((t) => (
-                  <option key={t.abbreviation} value={t.abbreviation}>
-                    {t.abbreviation} · {t.name}
-                  </option>
-                ))}
-              </select>
-            </label>
+              <div className="mt-1 text-sm font-semibold text-[var(--foreground)]">
+                {team || "All teams"} · {season}
+              </div>
+            </div>
             <label className="space-y-2">
               <span className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--muted)]">
                 Position
@@ -167,7 +177,7 @@ export default function UsageEfficiencyDashboard() {
             <button
               key={opt.value}
               type="button"
-              onClick={() => setSignalFilter(opt.value)}
+              onClick={() => handleSignalSelect(opt.value)}
               title={
                 opt.value === "all"
                   ? "Show every candidate regardless of which driver is leading their Opportunity Score."
@@ -185,7 +195,9 @@ export default function UsageEfficiencyDashboard() {
         </div>
       </section>
 
-      {report?.team_rollup ? <TeamRollup report={report} /> : null}
+      {report?.team_rollup ? (
+        <TeamRollup report={report} onSelectSignal={handleRollupSelect} />
+      ) : null}
 
       {error ? (
         <section className="rounded-[1.25rem] border border-[rgba(159,63,49,0.24)] bg-[rgba(159,63,49,0.08)] px-5 py-4 text-sm text-[var(--danger-ink)]">
@@ -230,7 +242,7 @@ export default function UsageEfficiencyDashboard() {
                   row={r}
                   rank={i + 1}
                   isSelected={selectedRow?.player_id === r.player_id}
-                  onSelect={() => setSelectedId(r.player_id)}
+                  onSelect={() => handlePlayerSelect(r.player_id)}
                 />
               ))
             ) : (
@@ -273,7 +285,7 @@ export default function UsageEfficiencyDashboard() {
                   </div>
                   <div className="flex items-center gap-2">
                     <Link
-                      href={`/insights?tab=trajectory`}
+                      href={`/insights?tab=trajectory&team=${selectedRow.team_abbreviation}&season=${season}&player_id=${selectedRow.player_id}`}
                       className="rounded-full border border-[var(--border)] bg-[var(--surface)] px-3 py-1 text-[11px] font-medium text-[var(--muted-strong)] transition hover:border-[var(--accent-strong)] hover:text-[var(--accent-strong)]"
                     >
                       See Trajectory →

@@ -24,7 +24,11 @@ function InsightsPageInner() {
       : "trajectory";
   const team = searchParams.get("team") ?? "OKC";
   const opponent = searchParams.get("opponent") ?? "";
-  const season = searchParams.get("season") ?? "2024-25";
+  const season = searchParams.get("season") ?? "2025-26";
+  const playerIdParam = searchParams.get("player_id");
+  const playerId = playerIdParam ? Number(playerIdParam) : null;
+  const selectedPlayerId = Number.isFinite(playerId) ? playerId : null;
+  const signal = searchParams.get("signal") ?? "";
   const priorSeasonIndex = SEASONS.indexOf(season);
   const priorSeason =
     priorSeasonIndex >= 0 && priorSeasonIndex < SEASONS.length - 1
@@ -57,17 +61,37 @@ function InsightsPageInner() {
         team={team}
         season={season}
         opponent={opponent}
+        playerId={selectedPlayerId}
+        signal={signal}
         teams={teams ?? []}
         onModeChange={handleModeChange}
         onParamChange={handleParamChange}
       />
 
       {mode === "trajectory" ? (
-        <TrajectoryTracker />
+        <TrajectoryTracker
+          initialTeam={team}
+          pinnedPlayerId={selectedPlayerId}
+          onPlayerPin={(id) => handleParamChange("player_id", id == null ? null : String(id))}
+        />
       ) : mode === "usage" ? (
-        <UsageEfficiencyDashboard />
+        <UsageEfficiencyDashboard
+          season={season}
+          team={team}
+          pinnedPlayerId={selectedPlayerId}
+          signal={signal}
+          onPlayerPin={(id) => handleParamChange("player_id", id == null ? null : String(id))}
+          onSignalChange={(value) => handleParamChange("signal", value || null)}
+        />
       ) : mode === "trends" ? (
-        <TrendCardsPanel teamAbbreviation={team} season={season} />
+        <TrendCardsPanel
+          teamAbbreviation={team}
+          season={season}
+          pinnedPlayerId={selectedPlayerId}
+          signal={signal}
+          onPlayerPin={(id) => handleParamChange("player_id", id == null ? null : String(id))}
+          onSignalChange={(value) => handleParamChange("signal", value || null)}
+        />
       ) : (
         <WhatIfPanel
           teamAbbreviation={team}

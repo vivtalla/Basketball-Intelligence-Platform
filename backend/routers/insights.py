@@ -15,12 +15,10 @@ from models.insights import (
     OpportunityResponse,
     TrajectoryResponse,
     TrajectorySeriesResponse,
-    UsageEfficiencyResponse,
 )
 from services.lineup_context_service import build_lineup_context
 from services.opportunity_service import build_opportunity_report
 from services.trajectory_service import build_trajectory_report, build_trajectory_series
-from services.usage_efficiency_service import build_usage_efficiency_report
 
 router = APIRouter()
 
@@ -136,25 +134,6 @@ def get_lineup_context(
     db: Session = Depends(get_db),
 ):
     return build_lineup_context(db=db, player_id=player_id, season=season)
-
-
-@router.get("/usage-efficiency", response_model=UsageEfficiencyResponse, deprecated=True)
-def get_usage_efficiency(
-    season: str = Query("2024-25"),
-    team: Optional[str] = Query(None),
-    min_minutes: float = Query(20.0, ge=0),
-    db: Session = Depends(get_db),
-):
-    # DEPRECATED (Sprint 58): replaced by /api/insights/opportunity which exposes a
-    # multi-axis Opportunity Score framework (efficiency-load, team impact, lineup
-    # synergy, role fit, cohort percentile) with confidence bands and directional
-    # hints. Route retained for any external consumers; frontend no longer calls it.
-    return build_usage_efficiency_report(
-        db=db,
-        season=season,
-        team=team,
-        min_minutes=min_minutes,
-    )
 
 
 @router.get("/opportunity", response_model=OpportunityResponse)

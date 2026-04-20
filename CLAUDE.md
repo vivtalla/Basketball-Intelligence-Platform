@@ -260,34 +260,25 @@ CourtVue Labs uses a hybrid sprint model: major feature sprints typically run as
 
 > Full history → `specs/sprint-history.md`
 
-### Sprint 57 — Insights Revamp: Trajectory Depth + Lineup Context
+### Sprint 59 — Insights Trend Intelligence Overhaul
 
-- Redesigned Trajectory Tracker into a two-column multi-signal workspace: ranked list with inline driver decomposition bars, detail panel with rolling sparklines (Recharts), clutch split, on/off swing, shot-quality delta, and evidence-game chips linking to Game Explorer.
-- Extended `TrajectoryPlayerRow` with position percentile (0–100 via normal CDF), all driver contributions, top evidence games, clutch context, on/off context, and recent/baseline averages.
-- Added `GET /api/insights/trajectory/{player_id}/series` for per-game sparkline time-series.
-- Added `lineup_context_service.py` and `GET /api/insights/lineup-context/{player_id}` — top 5 teammates by shared possessions (≥100 poss gate), LIKE false-positive guard.
-- Extracted shared `InsightsHeader` component with cross-tab handoff chips for all four insights tabs.
-- Integrated lineup context collapsibles into MVP Team Impact and player-profile Team Impact & Clutch.
-- Verified with 17 backend tests (all pass), frontend `npm run lint`, frontend `npm run build`, and `git diff --check`.
+- Rebuilt Trend Cards into a team + player **Trend Intelligence** workspace: team drift cards, player movers, pinned-player foundation detail, methodology, coverage notes, and replay-aware handoffs.
+- Made `backend/services/trend_card_service.py` the canonical trend-card service; `/api/trends/cards` now accepts optional `player_id` and `signal`.
+- Expanded the trend response contract with `data_status`, `overview`, `player_movers`, `pinned_player`, and foundation signal coverage.
+- Wired shared `player_id` / `signal` URL state through `InsightsHeader`, Trends, Opportunity, and Trajectory.
+- Made Opportunity Team Roll-Up tiles actionable: selecting a driver pins the first qualifying player and applies the signal filter.
+- Hard-deleted deprecated `/api/insights/usage-efficiency`, the old backend service/models, frontend API/hook/types, and orphan `UsageBurdenMatrix`.
+- Verified with 30 targeted backend tests, frontend `npm run lint`, frontend `npm run build`, local API/page smokes, and `git diff --check`.
 
 ### Sprint 58 — Usage vs Efficiency: Opportunity Workspace
 
 - Replaced two-lane USG/TS board with a multi-axis **Opportunity Workspace**: 5 capped z-scores (±2.0) per position bucket (G/F/C) — efficiency-load gap, team impact swing, lineup synergy lift, role-fit gap, cohort position — weighted into a composite `opportunity_score`.
 - New `opportunity_service.py`: bulk lineup synergy (single `LineupStats` query, Python partition), confidence bands (high/medium/low), directional hints with `hint_basis`, team roll-up of top 3 drivers across roster.
-- New `GET /api/insights/opportunity` with methodology block in response; deprecated `/api/insights/usage-efficiency` (kept live).
+- New `GET /api/insights/opportunity` with methodology block in response; deprecated `/api/insights/usage-efficiency` at sprint close, then hard-deleted in Sprint 59.
 - Full `UsageEfficiencyDashboard.tsx` rewrite: two-column workspace with team/position/signal filters, ranked `OpportunityRow` list, and detail panel with 4 cards + hint banner + methodology drawer.
 - 8 new `opportunity/` components: `OpportunityDriverBar` (with `SIGNAL_DESCRIPTIONS` hover tooltips), `OpportunityRow`, `EfficiencyLoadCard`, `TeamImpactCard`, `RoleFitCard`, `CohortPositionCard`, `DirectionalHintBanner`, `MethodologyDrawer`, `TeamRollup`.
 - Deleted `UsageLoadBoard.tsx` (superseded).
 - Verified with 13 new backend tests (all pass), frontend `npm run lint`, frontend `npm run build`, and `git diff --check`.
-
-### Sprint 56 — Player Impact + Profile Clarity
-
-- Added additive MVP Team Impact contracts with team net rating, candidate game W-L, on/off net swing, on/off ORTG/DRTG, minutes, confidence, and explanatory notes.
-- Added a dedicated Team Impact lens to `/mvp` candidate detail and Team Impact evidence in Voter Room comparisons.
-- Reworked player-page play-by-play context into **Team Impact & Clutch** with clearer on/off caveats.
-- Cleaned the player profile by removing low-value default `ShotSeasonEvolution` and the standalone `ZoneProfilePanel`.
-- Preserved unique Shot Lab workflows inside the right views: action fingerprint and distance profile in Diet, recent filtered shots and Game Explorer links in Creation.
-- Verified with targeted MVP backend tests, frontend `npm run lint`, frontend `npm run build`, and `git diff --check`.
 
 ---
 

@@ -17,7 +17,6 @@ import type {
   TeamRotationReport,
   TeamComparisonResponse,
   TeamFocusLeversReport,
-  UsageEfficiencyResponse,
   OpportunityResponse,
   PreReadDeckResponse,
   PreReadSnapshotListResponse,
@@ -94,7 +93,6 @@ import {
   getTeamRotationReport,
   getTeamComparison,
   getTeamFocusLevers,
-  getUsageEfficiencyReport,
   fetchOpportunityReport,
   getPreReadDeck,
   getPreReadSnapshots,
@@ -595,17 +593,6 @@ export function useFollowThroughReport(
   );
 }
 
-export function useUsageEfficiencyReport(
-  season: string | null,
-  team?: string,
-  minMinutes = 20
-) {
-  return useSWR<UsageEfficiencyResponse>(
-    season ? `usage-efficiency-${season}-${team ?? "all"}-${minMinutes}` : null,
-    () => getUsageEfficiencyReport(season!, team, minMinutes)
-  );
-}
-
 export function useOpportunityReport(
   season: string | null,
   team?: string | null,
@@ -623,11 +610,15 @@ export function useOpportunityReport(
 export function useTrendCards(
   team: string | null,
   season: string | null,
-  window = 10
+  window = 10,
+  playerId?: number | null,
+  signal?: string | null
 ) {
   return useSWR<TrendCardsResponse>(
-    team && season ? `trend-cards-${team}-${season}-${window}` : null,
-    () => getTrendCards(team!, season!, window)
+    team && season
+      ? `trend-cards-${team}-${season}-${window}-${playerId ?? "none"}-${signal ?? "all"}`
+      : null,
+    () => getTrendCards(team!, season!, window, playerId ?? null, signal ?? null)
   );
 }
 

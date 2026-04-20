@@ -97,38 +97,6 @@ class LineupContextResponse(BaseModel):
     notes: List[str] = []
 
 
-class UsageEfficiencyPlayerRow(BaseModel):
-    player_id: int
-    player_name: str
-    team_abbreviation: str
-    minutes_pg: Optional[float] = None
-    usg_pct: Optional[float] = None
-    ts_pct: Optional[float] = None
-    off_rating: Optional[float] = None
-    pts_pg: Optional[float] = None
-    ast_pg: Optional[float] = None
-    tov_pg: Optional[float] = None
-    burden_score: Optional[float] = None
-    efficiency_score: Optional[float] = None
-    category: str
-
-
-class UsageEfficiencySuggestion(BaseModel):
-    player_name: str
-    category: str
-    suggestion: str
-
-
-class UsageEfficiencyResponse(BaseModel):
-    season: str
-    team: Optional[str] = None
-    min_minutes: float
-    overused_inefficients: List[UsageEfficiencyPlayerRow]
-    underused_efficients: List[UsageEfficiencyPlayerRow]
-    suggestions: List[UsageEfficiencySuggestion]
-    warnings: List[str]
-
-
 class OpportunityDriverContribution(BaseModel):
     signal: str  # one of: efficiency_load_gap, team_impact_swing, lineup_synergy_lift, role_fit_gap, cohort_percentile
     z_score: float  # capped [-2.0, 2.0]

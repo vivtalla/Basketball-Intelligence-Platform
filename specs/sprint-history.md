@@ -652,3 +652,18 @@ Eliminated live NBA API calls on every player profile load:
 - Deleted `UsageLoadBoard.tsx` (retired).
 - 13 new backend tests covering all z-score signal paths, capping, confidence bands, directional hint triggers, possession gate, team rollup, position filter, and empty-pool edge case.
 - Verified with `npm run lint`, `npm run build`, and `git diff --check`.
+
+---
+
+### Sprint 59 — Insights Trend Intelligence Overhaul
+**Branch:** `codex-sprint-59-insights-trend-overhaul` (Codex, single-stream)
+
+- Rebuilt Insights Trend Cards into **Trend Intelligence**: team drift cards plus player movers and pinned-player foundation detail.
+- Made `backend/services/trend_card_service.py` the canonical trend-card service; `/api/trends/cards` now accepts `team`, `season`, `window`, optional `player_id`, and optional `signal`.
+- Expanded the trend contract with `data_status`, `overview`, `player_movers`, `pinned_player`, `methodology`, card scope, driver signal, related player IDs, and foundation coverage states.
+- Added team cards for shot profile, efficiency, turnover pressure, foul pressure, pace/scoring, rotation drift, and clutch context while preserving Game Explorer replay targets.
+- Scored player movers from existing persisted data: game logs, season baselines, on/off, lineup, clutch, shot charts / `shot_quality_v1`, play-type, tracking, hustle, and gravity where available.
+- Wired shared `player_id` and `signal` URL state through `InsightsHeader`, Trends, Opportunity, and Trajectory.
+- Made Opportunity Team Roll-Up tiles active: clicking a driver filters the workspace and pins the first qualifying player into the detail panel.
+- Hard-deleted deprecated `/api/insights/usage-efficiency`, its backend service/models, frontend API/hook/types, and orphan `UsageBurdenMatrix`.
+- Verified with 30 targeted backend tests, frontend `npm run lint`, frontend `npm run build`, local API/page smoke checks, and `git diff --check`.

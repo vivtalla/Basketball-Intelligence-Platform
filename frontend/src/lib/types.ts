@@ -1291,38 +1291,6 @@ export interface TeamFocusLeversReport {
   focus_levers: TeamFocusLever[];
 }
 
-export interface UsageEfficiencyPlayerRow {
-  player_id: number;
-  player_name: string;
-  team_abbreviation: string;
-  minutes_pg: number | null;
-  usg_pct: number | null;
-  ts_pct: number | null;
-  off_rating: number | null;
-  pts_pg: number | null;
-  ast_pg: number | null;
-  tov_pg: number | null;
-  burden_score: number | null;
-  efficiency_score: number | null;
-  category: "overused" | "underused";
-}
-
-export interface UsageEfficiencySuggestion {
-  player_name: string;
-  category: "overused" | "underused";
-  suggestion: string;
-}
-
-export interface UsageEfficiencyResponse {
-  season: string;
-  team: string | null;
-  min_minutes: number;
-  overused_inefficients: UsageEfficiencyPlayerRow[];
-  underused_efficients: UsageEfficiencyPlayerRow[];
-  suggestions: UsageEfficiencySuggestion[];
-  warnings: string[];
-}
-
 export interface PreReadAdjustment {
   label: string;
   recommendation: string;
@@ -1674,9 +1642,24 @@ export interface TrendCardPoint {
   value: number | null;
 }
 
+export interface TrendOverview {
+  headline: string;
+  recent_record: string | null;
+  recent_net_rating: number | null;
+  baseline_net_rating: number | null;
+  recent_ts_pct: number | null;
+  baseline_ts_pct: number | null;
+  recent_pace: number | null;
+  baseline_pace: number | null;
+  games_in_window: number;
+  player_count: number;
+}
+
 export interface TrendCard {
   card_id: string;
   title: string;
+  scope: "team" | "player" | "lineup";
+  driver_signal: string | null;
   direction: "up" | "down" | "flat";
   magnitude: number | null;
   significance: "high" | "medium" | "low";
@@ -1684,15 +1667,74 @@ export interface TrendCard {
   series: TrendCardPoint[];
   supporting_stats: Record<string, number | null>;
   drilldowns: string[];
+  related_player_ids: number[];
   replay_target: ReplayLaunchTarget | null;
+}
+
+export interface TrendDriverContribution {
+  signal: string;
+  label: string;
+  value: number | null;
+  contribution: number;
+  note: string;
+}
+
+export interface TrendPlayerRow {
+  player_id: number;
+  player_name: string;
+  team_abbreviation: string;
+  position: string | null;
+  trend_score: number;
+  trend_label: string;
+  primary_signal: string;
+  confidence: "high" | "medium" | "low";
+  recent_games: number;
+  recent_pts_pg: number | null;
+  baseline_pts_pg: number | null;
+  recent_ts_pct: number | null;
+  baseline_ts_pct: number | null;
+  recent_minutes_pg: number | null;
+  baseline_minutes_pg: number | null;
+  on_off_net: number | null;
+  gravity_score: number | null;
+  shot_quality_delta: number | null;
+  driver_contributions: TrendDriverContribution[];
+  warnings: string[];
+}
+
+export interface TrendFoundationSignal {
+  signal: string;
+  label: string;
+  value: number | null;
+  context: string;
+  status: "ready" | "partial" | "missing";
+}
+
+export interface TrendPlayerDetail {
+  row: TrendPlayerRow;
+  foundation: TrendFoundationSignal[];
+  recent_series: TrendCardPoint[];
+  drilldowns: string[];
+}
+
+export interface TrendMethodology {
+  version: string;
+  window_games: number;
+  scoring_inputs: string[];
+  coverage_notes: string[];
 }
 
 export interface TrendCardsResponse {
   team_abbreviation: string;
   team_name: string;
   season: string;
+  data_status: "ready" | "partial" | "limited" | "missing";
+  overview: TrendOverview | null;
   window_games: number;
   cards: TrendCard[];
+  player_movers: TrendPlayerRow[];
+  pinned_player: TrendPlayerDetail | null;
+  methodology: TrendMethodology | null;
   warnings: string[];
 }
 
