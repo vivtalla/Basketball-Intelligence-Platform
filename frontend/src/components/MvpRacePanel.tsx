@@ -576,6 +576,63 @@ function CandidateCase({ candidate, asOfDate, season }: { candidate: MvpCandidat
               ))}
             </ul>
           ) : null}
+          {teamImpact?.teammate_swings?.length ? (
+            <div className="mt-3 rounded-lg border border-[var(--border)] bg-[var(--surface)] p-3">
+              <div className="flex items-baseline justify-between">
+                <p className="text-xs font-semibold uppercase tracking-wide text-[var(--muted)]">
+                  With teammate — on/off swing
+                </p>
+                <p className="text-[10px] text-[var(--muted)]">
+                  both-on vs candidate-on / teammate-off
+                </p>
+              </div>
+              <ul className="mt-2 space-y-2 text-xs">
+                {teamImpact.teammate_swings.map((swing) => (
+                  <li
+                    key={swing.teammate_id}
+                    className="flex items-center justify-between gap-3 rounded-md border border-[var(--border)] bg-[var(--surface-alt)] px-3 py-2"
+                  >
+                    <div className="min-w-0 flex-1">
+                      <div className="truncate font-medium text-[var(--foreground)]">
+                        {swing.teammate_name}
+                      </div>
+                      <div className="text-[10px] text-[var(--muted)]">
+                        {swing.shared_possessions != null
+                          ? `${swing.shared_possessions.toLocaleString()} shared poss`
+                          : "—"}
+                        {swing.shared_possessions != null && swing.shared_possessions < 200
+                          ? " · thin sample"
+                          : ""}
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-3 tabular-nums">
+                      <span className="text-[var(--muted-strong)]">
+                        both {fmtSigned(swing.both_on_net)}
+                      </span>
+                      <span className="text-[var(--muted)]">
+                        off {fmtSigned(swing.candidate_without_teammate_net)}
+                      </span>
+                      <span
+                        className={`font-semibold ${
+                          (swing.swing ?? 0) >= 0
+                            ? "text-[var(--accent-strong)]"
+                            : "text-[var(--danger-ink)]"
+                        }`}
+                      >
+                        {fmtSigned(swing.swing)}
+                      </span>
+                      <span
+                        className="rounded-full border border-[var(--border)] px-2 py-[1px] text-[9px] font-semibold uppercase tracking-[0.14em] text-[var(--muted)]"
+                        title={`${swing.confidence} confidence from ${swing.shared_possessions ?? 0} shared possessions`}
+                      >
+                        {swing.confidence}
+                      </span>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ) : null}
           {lineupCtx && lineupCtx.top_teammates.length > 0 && (
             <details className="mt-3 rounded-lg border border-[var(--border)] bg-[var(--surface-alt)] p-3">
               <summary className="cursor-pointer text-xs font-semibold uppercase tracking-wide text-[var(--muted)]">

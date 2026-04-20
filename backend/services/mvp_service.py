@@ -4,13 +4,14 @@ from __future__ import annotations
 import statistics
 from collections import defaultdict
 from datetime import date, timedelta
-from typing import Dict, Iterable, List, Optional, Sequence, Tuple
+from typing import Dict, Iterable, List, Optional, Sequence, Set, Tuple
 
 from fastapi import HTTPException
 from sqlalchemy import desc, func
 from sqlalchemy.orm import Session
 
 from db.models import (
+    LineupStats,
     MvpRaceSnapshot,
     PlayByPlayEvent,
     GamePlayerStat,
@@ -59,6 +60,7 @@ from models.mvp import (
     MvpSupportBurden,
     MvpTeamContext,
     MvpTeamImpactProfile,
+    MvpTeammateSwing,
     MvpSnapshotFreshness,
     MvpVisualCoordinates,
     MvpVoterRoomCandidate,
@@ -798,12 +800,151 @@ def _on_off_confidence(row: Optional[PlayerOnOff]) -> str:
     return "low"
 
 
+def _teammate_swing_confidence(shared_possessions: int) -> str:
+    if shared_possessions >= 300:
+        return "high"
+    if shared_possessions >= 150:
+        return "medium"
+    return "low"
+
+
+def _teammate_on_off_swings(
+    db,
+    player_id: int,
+    team_id: Optional[int],
+    season: str,
+    *,
+    min_possessions: int = 100,
+    top_n: int = 3,
+) -> List[MvpTeammateSwing]:
+    """Compute candidate's top teammate on/off swings from LineupStats.
+
+    For each candidate teammate with enough shared possessions:
+      - both_on_net: minutes-weighted average net rating across lineups
+        that contain both the candidate and teammate.
+      - candidate_without_teammate_net: minutes-weighted average net across
+        lineups that contain the candidate but not the teammate.
+      - swing = both_on_net - candidate_without_teammate_net.
+    Lineups below min_possessions are excluded per CLAUDE.md domain rule.
+    """
+    if team_id is None:
+        return []
+
+    lineups = (
+        db.query(LineupStats)
+        .filter(
+            LineupStats.team_id == team_id,
+            LineupStats.season == season,
+            LineupStats.possessions.isnot(None),
+            LineupStats.possessions >= min_possessions,
+            LineupStats.net_rating.isnot(None),
+        )
+        .all()
+    )
+    if not lineups:
+        return []
+
+    # Accumulators: teammate_id -> running sums
+    with_both: Dict[int, Dict[str, float]] = {}
+    candidate_only: Dict[str, float] = {
+        "minutes": 0.0, "possessions": 0.0, "weighted_net": 0.0,
+    }
+
+    parsed: List[Tuple[Set[int], float, float, float]] = []  # (ids, minutes, poss, net)
+    for row in lineups:
+        try:
+            ids = {int(p) for p in (row.lineup_key or "").split("-") if p}
+        except ValueError:
+            continue
+        if player_id not in ids:
+            continue
+        minutes = float(row.minutes or 0.0)
+        possessions = float(row.possessions or 0)
+        net = float(row.net_rating or 0.0)
+        if minutes <= 0:
+            continue
+        parsed.append((ids, minutes, possessions, net))
+
+    if not parsed:
+        return []
+
+    # Candidate-only pool: all lineups touched. We'll subtract the pair later.
+    for ids, minutes, possessions, net in parsed:
+        candidate_only["minutes"] += minutes
+        candidate_only["possessions"] += possessions
+        candidate_only["weighted_net"] += net * minutes
+
+    # Per teammate accumulations
+    for ids, minutes, possessions, net in parsed:
+        for tid in ids:
+            if tid == player_id:
+                continue
+            bucket = with_both.setdefault(
+                tid,
+                {"minutes": 0.0, "possessions": 0.0, "weighted_net": 0.0},
+            )
+            bucket["minutes"] += minutes
+            bucket["possessions"] += possessions
+            bucket["weighted_net"] += net * minutes
+
+    # Rank teammates by shared minutes, keep top N
+    ranked = sorted(
+        with_both.items(),
+        key=lambda item: item[1]["minutes"],
+        reverse=True,
+    )[:top_n]
+    if not ranked:
+        return []
+
+    teammate_ids = [tid for tid, _ in ranked]
+    players = (
+        db.query(Player).filter(Player.id.in_(teammate_ids)).all()
+        if teammate_ids
+        else []
+    )
+    names = {p.id: p.full_name for p in players}
+
+    swings: List[MvpTeammateSwing] = []
+    for tid, totals in ranked:
+        pair_minutes = totals["minutes"]
+        pair_poss = totals["possessions"]
+        pair_net = totals["weighted_net"] / pair_minutes if pair_minutes > 0 else None
+
+        # candidate_without_teammate = overall - pair
+        without_minutes = candidate_only["minutes"] - pair_minutes
+        without_weighted = candidate_only["weighted_net"] - totals["weighted_net"]
+        without_net = (
+            without_weighted / without_minutes if without_minutes > 0 else None
+        )
+        swing = (
+            pair_net - without_net
+            if pair_net is not None and without_net is not None
+            else None
+        )
+        swings.append(
+            MvpTeammateSwing(
+                teammate_id=tid,
+                teammate_name=names.get(tid, f"#{tid}"),
+                shared_minutes=round(pair_minutes, 1) if pair_minutes else None,
+                shared_possessions=int(pair_poss) if pair_poss else None,
+                both_on_net=round(pair_net, 1) if pair_net is not None else None,
+                candidate_without_teammate_net=(
+                    round(without_net, 1) if without_net is not None else None
+                ),
+                swing=round(swing, 1) if swing is not None else None,
+                confidence=_teammate_swing_confidence(int(pair_poss)),
+            )
+        )
+    return swings
+
+
 def _team_impact_profile(
     *,
     team_abbreviation: str,
     team_context: Optional[MvpTeamContext],
     on_off: Optional[MvpOnOffProfile],
     player_logs: Sequence[PlayerGameLog],
+    teammate_swings: Optional[List[MvpTeammateSwing]] = None,
 ) -> Optional[MvpTeamImpactProfile]:
     wins = sum(1 for log in player_logs if _played_log(log) and (log.wl or "").upper() == "W")
     losses = sum(1 for log in player_logs if _played_log(log) and (log.wl or "").upper() == "L")
@@ -823,7 +964,21 @@ def _team_impact_profile(
     else:
         notes.append("On/off net rating is not available for this candidate yet.")
 
-    if not team_context and not on_off and win_pct is None:
+    swings = teammate_swings or []
+    if swings:
+        top = swings[0]
+        if top.swing is not None and top.both_on_net is not None:
+            notes.append(
+                f"With {top.teammate_name} on: {top.both_on_net:+.1f} net; "
+                f"without: {top.candidate_without_teammate_net:+.1f}"
+                f" ({top.swing:+.1f} swing)."
+            )
+        elif top.both_on_net is not None:
+            notes.append(
+                f"Paired with {top.teammate_name}: {top.both_on_net:+.1f} net."
+            )
+
+    if not team_context and not on_off and win_pct is None and not swings:
         return None
 
     return MvpTeamImpactProfile(
@@ -843,7 +998,8 @@ def _team_impact_profile(
         off_off_rating=on_off.off_ortg if on_off else None,
         off_def_rating=on_off.off_drtg if on_off else None,
         confidence=on_off.confidence if on_off else "low",
-        notes=notes[:4],
+        notes=notes[:5],
+        teammate_swings=swings,
     )
 
 
@@ -1839,6 +1995,12 @@ def _build_ranked_candidates(
                 off_drtg=_round(on_off_row.off_drtg, 1),
                 confidence=_on_off_confidence(on_off_row),
             )
+        teammate_swings = _teammate_on_off_swings(
+            db,
+            stat.player_id,
+            team.id if team else None,
+            season,
+        )
         team_impact = _team_impact_profile(
             team_abbreviation=(
                 stat.team_abbreviation
@@ -1848,6 +2010,7 @@ def _build_ranked_candidates(
             team_context=team_context,
             on_off=on_off,
             player_logs=player_logs,
+            teammate_swings=teammate_swings,
         )
         eligibility = eligibility_profiles[arr_idx]
         opponent_context, split_profile = _opponent_context(

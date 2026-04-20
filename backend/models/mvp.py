@@ -79,6 +79,17 @@ class MvpOnOffProfile(BaseModel):
     confidence: Confidence = "low"
 
 
+class MvpTeammateSwing(BaseModel):
+    teammate_id: int
+    teammate_name: str
+    shared_minutes: Optional[float] = None
+    shared_possessions: Optional[int] = None
+    both_on_net: Optional[float] = None
+    candidate_without_teammate_net: Optional[float] = None
+    swing: Optional[float] = None
+    confidence: Confidence = "low"
+
+
 class MvpTeamImpactProfile(BaseModel):
     team_abbreviation: Optional[str] = None
     team_net_rating: Optional[float] = None
@@ -97,6 +108,7 @@ class MvpTeamImpactProfile(BaseModel):
     off_def_rating: Optional[float] = None
     confidence: Confidence = "low"
     notes: List[str] = Field(default_factory=list)
+    teammate_swings: List[MvpTeammateSwing] = Field(default_factory=list)
 
 
 class MvpAdvancedProfile(BaseModel):

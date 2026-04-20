@@ -1,6 +1,6 @@
 # Agent Coordination
 
-Last updated: 2026-04-19 by Codex (Sprint 59 closeout / Sprint 60 reset)
+Last updated: 2026-04-19 by Claude (Sprint 60 kickoff)
 
 > Both agents read this file before touching code at the start of every session.
 > The canonical source of truth is the clean `master` checkout at `/Users/viv/Documents/Basketball Intelligence Platform`.
@@ -15,12 +15,12 @@ Last updated: 2026-04-19 by Codex (Sprint 59 closeout / Sprint 60 reset)
 | Field | Value |
 |-------|-------|
 | Sprint | 60 |
-| Goal | TBD — awaiting Vivek's sprint kickoff |
-| Started | TBD |
+| Goal | Play-Style X-Ray promotion + Insights explainability parity (Trajectory/Trends) + MVP lineup-aware Team Impact |
+| Started | 2026-04-19 |
 | Target merge | TBD |
-| Sprint shape | TBD |
-| Branch | `feature/sprint-60-[slug]` |
-| Worker policy | TBD |
+| Sprint shape | Single-stream Claude-only (no Codex parallel track) |
+| Branch | `feature/sprint-60-insights-xray-explainability` |
+| Worker policy | Explore agents for research only; main rollout does all implementation |
 
 ---
 
@@ -38,14 +38,14 @@ If repo state, sprint numbering, or shipped features appear to disagree across l
 ## Current Assignments
 
 ### Claude
-- Branch: `feature/sprint-60-[slug]`
-- Scope: TBD
-- Status: Not started
+- Branch: `feature/sprint-60-insights-xray-explainability`
+- Scope: (1) Promote Play-Style X-Ray to a dedicated Insights tab with richer archetypes, neighbor quality bands, movement narrative; (2) Bring Trajectory + Trends up to Opportunity's explainability bar (methodology drawers, hover tooltips, confidence pills, sample-size caveats); (3) Add lineup-aware teammate on/off swings to MVP Team Impact.
+- Status: Complete — ready for review
 
 ### Codex
-- Branch: `codex-sprint-60-[slug]`
-- Scope: TBD
-- Status: Not started
+- Branch: —
+- Scope: Not staffed this sprint
+- Status: Idle
 
 ---
 
@@ -58,7 +58,20 @@ Claim a shared file here before editing. If a file is already claimed, read that
 
 | File | Claimed by | Purpose |
 |------|------------|---------|
-| — | — | Sprint 60 allocation TBD at kickoff |
+| `backend/routers/styles.py` | Claude | X-Ray archetype taxonomy, neighbor bands, movement narrative |
+| `backend/models/styles.py` | Claude | StyleXRayResponse expansion (archetype_confidence, movement, neighbor quality) |
+| `backend/services/trend_card_service.py` | Claude | Methodology block + player_movers confidence |
+| `backend/services/mvp_service.py` | Claude | Teammate on/off swings in team impact profile |
+| `backend/models/mvp.py` | Claude | MvpTeammateSwing + MvpTeamImpactProfile extension |
+| `frontend/src/components/InsightsHeader.tsx` | Claude | Add `xray` tab mode |
+| `frontend/src/components/TrajectoryTracker.tsx` | Claude | Methodology drawer wiring |
+| `frontend/src/components/trajectory/DriverBar.tsx` | Claude | Hover tooltips on driver signals |
+| `frontend/src/components/TrendCardsPanel.tsx` | Claude | Methodology drawer + mover confidence pills |
+| `frontend/src/components/MvpRacePanel.tsx` | Claude | Teammate-swing block in Team Impact card |
+| `frontend/src/components/WhatIfPanel.tsx` | Claude | Collapse X-Ray card to summary + link |
+| `frontend/src/app/insights/page.tsx` | Claude | Route new xray mode |
+| `frontend/src/lib/api.ts` | Claude | Append-only: X-Ray response fields, trends/mvp additions |
+| `frontend/src/lib/types.ts` | Claude | Append-only: X-Ray, trend methodology, teammate swing types |
 
 ---
 
@@ -76,13 +89,21 @@ Specs or review notes written by one stream for another. Check this before start
 
 ## Merge Order
 
-TBD at kickoff
+Single-stream sprint — `feature/sprint-60-insights-xray-explainability` merges directly to `master` at sprint close.
 
 ---
 
 ## Sprint Work Allocation
 
-Sprint 60 allocation — TBD at kickoff
+Sprint 60 is single-stream (Claude only). Three workstreams executed sequentially:
+
+1. **Play-Style X-Ray promotion** — backend taxonomy/neighbor/movement + new `StyleXRayWorkspace.tsx` tab + `xray/` component folder (ArchetypeFingerprint, NeighborQualityList, MovementTimeline, AdjacentArchetypes, XRayMethodologyDrawer).
+2. **Trajectory + Trends explainability parity** — methodology drawers, driver hover tooltips, mover confidence pills, sample-size caveats. Backend `trend_card_service.py` methodology block + `player_movers[].confidence`.
+3. **MVP lineup-aware Team Impact** — `_teammate_on_off_swings` helper reading `LineupStats`, `MvpTeammateSwing` model, Team Impact card render.
+
+Reused patterns (do not rebuild): `opportunity/MethodologyDrawer.tsx`, `opportunity/OpportunityDriverBar.tsx` (SIGNAL_DESCRIPTIONS hover), `opportunity/DirectionalHintBanner.tsx`.
+
+Plan file: `~/.claude/plans/lets-plan-the-next-floofy-twilight.md`.
 
 ---
 
@@ -155,6 +176,7 @@ Sprint 60 allocation — TBD at kickoff
 
 *Free-form, dated, newest first. Use this for coordination and repo-state exceptions.*
 
+2026-04-19 (Claude): Sprint 60 kickoff on `feature/sprint-60-insights-xray-explainability`. Merged `codex-sprint-59-insights-trend-overhaul` into `master` first (Sprint 59 was unmerged at kickoff time), then branched. Plan file: `~/.claude/plans/lets-plan-the-next-floofy-twilight.md`. Goal: promote Play-Style X-Ray to its own Insights tab, raise Trajectory + Trends to Opportunity's explainability bar, and add lineup-aware teammate swings to MVP Team Impact.
 2026-04-19 (Codex): Sprint 59 implementation complete on `codex-sprint-59-insights-trend-overhaul`. Shipped Insights Trend Intelligence overhaul with canonical trend card service, expanded team/player trend contract, shared `player_id`/`signal` URL pinning across Trends/Opportunity/Trajectory, active Team Roll-Up tile pinning, and hard deletion of deprecated `/api/insights/usage-efficiency`.
 2026-04-19 (Claude): Sprint 58 closed. Shipped multi-axis Opportunity Workspace replacing USG/TS two-lane board: 5-signal capped z-score service, new /api/insights/opportunity endpoint, full UsageEfficiencyDashboard rewrite, 8 opportunity/ components with hover driver descriptions, and 13 backend tests. Deprecated (not deleted) old usage-efficiency endpoint. Next: hard-delete deprecated endpoint, cross-tab chip in InsightsHeader, opportunity score caching.
 2026-04-19 (Claude): Sprint 57 closed on `feature/sprint-57-insights-revamp` and merged to `master`. Shipped Trajectory two-column revamp with rolling sparklines, driver decomp, clutch/on-off/shot-quality cards, evidence games, lineup context service, shared InsightsHeader, and lineup context integration in MVP + player profile. Closeout: `specs/sprint-57-closeout.md`.

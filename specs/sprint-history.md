@@ -7,6 +7,16 @@ For detailed per-sprint records, see the individual closeout files in this direc
 
 ---
 
+### Sprint 60 — Insights X-Ray + Explainability + MVP Team Impact
+**Branch:** `feature/sprint-60-insights-xray-explainability`
+
+- Promoted **Play-Style X-Ray** from a What-If stub to a dedicated Insights tab: 9 rule-based archetypes with confidence, neighbor quality bands, feature-delta movement narrative, methodology drawer, and Compare/Prep/What-If handoffs.
+- Raised **Trajectory** and **Trends** to Opportunity's explainability bar: trajectory driver tooltips (`SIGNAL_DESCRIPTIONS`), new `TrajectoryMethodologyDrawer`, trends confidence + thin-sample pills on player movers, supporting-stat hover descriptions, expanded trends methodology drawer with significance bands.
+- Added **lineup-aware teammate on/off swings** to MVP Team Impact: new `MvpTeammateSwing` model, `_teammate_on_off_swings` helper (top 3 partners by shared minutes, both-on vs candidate-only nets, confidence from shared possessions, ≥100-possession gate), rendered in `MvpRacePanel` with thin-sample caveats.
+- Verified with 37 backend tests (15 style x-ray + 7 teammate swings + 15 MVP service), frontend `npm run lint`, `npm run build`, and `git diff --check` clean.
+
+---
+
 ### Sprint 56 — Player Impact + Profile Clarity
 **Branch:** `codex/sprint-56-player-impact-profile-clarity`
 

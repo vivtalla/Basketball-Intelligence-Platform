@@ -35,6 +35,26 @@ function signalLabel(signal: string | null | undefined) {
   return signal.replaceAll("_", " ");
 }
 
+const TREND_SIGNAL_DESCRIPTIONS: Record<string, string> = {
+  pts: "Points per game — raw scoring output over the recent window vs baseline.",
+  ts_pct: "True-shooting percentage — scoring efficiency across 2s, 3s, and FTs.",
+  usg_pct: "Usage rate — share of team possessions finished while on the floor.",
+  ast: "Assists per game — creation volume for teammates.",
+  reb: "Rebounds per game — board activity in the recent window.",
+  tov_pct: "Turnover rate — turnovers per possession used. Higher = worse.",
+  plus_minus: "On-court point differential per game.",
+  on_off_net: "On/off net rating — team net when player is on minus off.",
+  gravity_score: "Defensive gravity / attention pulled from the weakside.",
+  shot_quality_delta: "Shot quality delta — actual TS% minus expected TS% given shot location.",
+  minutes: "Minutes per game over the recent window.",
+};
+
+function confidenceTone(level: "high" | "medium" | "low") {
+  if (level === "high") return "bg-[rgba(33,72,59,0.14)] text-[var(--accent-strong)]";
+  if (level === "medium") return "bg-[rgba(111,101,90,0.14)] text-[var(--muted-strong)]";
+  return "bg-[var(--surface-alt)] text-[var(--muted)]";
+}
+
 function significanceTone(level: TrendCard["significance"]) {
   if (level === "high") return "bg-[rgba(33,72,59,0.12)] text-[var(--accent-strong)]";
   if (level === "medium") return "bg-[rgba(181,145,78,0.14)] text-[var(--foreground)]";
@@ -77,8 +97,24 @@ function PlayerMoverButton({
           <div className="truncate text-sm font-semibold text-[var(--foreground)]">
             {row.player_name}
           </div>
-          <div className="mt-1 text-[11px] uppercase tracking-[0.12em] text-[var(--muted)]">
-            {row.team_abbreviation} · {row.primary_signal.replaceAll("_", " ")}
+          <div className="mt-1 flex flex-wrap items-center gap-1.5">
+            <span className="text-[11px] uppercase tracking-[0.12em] text-[var(--muted)]">
+              {row.team_abbreviation} · {row.primary_signal.replaceAll("_", " ")}
+            </span>
+            <span
+              className={`rounded-full px-2 py-[1px] text-[9px] font-semibold uppercase tracking-[0.12em] ${confidenceTone(row.confidence)}`}
+              title={`${row.confidence} confidence — derived from trend_score magnitude and sample support (${row.recent_games} recent games).`}
+            >
+              {row.confidence}
+            </span>
+            {row.recent_games < 8 ? (
+              <span
+                className="rounded-full border border-[var(--border)] px-2 py-[1px] text-[9px] font-semibold uppercase tracking-[0.12em] text-[var(--muted)]"
+                title={`Only ${row.recent_games} games in the recent window — treat as early-read.`}
+              >
+                thin sample
+              </span>
+            ) : null}
           </div>
         </div>
         <div className="text-right">
@@ -254,12 +290,23 @@ export default function TrendCardsPanel({
                   </div>
                 </div>
                 <div className="mt-4 grid gap-3 md:grid-cols-4">
-                  {Object.entries(activeCard.supporting_stats).slice(0, 8).map(([key, value]) => (
-                    <div key={key} className="rounded-xl border border-[var(--border)] bg-[var(--surface-alt)] p-3">
-                      <div className="text-[10px] font-semibold uppercase tracking-[0.12em] text-[var(--muted)]">{key.replaceAll("_", " ")}</div>
-                      <div className="mt-1 text-lg font-bold text-[var(--foreground)]">{fmt(value, 3)}</div>
-                    </div>
-                  ))}
+                  {Object.entries(activeCard.supporting_stats).slice(0, 8).map(([key, value]) => {
+                    const desc = TREND_SIGNAL_DESCRIPTIONS[key];
+                    return (
+                      <div
+                        key={key}
+                        className="rounded-xl border border-[var(--border)] bg-[var(--surface-alt)] p-3"
+                        title={desc || undefined}
+                      >
+                        <div
+                          className={`text-[10px] font-semibold uppercase tracking-[0.12em] text-[var(--muted)] ${desc ? "cursor-help underline decoration-dotted decoration-[var(--muted)] underline-offset-2" : ""}`}
+                        >
+                          {key.replaceAll("_", " ")}
+                        </div>
+                        <div className="mt-1 text-lg font-bold text-[var(--foreground)]">{fmt(value, 3)}</div>
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
             ) : null}
@@ -352,13 +399,79 @@ export default function TrendCardsPanel({
             )}
 
             {data.methodology ? (
-              <div className="rounded-[1.5rem] border border-[var(--border)] bg-[var(--surface)] p-5">
-                <div className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[var(--muted)]">Methodology</div>
-                <div className="mt-2 text-sm font-semibold text-[var(--foreground)]">{data.methodology.version}</div>
-                <p className="mt-2 text-sm leading-6 text-[var(--muted-strong)]">
-                  Inputs: {data.methodology.scoring_inputs.join(", ")}.
-                </p>
-              </div>
+              <details className="rounded-[1.5rem] border border-[var(--border)] bg-[var(--surface)] p-5">
+                <summary className="cursor-pointer text-[11px] font-semibold uppercase tracking-[0.16em] text-[var(--muted)]">
+                  Methodology · {data.methodology.version}
+                </summary>
+                <div className="mt-3 space-y-3 text-xs leading-5 text-[var(--muted-strong)]">
+                  <p>
+                    <span className="font-semibold text-[var(--foreground)]">Window.</span>{" "}
+                    Last {data.methodology.window_games} games compared to the
+                    earlier season baseline.
+                  </p>
+                  <div>
+                    <p className="font-semibold text-[var(--foreground)]">
+                      Scoring inputs
+                    </p>
+                    <ul className="mt-1 list-disc space-y-0.5 pl-4">
+                      {data.methodology.scoring_inputs.map((inp) => (
+                        <li key={inp}>
+                          <span
+                            className={
+                              TREND_SIGNAL_DESCRIPTIONS[inp]
+                                ? "cursor-help underline decoration-dotted decoration-[var(--muted)] underline-offset-2"
+                                : ""
+                            }
+                            title={TREND_SIGNAL_DESCRIPTIONS[inp] || undefined}
+                          >
+                            {inp.replaceAll("_", " ")}
+                          </span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                  <div>
+                    <p className="font-semibold text-[var(--foreground)]">
+                      Significance bands
+                    </p>
+                    <ul className="mt-1 list-disc space-y-0.5 pl-4">
+                      <li>
+                        <span className="font-semibold text-[var(--accent-strong)]">high</span>
+                        — trend_score magnitude ≥ 0.75 with full sample support.
+                      </li>
+                      <li>
+                        <span className="font-semibold text-[var(--foreground)]">medium</span>
+                        — |trend_score| ≥ 0.4 or partial foundation coverage.
+                      </li>
+                      <li>
+                        <span className="text-[var(--muted)]">low</span>
+                        — movement present but sample thin or mixed signal.
+                      </li>
+                    </ul>
+                  </div>
+                  <div>
+                    <p className="font-semibold text-[var(--foreground)]">
+                      Confidence pills
+                    </p>
+                    <p className="mt-1">
+                      Derived per player from trend_score magnitude and sample
+                      support. Players under 8 recent games also carry a thin-sample badge.
+                    </p>
+                  </div>
+                  {data.methodology.coverage_notes.length ? (
+                    <div>
+                      <p className="font-semibold text-[var(--foreground)]">
+                        Coverage notes
+                      </p>
+                      <ul className="mt-1 list-disc space-y-0.5 pl-4">
+                        {data.methodology.coverage_notes.map((note) => (
+                          <li key={note}>{note}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  ) : null}
+                </div>
+              </details>
             ) : null}
           </aside>
         </div>

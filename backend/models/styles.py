@@ -65,8 +65,25 @@ class StyleNeighbor(BaseModel):
     team_name: str
     archetype: str
     distance: float
+    quality: Literal["high", "medium", "low"] = "medium"
     net_rating: Optional[float] = None
     summary: str
+
+
+class StyleFeatureMovement(BaseModel):
+    metric_id: str
+    label: str
+    baseline_z: Optional[float] = None
+    recent_z: Optional[float] = None
+    delta_z: Optional[float] = None
+    direction: Literal["gaining", "stable", "fading"]
+
+
+class StyleMovement(BaseModel):
+    narrative: str
+    drift_archetype: Optional[str] = None
+    window_games: int
+    features: List[StyleFeatureMovement]
 
 
 class StyleScenarioLink(BaseModel):
@@ -90,11 +107,13 @@ class StyleXRayResponse(BaseModel):
     season: str
     window_games: int
     archetype: str
+    archetype_confidence: Literal["high", "medium", "low"] = "medium"
     label_reason: str
     feature_contributors: List[StyleFeatureContributor]
     nearest_neighbors: List[StyleNeighbor]
     adjacent_archetypes: List[StyleNeighbor]
     stability: Literal["stable", "watch", "shifted"]
+    movement: Optional[StyleMovement] = None
     scenario_links: List[StyleScenarioLink]
     launch_links: StyleLaunchLinks
     source_context: Optional[Dict[str, str]] = None

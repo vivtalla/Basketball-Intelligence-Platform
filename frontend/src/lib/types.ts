@@ -1522,7 +1522,24 @@ export interface StyleNeighbor {
   net_rating: number | null;
   season: string;
   distance: number;
+  quality?: "high" | "medium" | "low";
   summary: string;
+}
+
+export interface StyleFeatureMovement {
+  metric_id: string;
+  label: string;
+  baseline_z: number | null;
+  recent_z: number | null;
+  delta_z: number | null;
+  direction: "gaining" | "stable" | "fading";
+}
+
+export interface StyleMovement {
+  narrative: string;
+  drift_archetype: string | null;
+  window_games: number;
+  features: StyleFeatureMovement[];
 }
 
 export interface StyleScenarioLink {
@@ -1541,8 +1558,10 @@ export interface StyleXRayResponse {
   season: string;
   window_games: number;
   archetype: string;
+  archetype_confidence?: "high" | "medium" | "low";
   label_reason: string;
   stability: string;
+  movement?: StyleMovement | null;
   feature_contributors: Array<{
     metric_id: string;
     label: string;
@@ -2885,6 +2904,17 @@ export interface MvpOnOffProfile {
   confidence: "high" | "medium" | "low";
 }
 
+export interface MvpTeammateSwing {
+  teammate_id: number;
+  teammate_name: string;
+  shared_minutes: number | null;
+  shared_possessions: number | null;
+  both_on_net: number | null;
+  candidate_without_teammate_net: number | null;
+  swing: number | null;
+  confidence: "high" | "medium" | "low";
+}
+
 export interface MvpTeamImpactProfile {
   team_abbreviation: string | null;
   team_net_rating: number | null;
@@ -2903,6 +2933,7 @@ export interface MvpTeamImpactProfile {
   off_def_rating: number | null;
   confidence: "high" | "medium" | "low";
   notes: string[];
+  teammate_swings?: MvpTeammateSwing[];
 }
 
 export interface MvpAdvancedProfile {

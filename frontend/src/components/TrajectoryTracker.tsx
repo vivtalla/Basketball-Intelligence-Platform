@@ -10,6 +10,7 @@ import { EvidenceGames } from "@/components/trajectory/EvidenceGames";
 import { OnOffSwingCard } from "@/components/trajectory/OnOffSwingCard";
 import { ClutchSplitCard } from "@/components/trajectory/ClutchSplitCard";
 import { ShotQualityDeltaCard } from "@/components/trajectory/ShotQualityDeltaCard";
+import { TrajectoryMethodologyDrawer } from "@/components/trajectory/TrajectoryMethodologyDrawer";
 
 const TEAM_OPTIONS = [
   "ATL", "BOS", "BKN", "CHA", "CHI", "CLE", "DAL", "DEN", "DET", "GSW",
@@ -358,6 +359,9 @@ export function TrajectoryTracker({
             {data.window} · {list.length} players
           </p>
         )}
+        <div className="ml-auto w-full max-w-md">
+          <TrajectoryMethodologyDrawer />
+        </div>
       </div>
 
       {/* Main two-column layout */}
