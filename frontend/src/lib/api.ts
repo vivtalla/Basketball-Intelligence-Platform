@@ -517,21 +517,6 @@ export async function getTeamFocusLevers(
   );
 }
 
-export async function getUsageEfficiencyReport(
-  season: string,
-  team?: string,
-  minMinutes = 20
-): Promise<import("./types").UsageEfficiencyResponse> {
-  const params = new URLSearchParams({
-    season,
-    min_minutes: String(minMinutes),
-  });
-  if (team) params.set("team", team);
-  return fetchApi<import("./types").UsageEfficiencyResponse>(
-    `/api/insights/usage-efficiency?${params.toString()}`
-  );
-}
-
 export async function getPreReadDeck(
   team: string,
   opponent: string,
@@ -711,13 +696,17 @@ export async function postWhatIfScenario(
 export async function getTrendCards(
   team: string,
   season: string,
-  window = 10
+  window = 10,
+  playerId?: number | null,
+  signal?: string | null
 ): Promise<import("./types").TrendCardsResponse> {
   const params = new URLSearchParams({
     team,
     season,
     window: String(window),
   });
+  if (playerId != null) params.set("player_id", String(playerId));
+  if (signal) params.set("signal", signal);
   return fetchApi<import("./types").TrendCardsResponse>(
     `/api/trends/cards?${params.toString()}`
   );

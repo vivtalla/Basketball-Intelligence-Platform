@@ -20,6 +20,12 @@ const POSITION_OPTIONS = ["G", "F", "C", "PG", "SG", "SF", "PF"];
 
 type ListMode = "breakout" | "decline";
 
+interface TrajectoryTrackerProps {
+  initialTeam?: string;
+  pinnedPlayerId?: number | null;
+  onPlayerPin?: (playerId: number | null) => void;
+}
+
 function labelTone(label: string) {
   if (label === "Breaking Out" || label === "Quietly Rising") {
     return "text-[var(--accent-strong)] bg-[rgba(33,72,59,0.08)]";
@@ -201,32 +207,39 @@ function DetailPanel({ row, lastNGames }: DetailPanelProps) {
   );
 }
 
-export function TrajectoryTracker() {
+export function TrajectoryTracker({
+  initialTeam = "OKC",
+  pinnedPlayerId = null,
+  onPlayerPin,
+}: TrajectoryTrackerProps) {
   const [lastNGames, setLastNGames] = useState(10);
   const [playerPool, setPlayerPool] = useState<"all" | "position_filter" | "team_filter">("all");
   const [minMinutes, setMinMinutes] = useState(20);
-  const [teamAbbreviation, setTeamAbbreviation] = useState("OKC");
+  const [teamAbbreviation, setTeamAbbreviation] = useState(initialTeam);
   const [position, setPosition] = useState("G");
   const [listMode, setListMode] = useState<ListMode>("breakout");
   const [selectedId, setSelectedId] = useState<number | null>(null);
+  const effectivePlayerPool = pinnedPlayerId != null ? "team_filter" : playerPool;
+  const effectiveTeamAbbreviation = pinnedPlayerId != null ? initialTeam : teamAbbreviation;
 
   // Pre-allocate hook slots at top level per CLAUDE.md rule.
   const { data, error, isLoading } = useTrajectory(
     "2025-26",
     lastNGames,
-    playerPool,
+    effectivePlayerPool,
     minMinutes,
-    playerPool === "team_filter" ? teamAbbreviation : undefined,
-    playerPool === "position_filter" ? position : undefined
+    effectivePlayerPool === "team_filter" ? effectiveTeamAbbreviation : undefined,
+    effectivePlayerPool === "position_filter" ? position : undefined
   );
 
   const list = listMode === "breakout"
     ? (data?.breakout_leaders ?? [])
     : (data?.decline_watch ?? []);
 
+  const selectedPlayerId = pinnedPlayerId ?? selectedId;
   const selectedRow =
-    selectedId !== null
-      ? list.find((r) => r.player_id === selectedId) ?? list[0] ?? null
+    selectedPlayerId !== null
+      ? list.find((r) => r.player_id === selectedPlayerId) ?? list[0] ?? null
       : list[0] ?? null;
 
   return (
@@ -376,7 +389,10 @@ export function TrajectoryTracker() {
                 isSelected={
                   selectedRow !== null && row.player_id === selectedRow.player_id
                 }
-                onSelect={() => setSelectedId(row.player_id)}
+                onSelect={() => {
+                  setSelectedId(row.player_id);
+                  onPlayerPin?.(row.player_id);
+                }}
               />
             ))}
             {data.warnings.map((w) => (

@@ -9,6 +9,8 @@ interface Props {
   team: string;
   season: string;
   opponent: string;
+  playerId: number | null;
+  signal: string;
   teams: TeamSummary[];
   onModeChange: (mode: Mode) => void;
   onParamChange: (key: string, value: string | null) => void;
@@ -28,6 +30,8 @@ export function InsightsHeader({
   team,
   season,
   opponent,
+  playerId,
+  signal,
   teams,
   onModeChange,
   onParamChange,
@@ -125,6 +129,30 @@ export function InsightsHeader({
             className="rounded-full border border-[var(--border)] bg-[var(--surface)] px-3 py-1 text-[11px] font-medium text-[var(--muted-strong)] transition hover:border-[var(--accent-strong)] hover:text-[var(--accent-strong)]"
           >
             Open Trend Cards for {team} →
+          </button>
+        )}
+        {mode !== "trajectory" && playerId != null && (
+          <button
+            onClick={() => onModeChange("trajectory")}
+            className="rounded-full border border-[var(--border)] bg-[var(--surface)] px-3 py-1 text-[11px] font-medium text-[var(--muted-strong)] transition hover:border-[var(--accent-strong)] hover:text-[var(--accent-strong)]"
+          >
+            See Trajectory for pinned player →
+          </button>
+        )}
+        {mode !== "usage" && (playerId != null || signal) && (
+          <button
+            onClick={() => onModeChange("usage")}
+            className="rounded-full border border-[var(--border)] bg-[var(--surface)] px-3 py-1 text-[11px] font-medium text-[var(--muted-strong)] transition hover:border-[var(--accent-strong)] hover:text-[var(--accent-strong)]"
+          >
+            Back to Opportunity{signal ? ` · ${signal.replaceAll("_", " ")}` : ""} →
+          </button>
+        )}
+        {playerId != null && (
+          <button
+            onClick={() => onParamChange("player_id", null)}
+            className="rounded-full border border-[var(--border)] bg-[var(--surface)] px-3 py-1 text-[11px] font-medium text-[var(--muted-strong)] transition hover:border-[var(--danger-ink)] hover:text-[var(--danger-ink)]"
+          >
+            Clear player pin
           </button>
         )}
         {mode !== "whatif" && opponent && (

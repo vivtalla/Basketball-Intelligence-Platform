@@ -191,14 +191,15 @@ Likely shape:
 - connect lineup suggestions more directly into replay and rotation review workflows
 - expand matchup exploit flags without losing explainability
 
-### Trend Cards Follow-Ons
+### Trend Intelligence Follow-Ons
 Why it matters:
-The weekly card format is now backend-driven and replay-aware, and the next gain comes from making it more exportable and more useful for lineup and game-review workflows.
+Sprint 59 turned Trend Cards into a team + player Trend Intelligence workspace with shared pins, foundation coverage notes, and replay-aware team cards. The next gain is making that story easier to share, archive, and extend into lineup-specific review.
 
 Likely shape:
-- add lineup-level weekly cards where sample support is strong
-- improve export/share formatting for staff review
-- deepen how card-level evidence gets summarized so replay launches and compare launches feel more specific than “recent game context”
+- add export/share formatting for selected team card + pinned player foundation context
+- add lineup-level weekly cards where sample support is strong enough
+- deepen card-level evidence summaries so replay and compare launches feel more specific than recent-game context
+- add visual polish to pinned-player foundation cards, sparse-data states, and movement series
 
 ### Focus Levers Follow-Ons
 Why it matters:
@@ -209,15 +210,15 @@ Likely shape:
 - add direct lever-to-replay follow-through when evidence is strong enough
 - keep sharpening how focus levers align with matchup flags, compare, and decision tools so one coaching story survives across surfaces
 
-### Usage vs Efficiency Follow-Ons
+### Opportunity Workspace Follow-Ons
 Why it matters:
-The dashboard now surfaces burden allocation, but it still needs richer recommendation quality, clearer formula communication, and a final readability pass.
+Sprints 58-59 replaced usage-efficiency with the Opportunity Workspace, added shared cross-tab pinning, and made team roll-up tiles actionable. The remaining gains are performance, calibration, and richer compare/share handoffs.
 
 Likely shape:
-- improve redistribution suggestions with clearer role and shot-profile context
-- add team-specific calibration and confidence indicators
-- continue simplifying score explanation and presentation so the page is immediately readable
-- connect usage flags into player trend and compare workflows
+- add short-lived Opportunity score caching keyed by season/team/minutes/position, especially for all-team reads
+- add compare handoff with pinned player plus top positional peers
+- keep tuning directional hints and confidence labels against real roster cases
+- consider renaming `UsageEfficiencyDashboard.tsx` after references settle, so component naming matches the Opportunity product language
 
 ### Pre-Read Deck Follow-Ons
 Why it matters:

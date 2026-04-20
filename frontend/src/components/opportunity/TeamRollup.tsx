@@ -5,9 +5,10 @@ import { SIGNAL_DESCRIPTIONS, SIGNAL_LABELS } from "./OpportunityDriverBar";
 
 interface Props {
   report: OpportunityResponse;
+  onSelectSignal: (signal: string) => void;
 }
 
-export function TeamRollup({ report }: Props) {
+export function TeamRollup({ report, onSelectSignal }: Props) {
   const rollup = report.team_rollup;
   if (!rollup || rollup.sample_size === 0) return null;
   const sorted = Object.entries(rollup.top_drivers)
@@ -29,10 +30,12 @@ export function TeamRollup({ report }: Props) {
       </p>
       <div className="mt-4 grid gap-3 md:grid-cols-3">
         {sorted.map(([signal, count]) => (
-          <div
+          <button
             key={signal}
+            type="button"
             title={SIGNAL_DESCRIPTIONS[signal] ?? ""}
-            className="cursor-help rounded-xl border border-[rgba(33,72,59,0.12)] bg-[rgba(255,255,255,0.75)] p-4"
+            onClick={() => onSelectSignal(signal)}
+            className="rounded-xl border border-[rgba(33,72,59,0.12)] bg-[rgba(255,255,255,0.75)] p-4 text-left transition hover:border-[var(--accent-strong)] hover:bg-white"
           >
             <div className="text-[10px] font-semibold uppercase tracking-[0.14em] text-[var(--muted)]">
               {SIGNAL_LABELS[signal] ?? signal}
@@ -43,7 +46,7 @@ export function TeamRollup({ report }: Props) {
             <div className="text-[11px] text-[var(--muted-strong)]">
               {count === 1 ? "player" : "players"} leading here
             </div>
-          </div>
+          </button>
         ))}
       </div>
     </section>
