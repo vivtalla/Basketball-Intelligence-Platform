@@ -628,6 +628,7 @@ def team_defense_shot_creation(
         shot_value=shot_value,
     )
     return build_shot_creation_response(
+        db,
         subject_type="team-defense",
         subject_id=team.id,
         season=season,
@@ -845,6 +846,7 @@ def player_shot_creation(
         shot_value=shot_value,
     )
     return build_shot_creation_response(
+        db,
         subject_type="player",
         subject_id=player_id,
         season=season,

@@ -87,6 +87,22 @@ class ShotQualitySummary(BaseModel):
     confidence: str = "low"
 
 
+class ShotReplayExample(BaseModel):
+    game_id: str
+    game_date: Optional[str] = None
+    opponent_abbreviation: Optional[str] = None
+    shot_distance: Optional[int] = None
+    shot_made: bool
+    action_number: Optional[int] = None
+    shot_event_id: Optional[str] = None
+    period: Optional[int] = None
+    clock: Optional[str] = None
+    zone_basic: Optional[str] = None
+    points_over_expected: Optional[float] = None
+    linkage_quality: str = "derived"
+    deep_link_url: str
+
+
 class ShotQualityBin(BaseModel):
     bin_key: str
     label: str
@@ -106,6 +122,7 @@ class ShotQualityBin(BaseModel):
     average_loc_y: Optional[float] = None
     sample_confidence: str = "low"
     coverage_note: str
+    replay_examples: List[ShotReplayExample] = []
 
 
 class ShotQualityZone(BaseModel):
@@ -150,6 +167,7 @@ class ShotCreationSplit(BaseModel):
     pps: Optional[float] = None
     precision: str
     coverage_note: str
+    replay_examples: List[ShotReplayExample] = []
 
 
 class ShotCreationResponse(BaseModel):
