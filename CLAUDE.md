@@ -300,7 +300,7 @@ CourtVue Labs uses a hybrid sprint model: major feature sprints typically run as
 | `feature/sprint-58-usage-opportunity-workspace` | Claude | Merged to master |
 | `codex-sprint-59-insights-trend-overhaul` | Codex | Merged to master |
 | `feature/sprint-60-insights-xray-explainability` | Claude | Merged to master |
-| `feature/sprint-61-shot-lab-polish-and-ops` | Claude | In progress |
+| `feature/sprint-61-shot-lab-polish-and-ops` | Claude | Merged to master |
 
 Sprint branches are created at kickoff and listed in `AGENTS.md`.
 
