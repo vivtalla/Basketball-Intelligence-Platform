@@ -3,9 +3,10 @@
 import { useState, useMemo } from "react";
 import Image from "next/image";
 import type { PlayerProfile, CareerStatsResponse, SeasonStats, PlayerAvailabilitySlot } from "@/lib/types";
-import { usePlayerPercentiles } from "@/hooks/usePlayerStats";
+import { usePlayerPercentiles, usePlayerShotIdentity } from "@/hooks/usePlayerStats";
 import DualCareerArcChart from "./DualCareerArcChart";
 import InjuryStatusBadge from "./InjuryStatusBadge";
+import ShotIdentityBadges from "./ShotIdentityBadges";
 
 interface PlayerData {
   profile: PlayerProfile;
@@ -279,6 +280,9 @@ export default function ComparisonView({ playerA, playerB, availabilityA, availa
     mode === "percentile" ? pctSeason : null
   );
 
+  const { data: identityA } = usePlayerShotIdentity(playerA.profile.id, currentSeasonA);
+  const { data: identityB } = usePlayerShotIdentity(playerB.profile.id, currentSeasonB);
+
   const pctStatsA = mode === "percentile"
     ? (playerA.career.seasons[playerA.career.seasons.length - 1] ?? null)
     : statsA;
@@ -302,6 +306,17 @@ export default function ComparisonView({ playerA, playerB, availabilityA, availa
         <PlayerAvatar profile={playerA.profile} align="left" availability={availabilityA} />
         <PlayerAvatar profile={playerB.profile} align="right" availability={availabilityB} />
       </div>
+
+      {((identityA?.cards?.length ?? 0) > 0 || (identityB?.cards?.length ?? 0) > 0) && (
+        <div className="grid grid-cols-2 gap-4">
+          <div className="justify-self-start">
+            <ShotIdentityBadges cards={identityA?.cards} limit={2} compact />
+          </div>
+          <div className="justify-self-end">
+            <ShotIdentityBadges cards={identityB?.cards} limit={2} compact />
+          </div>
+        </div>
+      )}
 
       {/* Availability warning banner */}
       {(availabilityA || availabilityB) ? (
