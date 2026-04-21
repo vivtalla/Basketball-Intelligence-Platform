@@ -40,7 +40,7 @@ If repo state, sprint numbering, or shipped features appear to disagree across l
 ### Claude
 - Branch: `feature/sprint-61-shot-lab-polish-and-ops`
 - Scope: (1) Richer hover tooltips on ShotValueMap/Sprawl/Distance surfacing attempts/expected/delta/confidence; (2) "Show me examples" replay handoffs from quality/creation bins into Game Explorer; (3) Factor ShotIdentityBadges into player/compare/prep surfaces; (4) New Shot Intelligence Ops panel on `/coverage` with team readiness, stale players, missing-context warnings; (5) `shot_quality_baselines` materialization table with `get_or_build_baseline`; (6) Backfill control endpoints + action buttons.
-- Status: In progress
+- Status: Complete — all 6 workstreams shipped; ready to merge
 
 ### Codex
 - Branch: —
@@ -187,6 +187,7 @@ Plan file: `~/.claude/plans/plan-sprint-related-to-foamy-corbato.md`.
 
 *Free-form, dated, newest first. Use this for coordination and repo-state exceptions.*
 
+2026-04-20 (Claude): Sprint 61 implementation complete on `feature/sprint-61-shot-lab-polish-and-ops`. Shipped shared `ShotHoverTooltip`, replay-example chips with linkage-quality gating, `ShotIdentityBadges` in PlayerHeader + Compare, Shot Intelligence Ops panel on `/coverage`, `shot_quality_baselines` materialization (Alembic 0008) with `get_or_build_baseline`, and refresh-baseline / refresh-stale-players endpoints. 172 backend tests, frontend lint + build clean. Ready to merge.
 2026-04-20 (Claude): Sprint 61 kickoff on `feature/sprint-61-shot-lab-polish-and-ops`. Plan file: `~/.claude/plans/plan-sprint-related-to-foamy-corbato.md`. Two backlog themes taken to completion in one sequential single-stream sprint: Shot Lab Visual Polish + Replay Examples, and Shot Intelligence Ops + Materialization. Six workstreams sequenced A1→A2→A3→B1→B2→B3.
 2026-04-19 (Claude): Sprint 60 closed on `feature/sprint-60-insights-xray-explainability` and merged to `master`. Shipped Play-Style X-Ray tab promotion, Trajectory + Trends explainability parity, and MVP lineup-aware teammate on/off swings. 37 new backend tests. Closeout: `specs/sprint-60-closeout.md`.
 2026-04-19 (Codex): Sprint 59 implementation complete on `codex-sprint-59-insights-trend-overhaul`. Shipped Insights Trend Intelligence overhaul with canonical trend card service, expanded team/player trend contract, shared `player_id`/`signal` URL pinning across Trends/Opportunity/Trajectory, active Team Roll-Up tile pinning, and hard deletion of deprecated `/api/insights/usage-efficiency`.

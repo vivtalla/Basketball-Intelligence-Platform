@@ -7,6 +7,20 @@ For detailed per-sprint records, see the individual closeout files in this direc
 
 ---
 
+### Sprint 61 — Shot Lab Polish + Shot Intelligence Ops
+**Branch:** `feature/sprint-61-shot-lab-polish-and-ops`
+
+- Added richer hover affordances across Shot Lab: shared `ShotHoverTooltip` surfaces attempts, expected FG%, actual FG%, Δ, and `sample_confidence` band on `ShotValueMap`, `ShotSprawlMap`, and `ShotDistanceProfile`, with low-sample pills.
+- Shipped "Show me examples" replay chips: backend samples up to 3 highest-|delta| shots per quality/creation bin with `linkage_quality` (exact/derived/timeline) and `deep_link_url`; new `ShotExamplesChips` component mounted in `ShotIntelligencePanel` quality/creation bins.
+- Factored `IdentityCards()` into standalone `ShotIdentityBadges`; mounted in `PlayerHeader` and `ComparisonView` summary — full `IdentityCards()` drawer preserved on the Shot Lab tab.
+- **Shot Intelligence Ops panel** on `/coverage`: new `shot_intelligence_ops_service`, `GET /shotchart/ops/{season}` with per-team readiness (ready/partial/stale/missing), stale-player list, missing-context histogram, baseline status, methodology version.
+- **Baseline materialization**: new `shot_quality_baselines` table (Alembic `0008_shot_quality_baselines`) + `get_or_build_baseline(season, methodology_version, force_refresh)` — reads cached baseline, builds + persists on miss, rebuilds on `force_refresh`.
+- **Backfill controls**: `POST /shotchart/ops/{season}/refresh-baseline` and `.../refresh-stale-players` endpoints wired through the warehouse job framework; action buttons in ops panel.
+- Retired two backlog items (Shot Lab Visual Polish + Shot Intelligence Ops/Materialization) after completion.
+- Verified with 172 backend tests passing, frontend `npm run lint` and `npm run build` clean, `git diff --check` clean.
+
+---
+
 ### Sprint 60 — Insights X-Ray + Explainability + MVP Team Impact
 **Branch:** `feature/sprint-60-insights-xray-explainability`
 
