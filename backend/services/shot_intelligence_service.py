@@ -7,7 +7,7 @@ from typing import Dict, Iterable, List, Optional, Sequence, Tuple
 
 from sqlalchemy.orm import Session
 
-from db.models import PlayerShotChart
+from db.models import PlayerShotChart, ShotQualityBaseline
 from models.shotchart import (
     ShotCreationResponse,
     ShotCreationSplit,
@@ -302,6 +302,91 @@ def _load_baselines(db: Session, season: str, season_type: str) -> _BaselineStor
     return store
 
 
+def _serialize_key(key: Tuple[str, ...]) -> str:
+    return "||".join(key)
+
+
+def _deserialize_key(packed: str) -> Tuple[str, ...]:
+    return tuple(packed.split("||"))
+
+
+def _serialize_baselines(store: _BaselineStore) -> dict:
+    def _pack(buckets: Dict[Tuple[str, ...], _Baseline]) -> Dict[str, List[int]]:
+        return {
+            _serialize_key(key): [b.attempts, b.made, b.points]
+            for key, b in buckets.items()
+        }
+
+    return {
+        "exact": _pack(store.exact),
+        "zone_distance_value": _pack(store.zone_distance_value),
+        "zone_value": _pack(store.zone_value),
+        "value": _pack(store.value),
+        "league": [store.league.attempts, store.league.made, store.league.points],
+    }
+
+
+def _deserialize_baselines(payload: dict) -> _BaselineStore:
+    def _unpack(buckets: dict) -> Dict[Tuple[str, ...], _Baseline]:
+        return {
+            _deserialize_key(k): _Baseline(attempts=int(v[0]), made=int(v[1]), points=int(v[2]))
+            for k, v in (buckets or {}).items()
+        }
+
+    store = _BaselineStore()
+    store.exact = _unpack(payload.get("exact") or {})
+    store.zone_distance_value = _unpack(payload.get("zone_distance_value") or {})
+    store.zone_value = _unpack(payload.get("zone_value") or {})
+    store.value = _unpack(payload.get("value") or {})
+    league = payload.get("league") or [0, 0, 0]
+    store.league = _Baseline(attempts=int(league[0]), made=int(league[1]), points=int(league[2]))
+    return store
+
+
+def get_or_build_baseline(
+    db: Session,
+    season: str,
+    season_type: str,
+    methodology_version: str = METHODOLOGY_VERSION,
+    force_refresh: bool = False,
+) -> _BaselineStore:
+    """Return the materialized baseline for (season, season_type, methodology_version).
+
+    On cache miss or when force_refresh is True, compute from PlayerShotChart
+    and upsert a row in `shot_quality_baselines`.
+    """
+    row = (
+        db.query(ShotQualityBaseline)
+        .filter(
+            ShotQualityBaseline.season == season,
+            ShotQualityBaseline.season_type == season_type,
+            ShotQualityBaseline.methodology_version == methodology_version,
+        )
+        .one_or_none()
+    )
+    if row is not None and not force_refresh:
+        return _deserialize_baselines(row.payload or {})
+
+    store = _load_baselines(db, season, season_type)
+    payload = _serialize_baselines(store)
+    sample_n = store.league.attempts
+
+    if row is None:
+        row = ShotQualityBaseline(
+            season=season,
+            season_type=season_type,
+            methodology_version=methodology_version,
+            sample_n=sample_n,
+            payload=payload,
+        )
+        db.add(row)
+    else:
+        row.payload = payload
+        row.sample_n = sample_n
+    db.commit()
+    return store
+
+
 def _expected_baseline(shot: dict, season_type: str, store: _BaselineStore) -> Tuple[_Baseline, str]:
     candidates = [
         (store.exact.get(_exact_key(shot, season_type)), "exact_context", 25),
@@ -566,7 +651,7 @@ def build_shot_quality_response(
     result: str,
     shot_value: str,
 ) -> ShotQualityResponse:
-    store = _load_baselines(db, season, season_type)
+    store = get_or_build_baseline(db, season, season_type)
     attempts = len(filtered_shots)
     made = sum(1 for shot in filtered_shots if shot.get("shot_made"))
     points = sum(_points(shot) for shot in filtered_shots)
@@ -697,7 +782,7 @@ def build_shot_creation_response(
     result: str,
     shot_value: str,
 ) -> ShotCreationResponse:
-    store = _load_baselines(db, season, season_type)
+    store = get_or_build_baseline(db, season, season_type)
     attempts = len(filtered_shots)
     linked = [shot for shot in filtered_shots if _is_linked(shot)]
     catch = [shot for shot in filtered_shots if _action_family(shot) == "catch_and_shoot"]
