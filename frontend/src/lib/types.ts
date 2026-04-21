@@ -2345,6 +2345,23 @@ export interface ShotQualityBin {
   average_loc_y?: number | null;
   sample_confidence: "high" | "medium" | "low";
   coverage_note: string;
+  replay_examples?: ShotReplayExample[];
+}
+
+export interface ShotReplayExample {
+  game_id: string;
+  game_date?: string | null;
+  opponent_abbreviation?: string | null;
+  shot_distance?: number | null;
+  shot_made: boolean;
+  action_number?: number | null;
+  shot_event_id?: string | null;
+  period?: number | null;
+  clock?: string | null;
+  zone_basic?: string | null;
+  points_over_expected?: number | null;
+  linkage_quality: "exact" | "derived" | "timeline";
+  deep_link_url: string;
 }
 
 export interface ShotQualityZone {
@@ -2389,6 +2406,7 @@ export interface ShotCreationSplit {
   pps?: number | null;
   precision: ShotCreationPrecision;
   coverage_note: string;
+  replay_examples?: ShotReplayExample[];
 }
 
 export interface ShotCreationResponse {
