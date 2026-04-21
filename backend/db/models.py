@@ -1088,3 +1088,31 @@ class ShotLabSnapshot(Base):
     payload = Column(JSON, nullable=False)
     created_at = Column(DateTime, server_default=func.now())
     updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
+
+
+class ShotQualityBaseline(Base):
+    __tablename__ = "shot_quality_baselines"
+    __table_args__ = (
+        UniqueConstraint(
+            "season",
+            "season_type",
+            "methodology_version",
+            name="uq_shot_quality_baseline_key",
+        ),
+        Index(
+            "ix_shot_quality_baselines_lookup",
+            "season",
+            "season_type",
+            "methodology_version",
+        ),
+    )
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    season = Column(String(10), nullable=False)
+    season_type = Column(String(30), nullable=False, default="Regular Season")
+    methodology_version = Column(String(40), nullable=False, default="shot_quality_v1")
+    sample_n = Column(Integer, nullable=False, default=0)
+    payload = Column(JSON, nullable=False)
+    computed_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
+    created_at = Column(DateTime, server_default=func.now())
+

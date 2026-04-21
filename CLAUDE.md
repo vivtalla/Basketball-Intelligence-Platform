@@ -260,6 +260,16 @@ CourtVue Labs uses a hybrid sprint model: major feature sprints typically run as
 
 > Full history → `specs/sprint-history.md`
 
+### Sprint 61 — Shot Lab Polish + Shot Intelligence Ops
+
+- Added shared `ShotHoverTooltip` across `ShotValueMap`, `ShotSprawlMap`, `ShotDistanceProfile`: surfaces attempts, expected FG%, actual FG%, Δ, and `sample_confidence` band with low-sample pills.
+- Shipped "Show me examples" replay handoff: backend samples up to 3 highest-|delta| shots per quality/creation bin with `linkage_quality` (exact/derived/timeline); `ShotExamplesChips` deep-links to Game Explorer from `ShotIntelligencePanel` bins.
+- Factored `IdentityCards()` into standalone `ShotIdentityBadges`; mounted in `PlayerHeader` and `ComparisonView` summary header.
+- New **Shot Intelligence Ops** panel on `/coverage`: `GET /shotchart/ops/{season}` + `shot_intelligence_ops_service` report per-team readiness, stale/missing players, missing-context histogram, baseline status.
+- **Baseline materialization**: new `shot_quality_baselines` table (Alembic `0008_shot_quality_baselines`) + `get_or_build_baseline(season, methodology_version, force_refresh)` replaces on-demand league baseline computation on `shot_quality_service` hot path.
+- **Backfill controls**: `POST /shotchart/ops/{season}/refresh-baseline` + `.../refresh-stale-players` enqueue through the warehouse job framework; action buttons in the ops panel.
+- Verified with 172 backend tests, frontend `npm run lint`, `npm run build`, and `git diff --check` clean.
+
 ### Sprint 60 — Insights X-Ray + Explainability + MVP Team Impact
 
 - Promoted **Play-Style X-Ray** from a What-If stub to a dedicated Insights tab: 9 rule-based archetypes with confidence, neighbor quality bands, feature-delta movement narrative, methodology drawer, and Compare/Prep/What-If handoffs.
@@ -277,15 +287,7 @@ CourtVue Labs uses a hybrid sprint model: major feature sprints typically run as
 - Hard-deleted deprecated `/api/insights/usage-efficiency`, the old backend service/models, frontend API/hook/types, and orphan `UsageBurdenMatrix`.
 - Verified with 30 targeted backend tests, frontend `npm run lint`, frontend `npm run build`, local API/page smokes, and `git diff --check`.
 
-### Sprint 58 — Usage vs Efficiency: Opportunity Workspace
-
-- Replaced two-lane USG/TS board with a multi-axis **Opportunity Workspace**: 5 capped z-scores (±2.0) per position bucket (G/F/C) — efficiency-load gap, team impact swing, lineup synergy lift, role-fit gap, cohort position — weighted into a composite `opportunity_score`.
-- New `opportunity_service.py`: bulk lineup synergy (single `LineupStats` query, Python partition), confidence bands (high/medium/low), directional hints with `hint_basis`, team roll-up of top 3 drivers across roster.
-- New `GET /api/insights/opportunity` with methodology block in response; deprecated `/api/insights/usage-efficiency` at sprint close, then hard-deleted in Sprint 59.
-- Full `UsageEfficiencyDashboard.tsx` rewrite: two-column workspace with team/position/signal filters, ranked `OpportunityRow` list, and detail panel with 4 cards + hint banner + methodology drawer.
-- 8 new `opportunity/` components: `OpportunityDriverBar` (with `SIGNAL_DESCRIPTIONS` hover tooltips), `OpportunityRow`, `EfficiencyLoadCard`, `TeamImpactCard`, `RoleFitCard`, `CohortPositionCard`, `DirectionalHintBanner`, `MethodologyDrawer`, `TeamRollup`.
-- Deleted `UsageLoadBoard.tsx` (superseded).
-- Verified with 13 new backend tests (all pass), frontend `npm run lint`, frontend `npm run build`, and `git diff --check`.
+*Sprint 58 moved to `specs/sprint-history.md`.*
 
 ---
 
@@ -298,6 +300,7 @@ CourtVue Labs uses a hybrid sprint model: major feature sprints typically run as
 | `feature/sprint-58-usage-opportunity-workspace` | Claude | Merged to master |
 | `codex-sprint-59-insights-trend-overhaul` | Codex | Merged to master |
 | `feature/sprint-60-insights-xray-explainability` | Claude | Merged to master |
+| `feature/sprint-61-shot-lab-polish-and-ops` | Claude | In progress |
 
 Sprint branches are created at kickoff and listed in `AGENTS.md`.
 
@@ -356,3 +359,7 @@ Sprint branches are created at kickoff and listed in `AGENTS.md`.
 | `AdjacentArchetypes` | `components/xray/` | Nearest different archetypes the team is drifting toward (Sprint 60) |
 | `XRayMethodologyDrawer` | `components/xray/` | Collapsible methodology drawer: archetype rules, confidence, neighbor bands, movement thresholds (Sprint 60) |
 | `TrajectoryMethodologyDrawer` | `components/trajectory/` | Signal weights, gating rules, label bands for the trajectory score (Sprint 60) |
+| `ShotHoverTooltip` | `components/` | Shared hover tooltip for ShotValueMap/Sprawl/Distance: attempts, expected FG%, Δ, sample confidence (Sprint 61) |
+| `ShotExamplesChips` | `components/` | Replay deep-link chips for quality/creation bins into Game Explorer with linkage-quality pills (Sprint 61) |
+| `ShotIdentityBadges` | `components/` | Compact shot-identity badges (tier + confidence + summary) for PlayerHeader and Compare (Sprint 61) |
+| `ShotIntelligenceOpsPanel` | `components/` | `/coverage` ops panel: baseline status, team readiness, stale players, missing-context histogram, refresh actions (Sprint 61) |

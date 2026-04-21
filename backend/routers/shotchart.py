@@ -15,6 +15,7 @@ from models.shotchart import (
     ShotCreationResponse,
     ShotIdentityResponse,
     ShotIntelligenceCoverage,
+    ShotIntelligenceOpsResponse,
     ShotLabSnapshotCreateRequest,
     ShotLabSnapshotResponse,
     ShotQualityResponse,
@@ -34,10 +35,13 @@ from services.shot_lab_service import (
     get_team_defense_raw_shots,
 )
 from services.shot_intelligence_service import (
+    METHODOLOGY_VERSION,
     build_shot_creation_response,
     build_shot_identity_response,
     build_shot_quality_response,
+    get_or_build_baseline,
 )
+from services.shot_intelligence_ops_service import build_shot_intelligence_ops
 from services.warehouse_service import queue_player_shot_chart_sync
 
 router = APIRouter()
@@ -628,6 +632,7 @@ def team_defense_shot_creation(
         shot_value=shot_value,
     )
     return build_shot_creation_response(
+        db,
         subject_type="team-defense",
         subject_id=team.id,
         season=season,
@@ -845,6 +850,7 @@ def player_shot_creation(
         shot_value=shot_value,
     )
     return build_shot_creation_response(
+        db,
         subject_type="player",
         subject_id=player_id,
         season=season,
@@ -1061,3 +1067,56 @@ def refresh_player_shot_chart(
     )
     db.commit()
     return QueueResponse(queued=len(jobs), jobs=[_job_response(job) for job in jobs])
+
+
+@router.get("/ops/{season}", response_model=ShotIntelligenceOpsResponse)
+def shot_intelligence_ops(
+    season: str,
+    season_type: str = Query("Regular Season"),
+    db: Session = Depends(get_db),
+):
+    if season_type not in ("Regular Season", "Playoffs"):
+        raise HTTPException(status_code=422, detail='season_type must be "Regular Season" or "Playoffs"')
+    return build_shot_intelligence_ops(db, season=season, season_type=season_type)
+
+
+@router.post("/ops/{season}/refresh-baseline", response_model=ShotIntelligenceOpsResponse)
+def refresh_shot_quality_baseline(
+    season: str,
+    season_type: str = Query("Regular Season"),
+    db: Session = Depends(get_db),
+):
+    if season_type not in ("Regular Season", "Playoffs"):
+        raise HTTPException(status_code=422, detail='season_type must be "Regular Season" or "Playoffs"')
+    get_or_build_baseline(
+        db,
+        season=season,
+        season_type=season_type,
+        methodology_version=METHODOLOGY_VERSION,
+        force_refresh=True,
+    )
+    return build_shot_intelligence_ops(db, season=season, season_type=season_type)
+
+
+@router.post("/ops/{season}/refresh-stale-players", response_model=QueueResponse)
+def refresh_stale_shot_players(
+    season: str,
+    season_type: str = Query("Regular Season"),
+    limit: int = Query(40, ge=1, le=200),
+    db: Session = Depends(get_db),
+):
+    if season_type not in ("Regular Season", "Playoffs"):
+        raise HTTPException(status_code=422, detail='season_type must be "Regular Season" or "Playoffs"')
+    ops = build_shot_intelligence_ops(db, season=season, season_type=season_type)
+    queued: List = []
+    for stale in ops.stale_players[:limit]:
+        jobs = queue_player_shot_chart_sync(
+            db,
+            player_id=stale.player_id,
+            season=season,
+            season_type=season_type,
+            force=True,
+        )
+        queued.extend(jobs)
+    db.commit()
+    return QueueResponse(queued=len(queued), jobs=[_job_response(job) for job in queued])

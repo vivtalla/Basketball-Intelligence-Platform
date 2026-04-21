@@ -2345,6 +2345,23 @@ export interface ShotQualityBin {
   average_loc_y?: number | null;
   sample_confidence: "high" | "medium" | "low";
   coverage_note: string;
+  replay_examples?: ShotReplayExample[];
+}
+
+export interface ShotReplayExample {
+  game_id: string;
+  game_date?: string | null;
+  opponent_abbreviation?: string | null;
+  shot_distance?: number | null;
+  shot_made: boolean;
+  action_number?: number | null;
+  shot_event_id?: string | null;
+  period?: number | null;
+  clock?: string | null;
+  zone_basic?: string | null;
+  points_over_expected?: number | null;
+  linkage_quality: "exact" | "derived" | "timeline";
+  deep_link_url: string;
 }
 
 export interface ShotQualityZone {
@@ -2389,6 +2406,7 @@ export interface ShotCreationSplit {
   pps?: number | null;
   precision: ShotCreationPrecision;
   coverage_note: string;
+  replay_examples?: ShotReplayExample[];
 }
 
 export interface ShotCreationResponse {
@@ -3223,4 +3241,51 @@ export interface OpportunityResponse {
   team_rollup: OpportunityTeamRollup | null;
   methodology: OpportunityMethodology;
   warnings: string[];
+}
+
+export interface ShotIntelligenceOpsPlayer {
+  player_id: number;
+  player_name: string;
+  team_id?: number | null;
+  team_abbreviation?: string | null;
+  state: "ready" | "partial" | "legacy" | "stale" | "missing";
+  data_status: string;
+  total_shots: number;
+  linked_shots: number;
+  exact_linked_shots: number;
+  missing_context_fields: string[];
+  last_synced_at?: string | null;
+}
+
+export interface ShotIntelligenceOpsTeam {
+  team_id: number;
+  team_abbreviation: string;
+  team_name?: string | null;
+  readiness: "ready" | "partial" | "stale" | "missing";
+  roster_size: number;
+  ready_count: number;
+  partial_count: number;
+  legacy_count: number;
+  stale_count: number;
+  missing_count: number;
+}
+
+export interface ShotIntelligenceOpsBaseline {
+  season: string;
+  season_type: string;
+  methodology_version: string;
+  status: "ready" | "stale" | "missing";
+  sample_n: number;
+  computed_at?: string | null;
+}
+
+export interface ShotIntelligenceOpsResponse {
+  season: string;
+  season_type: string;
+  methodology_version: string;
+  teams: ShotIntelligenceOpsTeam[];
+  stale_players: ShotIntelligenceOpsPlayer[];
+  missing_context_histogram: Record<string, number>;
+  baseline: ShotIntelligenceOpsBaseline;
+  totals: Record<string, number>;
 }

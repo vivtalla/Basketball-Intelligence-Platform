@@ -1426,3 +1426,36 @@ export function fetchOpportunityReport(
     `/api/insights/opportunity?${params.toString()}`
   );
 }
+
+export function getShotIntelligenceOps(
+  season: string,
+  seasonType: string = "Regular Season"
+): Promise<import("./types").ShotIntelligenceOpsResponse> {
+  const params = new URLSearchParams({ season_type: seasonType });
+  return fetchApi<import("./types").ShotIntelligenceOpsResponse>(
+    `/shotchart/ops/${season}?${params.toString()}`
+  );
+}
+
+export function refreshShotQualityBaseline(
+  season: string,
+  seasonType: string = "Regular Season"
+): Promise<import("./types").ShotIntelligenceOpsResponse> {
+  const params = new URLSearchParams({ season_type: seasonType });
+  return fetchApi<import("./types").ShotIntelligenceOpsResponse>(
+    `/shotchart/ops/${season}/refresh-baseline?${params.toString()}`,
+    { method: "POST" }
+  );
+}
+
+export function refreshStaleShotPlayers(
+  season: string,
+  seasonType: string = "Regular Season",
+  limit: number = 40
+): Promise<{ queued: number; jobs: unknown[] }> {
+  const params = new URLSearchParams({ season_type: seasonType, limit: String(limit) });
+  return fetchApi<{ queued: number; jobs: unknown[] }>(
+    `/shotchart/ops/${season}/refresh-stale-players?${params.toString()}`,
+    { method: "POST" }
+  );
+}

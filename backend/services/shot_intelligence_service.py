@@ -7,7 +7,7 @@ from typing import Dict, Iterable, List, Optional, Sequence, Tuple
 
 from sqlalchemy.orm import Session
 
-from db.models import PlayerShotChart
+from db.models import PlayerShotChart, ShotQualityBaseline
 from models.shotchart import (
     ShotCreationResponse,
     ShotCreationSplit,
@@ -20,6 +20,7 @@ from models.shotchart import (
     ShotQualityResponse,
     ShotQualitySummary,
     ShotQualityZone,
+    ShotReplayExample,
 )
 from services.shot_lab_service import summarize_shot_completeness
 
@@ -301,6 +302,91 @@ def _load_baselines(db: Session, season: str, season_type: str) -> _BaselineStor
     return store
 
 
+def _serialize_key(key: Tuple[str, ...]) -> str:
+    return "||".join(key)
+
+
+def _deserialize_key(packed: str) -> Tuple[str, ...]:
+    return tuple(packed.split("||"))
+
+
+def _serialize_baselines(store: _BaselineStore) -> dict:
+    def _pack(buckets: Dict[Tuple[str, ...], _Baseline]) -> Dict[str, List[int]]:
+        return {
+            _serialize_key(key): [b.attempts, b.made, b.points]
+            for key, b in buckets.items()
+        }
+
+    return {
+        "exact": _pack(store.exact),
+        "zone_distance_value": _pack(store.zone_distance_value),
+        "zone_value": _pack(store.zone_value),
+        "value": _pack(store.value),
+        "league": [store.league.attempts, store.league.made, store.league.points],
+    }
+
+
+def _deserialize_baselines(payload: dict) -> _BaselineStore:
+    def _unpack(buckets: dict) -> Dict[Tuple[str, ...], _Baseline]:
+        return {
+            _deserialize_key(k): _Baseline(attempts=int(v[0]), made=int(v[1]), points=int(v[2]))
+            for k, v in (buckets or {}).items()
+        }
+
+    store = _BaselineStore()
+    store.exact = _unpack(payload.get("exact") or {})
+    store.zone_distance_value = _unpack(payload.get("zone_distance_value") or {})
+    store.zone_value = _unpack(payload.get("zone_value") or {})
+    store.value = _unpack(payload.get("value") or {})
+    league = payload.get("league") or [0, 0, 0]
+    store.league = _Baseline(attempts=int(league[0]), made=int(league[1]), points=int(league[2]))
+    return store
+
+
+def get_or_build_baseline(
+    db: Session,
+    season: str,
+    season_type: str,
+    methodology_version: str = METHODOLOGY_VERSION,
+    force_refresh: bool = False,
+) -> _BaselineStore:
+    """Return the materialized baseline for (season, season_type, methodology_version).
+
+    On cache miss or when force_refresh is True, compute from PlayerShotChart
+    and upsert a row in `shot_quality_baselines`.
+    """
+    row = (
+        db.query(ShotQualityBaseline)
+        .filter(
+            ShotQualityBaseline.season == season,
+            ShotQualityBaseline.season_type == season_type,
+            ShotQualityBaseline.methodology_version == methodology_version,
+        )
+        .one_or_none()
+    )
+    if row is not None and not force_refresh:
+        return _deserialize_baselines(row.payload or {})
+
+    store = _load_baselines(db, season, season_type)
+    payload = _serialize_baselines(store)
+    sample_n = store.league.attempts
+
+    if row is None:
+        row = ShotQualityBaseline(
+            season=season,
+            season_type=season_type,
+            methodology_version=methodology_version,
+            sample_n=sample_n,
+            payload=payload,
+        )
+        db.add(row)
+    else:
+        row.payload = payload
+        row.sample_n = sample_n
+    db.commit()
+    return store
+
+
 def _expected_baseline(shot: dict, season_type: str, store: _BaselineStore) -> Tuple[_Baseline, str]:
     candidates = [
         (store.exact.get(_exact_key(shot, season_type)), "exact_context", 25),
@@ -389,6 +475,74 @@ def _quality_summary(attempts: int, made: int, points: int, expected_points: flo
     )
 
 
+def _sample_replay_examples(
+    shots: Sequence[dict],
+    season_type: str,
+    store: "_BaselineStore",
+    limit: int = 3,
+) -> List[ShotReplayExample]:
+    scored: List[Tuple[float, int, str, dict]] = []
+    for shot in shots:
+        game_id = shot.get("game_id")
+        if not game_id:
+            continue
+        action_number = _safe_int(shot.get("action_number"))
+        event_id = shot.get("shot_event_id")
+        if action_number is None and not event_id:
+            continue
+        baseline, _ = _expected_baseline(shot, season_type, store)
+        pts_over = float(_points(shot)) - float(baseline.pps)
+        linkage_mode = str(shot.get("linkage_mode") or "").lower()
+        linkage_rank = 0 if linkage_mode == "exact" else 1 if linkage_mode == "derived" else 2
+        scored.append((abs(pts_over), linkage_rank, str(game_id), shot))
+        scored[-1] = (abs(pts_over), linkage_rank, str(game_id), shot)
+
+    scored.sort(key=lambda row: (row[1], -row[0], row[2]))
+    examples: List[ShotReplayExample] = []
+    seen_games: set = set()
+    for _, _, game_id, shot in scored:
+        if game_id in seen_games:
+            continue
+        seen_games.add(game_id)
+        action_number = _safe_int(shot.get("action_number"))
+        event_id = shot.get("shot_event_id")
+        linkage_mode = str(shot.get("linkage_mode") or "").lower()
+        linkage_quality = linkage_mode if linkage_mode in {"exact", "derived"} else "timeline"
+        opponent = shot.get("opponent_team_abbreviation")
+        team_abbr = shot.get("team_abbreviation")
+        url_parts = [f"/games/{game_id}"]
+        query: List[str] = []
+        if team_abbr:
+            query.append(f"team={team_abbr}")
+        if action_number is not None:
+            query.append(f"event_num={action_number}")
+        elif event_id:
+            query.append(f"event_id={event_id}")
+        deep_link_url = url_parts[0] + (("?" + "&".join(query)) if query else "")
+        baseline, _ = _expected_baseline(shot, season_type, store)
+        pts_over = float(_points(shot)) - float(baseline.pps)
+        examples.append(
+            ShotReplayExample(
+                game_id=str(game_id),
+                game_date=shot.get("game_date"),
+                opponent_abbreviation=str(opponent) if opponent else None,
+                shot_distance=_safe_int(shot.get("distance")),
+                shot_made=bool(shot.get("shot_made")),
+                action_number=action_number,
+                shot_event_id=str(event_id) if event_id else None,
+                period=_safe_int(shot.get("period")),
+                clock=str(shot.get("clock")) if shot.get("clock") else None,
+                zone_basic=str(shot.get("zone_basic")) if shot.get("zone_basic") else None,
+                points_over_expected=_round(pts_over, 3),
+                linkage_quality=linkage_quality,
+                deep_link_url=deep_link_url,
+            )
+        )
+        if len(examples) >= limit:
+            break
+    return examples
+
+
 def _quality_group(
     *,
     key: str,
@@ -441,6 +595,7 @@ def _quality_group(
         average_loc_y=_round(sum(loc_y_values) / len(loc_y_values), 2) if loc_y_values else None,
         sample_confidence=confidence,
         coverage_note=f"Expected baseline mostly uses {dominant_fallback.replace('_', ' ')} fallback.",
+        replay_examples=_sample_replay_examples(shots, season_type, store),
     )
 
 
@@ -496,7 +651,7 @@ def build_shot_quality_response(
     result: str,
     shot_value: str,
 ) -> ShotQualityResponse:
-    store = _load_baselines(db, season, season_type)
+    store = get_or_build_baseline(db, season, season_type)
     attempts = len(filtered_shots)
     made = sum(1 for shot in filtered_shots if shot.get("shot_made"))
     points = sum(_points(shot) for shot in filtered_shots)
@@ -576,6 +731,8 @@ def _split_stats(
     total_attempts: int,
     precision: str,
     coverage_note: str,
+    season_type: str,
+    store: "_BaselineStore",
 ) -> ShotCreationSplit:
     attempts = len(shots)
     made = sum(1 for shot in shots if shot.get("shot_made"))
@@ -592,6 +749,7 @@ def _split_stats(
         pps=_round(points / attempts) if attempts else None,
         precision=precision,
         coverage_note=coverage_note,
+        replay_examples=_sample_replay_examples(shots, season_type, store),
     )
 
 
@@ -609,6 +767,7 @@ def _is_linked(shot: dict) -> bool:
 
 
 def build_shot_creation_response(
+    db: Session,
     *,
     subject_type: str,
     subject_id: int,
@@ -623,6 +782,7 @@ def build_shot_creation_response(
     result: str,
     shot_value: str,
 ) -> ShotCreationResponse:
+    store = get_or_build_baseline(db, season, season_type)
     attempts = len(filtered_shots)
     linked = [shot for shot in filtered_shots if _is_linked(shot)]
     catch = [shot for shot in filtered_shots if _action_family(shot) == "catch_and_shoot"]
@@ -644,6 +804,8 @@ def build_shot_creation_response(
             total_attempts=attempts,
             precision="inferred",
             coverage_note="Proxy label from action_type, not official tracking.",
+            season_type=season_type,
+            store=store,
         ),
         _split_stats(
             split_key="pull_up_self_created_proxy",
@@ -653,6 +815,8 @@ def build_shot_creation_response(
             total_attempts=attempts,
             precision="inferred",
             coverage_note="Proxy label from shot action language.",
+            season_type=season_type,
+            store=store,
         ),
         _split_stats(
             split_key="late_clock",
@@ -662,6 +826,8 @@ def build_shot_creation_response(
             total_attempts=attempts,
             precision="all_shots" if coverage.state in {"ready", "partial"} else "partial",
             coverage_note="Uses persisted clock fields when present.",
+            season_type=season_type,
+            store=store,
         ),
         _split_stats(
             split_key="transition_adjacent",
@@ -671,6 +837,8 @@ def build_shot_creation_response(
             total_attempts=attempts,
             precision="inferred",
             coverage_note="Directional proxy because possession context is not fully tracking-grade.",
+            season_type=season_type,
+            store=store,
         ),
         _split_stats(
             split_key="rim_pressure",
@@ -680,6 +848,8 @@ def build_shot_creation_response(
             total_attempts=attempts,
             precision="all_shots",
             coverage_note="Uses shot action and zone labels across all visible shots.",
+            season_type=season_type,
+            store=store,
         ),
         _split_stats(
             split_key="paint_touch",
@@ -689,6 +859,8 @@ def build_shot_creation_response(
             total_attempts=attempts,
             precision="all_shots",
             coverage_note="Uses shot action and zone labels across all visible shots.",
+            season_type=season_type,
+            store=store,
         ),
     ]
     splits.sort(key=lambda row: row.attempts, reverse=True)

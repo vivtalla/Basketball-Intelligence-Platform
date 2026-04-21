@@ -7,6 +7,7 @@ import type {
   ShotQualityBin,
   ShotQualityResponse,
 } from "@/lib/types";
+import ShotExamplesChips from "./ShotExamplesChips";
 
 type ShotIntelligenceMode = "quality" | "making" | "creation" | "summary";
 
@@ -136,6 +137,11 @@ function BinRows({ bins, mode }: { bins: ShotQualityBin[]; mode: "quality" | "ma
               />
             </div>
             <p className="mt-2 text-[11px] text-[var(--muted)]">{bin.coverage_note}</p>
+            {bin.replay_examples && bin.replay_examples.length > 0 ? (
+              <div className="mt-3">
+                <ShotExamplesChips examples={bin.replay_examples} />
+              </div>
+            ) : null}
           </div>
         );
       })}
@@ -166,6 +172,11 @@ function CreationSplits({ creation }: { creation?: ShotCreationResponse | null }
             <span>{num(split.pps)} PPS</span>
           </div>
           <p className="mt-3 text-[11px] text-[var(--muted)]">{split.coverage_note}</p>
+          {split.replay_examples && split.replay_examples.length > 0 ? (
+            <div className="mt-3">
+              <ShotExamplesChips examples={split.replay_examples} />
+            </div>
+          ) : null}
         </div>
       ))}
     </div>

@@ -10,6 +10,12 @@ import {
   heatColor,
 } from "@/lib/shotchart-constants";
 import {
+  CONFIDENCE_LABEL,
+  CONFIDENCE_SHORT,
+  confidenceBand,
+  type ShotConfidenceBand,
+} from "@/lib/shotchart-hover";
+import {
   ShotLabLegendItem,
   ShotLabStat,
   ShotLabSurface,
@@ -33,11 +39,35 @@ interface ZoneValueStat {
   valuePerShot: number | null; // diff × zone_points  (pts added vs expected per shot)
   pps: number | null;
   avgPps: number;
+  expectedFgPct: number;
+  confidence: ShotConfidenceBand;
 }
 
 // SVG viewport matches the rest of the platform
 const W = 500;
 const H = 480;
+
+function buildZoneHoverText(s: ZoneValueStat): string {
+  const lines: string[] = [s.zone];
+  lines.push(
+    `${s.made}/${s.attempted} FGM/FGA · ${(s.freq * 100).toFixed(0)}% of shots`,
+  );
+  if (s.fgPct !== null) {
+    const diffLabel =
+      s.diff !== null
+        ? ` (${s.diff >= 0 ? "+" : ""}${(s.diff * 100).toFixed(1)}% vs exp ${(s.expectedFgPct * 100).toFixed(0)}%)`
+        : "";
+    lines.push(`FG%: ${(s.fgPct * 100).toFixed(1)}%${diffLabel}`);
+  } else {
+    lines.push(`FG%: — · expected ${(s.expectedFgPct * 100).toFixed(0)}%`);
+  }
+  if (s.valuePerShot !== null) {
+    const sign = s.valuePerShot >= 0 ? "+" : "";
+    lines.push(`Value: ${sign}${s.valuePerShot.toFixed(2)} pts/shot vs avg`);
+  }
+  lines.push(`Sample: ${CONFIDENCE_LABEL[s.confidence]} (${s.attempted})`);
+  return lines.join("\n");
+}
 
 const BASE_R = 16; // reference radius; actual bubble scales by √(freq/maxFreq)
 const SCALE = 2.2; // max multiplier → maxRadius ≈ 35
@@ -71,6 +101,8 @@ function buildZoneValueStats(shots: ShotChartShot[]): ZoneValueStat[] {
       valuePerShot,
       pps,
       avgPps: avg * pts,
+      expectedFgPct: avg,
+      confidence: confidenceBand(stat.attempted),
     };
   });
 }
@@ -157,6 +189,20 @@ export default function ShotValueMap({
               </svg>
             }
             label="Reference ring"
+          />
+          <ShotLabLegendItem
+            swatch={
+              <span
+                className="inline-flex items-center rounded-full px-1.5 py-0.5 text-[7.5px] font-bold uppercase tracking-[0.08em]"
+                style={{
+                  background: "rgba(120,120,128,0.16)",
+                  color: "#52525b",
+                }}
+              >
+                Low N
+              </span>
+            }
+            label="Thin sample (&lt;10 attempts)"
           />
         </>
       }
@@ -247,17 +293,35 @@ export default function ShotValueMap({
                   stroke={bubbleStroke}
                   strokeWidth="1.5"
                 >
-                  <title>
-                    {s.zone}
-                    {`\n${s.made}/${s.attempted} FGM/FGA (${(s.freq * 100).toFixed(0)}% of shots)`}
-                    {s.fgPct !== null
-                      ? `\nFG%: ${(s.fgPct * 100).toFixed(1)}%`
-                      : "\n< 5 attempts"}
-                    {s.valuePerShot !== null
-                      ? `\nValue: ${s.valuePerShot >= 0 ? "+" : ""}${s.valuePerShot.toFixed(2)} pts/shot vs avg`
-                      : ""}
-                  </title>
+                  <title>{buildZoneHoverText(s)}</title>
                 </circle>
+
+                {/* Low-sample pill — visible when confidence is low or insufficient */}
+                {(s.confidence === "low" || s.confidence === "insufficient") && (
+                  <g transform={`translate(${cx - 22}, ${cy + r + 3})`}>
+                    <rect
+                      x={0}
+                      y={0}
+                      width={44}
+                      height={13}
+                      rx={6.5}
+                      fill="rgba(120,120,128,0.16)"
+                      stroke="rgba(120,120,128,0.28)"
+                      strokeWidth="0.6"
+                    />
+                    <text
+                      x={22}
+                      y={9}
+                      textAnchor="middle"
+                      fontSize="7.5"
+                      fontWeight="700"
+                      fill="#52525b"
+                      letterSpacing="0.08em"
+                    >
+                      {CONFIDENCE_SHORT[s.confidence].toUpperCase()} N
+                    </text>
+                  </g>
+                )}
 
                 {/* Frosted label — FG% + value/shot */}
                 <rect

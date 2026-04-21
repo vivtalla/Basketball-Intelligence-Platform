@@ -5,8 +5,9 @@ import useSWR from "swr";
 import type { PlayerProfile, SeasonStats } from "@/lib/types";
 import { getPlayerInjuries } from "@/lib/api";
 import StatCard from "./StatCard";
-import { usePlayerPercentiles, useLeagueContext } from "@/hooks/usePlayerStats";
+import { usePlayerPercentiles, useLeagueContext, usePlayerShotIdentity } from "@/hooks/usePlayerStats";
 import { useFavorites } from "@/hooks/useFavorites";
+import ShotIdentityBadges from "./ShotIdentityBadges";
 
 interface PlayerHeaderProps {
   profile: PlayerProfile;
@@ -85,6 +86,11 @@ export default function PlayerHeader({
   const { data: context } = useLeagueContext(
     currentSeason?.season ?? null,
     profile.position ?? undefined
+  );
+
+  const { data: identityData, isLoading: identityLoading } = usePlayerShotIdentity(
+    profile.id,
+    currentSeason?.season ?? null
   );
 
   const { isFavorite, toggleFavorite } = useFavorites();
@@ -260,6 +266,12 @@ export default function PlayerHeader({
               </span>
             )}
           </div>
+
+          {(identityLoading || (identityData?.cards?.length ?? 0) > 0) && (
+            <div className="mb-4">
+              <ShotIdentityBadges cards={identityData?.cards} isLoading={identityLoading} limit={2} compact />
+            </div>
+          )}
 
           {/* Percentile badges */}
           {pctData && (
