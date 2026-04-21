@@ -114,7 +114,7 @@ def test_upgrade_database_stamps_legacy_sqlite_schema_and_applies_drift_columns(
             assert "tracking_family" in tracking_columns
             assert "touches" in tracking_columns
 
-            assert alembic_revision == "0007_mvp_race_timeline"
+            assert alembic_revision == "0008_shot_quality_baselines"
             assert snapshot_date == "2025-12-01"
         finally:
             engine.dispose()

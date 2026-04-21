@@ -3242,3 +3242,50 @@ export interface OpportunityResponse {
   methodology: OpportunityMethodology;
   warnings: string[];
 }
+
+export interface ShotIntelligenceOpsPlayer {
+  player_id: number;
+  player_name: string;
+  team_id?: number | null;
+  team_abbreviation?: string | null;
+  state: "ready" | "partial" | "legacy" | "stale" | "missing";
+  data_status: string;
+  total_shots: number;
+  linked_shots: number;
+  exact_linked_shots: number;
+  missing_context_fields: string[];
+  last_synced_at?: string | null;
+}
+
+export interface ShotIntelligenceOpsTeam {
+  team_id: number;
+  team_abbreviation: string;
+  team_name?: string | null;
+  readiness: "ready" | "partial" | "stale" | "missing";
+  roster_size: number;
+  ready_count: number;
+  partial_count: number;
+  legacy_count: number;
+  stale_count: number;
+  missing_count: number;
+}
+
+export interface ShotIntelligenceOpsBaseline {
+  season: string;
+  season_type: string;
+  methodology_version: string;
+  status: "ready" | "stale" | "missing";
+  sample_n: number;
+  computed_at?: string | null;
+}
+
+export interface ShotIntelligenceOpsResponse {
+  season: string;
+  season_type: string;
+  methodology_version: string;
+  teams: ShotIntelligenceOpsTeam[];
+  stale_players: ShotIntelligenceOpsPlayer[];
+  missing_context_histogram: Record<string, number>;
+  baseline: ShotIntelligenceOpsBaseline;
+  totals: Record<string, number>;
+}

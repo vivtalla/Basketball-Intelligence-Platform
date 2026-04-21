@@ -372,6 +372,53 @@ class ShotLabSnapshotCreateRequest(BaseModel):
     metadata: Dict[str, str] = {}
 
 
+class ShotIntelligenceOpsPlayer(BaseModel):
+    player_id: int
+    player_name: str
+    team_id: Optional[int] = None
+    team_abbreviation: Optional[str] = None
+    state: str  # "ready" | "partial" | "legacy" | "stale" | "missing"
+    data_status: str
+    total_shots: int
+    linked_shots: int
+    exact_linked_shots: int
+    missing_context_fields: List[str] = []
+    last_synced_at: Optional[str] = None
+
+
+class ShotIntelligenceOpsTeam(BaseModel):
+    team_id: int
+    team_abbreviation: str
+    team_name: Optional[str] = None
+    readiness: str  # "ready" | "partial" | "stale" | "missing"
+    roster_size: int
+    ready_count: int
+    partial_count: int
+    legacy_count: int
+    stale_count: int
+    missing_count: int
+
+
+class ShotIntelligenceOpsBaseline(BaseModel):
+    season: str
+    season_type: str
+    methodology_version: str
+    status: str  # "ready" | "stale" | "missing"
+    sample_n: int = 0
+    computed_at: Optional[str] = None
+
+
+class ShotIntelligenceOpsResponse(BaseModel):
+    season: str
+    season_type: str
+    methodology_version: str
+    teams: List[ShotIntelligenceOpsTeam] = []
+    stale_players: List[ShotIntelligenceOpsPlayer] = []
+    missing_context_histogram: Dict[str, int] = {}
+    baseline: ShotIntelligenceOpsBaseline
+    totals: Dict[str, int] = {}
+
+
 class ShotLabSnapshotResponse(BaseModel):
     snapshot_id: str
     share_url: str
