@@ -3,7 +3,7 @@ from __future__ import annotations
 import math
 import statistics
 from collections import defaultdict
-from typing import Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import func
@@ -11,7 +11,7 @@ from sqlalchemy.orm import Session
 
 from data.cache import CacheManager
 from db.database import get_db
-from db.models import GameTeamStat, PlayByPlayEvent, Team, WarehouseGame
+from db.models import GameTeamStat, PlayByPlayEvent, Team, TeamShootingSplitStat, WarehouseGame
 from models.styles import (
     ComparisonMetricRow,
     ComparisonStory,
@@ -25,6 +25,7 @@ from models.styles import (
     StyleMetricRow,
     StyleMovement,
     StyleNeighbor,
+    StyleShotProfileDriver,
     StyleScenarioLink,
     StyleScenarioBin,
     StyleXRayResponse,
@@ -32,6 +33,23 @@ from models.styles import (
 )
 
 router = APIRouter()
+
+_SHOOTING_DRIVER_CANDIDATE_FAMILIES = {
+    "ShotAreaTeamDashboard",
+    "ShotTypeTeamDashboard",
+    "Shot8FTTeamDashboard",
+    "Shot5FTTeamDashboard",
+    "AssitedShotTeamDashboard",
+}
+
+_SHOOTING_FAMILY_LABELS = {
+    "ShotAreaTeamDashboard": "Shot Area",
+    "ShotTypeTeamDashboard": "Shot Type",
+    "Shot8FTTeamDashboard": "Shot Distance (8ft)",
+    "Shot5FTTeamDashboard": "Shot Distance (5ft)",
+    "AssitedShotTeamDashboard": "Assisted Shot",
+    "OverallTeamDashboard": "Overall",
+}
 
 
 _STYLE_METRICS: List[Tuple[str, str, bool, str]] = [
@@ -84,7 +102,12 @@ def _style_cache_key(prefix: str, parts: List[str]) -> str:
 def _season_watermark(db: Session, season: str) -> str:
     max_team = db.query(func.max(GameTeamStat.updated_at)).filter(GameTeamStat.season == season).scalar()
     max_pbp = db.query(func.max(PlayByPlayEvent.updated_at)).filter(PlayByPlayEvent.season == season).scalar()
-    watermark = max([value for value in [max_team, max_pbp] if value is not None], default=None)
+    max_shooting = (
+        db.query(func.max(TeamShootingSplitStat.updated_at))
+        .filter(TeamShootingSplitStat.season == season)
+        .scalar()
+    )
+    watermark = max([value for value in [max_team, max_pbp, max_shooting] if value is not None], default=None)
     return watermark.isoformat() if watermark else "none"
 
 
@@ -359,6 +382,295 @@ def _league_vectors(db: Session, season: str) -> Tuple[Dict[int, Dict[str, Optio
         for metric_id, value in metrics.items():
             league_values[metric_id].append(value)
     return profiles, team_names, league_values
+
+
+def _family_label(split_family: str) -> str:
+    return _SHOOTING_FAMILY_LABELS.get(split_family, split_family)
+
+
+def _attempt_share_text(value: Optional[float]) -> str:
+    if value is None:
+        return "—"
+    return "{0:.1f}%".format(value * 100.0)
+
+
+def _pct_text(value: Optional[float]) -> str:
+    if value is None:
+        return "—"
+    return "{0:.1f}%".format(value * 100.0)
+
+
+def _signed_points_text(value: Optional[float]) -> str:
+    if value is None:
+        return "—"
+    return "{0}{1:.1f} pts".format("+" if value >= 0 else "", value * 100.0)
+
+
+def _select_shot_profile_drivers(
+    db: Session,
+    season: str,
+    team_id: int,
+) -> Tuple[List[StyleShotProfileDriver], List[Dict[str, Any]]]:
+    rows = (
+        db.query(TeamShootingSplitStat)
+        .filter(
+            TeamShootingSplitStat.season == season,
+            TeamShootingSplitStat.is_playoff == False,  # noqa: E712
+        )
+        .all()
+    )
+    if not rows:
+        return [], []
+
+    overall_attempts: Dict[int, float] = {}
+    for row in rows:
+        if row.split_family == "OverallTeamDashboard" and row.fga is not None:
+            overall_attempts[row.team_id] = float(row.fga)
+
+    by_key: Dict[Tuple[int, str, str], TeamShootingSplitStat] = {
+        (row.team_id, row.split_family, row.split_value): row
+        for row in rows
+    }
+    current_candidates: List[Dict[str, Any]] = []
+    for row in rows:
+        if row.team_id != team_id or row.split_family not in _SHOOTING_DRIVER_CANDIDATE_FAMILIES:
+            continue
+        team_total = overall_attempts.get(team_id)
+        if not team_total or team_total <= 0 or row.fga is None or row.fga < 40:
+            continue
+        peer_rows = [
+            other
+            for other in rows
+            if other.team_id != team_id
+            and other.split_family == row.split_family
+            and other.split_value == row.split_value
+            and other.fga is not None
+            and overall_attempts.get(other.team_id, 0.0) > 0
+        ]
+        if not peer_rows:
+            continue
+        attempt_share = float(row.fga) / team_total
+        league_attempt_shares = [
+            float(other.fga) / overall_attempts[other.team_id]
+            for other in peer_rows
+            if overall_attempts.get(other.team_id)
+        ]
+        league_efg_values = [float(other.efg_pct) for other in peer_rows if other.efg_pct is not None]
+        if not league_attempt_shares:
+            continue
+        league_attempt_share = statistics.mean(league_attempt_shares)
+        league_efg_pct = statistics.mean(league_efg_values) if league_efg_values else None
+        volume_delta = attempt_share - league_attempt_share
+        efg_delta = None
+        if row.efg_pct is not None and league_efg_pct is not None:
+            efg_delta = float(row.efg_pct) - league_efg_pct
+        current_candidates.append(
+            {
+                "key": (row.split_family, row.split_value),
+                "split_family": row.split_family,
+                "split_value": row.split_value,
+                "label": row.label,
+                "attempt_share": attempt_share,
+                "efg_pct": float(row.efg_pct) if row.efg_pct is not None else None,
+                "league_attempt_share": league_attempt_share,
+                "league_efg_pct": league_efg_pct,
+                "volume_delta": volume_delta,
+                "efg_delta": efg_delta,
+                "fga": float(row.fga),
+                "pct_ast_fgm": float(row.pct_ast_fgm) if row.pct_ast_fgm is not None else None,
+                "pct_uast_fgm": float(row.pct_uast_fgm) if row.pct_uast_fgm is not None else None,
+                "row": row,
+            }
+        )
+
+    if not current_candidates:
+        return [], []
+
+    selected: List[Dict[str, Any]] = []
+    seen = set()
+    volume_sorted = sorted(
+        current_candidates,
+        key=lambda item: (abs(item["volume_delta"]), item["fga"]),
+        reverse=True,
+    )
+    efficiency_sorted = sorted(
+        [item for item in current_candidates if item["efg_delta"] is not None],
+        key=lambda item: (abs(item["efg_delta"]), item["fga"]),
+        reverse=True,
+    )
+    for candidate_list in (volume_sorted[:2], efficiency_sorted[:2], volume_sorted[2:], efficiency_sorted[2:]):
+        for candidate in candidate_list:
+            if candidate["key"] in seen:
+                continue
+            seen.add(candidate["key"])
+            selected.append(candidate)
+            if len(selected) >= 4:
+                break
+        if len(selected) >= 4:
+            break
+
+    drivers: List[StyleShotProfileDriver] = []
+    for candidate in selected:
+        volume_delta = candidate["volume_delta"]
+        efg_delta = candidate["efg_delta"]
+        if efg_delta is not None and abs(efg_delta) >= abs(volume_delta):
+            league_delta = efg_delta
+        else:
+            league_delta = volume_delta
+        summary_parts = [
+            "{0} shots".format(_family_label(candidate["split_family"])),
+            "take {0} of attempts vs league {1}".format(
+                _attempt_share_text(candidate["attempt_share"]),
+                _attempt_share_text(candidate["league_attempt_share"]),
+            ),
+        ]
+        if candidate["efg_pct"] is not None and candidate["league_efg_pct"] is not None:
+            summary_parts.append(
+                "and post {0} eFG vs league {1}".format(
+                    _pct_text(candidate["efg_pct"]),
+                    _pct_text(candidate["league_efg_pct"]),
+                )
+            )
+        drivers.append(
+            StyleShotProfileDriver(
+                split_family=candidate["split_family"],
+                split_value=candidate["split_value"],
+                label=candidate["label"],
+                attempt_share=_safe_round(candidate["attempt_share"], 3),
+                efg_pct=_safe_round(candidate["efg_pct"], 3) if candidate["efg_pct"] is not None else None,
+                league_delta=_safe_round(league_delta, 3),
+                summary=" ".join(summary_parts) + ".",
+            )
+        )
+    return drivers, selected
+
+
+def _driver_sentence(driver: StyleShotProfileDriver) -> str:
+    delta_text = _signed_points_text(driver.league_delta)
+    return "{0} ({1}) is a live shot-profile swing at {2}.".format(
+        driver.label,
+        _family_label(driver.split_family),
+        delta_text,
+    )
+
+
+def _neighbor_shot_profile_summary(
+    current_team_abbr: str,
+    neighbor: Team,
+    candidate: Dict[str, Any],
+    neighbor_row: Optional[TeamShootingSplitStat],
+    neighbor_total_attempts: Optional[float],
+) -> Optional[str]:
+    if not neighbor_row or not neighbor_total_attempts or neighbor_row.fga is None:
+        return None
+    current_share = candidate["attempt_share"]
+    neighbor_share = float(neighbor_row.fga) / neighbor_total_attempts
+    share_gap = current_share - neighbor_share
+    current_efg = candidate["efg_pct"]
+    neighbor_efg = float(neighbor_row.efg_pct) if neighbor_row.efg_pct is not None else None
+    efg_gap = None
+    if current_efg is not None and neighbor_efg is not None:
+        efg_gap = current_efg - neighbor_efg
+
+    if abs(share_gap) <= 0.02 and (efg_gap is None or abs(efg_gap) <= 0.02):
+        return "Shared shot-profile note: both teams sit near each other on {0} volume and efficiency.".format(candidate["label"])
+    if abs(share_gap) >= (abs(efg_gap) if efg_gap is not None else 0.0):
+        return "{0} leans {1} harder into {2} than {3} ({4} vs {5} of attempts).".format(
+            current_team_abbr,
+            "more" if share_gap > 0 else "less",
+            candidate["label"],
+            neighbor.abbreviation,
+            _attempt_share_text(current_share),
+            _attempt_share_text(neighbor_share),
+        )
+    if efg_gap is not None:
+        return "{0} is {1} efficient than {2} on {3} ({4} vs {5} eFG).".format(
+            current_team_abbr,
+            "more" if efg_gap > 0 else "less",
+            neighbor.abbreviation,
+            candidate["label"],
+            _pct_text(current_efg),
+            _pct_text(neighbor_efg),
+        )
+    return None
+
+
+def _scenario_from_driver(
+    team_abbr: str,
+    season: str,
+    window: int,
+    opponent_abbr: Optional[str],
+    candidate: Dict[str, Any],
+) -> Optional[StyleScenarioLink]:
+    label = str(candidate["label"]).lower()
+    split_family = candidate["split_family"]
+    volume_delta = float(candidate["volume_delta"] or 0.0)
+    efg_delta = candidate["efg_delta"]
+    if "assisted" in label or split_family == "AssitedShotTeamDashboard":
+        title = "Create cleaner assisted shots"
+        rationale = "Shot-profile driver: {0}".format(candidate["label"])
+        if candidate.get("pct_ast_fgm") is not None:
+            rationale = "{0} assisted share is shaping the profile.".format(candidate["label"])
+        return StyleScenarioLink(
+            scenario_type="reduce_iso_proxy",
+            title=title,
+            delta=2.0,
+            rationale=rationale,
+            what_if_payload={
+                "team": team_abbr,
+                "season": season,
+                "window": str(window),
+                "scenario_type": "reduce_iso_proxy",
+                "delta": "2.0",
+                "opponent": opponent_abbr or "",
+            },
+        )
+    if any(token in label for token in ["corner 3", "above the break 3", "3pt", "3-pt", "backcourt"]):
+        return StyleScenarioLink(
+            scenario_type="raise_3pa_rate",
+            title="Shift more volume to the arc",
+            delta=0.03,
+            rationale="Shot-profile driver: {0}".format(candidate["label"]),
+            what_if_payload={
+                "team": team_abbr,
+                "season": season,
+                "window": str(window),
+                "scenario_type": "raise_3pa_rate",
+                "delta": "0.03",
+                "opponent": opponent_abbr or "",
+            },
+        )
+    if any(token in label for token in ["less than 5 ft", "5-8 ft", "restricted area", "paint", "in the paint"]):
+        return StyleScenarioLink(
+            scenario_type="increase_oreb",
+            title="Chase extra paint possessions",
+            delta=0.02,
+            rationale="Shot-profile driver: {0}".format(candidate["label"]),
+            what_if_payload={
+                "team": team_abbr,
+                "season": season,
+                "window": str(window),
+                "scenario_type": "increase_oreb",
+                "delta": "0.02",
+                "opponent": opponent_abbr or "",
+            },
+        )
+    if volume_delta < 0 or (efg_delta is not None and efg_delta < 0):
+        return StyleScenarioLink(
+            scenario_type="raise_3pa_rate",
+            title="Open cleaner spacing volume",
+            delta=0.03,
+            rationale="Shot-profile driver: {0}".format(candidate["label"]),
+            what_if_payload={
+                "team": team_abbr,
+                "season": season,
+                "window": str(window),
+                "scenario_type": "raise_3pa_rate",
+                "delta": "0.03",
+                "opponent": opponent_abbr or "",
+            },
+        )
+    return None
 
 
 _STYLE_CONTRIBUTOR_KEYS = {
@@ -780,6 +1092,9 @@ def build_style_xray_report(
         for metric_id in current_metrics.keys()
     }
     archetype, label_reason, contributors, archetype_confidence = _style_xray_label(current_metrics, zscores)
+    shot_profile_drivers, driver_candidates = _select_shot_profile_drivers(db, season, team.id)
+    if shot_profile_drivers:
+        label_reason = "{0} {1}".format(label_reason, _driver_sentence(shot_profile_drivers[0]))
 
     neighbor_rows: List[Tuple[float, int, Dict[str, Optional[float]]]] = []
     for team_id, metrics in all_profiles.items():
@@ -800,6 +1115,33 @@ def build_style_xray_report(
             for metric_id in metrics.keys()
         }
         other_archetype, other_reason, _, _ = _style_xray_label(metrics, other_zscores)
+        shot_profile_note = None
+        for candidate in driver_candidates:
+            neighbor_total = None
+            neighbor_overall = db.query(TeamShootingSplitStat).filter(
+                TeamShootingSplitStat.team_id == other_team.id,
+                TeamShootingSplitStat.season == season,
+                TeamShootingSplitStat.is_playoff == False,  # noqa: E712
+                TeamShootingSplitStat.split_family == "OverallTeamDashboard",
+            ).first()
+            if neighbor_overall and neighbor_overall.fga is not None:
+                neighbor_total = float(neighbor_overall.fga)
+            neighbor_row = db.query(TeamShootingSplitStat).filter(
+                TeamShootingSplitStat.team_id == other_team.id,
+                TeamShootingSplitStat.season == season,
+                TeamShootingSplitStat.is_playoff == False,  # noqa: E712
+                TeamShootingSplitStat.split_family == candidate["split_family"],
+                TeamShootingSplitStat.split_value == candidate["split_value"],
+            ).first()
+            shot_profile_note = _neighbor_shot_profile_summary(
+                team.abbreviation,
+                other_team,
+                candidate,
+                neighbor_row,
+                neighbor_total,
+            )
+            if shot_profile_note:
+                break
         nearest_neighbors.append(
             StyleNeighbor(
                 team_abbreviation=other_team.abbreviation,
@@ -808,7 +1150,7 @@ def build_style_xray_report(
                 distance=_safe_round(distance, 3) or 0.0,
                 quality=classify_neighbor_quality(distance, all_distances),  # type: ignore[arg-type]
                 net_rating=_safe_round(metrics.get("net_rating"), 2),
-                summary=other_reason,
+                summary=shot_profile_note or other_reason,
             )
         )
 
@@ -845,6 +1187,8 @@ def build_style_xray_report(
         warnings.append("Neighbor search is limited because the season sample is small.")
     if recent_report.warnings:
         warnings.extend(recent_report.warnings[:2])
+    if not shot_profile_drivers:
+        warnings.append("Shot-profile drivers are limited because persisted team shooting splits are missing or thin.")
 
     if not nearest_neighbors:
         data_status = "limited"
@@ -853,7 +1197,17 @@ def build_style_xray_report(
     else:
         data_status = "ready"
 
-    scenario_links = [
+    scenario_links: List[StyleScenarioLink] = []
+    seen_scenarios = set()
+    for candidate in driver_candidates:
+        scenario = _scenario_from_driver(team.abbreviation, season, window, opponent_abbr, candidate)
+        if not scenario or scenario.scenario_type in seen_scenarios:
+            continue
+        scenario_links.append(scenario)
+        seen_scenarios.add(scenario.scenario_type)
+        if len(scenario_links) >= 3:
+            break
+    fallback_scenarios = [
         StyleScenarioLink(
             scenario_type="reduce_iso_proxy",
             title="Trim live-ball creation risk",
@@ -897,6 +1251,13 @@ def build_style_xray_report(
             },
         ),
     ]
+    for scenario in fallback_scenarios:
+        if scenario.scenario_type in seen_scenarios:
+            continue
+        scenario_links.append(scenario)
+        seen_scenarios.add(scenario.scenario_type)
+        if len(scenario_links) >= 3:
+            break
     compare_url = "/compare?mode=styles&team_a={0}&team_b={1}&season={2}&source_type=style-xray&source_id={0}&reason={3}".format(
         team.abbreviation,
         opponent_abbr or (nearest_neighbors[0].team_abbreviation if nearest_neighbors else team.abbreviation),
@@ -930,6 +1291,7 @@ def build_style_xray_report(
         feature_contributors=contributors,
         nearest_neighbors=nearest_neighbors,
         adjacent_archetypes=adjacent_archetypes,
+        shot_profile_drivers=shot_profile_drivers,
         stability=stability,  # type: ignore[arg-type]
         movement=movement,
         scenario_links=scenario_links,

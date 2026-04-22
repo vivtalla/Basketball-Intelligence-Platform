@@ -187,3 +187,90 @@ def test_get_team_general_splits_normalizes_supported_general_dashboards(monkeyp
     assert result[0]["pts"] == 4800.0
     assert result[1]["label"] == "Wins"
     assert result[1]["plus_minus"] == 800.0
+
+
+def test_get_team_shooting_splits_normalizes_supported_dashboards_and_ignores_assisted_by(monkeypatch):
+    rows_by_dataset = {
+        "ShotAreaTeamDashboard": [
+            {
+                "GROUP_VALUE": "Restricted Area",
+                "FGM": 500,
+                "FGA": 710,
+                "FG_PCT": 0.704,
+                "FG3M": 0,
+                "FG3A": 0,
+                "FG3_PCT": 0,
+                "EFG_PCT": 0.704,
+                "BLKA": 35,
+                "PCT_AST_2PM": 0.62,
+                "PCT_UAST_2PM": 0.38,
+                "PCT_AST_3PM": 0.0,
+                "PCT_UAST_3PM": 0.0,
+                "PCT_AST_FGM": 0.62,
+                "PCT_UAST_FGM": 0.38,
+            }
+        ],
+        "ShotTypeTeamDashboard": [
+            {
+                "GROUP_VALUE": "Above the Break 3",
+                "FGM": 290,
+                "FGA": 810,
+                "FG_PCT": 0.358,
+                "FG3M": 290,
+                "FG3A": 810,
+                "FG3_PCT": 0.358,
+                "EFG_PCT": 0.537,
+                "BLKA": 18,
+                "PCT_AST_2PM": 0.0,
+                "PCT_UAST_2PM": 0.0,
+                "PCT_AST_3PM": 0.88,
+                "PCT_UAST_3PM": 0.12,
+                "PCT_AST_FGM": 0.88,
+                "PCT_UAST_FGM": 0.12,
+            }
+        ],
+        "Shot8FTTeamDashboard": [
+            {"GROUP_VALUE": "24+ ft.", "FGM": 310, "FGA": 870, "FG_PCT": 0.356, "FG3M": 310, "FG3A": 870, "FG3_PCT": 0.356, "EFG_PCT": 0.534}
+        ],
+        "Shot5FTTeamDashboard": [
+            {"GROUP_VALUE": "24+ ft.", "FGM": 305, "FGA": 860, "FG_PCT": 0.355, "FG3M": 305, "FG3A": 860, "FG3_PCT": 0.355, "EFG_PCT": 0.532}
+        ],
+        "AssitedShotTeamDashboard": [
+            {"GROUP_VALUE": "Assisted", "FGM": 720, "FGA": 1280, "FG_PCT": 0.563, "FG3M": 410, "FG3A": 920, "FG3_PCT": 0.446, "EFG_PCT": 0.723, "PCT_AST_FGM": 1.0, "PCT_UAST_FGM": 0.0}
+        ],
+        "OverallTeamDashboard": [
+            {"GROUP_VALUE": "Overall", "FGM": 980, "FGA": 1980, "FG_PCT": 0.495, "FG3M": 420, "FG3A": 1120, "FG3_PCT": 0.375, "EFG_PCT": 0.601}
+        ],
+        "AssistedBy": [
+            {"GROUP_VALUE": "Ignored Player", "FGM": 12, "FGA": 20}
+        ],
+    }
+
+    class FakeDash:
+        def __init__(self, team_id: int, season: str, per_mode_detailed: str, season_type_all_star: str, timeout: int):
+            self.team_id = team_id
+            self.season = season
+            self.per_mode_detailed = per_mode_detailed
+            self.season_type_all_star = season_type_all_star
+
+        def get_normalized_dict(self):
+            return rows_by_dataset
+
+    monkeypatch.setattr(nba_client, "_rate_limit", lambda: None)
+    monkeypatch.setattr(nba_client.teamdashboardbyshootingsplits, "TeamDashboardByShootingSplits", FakeDash)
+
+    result = nba_client.get_team_shooting_splits("2025-26", 1610612738)
+
+    assert [row["split_family"] for row in result] == [
+        "ShotAreaTeamDashboard",
+        "ShotTypeTeamDashboard",
+        "Shot8FTTeamDashboard",
+        "Shot5FTTeamDashboard",
+        "AssitedShotTeamDashboard",
+        "OverallTeamDashboard",
+    ]
+    assert all(row["split_family"] != "AssistedBy" for row in result)
+    assert result[0]["team_id"] == 1610612738
+    assert result[0]["split_value"] == "Restricted Area"
+    assert result[1]["fg3a"] == 810.0
+    assert result[4]["pct_ast_fgm"] == 1.0

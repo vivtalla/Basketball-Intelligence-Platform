@@ -7,10 +7,14 @@ from sqlalchemy.orm import sessionmaker
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from db.database import Base  # noqa: E402
-from db.models import Player, SeasonStat, Team, TeamSeasonStat, TeamSplitStat  # noqa: E402
+from db.models import Player, SeasonStat, Team, TeamSeasonStat, TeamShootingSplitStat, TeamSplitStat  # noqa: E402
 from fastapi import HTTPException  # noqa: E402
-from routers.teams import team_analytics, team_splits  # noqa: E402
-from services.sync_service import sync_official_team_general_splits, sync_official_team_season_stats  # noqa: E402
+from routers.teams import team_analytics, team_shooting_splits, team_splits  # noqa: E402
+from services.sync_service import (
+    sync_official_team_general_splits,
+    sync_official_team_season_stats,
+    sync_official_team_shooting_splits,
+)  # noqa: E402
 
 
 def make_session():
@@ -317,5 +321,143 @@ def test_team_splits_raises_404_for_missing_persisted_rows():
         except HTTPException as exc:
             assert exc.status_code == 404
             assert "No official team splits" in exc.detail
+    finally:
+        session.close()
+
+
+def test_sync_official_team_shooting_splits_upserts_and_filters_rows(monkeypatch):
+    session = make_session()
+    try:
+        session.add_all(
+            [
+                Team(id=1610612738, abbreviation="BOS", name="Boston Celtics"),
+                Team(id=1610612747, abbreviation="LAL", name="Los Angeles Lakers"),
+            ]
+        )
+        session.add(
+            TeamShootingSplitStat(
+                team_id=1610612738,
+                season="2025-26",
+                is_playoff=False,
+                split_family="ShotAreaTeamDashboard",
+                split_value="Corner 3",
+                label="Corner 3",
+                fga=120,
+            )
+        )
+        session.commit()
+
+        def fake_get_team_shooting_splits(season: str, team_id: int):
+            assert season == "2025-26"
+            if team_id == 1610612738:
+                return [
+                    {
+                        "team_id": team_id,
+                        "season": season,
+                        "is_playoff": False,
+                        "split_family": "ShotAreaTeamDashboard",
+                        "split_value": "Restricted Area",
+                        "label": "Restricted Area",
+                        "fgm": 500.0,
+                        "fga": 700.0,
+                        "fg_pct": 0.714,
+                        "fg3m": 0.0,
+                        "fg3a": 0.0,
+                        "fg3_pct": 0.0,
+                        "efg_pct": 0.714,
+                        "blka": 30.0,
+                        "pct_ast_fgm": 0.61,
+                        "pct_uast_fgm": 0.39,
+                    }
+                ]
+            return [
+                {
+                    "team_id": team_id,
+                    "season": season,
+                    "split_family": "ShotAreaTeamDashboard",
+                    "split_value": "Restricted Area",
+                    "label": "Restricted Area",
+                    "fga": 640.0,
+                }
+            ]
+
+        monkeypatch.setattr("services.sync_service.get_team_shooting_splits", fake_get_team_shooting_splits)
+
+        result = sync_official_team_shooting_splits(session, "2025-26", team_ids=[1610612738])
+
+        rows = session.query(TeamShootingSplitStat).filter_by(team_id=1610612738, season="2025-26").all()
+        assert result["status"] == "ok"
+        assert result["teams_synced"] == 1
+        assert result["split_rows_synced"] == 1
+        assert result["split_rows_created"] == 1
+        assert result["split_rows_deleted"] == 1
+        assert len(rows) == 1
+        assert rows[0].split_value == "Restricted Area"
+        assert rows[0].fga == 700.0
+        assert rows[0].source == "stats.nba.com/team-shooting-splits"
+        assert session.query(TeamShootingSplitStat).filter_by(team_id=1610612747).count() == 0
+    finally:
+        session.close()
+
+
+def test_team_shooting_splits_reads_persisted_official_rows():
+    session = make_session()
+    try:
+        team = Team(id=1610612738, abbreviation="BOS", name="Boston Celtics")
+        session.add(team)
+        session.add_all(
+            [
+                TeamShootingSplitStat(
+                    team_id=team.id,
+                    season="2025-26",
+                    is_playoff=False,
+                    split_family="ShotAreaTeamDashboard",
+                    split_value="Restricted Area",
+                    label="Restricted Area",
+                    fga=710.0,
+                    fg_pct=0.704,
+                    efg_pct=0.704,
+                ),
+                TeamShootingSplitStat(
+                    team_id=team.id,
+                    season="2025-26",
+                    is_playoff=False,
+                    split_family="OverallTeamDashboard",
+                    split_value="Overall",
+                    label="Overall",
+                    fga=1980.0,
+                    fg_pct=0.495,
+                    efg_pct=0.601,
+                ),
+            ]
+        )
+        session.commit()
+
+        response = team_shooting_splits("BOS", season="2025-26", db=session)
+
+        assert response.team_id == team.id
+        assert response.abbreviation == "BOS"
+        assert response.canonical_source == "stats.nba.com/team-shooting-splits"
+        assert response.last_synced_at is not None
+        assert len(response.splits) == 2
+        assert response.splits[0].split_family == "OverallTeamDashboard"
+        assert response.splits[1].split_value == "Restricted Area"
+        assert response.splits[1].fga == 710.0
+    finally:
+        session.close()
+
+
+def test_team_shooting_splits_raises_404_for_missing_persisted_rows():
+    session = make_session()
+    try:
+        session.add(Team(id=1610612738, abbreviation="BOS", name="Boston Celtics"))
+        session.commit()
+
+        try:
+            team_shooting_splits("BOS", season="2025-26", db=session)
+            assert False, "Expected missing shooting split rows to raise HTTPException"
+        except HTTPException as exc:
+            assert exc.status_code == 404
+            assert "No official team shooting splits" in exc.detail
     finally:
         session.close()

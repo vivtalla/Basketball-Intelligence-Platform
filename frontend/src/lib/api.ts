@@ -1459,3 +1459,12 @@ export function refreshStaleShotPlayers(
     { method: "POST" }
   );
 }
+
+export async function getTeamShootingSplits(
+  teamAbbreviation: string,
+  season: string
+): Promise<import("./types").TeamShootingSplitsResponse> {
+  return fetchApi<import("./types").TeamShootingSplitsResponse>(
+    `/api/teams/${encodeURIComponent(teamAbbreviation)}/shooting-splits?season=${encodeURIComponent(season)}`
+  );
+}

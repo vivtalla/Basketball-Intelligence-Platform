@@ -31,6 +31,7 @@ from nba_api.stats.endpoints import (
     shotchartdetail,
     synergyplaytypes,
     teamdashboardbygeneralsplits,
+    teamdashboardbyshootingsplits,
 )
 from nba_api.live.nba.endpoints import boxscore as live_boxscore
 from nba_api.stats.static import players as static_players
@@ -1391,6 +1392,15 @@ TEAM_GENERAL_SPLIT_LABEL_FIELDS = {
     "PrePostAllStarTeamDashboard": "SEASON_SEGMENT",
 }
 
+TEAM_SHOOTING_SPLIT_DATASETS = (
+    "ShotAreaTeamDashboard",
+    "ShotTypeTeamDashboard",
+    "Shot8FTTeamDashboard",
+    "Shot5FTTeamDashboard",
+    "AssitedShotTeamDashboard",
+    "OverallTeamDashboard",
+)
+
 
 def _safe_float(value) -> Optional[float]:
     try:
@@ -1454,6 +1464,56 @@ def get_team_general_splits(season: str, team_id: int) -> list[dict]:
     for dataset_name in TEAM_GENERAL_SPLIT_DATASETS:
         for row in data.get(dataset_name, []):
             normalized = _team_general_split_row(dataset_name, row, season, team_id)
+            if normalized:
+                splits.append(normalized)
+    return splits
+
+
+def _team_shooting_split_row(dataset_name: str, row: dict, season: str, team_id: int) -> Optional[dict]:
+    label = str(row.get("GROUP_VALUE") or "").strip()
+    if not label:
+        return None
+
+    return {
+        "team_id": int(team_id),
+        "season": season,
+        "is_playoff": False,
+        "split_family": dataset_name,
+        "split_value": label,
+        "label": label,
+        "fgm": _safe_float(row.get("FGM")),
+        "fga": _safe_float(row.get("FGA")),
+        "fg_pct": _safe_float(row.get("FG_PCT")),
+        "fg3m": _safe_float(row.get("FG3M")),
+        "fg3a": _safe_float(row.get("FG3A")),
+        "fg3_pct": _safe_float(row.get("FG3_PCT")),
+        "efg_pct": _safe_float(row.get("EFG_PCT")),
+        "blka": _safe_float(row.get("BLKA")),
+        "pct_ast_2pm": _safe_float(row.get("PCT_AST_2PM")),
+        "pct_uast_2pm": _safe_float(row.get("PCT_UAST_2PM")),
+        "pct_ast_3pm": _safe_float(row.get("PCT_AST_3PM")),
+        "pct_uast_3pm": _safe_float(row.get("PCT_UAST_3PM")),
+        "pct_ast_fgm": _safe_float(row.get("PCT_AST_FGM")),
+        "pct_uast_fgm": _safe_float(row.get("PCT_UAST_FGM")),
+        "source": "stats.nba.com/team-shooting-splits",
+    }
+
+
+def get_team_shooting_splits(season: str, team_id: int) -> list[dict]:
+    """Fetch official team shooting splits for one team and season."""
+    _rate_limit()
+    dash = teamdashboardbyshootingsplits.TeamDashboardByShootingSplits(
+        team_id=team_id,
+        season=season,
+        per_mode_detailed="Totals",
+        season_type_all_star="Regular Season",
+        timeout=NBA_API_TIMEOUT,
+    )
+    data = dash.get_normalized_dict()
+    splits: list[dict] = []
+    for dataset_name in TEAM_SHOOTING_SPLIT_DATASETS:
+        for row in data.get(dataset_name, []):
+            normalized = _team_shooting_split_row(dataset_name, row, season, team_id)
             if normalized:
                 splits.append(normalized)
     return splits

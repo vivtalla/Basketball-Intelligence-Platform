@@ -46,6 +46,7 @@ export function NeighborQualityList({ neighbors, season }: Props) {
                   {n.team_abbreviation} · {n.team_name}
                 </Link>
                 <span className="truncate text-[11px] text-[var(--muted)]">{n.archetype}</span>
+                <p className="mt-1 line-clamp-2 text-[11px] leading-4 text-[var(--muted-strong)]">{n.summary}</p>
               </div>
               <div className="flex items-center gap-3">
                 <span
