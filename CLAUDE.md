@@ -260,6 +260,15 @@ CourtVue Labs uses a hybrid sprint model: major feature sprints typically run as
 
 > Full history → `specs/sprint-history.md`
 
+### Sprint 62 — Style Intelligence + Team Shooting Splits
+
+- Added canonical persisted official team shooting splits: new `team_shooting_split_stats` table (Alembic `0009_team_shooting_split_stats`), `nba_client.get_team_shooting_splits`, and `sync_official_team_shooting_splits`.
+- Updated `daily_sync.sh` so team shooting splits refresh with the rest of the official team dashboard stack.
+- Added DB-first `GET /api/teams/{abbr}/shooting-splits` plus additive backend/frontend contracts for `TeamShootingSplitRow`, `TeamShootingSplitsResponse`, `StyleShotProfileDriver`, and `StyleXRayResponse.shot_profile_drivers`.
+- Upgraded the team `Splits` tab into a dual-mode workspace with `Situational` and new `Shooting` views via `TeamShootingSplitsPanel`.
+- Deepened Style X-Ray with persisted shot-profile drivers, dynamic scenario links, shot-profile-aware label reasons, and richer neighbor summaries plus a new `ShotProfileDriversCard`.
+- Verified with targeted backend tests, frontend `npm run lint`, frontend `npm run build`, and `git diff --check` clean.
+
 ### Sprint 61 — Shot Lab Polish + Shot Intelligence Ops
 
 - Added shared `ShotHoverTooltip` across `ShotValueMap`, `ShotSprawlMap`, `ShotDistanceProfile`: surfaces attempts, expected FG%, actual FG%, Δ, and `sample_confidence` band with low-sample pills.
@@ -270,24 +279,7 @@ CourtVue Labs uses a hybrid sprint model: major feature sprints typically run as
 - **Backfill controls**: `POST /shotchart/ops/{season}/refresh-baseline` + `.../refresh-stale-players` enqueue through the warehouse job framework; action buttons in the ops panel.
 - Verified with 172 backend tests, frontend `npm run lint`, `npm run build`, and `git diff --check` clean.
 
-### Sprint 60 — Insights X-Ray + Explainability + MVP Team Impact
-
-- Promoted **Play-Style X-Ray** from a What-If stub to a dedicated Insights tab: 9 rule-based archetypes with confidence, neighbor quality bands, feature-delta movement narrative, methodology drawer, and Compare/Prep/What-If handoffs.
-- Raised **Trajectory** and **Trends** to Opportunity's explainability bar: Trajectory driver tooltips (`SIGNAL_DESCRIPTIONS`), new `TrajectoryMethodologyDrawer`, Trends confidence + thin-sample pills on player movers, supporting-stat hover descriptions, expanded Trends methodology drawer with significance bands.
-- Added **lineup-aware teammate on/off swings** to MVP Team Impact: new `MvpTeammateSwing` model, `_teammate_on_off_swings` helper (top 3 partners by shared minutes, both-on vs candidate-only nets, confidence from shared possessions, ≥100-possession gate), rendered in `MvpRacePanel` with thin-sample caveats.
-- Verified with 37 backend tests (15 style x-ray + 7 teammate swings + 15 MVP service), frontend `npm run lint`, `npm run build`, and `git diff --check` clean.
-
-### Sprint 59 — Insights Trend Intelligence Overhaul
-
-- Rebuilt Trend Cards into a team + player **Trend Intelligence** workspace: team drift cards, player movers, pinned-player foundation detail, methodology, coverage notes, and replay-aware handoffs.
-- Made `backend/services/trend_card_service.py` the canonical trend-card service; `/api/trends/cards` now accepts optional `player_id` and `signal`.
-- Expanded the trend response contract with `data_status`, `overview`, `player_movers`, `pinned_player`, and foundation signal coverage.
-- Wired shared `player_id` / `signal` URL state through `InsightsHeader`, Trends, Opportunity, and Trajectory.
-- Made Opportunity Team Roll-Up tiles actionable: selecting a driver pins the first qualifying player and applies the signal filter.
-- Hard-deleted deprecated `/api/insights/usage-efficiency`, the old backend service/models, frontend API/hook/types, and orphan `UsageBurdenMatrix`.
-- Verified with 30 targeted backend tests, frontend `npm run lint`, frontend `npm run build`, local API/page smokes, and `git diff --check`.
-
-*Sprint 58 moved to `specs/sprint-history.md`.*
+*Sprint 60 moved to `specs/sprint-history.md`.*
 
 ---
 
@@ -301,6 +293,7 @@ CourtVue Labs uses a hybrid sprint model: major feature sprints typically run as
 | `codex-sprint-59-insights-trend-overhaul` | Codex | Merged to master |
 | `feature/sprint-60-insights-xray-explainability` | Claude | Merged to master |
 | `feature/sprint-61-shot-lab-polish-and-ops` | Claude | Merged to master |
+| `feature/sprint-62-style-intelligence-and-team-shooting-splits` | Codex | Pushed; closeout prepared, pending merge |
 
 Sprint branches are created at kickoff and listed in `AGENTS.md`.
 

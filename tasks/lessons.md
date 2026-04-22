@@ -19,6 +19,12 @@ Each lesson:
 
 <!-- Add entries below in reverse-chronological order (newest first). -->
 
+### 2026-04-21 — Sprint work is not done until closeout artifacts are updated
+
+- **Context**: Sprint 62 code was implemented, committed, and pushed before the repo closeout set from `AGENTS.md` was reconciled.
+- **Mistake**: Treated implementation + verification as the finish line and did not immediately update the closeout artifacts (`specs/sprint-{NN}-closeout.md`, `specs/BACKLOG.md`, `AGENTS.md`, `CLAUDE.md`, `specs/sprint-history.md`).
+- **Rule**: When a sprint is declared complete, run the full `AGENTS.md` closeout checklist before calling it done. If merge-to-`master` has not happened yet, explicitly mark master-dependent items as pending instead of silently skipping the closeout set.
+
 ### 2026-04-19 — UI cleanup must preserve unique workflows
 
 - **Context**: Sprint 56 player profile cleanup removed redundant Shot Lab sections, but the shot action table, distance profile, and shot-context Game Explorer links were useful unique workflows.
