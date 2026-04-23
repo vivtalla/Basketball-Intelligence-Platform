@@ -22,6 +22,7 @@ def test_upgrade_database_creates_fresh_schema_from_migrations():
             assert "season_stats" in tables
             assert "team_season_stats" in tables
             assert "team_split_stats" in tables
+            assert "team_shooting_split_stats" in tables
             assert "player_gravity_stats" in tables
             assert "player_play_type_stats" in tables
             assert "player_tracking_stats" in tables
@@ -98,6 +99,10 @@ def test_upgrade_database_stamps_legacy_sqlite_schema_and_applies_drift_columns(
             assert "split_family" in team_split_columns
             assert "plus_minus" in team_split_columns
 
+            team_shooting_split_columns = {column["name"] for column in inspector.get_columns("team_shooting_split_stats")}
+            assert "split_family" in team_shooting_split_columns
+            assert "pct_ast_fgm" in team_shooting_split_columns
+
             gravity_columns = {column["name"] for column in inspector.get_columns("player_gravity_stats")}
             assert "overall_gravity" in gravity_columns
             assert "spacing_lift" in gravity_columns
@@ -114,7 +119,7 @@ def test_upgrade_database_stamps_legacy_sqlite_schema_and_applies_drift_columns(
             assert "tracking_family" in tracking_columns
             assert "touches" in tracking_columns
 
-            assert alembic_revision == "0008_shot_quality_baselines"
+            assert alembic_revision == "0009_team_shooting_split_stats"
             assert snapshot_date == "2025-12-01"
         finally:
             engine.dispose()

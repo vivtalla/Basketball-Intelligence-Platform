@@ -1,9 +1,22 @@
 # Sprint History Archive
 
-Sprints 1–56. Current sprint summaries also live in `CLAUDE.md` under "Recent Sprints".
+Archived sprint summaries through Sprint 62. The two most recent sprint summaries also stay inline in `CLAUDE.md` under "Recent Sprints".
 
-For detailed per-sprint records, see the individual closeout files in this directory:
-`specs/sprint-09-closeout.md` through `specs/sprint-56-closeout.md`
+For detailed per-sprint records, see the individual closeout files in this directory where available:
+`specs/sprint-09-closeout.md` through `specs/sprint-59-closeout.md`, plus `specs/sprint-62-closeout.md`
+
+---
+
+### Sprint 62 — Style Intelligence + Team Shooting Splits
+**Branch:** `feature/sprint-62-style-intelligence-and-team-shooting-splits`
+
+- Added canonical persisted official team shooting splits with new `team_shooting_split_stats` storage, Alembic `0009_team_shooting_split_stats`, `nba_client.get_team_shooting_splits`, and `sync_official_team_shooting_splits`.
+- Updated `backend/data/daily_sync.sh` so shooting splits refresh with the rest of the official team dashboard stack.
+- Added DB-first `GET /api/teams/{abbr}/shooting-splits` plus additive backend/frontend contracts for `TeamShootingSplitRow`, `TeamShootingSplitsResponse`, `StyleShotProfileDriver`, and `StyleXRayResponse.shot_profile_drivers`.
+- Upgraded the team `Splits` tab into a dual-mode workspace with `Situational` and `Shooting` views via the new `TeamShootingSplitsPanel`.
+- Deepened Style X-Ray with persisted shot-profile drivers, dynamic scenario links, shot-profile-aware label reasons, richer neighbor summaries, and a new `ShotProfileDriversCard`.
+- Fixed a follow-up split-tab selection bug so the team-page mode toggle respects the user’s explicit choice.
+- Verified with targeted backend tests, frontend `npm run lint`, frontend `npm run build`, and `git diff --check` clean.
 
 ---
 

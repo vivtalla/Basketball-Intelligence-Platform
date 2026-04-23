@@ -12,6 +12,7 @@ import {
   useTeamFocusLevers,
   useTeamIntelligence,
   useTeamRotationReport,
+  useTeamShootingSplits,
   useTeamSplits,
   useLineupImpactReport,
   usePlayTypeEVReport,
@@ -26,6 +27,7 @@ import TeamPrepQueuePanel from "@/components/TeamPrepQueuePanel";
 import TeamRotationIntelligencePanel from "@/components/TeamRotationIntelligencePanel";
 import TeamLineupsPanel from "@/components/TeamLineupsPanel";
 import TeamDecisionToolsPanel from "@/components/TeamDecisionToolsPanel";
+import TeamShootingSplitsPanel from "@/components/TeamShootingSplitsPanel";
 import TeamSplitsPanel from "@/components/TeamSplitsPanel";
 import type { TeamPrepQueueItem, TeamRosterPlayer } from "@/lib/types";
 
@@ -56,6 +58,7 @@ export default function TeamDetailPage() {
   const reasonParam = searchParams.get("reason");
   const [selectedTab, setSelectedTab] = useState<Tab>("intelligence");
   const [selectedSeason, setSelectedSeason] = useState<string>("");
+  const [splitView, setSplitView] = useState<"situational" | "shooting">("situational");
   const activeTab =
     (activeTabParam && (["decision", "prep", "intelligence", "roster", "analytics", "splits", "lineups"] as Tab[]).includes(activeTabParam as Tab)
       ? (activeTabParam as Tab)
@@ -115,6 +118,14 @@ export default function TeamDetailPage() {
   } = useTeamSplits(
     activeTab === "splits" || activeTab === "prep" ? teamAbbreviation : null,
     activeTab === "splits" || activeTab === "prep" ? effectiveSeason : null
+  );
+  const {
+    data: teamShootingSplits,
+    isLoading: shootingSplitsLoading,
+    error: shootingSplitsError,
+  } = useTeamShootingSplits(
+    activeTab === "splits" ? teamAbbreviation : null,
+    activeTab === "splits" ? effectiveSeason : null
   );
   const {
     data: availability,
@@ -662,19 +673,53 @@ export default function TeamDetailPage() {
       {/* Splits tab */}
       {activeTab === "splits" && (
         <section>
-          {splitsLoading && (
+          <div className="mb-4 flex flex-wrap gap-2">
+            <button
+              type="button"
+              onClick={() => setSplitView("situational")}
+              className={`rounded-full px-4 py-1.5 text-sm font-medium transition-colors ${
+                splitView === "situational" ? "bip-toggle-active" : "bip-toggle"
+              }`}
+            >
+              Situational
+            </button>
+            <button
+              type="button"
+              onClick={() => setSplitView("shooting")}
+              className={`rounded-full px-4 py-1.5 text-sm font-medium transition-colors ${
+                splitView === "shooting" ? "bip-toggle-active" : "bip-toggle"
+              }`}
+            >
+              Shooting
+            </button>
+          </div>
+          {splitView === "situational" && splitsLoading && (
             <div className="space-y-4 animate-pulse">
               <div className="h-40 rounded-[2rem] bg-gray-200 dark:bg-gray-700" />
               <div className="h-64 rounded-[1.8rem] bg-gray-200 dark:bg-gray-700" />
             </div>
           )}
-          {splitsError && (
+          {splitView === "shooting" && shootingSplitsLoading && (
+            <div className="space-y-4 animate-pulse">
+              <div className="h-40 rounded-[2rem] bg-gray-200 dark:bg-gray-700" />
+              <div className="h-64 rounded-[1.8rem] bg-gray-200 dark:bg-gray-700" />
+            </div>
+          )}
+          {splitView === "situational" && splitsError && (
             <div className="rounded-2xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-6 text-center text-gray-500 dark:text-gray-400">
               No split data for {effectiveSeason} yet. Splits are populated by the daily official sync — check back after the next sync run.
             </div>
           )}
-          {teamSplits && !splitsLoading && (
+          {splitView === "shooting" && shootingSplitsError && (
+            <div className="rounded-2xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-6 text-center text-gray-500 dark:text-gray-400">
+              No shooting split data for {effectiveSeason} yet. Shooting splits are populated by the daily official sync — check back after the next sync run.
+            </div>
+          )}
+          {splitView === "situational" && teamSplits && !splitsLoading && (
             <TeamSplitsPanel splits={teamSplits} />
+          )}
+          {splitView === "shooting" && teamShootingSplits && !shootingSplitsLoading && (
+            <TeamShootingSplitsPanel splits={teamShootingSplits} />
           )}
         </section>
       )}

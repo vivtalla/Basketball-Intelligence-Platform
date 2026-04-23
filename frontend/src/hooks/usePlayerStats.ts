@@ -49,6 +49,7 @@ import type {
   ShotLabShotValueFilter,
   TeamDefenseShotChartResponse,
   TeamDefenseZoneProfileResponse,
+  TeamShootingSplitsResponse,
   TrendCardsResponse,
   ShotLabSnapshotPayload,
   ShotLabSnapshotResponse,
@@ -146,6 +147,7 @@ import {
   getPlayTypeEVReport,
   getMatchupFlagsReport,
   postFollowThroughGames,
+  getTeamShootingSplits,
   getTeamSplits,
   getMvpCandidateCase,
   getMvpContextMap,
@@ -500,6 +502,18 @@ export function useTeamSplits(
       ? `team-splits-${teamAbbreviation}-${season}`
       : null,
     () => getTeamSplits(teamAbbreviation!, season!)
+  );
+}
+
+export function useTeamShootingSplits(
+  teamAbbreviation: string | null,
+  season: string | null
+) {
+  return useSWR<TeamShootingSplitsResponse>(
+    teamAbbreviation && season
+      ? `team-shooting-splits-${teamAbbreviation}-${season}`
+      : null,
+    () => getTeamShootingSplits(teamAbbreviation!, season!)
   );
 }
 

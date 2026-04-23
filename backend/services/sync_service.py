@@ -14,10 +14,19 @@ from data.nba_client import (
     get_player_advanced_stats_from_league,
     get_player_info,
     get_team_general_splits,
+    get_team_shooting_splits,
     get_team_stats,
     search_players,
 )
-from db.models import Player, PlayerInjury, SeasonStat, Team, TeamSeasonStat, TeamSplitStat
+from db.models import (
+    Player,
+    PlayerInjury,
+    SeasonStat,
+    Team,
+    TeamSeasonStat,
+    TeamShootingSplitStat,
+    TeamSplitStat,
+)
 from services.advanced_metrics import enrich_season_with_advanced
 from services.player_identity_service import (
     build_player_resolution_indexes,
@@ -193,6 +202,31 @@ def _official_team_split_to_row_payload(split_stats: dict, season: str) -> dict:
         "fg3_pct": split_stats.get("fg3_pct"),
         "ft_pct": split_stats.get("ft_pct"),
         "plus_minus": split_stats.get("plus_minus"),
+    }
+
+
+def _official_team_shooting_split_to_row_payload(split_stats: dict, season: str) -> dict:
+    return {
+        "season": season,
+        "is_playoff": bool(split_stats.get("is_playoff", False)),
+        "split_family": split_stats.get("split_family", ""),
+        "split_value": split_stats.get("split_value", ""),
+        "label": split_stats.get("label", ""),
+        "source": split_stats.get("source") or "stats.nba.com/team-shooting-splits",
+        "fgm": split_stats.get("fgm"),
+        "fga": split_stats.get("fga"),
+        "fg_pct": split_stats.get("fg_pct"),
+        "fg3m": split_stats.get("fg3m"),
+        "fg3a": split_stats.get("fg3a"),
+        "fg3_pct": split_stats.get("fg3_pct"),
+        "efg_pct": split_stats.get("efg_pct"),
+        "blka": split_stats.get("blka"),
+        "pct_ast_2pm": split_stats.get("pct_ast_2pm"),
+        "pct_uast_2pm": split_stats.get("pct_uast_2pm"),
+        "pct_ast_3pm": split_stats.get("pct_ast_3pm"),
+        "pct_uast_3pm": split_stats.get("pct_uast_3pm"),
+        "pct_ast_fgm": split_stats.get("pct_ast_fgm"),
+        "pct_uast_fgm": split_stats.get("pct_uast_fgm"),
     }
 
 
@@ -562,6 +596,93 @@ def sync_official_team_general_splits(
     db.commit()
     logger.info(
         "Official team general split sync complete for %s: teams=%s rows=%s created=%s deleted=%s",
+        season,
+        teams_synced,
+        updated_rows,
+        created_rows,
+        deleted_rows,
+    )
+    return {
+        "status": "ok",
+        "season": season,
+        "teams_synced": teams_synced,
+        "split_rows_synced": updated_rows,
+        "split_rows_created": created_rows,
+        "split_rows_deleted": deleted_rows,
+    }
+
+
+def sync_official_team_shooting_splits(
+    db: Session,
+    season: str,
+    team_ids: Optional[Sequence[int]] = None,
+) -> dict:
+    logger.info("Syncing official team shooting splits for %s", season)
+
+    query = db.query(Team)
+    if team_ids:
+        team_filter = {int(team_id) for team_id in team_ids}
+        query = query.filter(Team.id.in_(team_filter))
+    teams = query.order_by(Team.id).all()
+
+    existing_rows = db.query(TeamShootingSplitStat).filter(
+        TeamShootingSplitStat.season == season,
+        TeamShootingSplitStat.is_playoff == False,  # noqa: E712
+    )
+    if team_ids:
+        existing_rows = existing_rows.filter(TeamShootingSplitStat.team_id.in_([team.id for team in teams]))
+    persisted_rows = existing_rows.all()
+    persisted_by_key = {
+        (row.team_id, row.split_family, row.split_value): row
+        for row in persisted_rows
+    }
+
+    updated_rows = 0
+    created_rows = 0
+    deleted_rows = 0
+    refreshed_keys = set()
+    refreshed_team_ids = set()
+    teams_synced = 0
+
+    for team in teams:
+        team_id = int(team.id)
+        split_rows = get_team_shooting_splits(season, team_id)
+        if not split_rows:
+            continue
+        teams_synced += 1
+        refreshed_team_ids.add(team_id)
+        for split_stats in split_rows:
+            payload = _official_team_shooting_split_to_row_payload(split_stats, season)
+            if not payload["split_family"] or not payload["split_value"]:
+                continue
+            key = (team_id, payload["split_family"], payload["split_value"])
+            row = persisted_by_key.get(key)
+            if not row:
+                row = TeamShootingSplitStat(
+                    team_id=team_id,
+                    season=season,
+                    is_playoff=False,
+                    split_family=payload["split_family"],
+                    split_value=payload["split_value"],
+                    label=payload["label"] or payload["split_value"],
+                )
+                db.add(row)
+                persisted_by_key[key] = row
+                created_rows += 1
+            for field, value in payload.items():
+                setattr(row, field, value)
+            refreshed_keys.add(key)
+            updated_rows += 1
+
+    for key, row in persisted_by_key.items():
+        team_id, _, _ = key
+        if team_id in refreshed_team_ids and key not in refreshed_keys:
+            db.delete(row)
+            deleted_rows += 1
+
+    db.commit()
+    logger.info(
+        "Official team shooting split sync complete for %s: teams=%s rows=%s created=%s deleted=%s",
         season,
         teams_synced,
         updated_rows,

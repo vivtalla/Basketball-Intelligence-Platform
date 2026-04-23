@@ -3289,3 +3289,46 @@ export interface ShotIntelligenceOpsResponse {
   baseline: ShotIntelligenceOpsBaseline;
   totals: Record<string, number>;
 }
+
+export interface TeamShootingSplitRow {
+  split_family: string;
+  split_value: string;
+  label: string;
+  fgm?: number | null;
+  fga?: number | null;
+  fg_pct?: number | null;
+  fg3m?: number | null;
+  fg3a?: number | null;
+  fg3_pct?: number | null;
+  efg_pct?: number | null;
+  blka?: number | null;
+  pct_ast_2pm?: number | null;
+  pct_uast_2pm?: number | null;
+  pct_ast_3pm?: number | null;
+  pct_uast_3pm?: number | null;
+  pct_ast_fgm?: number | null;
+  pct_uast_fgm?: number | null;
+}
+
+export interface TeamShootingSplitsResponse {
+  team_id: number;
+  abbreviation: string;
+  season: string;
+  canonical_source?: string | null;
+  last_synced_at?: string | null;
+  splits: TeamShootingSplitRow[];
+}
+
+export interface StyleShotProfileDriver {
+  split_family: string;
+  split_value: string;
+  label: string;
+  attempt_share?: number | null;
+  efg_pct?: number | null;
+  league_delta?: number | null;
+  summary: string;
+}
+
+export interface StyleXRayResponse {
+  shot_profile_drivers: StyleShotProfileDriver[];
+}

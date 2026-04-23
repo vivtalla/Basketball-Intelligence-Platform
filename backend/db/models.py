@@ -799,6 +799,50 @@ class TeamSplitStat(Base):
     team = relationship("Team")
 
 
+class TeamShootingSplitStat(Base):
+    """Official persisted team shooting split stats from the NBA team dashboard."""
+    __tablename__ = "team_shooting_split_stats"
+    __table_args__ = (
+        UniqueConstraint(
+            "team_id",
+            "season",
+            "is_playoff",
+            "split_family",
+            "split_value",
+            name="uq_team_shooting_split_stat",
+        ),
+        Index("ix_team_shooting_split_stats_season", "season"),
+        Index("ix_team_shooting_split_stats_team_season", "team_id", "season"),
+        Index("ix_team_shooting_split_stats_family", "split_family"),
+    )
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    team_id = Column(Integer, ForeignKey("teams.id"), nullable=False)
+    season = Column(String(10), nullable=False)
+    is_playoff = Column(Boolean, nullable=False, default=False)
+    split_family = Column(String(60), nullable=False)
+    split_value = Column(String(120), nullable=False)
+    label = Column(String(120), nullable=False)
+    source = Column(String(70), nullable=False, default="stats.nba.com/team-shooting-splits")
+    fgm = Column(Float)
+    fga = Column(Float)
+    fg_pct = Column(Float)
+    fg3m = Column(Float)
+    fg3a = Column(Float)
+    fg3_pct = Column(Float)
+    efg_pct = Column(Float)
+    blka = Column(Float)
+    pct_ast_2pm = Column(Float)
+    pct_uast_2pm = Column(Float)
+    pct_ast_3pm = Column(Float)
+    pct_uast_3pm = Column(Float)
+    pct_ast_fgm = Column(Float)
+    pct_uast_fgm = Column(Float)
+    updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
+
+    team = relationship("Team")
+
+
 class PlayerPlayTypeStat(Base):
     """Persisted official/player play-type rows for DB-first style and gravity reads."""
     __tablename__ = "player_play_type_stats"
@@ -1115,4 +1159,3 @@ class ShotQualityBaseline(Base):
     payload = Column(JSON, nullable=False)
     computed_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
     created_at = Column(DateTime, server_default=func.now())
-

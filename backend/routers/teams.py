@@ -6,7 +6,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 
 from db.database import get_db
-from db.models import Player, SeasonStat, Team, TeamSeasonStat, TeamSplitStat
+from db.models import Player, SeasonStat, Team, TeamSeasonStat, TeamShootingSplitStat, TeamSplitStat
 from models.team import (
     TeamAvailabilityResponse,
     TeamAnalytics,
@@ -17,6 +17,8 @@ from models.team import (
     TeamRosterPlayer,
     TeamRosterResponse,
     TeamSplitRow,
+    TeamShootingSplitRow,
+    TeamShootingSplitsResponse,
     TeamSplitsResponse,
     TeamSummary,
 )
@@ -240,6 +242,66 @@ def team_splits(
                 fg3_pct=row.fg3_pct,
                 ft_pct=row.ft_pct,
                 plus_minus=row.plus_minus,
+            )
+            for row in rows
+        ],
+    )
+
+
+@router.get("/{abbr}/shooting-splits", response_model=TeamShootingSplitsResponse)
+def team_shooting_splits(
+    abbr: str,
+    season: str = Query("2025-26"),
+    db: Session = Depends(get_db),
+):
+    """Return persisted official team shooting splits for a season."""
+    abbr_upper = abbr.upper()
+    team = db.query(Team).filter(Team.abbreviation == abbr_upper).first()
+    if not team:
+        raise HTTPException(status_code=404, detail=f"Team '{abbr}' not found.")
+
+    rows = (
+        db.query(TeamShootingSplitStat)
+        .filter(
+            TeamShootingSplitStat.team_id == team.id,
+            TeamShootingSplitStat.season == season,
+            TeamShootingSplitStat.is_playoff == False,  # noqa: E712
+        )
+        .order_by(TeamShootingSplitStat.split_family, TeamShootingSplitStat.split_value)
+        .all()
+    )
+    if not rows:
+        raise HTTPException(
+            status_code=404,
+            detail=f"No official team shooting splits found for {abbr_upper} in {season}.",
+        )
+
+    latest = max((row.updated_at for row in rows if row.updated_at), default=None)
+    return TeamShootingSplitsResponse(
+        team_id=team.id,
+        abbreviation=abbr_upper,
+        season=season,
+        canonical_source=rows[0].source,
+        last_synced_at=latest.isoformat() if latest else None,
+        splits=[
+            TeamShootingSplitRow(
+                split_family=row.split_family,
+                split_value=row.split_value,
+                label=row.label,
+                fgm=row.fgm,
+                fga=row.fga,
+                fg_pct=row.fg_pct,
+                fg3m=row.fg3m,
+                fg3a=row.fg3a,
+                fg3_pct=row.fg3_pct,
+                efg_pct=row.efg_pct,
+                blka=row.blka,
+                pct_ast_2pm=row.pct_ast_2pm,
+                pct_uast_2pm=row.pct_uast_2pm,
+                pct_ast_3pm=row.pct_ast_3pm,
+                pct_uast_3pm=row.pct_uast_3pm,
+                pct_ast_fgm=row.pct_ast_fgm,
+                pct_uast_fgm=row.pct_uast_fgm,
             )
             for row in rows
         ],

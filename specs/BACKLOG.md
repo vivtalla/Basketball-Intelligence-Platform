@@ -89,14 +89,14 @@ Likely shape:
 - save prep snapshots by team/opponent/date instead of relying only on live query-state share links
 - continue tuning urgency and first-action summaries for local performance and edge-case matchups
 
-### Team Shooting Split Dashboards
+### Team Shooting Split Workflow Expansion
 Why it matters:
-Sprint 45 targets official team general splits first because they are the closest extension of the Sprint 44 team-season dashboard foundation. The shooting split dashboards remain a high-value follow-on for style and shot-profile context.
+Sprint 62 shipped the canonical team shooting-splits foundation, team-page shooting dashboard, and Style X-Ray shot-profile drivers. The next gains come from carrying that canonical shot-profile context deeper into adjacent workflows and tightening data trust.
 
 Likely shape:
-- persist official team shooting split families such as shot area, shot type, and shot-distance buckets
-- keep the read path DB-first and refreshed by explicit jobs rather than request-time official API calls
-- connect the strongest shot-profile splits into prep, compare, and team-defense workflows once the canonical table shape is stable
+- extend the persisted shot-profile families into compare, prep, and team-defense surfaces where they sharpen matchup context
+- add stronger workflow handoffs from a detected shot-profile edge into scouting, decision, or replay-style follow-through where evidence exists
+- validate tricky official families such as assisted-shot semantics and expose honest trust notes when upstream meaning is ambiguous
 
 ---
 
@@ -111,14 +111,14 @@ Likely shape:
 - sharpen the replay-evidence selection logic so scenario follow-through feels more matchup-specific and less generic when support exists
 - keep every scenario directional, bounded, and fully explainable
 
-### Play-Style X-Ray
+### Style Intelligence Follow-Ons
 Why it matters:
-The first style-identity layer is live, but teams will want richer archetype movement, stronger nearest-neighbor context, and more useful bridges from archetype to action.
+Sprints 60 and 62 turned Style X-Ray into a real team-identity surface with archetypes, neighbors, movement, and shot-profile drivers. What remains is making that identity layer feel more historical, more matchup-aware, and more actionable across workflows.
 
 Likely shape:
-- deepen archetype labels, neighbor quality, and movement explanations
-- show how style changes connect to matchup prep, compare, and what-if scenarios
-- make the x-ray feel like a coaching identity tool rather than a standalone data-science card
+- deepen archetype history, drift narratives, and neighbor context beyond the current single-snapshot view
+- connect style deltas more directly into prep, compare, and what-if follow-through when a style edge suggests a coaching action
+- keep improving shot-profile-aware explanations so the x-ray feels like a coaching identity tool rather than a standalone data-science card
 
 ### Comparison Sandbox Follow-Ons
 Why it matters:

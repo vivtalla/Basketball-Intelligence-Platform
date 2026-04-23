@@ -109,6 +109,35 @@ class TeamSplitsResponse(BaseModel):
     splits: List[TeamSplitRow]
 
 
+class TeamShootingSplitRow(BaseModel):
+    split_family: str
+    split_value: str
+    label: str
+    fgm: Optional[float] = None
+    fga: Optional[float] = None
+    fg_pct: Optional[float] = None
+    fg3m: Optional[float] = None
+    fg3a: Optional[float] = None
+    fg3_pct: Optional[float] = None
+    efg_pct: Optional[float] = None
+    blka: Optional[float] = None
+    pct_ast_2pm: Optional[float] = None
+    pct_uast_2pm: Optional[float] = None
+    pct_ast_3pm: Optional[float] = None
+    pct_uast_3pm: Optional[float] = None
+    pct_ast_fgm: Optional[float] = None
+    pct_uast_fgm: Optional[float] = None
+
+
+class TeamShootingSplitsResponse(BaseModel):
+    team_id: int
+    abbreviation: str
+    season: str
+    canonical_source: Optional[str] = None
+    last_synced_at: Optional[str] = None
+    splits: List[TeamShootingSplitRow]
+
+
 class TeamRecentGame(BaseModel):
     game_id: str
     game_date: Optional[str] = None

@@ -1,6 +1,6 @@
 # Agent Coordination
 
-Last updated: 2026-04-20 by Claude (Sprint 61 kickoff)
+Last updated: 2026-04-21 by Codex (Sprint 62 closeout reset)
 
 > Both agents read this file before touching code at the start of every session.
 > The canonical source of truth is the clean `master` checkout at `/Users/viv/Documents/Basketball Intelligence Platform`.
@@ -14,13 +14,13 @@ Last updated: 2026-04-20 by Claude (Sprint 61 kickoff)
 
 | Field | Value |
 |-------|-------|
-| Sprint | 61 |
-| Goal | Shot Lab visual polish + replay examples AND Shot Intelligence Ops + baseline materialization |
-| Started | 2026-04-20 |
+| Sprint | 63 |
+| Goal | Kickoff pending |
+| Started | TBD |
 | Target merge | TBD |
-| Sprint shape | Single-stream Claude-only (no Codex parallel track) |
-| Branch | `feature/sprint-61-shot-lab-polish-and-ops` |
-| Worker policy | Explore agents for research only; main rollout does all implementation |
+| Sprint shape | TBD |
+| Branch | `master` until Sprint 63 kickoff |
+| Worker policy | No active sprint; set at kickoff |
 
 ---
 
@@ -38,14 +38,14 @@ If repo state, sprint numbering, or shipped features appear to disagree across l
 ## Current Assignments
 
 ### Claude
-- Branch: `feature/sprint-61-shot-lab-polish-and-ops`
-- Scope: (1) Richer hover tooltips on ShotValueMap/Sprawl/Distance surfacing attempts/expected/delta/confidence; (2) "Show me examples" replay handoffs from quality/creation bins into Game Explorer; (3) Factor ShotIdentityBadges into player/compare/prep surfaces; (4) New Shot Intelligence Ops panel on `/coverage` with team readiness, stale players, missing-context warnings; (5) `shot_quality_baselines` materialization table with `get_or_build_baseline`; (6) Backfill control endpoints + action buttons.
-- Status: Complete — all 6 workstreams shipped; ready to merge
+- Branch: —
+- Scope: No active sprint assignment
+- Status: Idle
 
 ### Codex
 - Branch: —
-- Scope: Not staffed this sprint
-- Status: Idle
+- Scope: Sprint 62 closeout prepared; no active Sprint 63 assignment yet
+- Status: Idle pending kickoff
 
 ---
 
@@ -58,24 +58,7 @@ Claim a shared file here before editing. If a file is already claimed, read that
 
 | File | Claimed by | Purpose |
 |------|------------|---------|
-| `backend/routers/shotchart.py` | Claude | Replay examples on quality/creation; ops + refresh endpoints |
-| `backend/services/shot_quality_service.py` | Claude | Baseline materialization path + replay sampling |
-| `backend/services/shot_intelligence_ops_service.py` | Claude | NEW — ops aggregation across roster |
-| `backend/models/shotchart.py` | Claude | `ShotReplayExample`, ops response types |
-| `backend/db/models.py` | Claude | `ShotQualityBaseline` ORM (append) |
-| `backend/alembic/versions/` | Claude | `shot_quality_baselines` migration |
-| `frontend/src/components/ShotValueMap.tsx` | Claude | Hover tooltip + examples drawer |
-| `frontend/src/components/ShotSprawlMap.tsx` | Claude | Grid-cell hover overlay |
-| `frontend/src/components/ShotDistanceProfile.tsx` | Claude | Extended Recharts tooltip |
-| `frontend/src/components/ShotIntelligencePanel.tsx` | Claude | Mount chips; factor out identity badges |
-| `frontend/src/components/PlayerHeader.tsx` | Claude | Mount ShotIdentityBadges |
-| `frontend/src/components/ComparisonView.tsx` | Claude | Mount ShotIdentityBadges |
-| `frontend/src/app/coverage/page.tsx` | Claude | Mount ShotIntelligenceOpsPanel |
-| `frontend/src/lib/api.ts` | Claude | Append-only: ops hooks, replay_examples shape |
-| `frontend/src/lib/types.ts` | Claude | Append-only: replay example, ops types |
-
-New components created this sprint (no prior claim needed):
-`ShotHoverTooltip.tsx`, `ShotExamplesChips.tsx`, `ShotIdentityBadges.tsx`, `ShotIntelligenceOpsPanel.tsx`, `useShotIntelligenceOps` hook.
+| — | — | No active claims; claim here at the next sprint kickoff before editing shared files |
 
 ---
 
@@ -86,35 +69,21 @@ Specs or review notes written by one stream for another. Check this before start
 | Spec file | From | To | Status |
 |-----------|------|----|--------|
 | `specs/data-architecture.md` | Sprint 26 | Next sprint | Reference — read before touching data layer |
-| `specs/sprint-55-closeout.md` | Sprint 55 | Sprint 61 | Reference — Shot Lab Intelligence baseline |
-| `specs/sprint-60-closeout.md` | Sprint 60 | Next sprint | Reference — X-Ray promotion + explainability parity baseline |
+| `specs/sprint-55-closeout.md` | Sprint 55 | Next sprint | Reference — Shot Lab Intelligence baseline |
+| `specs/sprint-history.md` | Sprint 60 | Next sprint | Reference — Sprint 60 section for X-Ray promotion + explainability parity baseline |
+| `specs/sprint-62-closeout.md` | Sprint 62 | Next sprint | Reference — team shooting splits + style intelligence baseline |
 
 ---
 
 ## Merge Order
 
-Single-stream sprint — `feature/sprint-61-shot-lab-polish-and-ops` merges directly to `master` at sprint close.
+No active sprint branch. Next sprint branch/worktree is created at kickoff and merges back to `master` at closeout.
 
 ---
 
 ## Sprint Work Allocation
 
-Sprint 61 is single-stream (Claude only). Six workstreams executed sequentially:
-
-1. **WS-A1 hover affordances** — Shared `ShotHoverTooltip.tsx`; extend ShotValueMap / ShotSprawlMap / ShotDistanceProfile tooltips with attempts, expected FG%, delta, `sample_confidence` band.
-2. **WS-A2 replay examples** — Backend: sample ≤3 highest |delta| shots per `ShotQualityBin` with `game_id`+`event_num`, attach as `replay_examples` on `/quality` and `/creation`. Frontend: `ShotExamplesChips.tsx` rendering Game Explorer deep links.
-3. **WS-A3 identity surfaces** — Factor `IdentityCards()` out of `ShotIntelligencePanel` into standalone `ShotIdentityBadges.tsx`; mount in `PlayerHeader`, `ComparisonView` summary, prep card detail.
-4. **WS-B1 ops panel** — `GET /shotchart/ops/{season}` + `shot_intelligence_ops_service.py` + `ShotIntelligenceOpsPanel.tsx` + `useShotIntelligenceOps` hook on `/coverage`.
-5. **WS-B2 baseline materialization** — New `shot_quality_baselines` table + Alembic migration + `get_or_build_baseline(season, methodology_version)` with `shot_quality_v1` default.
-6. **WS-B3 backfill controls** — `POST /shotchart/ops/{season}/refresh-baseline` and `.../refresh-stale-players` endpoints through the existing warehouse job framework; action buttons in ops panel.
-
-Reused patterns (do not rebuild):
-- Hover tooltip pattern: `opportunity/OpportunityDriverBar.tsx` + `SIGNAL_DESCRIPTIONS`
-- Replay chip pattern: `trajectory/EvidenceGames.tsx`, `TrendCardsPanel.tsx` `replay_target.deep_link_url`
-- Methodology drawer: `opportunity/MethodologyDrawer.tsx`
-- Ops dashboard shell: `coverage/page.tsx` with `WarehousePipelinePanel` + `MvpCoveragePanel`
-
-Plan file: `~/.claude/plans/plan-sprint-related-to-foamy-corbato.md`.
+No active sprint allocation. Define workstreams, reuse patterns, and any plan file at Sprint 63 kickoff.
 
 ---
 
@@ -187,9 +156,10 @@ Plan file: `~/.claude/plans/plan-sprint-related-to-foamy-corbato.md`.
 
 *Free-form, dated, newest first. Use this for coordination and repo-state exceptions.*
 
+2026-04-21 (Codex): Sprint 62 closeout prepared on `feature/sprint-62-style-intelligence-and-team-shooting-splits`. Added canonical `team_shooting_split_stats`, DB-first team shooting-splits API, team-page `Shooting` splits workspace, and shot-profile-driven Style X-Ray follow-ons. Verification passed (`pytest`, `npm run lint`, `npm run build`, `git diff --check`). Pending merge to `master`.
 2026-04-20 (Claude): Sprint 61 implementation complete on `feature/sprint-61-shot-lab-polish-and-ops`. Shipped shared `ShotHoverTooltip`, replay-example chips with linkage-quality gating, `ShotIdentityBadges` in PlayerHeader + Compare, Shot Intelligence Ops panel on `/coverage`, `shot_quality_baselines` materialization (Alembic 0008) with `get_or_build_baseline`, and refresh-baseline / refresh-stale-players endpoints. 172 backend tests, frontend lint + build clean. Ready to merge.
 2026-04-20 (Claude): Sprint 61 kickoff on `feature/sprint-61-shot-lab-polish-and-ops`. Plan file: `~/.claude/plans/plan-sprint-related-to-foamy-corbato.md`. Two backlog themes taken to completion in one sequential single-stream sprint: Shot Lab Visual Polish + Replay Examples, and Shot Intelligence Ops + Materialization. Six workstreams sequenced A1→A2→A3→B1→B2→B3.
-2026-04-19 (Claude): Sprint 60 closed on `feature/sprint-60-insights-xray-explainability` and merged to `master`. Shipped Play-Style X-Ray tab promotion, Trajectory + Trends explainability parity, and MVP lineup-aware teammate on/off swings. 37 new backend tests. Closeout: `specs/sprint-60-closeout.md`.
+2026-04-19 (Claude): Sprint 60 closed on `feature/sprint-60-insights-xray-explainability` and merged to `master`. Shipped Play-Style X-Ray tab promotion, Trajectory + Trends explainability parity, and MVP lineup-aware teammate on/off swings. 37 new backend tests. Reference summary: `specs/sprint-history.md` (Sprint 60 section).
 2026-04-19 (Codex): Sprint 59 implementation complete on `codex-sprint-59-insights-trend-overhaul`. Shipped Insights Trend Intelligence overhaul with canonical trend card service, expanded team/player trend contract, shared `player_id`/`signal` URL pinning across Trends/Opportunity/Trajectory, active Team Roll-Up tile pinning, and hard deletion of deprecated `/api/insights/usage-efficiency`.
 2026-04-19 (Claude): Sprint 58 closed. Shipped multi-axis Opportunity Workspace replacing USG/TS two-lane board: 5-signal capped z-score service, new /api/insights/opportunity endpoint, full UsageEfficiencyDashboard rewrite, 8 opportunity/ components with hover driver descriptions, and 13 backend tests. Deprecated (not deleted) old usage-efficiency endpoint. Next: hard-delete deprecated endpoint, cross-tab chip in InsightsHeader, opportunity score caching.
 2026-04-19 (Claude): Sprint 57 closed on `feature/sprint-57-insights-revamp` and merged to `master`. Shipped Trajectory two-column revamp with rolling sparklines, driver decomp, clutch/on-off/shot-quality cards, evidence games, lineup context service, shared InsightsHeader, and lineup context integration in MVP + player profile. Closeout: `specs/sprint-57-closeout.md`.

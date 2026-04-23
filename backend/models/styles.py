@@ -70,6 +70,16 @@ class StyleNeighbor(BaseModel):
     summary: str
 
 
+class StyleShotProfileDriver(BaseModel):
+    split_family: str
+    split_value: str
+    label: str
+    attempt_share: Optional[float] = None
+    efg_pct: Optional[float] = None
+    league_delta: Optional[float] = None
+    summary: str
+
+
 class StyleFeatureMovement(BaseModel):
     metric_id: str
     label: str
@@ -112,6 +122,7 @@ class StyleXRayResponse(BaseModel):
     feature_contributors: List[StyleFeatureContributor]
     nearest_neighbors: List[StyleNeighbor]
     adjacent_archetypes: List[StyleNeighbor]
+    shot_profile_drivers: List[StyleShotProfileDriver] = Field(default_factory=list)
     stability: Literal["stable", "watch", "shifted"]
     movement: Optional[StyleMovement] = None
     scenario_links: List[StyleScenarioLink]

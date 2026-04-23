@@ -6,6 +6,7 @@ import { ArchetypeFingerprint } from "./xray/ArchetypeFingerprint";
 import { NeighborQualityList } from "./xray/NeighborQualityList";
 import { MovementTimeline } from "./xray/MovementTimeline";
 import { AdjacentArchetypes } from "./xray/AdjacentArchetypes";
+import { ShotProfileDriversCard } from "./xray/ShotProfileDriversCard";
 import { XRayMethodologyDrawer } from "./xray/XRayMethodologyDrawer";
 
 interface Props {
@@ -126,6 +127,7 @@ export default function StyleXRayWorkspace({ team, season, opponent, onModeChang
         <NeighborQualityList neighbors={data.nearest_neighbors} season={data.season} />
         <MovementTimeline movement={data.movement ?? null} />
         <AdjacentArchetypes archetypes={data.adjacent_archetypes} />
+        <ShotProfileDriversCard drivers={data.shot_profile_drivers ?? []} />
       </div>
     </div>
   );
