@@ -178,6 +178,7 @@ POST /api/advanced/sync-season   body: {"season": "2024-25"}
 - **SQLite `cache.db` is for NBA API response caching only** — PostgreSQL is the primary datastore.
 - **Schema changes are migration-driven.** Use Alembic revisions and `python -m db.migrations`; do not rely on app-startup DDL.
 - **Python 3.8.** No union type syntax (`X | Y`), no `list[X]` subscripting at runtime in type hints.
+- **Do not add a `Co-Authored-By: Claude` trailer to git commits.** Commits must not credit Claude. Omit the `🤖 Generated with Claude Code` footer on PRs as well.
 
 ---
 
@@ -260,6 +261,14 @@ CourtVue Labs uses a hybrid sprint model: major feature sprints typically run as
 
 > Full history → `specs/sprint-history.md`
 
+### Sprint 64 — Coaching Workflow Intelligence
+
+- Added pre-game matchup intelligence: opponent play-type tendencies (Synergy team endpoint), head-to-head series history from `game_logs`, and pace-edge framing comparing team pace vs opponent allowed pace.
+- Added team profile depth: team clutch analytics (last 5 min, score within 5), rolling net-rating Recharts chart, quarter/half scoring profile scaffold, and bench vs starter lineup intelligence derived from `lineup_stats` + `player_game_logs`.
+- Extended `nba_client.py` with `get_synergy_team_play_types`, `get_team_clutch_stats`, and `get_team_game_log`; period breakdown returns graceful `unavailable` status since `nba_api` does not expose that endpoint.
+- Mounted 6 new components across team Prep, Decision, Analytics, and Lineups tabs with graceful empty states throughout.
+- Verified with backend import smoke test, frontend `npm run lint` (0 errors), and live dev-server exercise against `/teams/BOS`.
+
 ### Sprint 63 — Team/Insights Workflow Expansion
 
 - Added a canonical team shot-profile service and threaded persisted official shooting-split families into Compare, Prep, pre-read, team-defense, and Style X-Ray.
@@ -293,6 +302,7 @@ CourtVue Labs uses a hybrid sprint model: major feature sprints typically run as
 | `feature/sprint-61-shot-lab-polish-and-ops` | Claude | Merged to master |
 | `feature/sprint-62-style-intelligence-and-team-shooting-splits` | Codex | Merged to master |
 | `feature/sprint-63-team-insights-workflow-expansion` | Codex | Merged to master |
+| `feature/sprint-64-coaching-workflow-intelligence` | Claude | Merged to master |
 
 Sprint branches are created at kickoff and listed in `AGENTS.md`.
 

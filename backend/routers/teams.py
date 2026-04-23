@@ -8,10 +8,14 @@ from sqlalchemy.orm import Session
 from db.database import get_db
 from db.models import Player, SeasonStat, Team, TeamSeasonStat, TeamShootingSplitStat, TeamSplitStat
 from models.team import (
+    BenchAnalyticsResponse,
     TeamAvailabilityResponse,
     TeamAnalytics,
+    TeamClutchResponse,
     TeamFocusLeversReport,
     TeamIntelligenceResponse,
+    TeamNetRatingSeriesResponse,
+    TeamPeriodScoringResponse,
     TeamPrepQueueResponse,
     TeamRotationReport,
     TeamRosterPlayer,
@@ -22,8 +26,12 @@ from models.team import (
     TeamSplitsResponse,
     TeamSummary,
 )
+from services.bench_analytics_service import build_bench_analytics
 from services.team_availability_service import build_team_availability
+from services.team_clutch_service import build_team_clutch_analytics
 from services.team_intelligence_service import build_team_intelligence
+from services.team_net_rating_service import build_team_rolling_net_rating
+from services.team_period_service import build_team_period_scoring
 from services.team_prep_service import build_team_prep_queue
 from services.team_rotation_service import build_team_rotation_report
 from services.team_focus_service import build_team_focus_levers_report
@@ -351,3 +359,41 @@ def team_focus_levers(
     db: Session = Depends(get_db),
 ):
     return build_team_focus_levers_report(db=db, abbr=abbr, season=season, opponent_abbr=opponent)
+
+
+@router.get("/{abbr}/clutch", response_model=TeamClutchResponse)
+def team_clutch(
+    abbr: str,
+    season: str = Query("2024-25"),
+    db: Session = Depends(get_db),
+):
+    return build_team_clutch_analytics(db=db, team_abbr=abbr.upper(), season=season)
+
+
+@router.get("/{abbr}/net-rating-series", response_model=TeamNetRatingSeriesResponse)
+def team_net_rating_series(
+    abbr: str,
+    season: str = Query("2024-25"),
+    window: int = Query(10, ge=1, le=30),
+    db: Session = Depends(get_db),
+):
+    return build_team_rolling_net_rating(db=db, team_abbr=abbr.upper(), season=season, window=window)
+
+
+@router.get("/{abbr}/period-scoring", response_model=TeamPeriodScoringResponse)
+def team_period_scoring(
+    abbr: str,
+    season: str = Query("2024-25"),
+    db: Session = Depends(get_db),
+):
+    return build_team_period_scoring(db=db, team_abbr=abbr.upper(), season=season)
+
+
+@router.get("/{abbr}/bench-analytics", response_model=BenchAnalyticsResponse)
+def team_bench_analytics(
+    abbr: str,
+    season: str = Query("2024-25"),
+    min_possessions: int = Query(20, ge=1),
+    db: Session = Depends(get_db),
+):
+    return build_bench_analytics(db=db, team_abbr=abbr.upper(), season=season, min_possessions=min_possessions)

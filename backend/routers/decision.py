@@ -9,16 +9,22 @@ from db.database import get_db
 from models.decision import (
     FollowThroughRequest,
     FollowThroughResponse,
+    H2HResponse,
     LineupImpactResponse,
     MatchupFlagsResponse,
+    OpponentPlayTypeResponse,
+    PaceEdge,
     PlayTypeEVResponse,
 )
 from services.decision_support_service import (
     build_follow_through_report,
     build_lineup_impact_report,
     build_matchup_flags_report,
+    build_pace_edge,
     build_play_type_ev_report,
 )
+from services.h2h_service import build_h2h_history
+from services.opponent_play_type_service import build_opponent_play_type_report
 
 router = APIRouter()
 follow_router = APIRouter()
@@ -81,3 +87,32 @@ def follow_through_games(
     db: Session = Depends(get_db),
 ):
     return build_follow_through_report(db=db, payload=payload)
+
+
+@router.get("/opponent-play-types", response_model=OpponentPlayTypeResponse)
+def get_opponent_play_types(
+    team: str = Query(...),
+    season: str = Query("2024-25"),
+    db: Session = Depends(get_db),
+):
+    return build_opponent_play_type_report(db=db, team_abbr=team, season=season)
+
+
+@router.get("/h2h", response_model=H2HResponse)
+def get_h2h_history(
+    team: str = Query(...),
+    opponent: str = Query(...),
+    season: str = Query("2024-25"),
+    db: Session = Depends(get_db),
+):
+    return build_h2h_history(db=db, team_abbr=team, opponent_abbr=opponent, season=season)
+
+
+@router.get("/pace-edge", response_model=PaceEdge)
+def get_pace_edge(
+    team: str = Query(...),
+    opponent: str = Query(...),
+    season: str = Query("2024-25"),
+    db: Session = Depends(get_db),
+):
+    return build_pace_edge(db=db, team_abbr=team, opponent_abbr=opponent, season=season)

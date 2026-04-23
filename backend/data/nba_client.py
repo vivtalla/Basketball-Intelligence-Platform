@@ -18,6 +18,7 @@ from nba_api.stats.endpoints import (
     boxscoretraditionalv2,
     commonplayerinfo,
     leaguedashplayerstats,
+    leaguedashteamclutch,
     leaguehustlestatsplayer,
     leaguedashteamstats,
     leaguegamelog,
@@ -32,6 +33,7 @@ from nba_api.stats.endpoints import (
     synergyplaytypes,
     teamdashboardbygeneralsplits,
     teamdashboardbyshootingsplits,
+    teamgamelog,
 )
 from nba_api.live.nba.endpoints import boxscore as live_boxscore
 from nba_api.stats.static import players as static_players
@@ -1830,3 +1832,79 @@ def _normalize_shot_chart_game_date(raw_value: object) -> Optional[str]:
         return date.fromisoformat(normalized[:10]).isoformat()
     except ValueError:
         return None
+
+
+def get_synergy_team_play_types(
+    season: str,
+    season_type: str = "Regular Season",
+    play_type: str = "",
+    type_grouping: str = "offensive",
+) -> List[Dict[str, Any]]:
+    """Fetch Synergy play-type rows at the team level (team-level offensive/defensive tendencies)."""
+    cache_key = f"synergy_team_play_types_{season}_{season_type}_{play_type}_{type_grouping}"
+    cached = CacheManager.get(cache_key)
+    if cached and isinstance(cached.get("rows"), list):
+        return cached["rows"]
+
+    _rate_limit()
+    response = synergyplaytypes.SynergyPlayTypes(
+        season=season,
+        season_type_all_star=season_type,
+        player_or_team_abbreviation="T",
+        play_type_nullable=play_type,
+        type_grouping_nullable=type_grouping,
+        per_mode_simple="PerGame",
+        timeout=NBA_API_TIMEOUT,
+    )
+    frames = response.get_data_frames()
+    rows = _df_records(frames[0] if frames else None)
+    CacheManager.set(cache_key, {"rows": rows}, _cache_ttl_for_season(season))
+    return rows
+
+
+def get_team_clutch_stats(
+    season: str,
+    season_type: str = "Regular Season",
+) -> List[Dict[str, Any]]:
+    """Fetch league-wide team clutch stats (last 5 min, score within 5)."""
+    cache_key = f"team_clutch_{season}_{season_type}"
+    cached = CacheManager.get(cache_key)
+    if cached and isinstance(cached.get("rows"), list):
+        return cached["rows"]
+
+    _rate_limit()
+    response = leaguedashteamclutch.LeagueDashTeamClutch(
+        season=season,
+        season_type_all_star=season_type,
+        per_mode_simple="PerGame",
+        timeout=NBA_API_TIMEOUT,
+    )
+    frames = response.get_data_frames()
+    rows = _df_records(frames[0] if frames else None)
+    CacheManager.set(cache_key, {"rows": rows}, _cache_ttl_for_season(season))
+    return rows
+
+
+def get_team_game_log(
+    team_id: int,
+    season: str,
+) -> List[Dict[str, Any]]:
+    """Fetch game-by-game log for a team (pts, opp pts, matchup, wl, date)."""
+    cache_key = f"team_game_log_{team_id}_{season}"
+    cached = CacheManager.get(cache_key)
+    if cached and isinstance(cached.get("rows"), list):
+        return cached["rows"]
+
+    _rate_limit()
+    response = teamgamelog.TeamGameLog(
+        team_id=team_id,
+        season=season,
+        season_type_all_star="Regular Season",
+        timeout=NBA_API_TIMEOUT,
+    )
+    frames = response.get_data_frames()
+    rows = _df_records(frames[0] if frames else None)
+    CacheManager.set(cache_key, {"rows": rows}, _cache_ttl_for_season(season))
+    return rows
+
+
