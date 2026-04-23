@@ -3332,3 +3332,78 @@ export interface StyleShotProfileDriver {
 export interface StyleXRayResponse {
   shot_profile_drivers: StyleShotProfileDriver[];
 }
+
+export interface StyleShotProfileDriver {
+  family_label?: string | null;
+  trust_level?: "strong" | "caution";
+  trust_note?: string | null;
+  strong_claim?: boolean;
+}
+
+export interface StyleNeighbor {
+  matchup_label?: string | null;
+}
+
+export interface StyleHistoryPoint {
+  label: string;
+  archetype: string;
+  confidence: "high" | "medium" | "low";
+  record: string | null;
+  shot_profile_note: string | null;
+}
+
+export interface StyleXRayResponse {
+  history?: StyleHistoryPoint[];
+  replay_target?: ReplayLaunchTarget | null;
+}
+
+export interface StyleComparisonEntity {
+  abbreviation?: string;
+  name?: string;
+  label_reason?: string;
+  current_profile?: Array<{ metric_id?: string; label?: string; team_value?: number | null }>;
+  shot_profile_drivers?: StyleShotProfileDriver[];
+}
+
+export interface TeamComparisonSnapshot {
+  shot_profile_drivers?: StyleShotProfileDriver[];
+}
+
+export interface TeamComparisonResponse {
+  warnings?: string[];
+}
+
+export interface TeamPrepQueueItem {
+  xray_url?: string | null;
+  replay_url?: string | null;
+  shot_profile_driver?: StyleShotProfileDriver | null;
+  style_replay_target?: ReplayLaunchTarget | null;
+}
+
+export interface WorkflowLaunchLinks {
+  style_xray_url?: string | null;
+  replay_url?: string | null;
+}
+
+export interface PreReadPrepContext {
+  shot_profile_driver?: StyleShotProfileDriver | null;
+  style_replay_target?: ReplayLaunchTarget | null;
+  xray_url?: string | null;
+  replay_url?: string | null;
+}
+
+export interface UsageEfficiencyPlayerRow {
+  player_id: number;
+  player_name: string;
+  team_abbreviation: string | null;
+  minutes_pg: number | null;
+  usg_pct: number | null;
+  ts_pct: number | null;
+  off_rating: number | null;
+  pts_pg: number | null;
+  ast_pg: number | null;
+  tov_pg: number | null;
+  burden_score: number | null;
+  efficiency_score: number | null;
+  category: "overused" | "underused";
+}

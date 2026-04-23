@@ -50,6 +50,7 @@ export default function StyleXRayWorkspace({ team, season, opponent, onModeChang
   }
 
   const confidence = data.archetype_confidence ?? "medium";
+  const replayUrl = (data.launch_links as { replay_url?: string | null }).replay_url ?? null;
 
   return (
     <div className="grid gap-5 lg:grid-cols-[360px_1fr]">
@@ -102,6 +103,14 @@ export default function StyleXRayWorkspace({ team, season, opponent, onModeChang
             >
               What-If scenarios →
             </button>
+            {replayUrl ? (
+              <Link
+                href={replayUrl}
+                className="rounded-full border border-[var(--border)] bg-[var(--surface-alt)] px-3 py-1 text-[11px] font-medium text-[var(--muted-strong)] hover:border-[var(--accent-strong)] hover:text-[var(--accent-strong)]"
+              >
+                Review replay →
+              </Link>
+            ) : null}
           </div>
         </section>
 
@@ -128,6 +137,37 @@ export default function StyleXRayWorkspace({ team, season, opponent, onModeChang
         <MovementTimeline movement={data.movement ?? null} />
         <AdjacentArchetypes archetypes={data.adjacent_archetypes} />
         <ShotProfileDriversCard drivers={data.shot_profile_drivers ?? []} />
+        {data.history?.length ? (
+          <section className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-5 lg:col-span-2">
+            <div className="flex items-baseline justify-between gap-3">
+              <div>
+                <h3 className="text-sm font-semibold text-[var(--foreground)]">Recent Archetype History</h3>
+                <p className="mt-1 text-xs text-[var(--muted)]">
+                  Short-horizon checkpoints so drift reads as a workflow, not just a label.
+                </p>
+              </div>
+            </div>
+            <div className="mt-4 grid gap-3 md:grid-cols-3">
+              {data.history.map((point) => (
+                <article key={point.label} className="rounded-xl border border-[var(--border)] bg-[var(--surface-alt)] p-4">
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[var(--muted)]">
+                      {point.label}
+                    </div>
+                    <div className="rounded-full border border-[var(--border)] px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.14em] text-[var(--muted-strong)]">
+                      {point.confidence}
+                    </div>
+                  </div>
+                  <div className="mt-2 text-lg font-semibold text-[var(--foreground)]">{point.archetype}</div>
+                  {point.record ? <div className="mt-2 text-sm text-[var(--muted-strong)]">Record: {point.record}</div> : null}
+                  {point.shot_profile_note ? (
+                    <p className="mt-2 text-sm leading-6 text-[var(--muted-strong)]">{point.shot_profile_note}</p>
+                  ) : null}
+                </article>
+              ))}
+            </div>
+          </section>
+        ) : null}
       </div>
     </div>
   );

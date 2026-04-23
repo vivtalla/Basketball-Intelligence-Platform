@@ -43,6 +43,11 @@ function fmtPlusMinus(value: number | null | undefined): string {
   return (value >= 0 ? "+" : "") + value.toFixed(1);
 }
 
+function fmtSignedPoints(value: number | null | undefined): string {
+  if (value == null) return "—";
+  return `${value >= 0 ? "+" : ""}${(value * 100).toFixed(1)} pts`;
+}
+
 function plusMinusTone(value: number | null | undefined): string {
   if (value == null) return "text-[var(--muted)]";
   return value > 0 ? "text-[var(--success-ink)]" : value < 0 ? "text-[var(--danger-ink)]" : "text-[var(--muted)]";
@@ -77,6 +82,11 @@ export default function TeamPrepQueuePanel({ queue, splits }: TeamPrepQueuePanel
             urgency_rationale: item.urgency_rationale ?? "",
             first_adjustment_label: item.first_adjustment_label ?? "",
             recommended_factor: item.first_adjustment_factor_id ?? item.best_edge_factor_id ?? "",
+            xray_url: item.xray_url ?? "",
+            replay_url: item.replay_url ?? "",
+            shot_profile_label: item.shot_profile_driver?.label ?? "",
+            shot_profile_family: item.shot_profile_driver?.split_family ?? "",
+            shot_profile_value: item.shot_profile_driver?.split_value ?? "",
           },
         });
         setSavedGameId(item.game_id);
@@ -275,6 +285,28 @@ export default function TeamPrepQueuePanel({ queue, splits }: TeamPrepQueuePanel
                 </div>
               </div>
 
+              {item.shot_profile_driver ? (
+                <div className="mt-4 rounded-2xl border border-[var(--border)] bg-[rgba(255,255,255,0.72)] p-4">
+                  <div className="flex flex-wrap items-start justify-between gap-3">
+                    <div>
+                      <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[var(--muted)]">
+                        Shot-Profile Edge
+                      </div>
+                      <div className="mt-2 text-sm font-semibold text-[var(--foreground)]">
+                        {item.shot_profile_driver.label}
+                      </div>
+                    </div>
+                    <div className="rounded-full border border-[var(--border)] px-3 py-1 text-[11px] font-semibold text-[var(--muted-strong)]">
+                      {fmtSignedPoints(item.shot_profile_driver.league_delta)}
+                    </div>
+                  </div>
+                  <p className="mt-2 text-sm leading-6 text-[var(--muted-strong)]">{item.shot_profile_driver.summary}</p>
+                  {item.shot_profile_driver.trust_note ? (
+                    <p className="mt-2 text-xs leading-5 text-[var(--muted)]">{item.shot_profile_driver.trust_note}</p>
+                  ) : null}
+                </div>
+              ) : null}
+
               <div className="mt-5 flex flex-wrap gap-3">
                 <Link
                   href={item.pre_read_url}
@@ -300,6 +332,22 @@ export default function TeamPrepQueuePanel({ queue, splits }: TeamPrepQueuePanel
                 >
                   Open follow-through
                 </Link>
+                {item.xray_url ? (
+                  <Link
+                    href={item.xray_url}
+                    className="rounded-full border border-[var(--border-strong)] px-4 py-2 text-sm font-medium text-[var(--accent-strong)] transition hover:bg-[rgba(33,72,59,0.08)]"
+                  >
+                    Open Style X-Ray
+                  </Link>
+                ) : null}
+                {item.replay_url ? (
+                  <Link
+                    href={item.replay_url}
+                    className="rounded-full border border-[var(--border-strong)] px-4 py-2 text-sm font-medium text-[var(--accent-strong)] transition hover:bg-[rgba(33,72,59,0.08)]"
+                  >
+                    Review replay
+                  </Link>
+                ) : null}
                 <Link
                   href={item.game_review_url}
                   className="rounded-full border border-[var(--border-strong)] px-4 py-2 text-sm font-medium text-[var(--accent-strong)] transition hover:bg-[rgba(33,72,59,0.08)]"

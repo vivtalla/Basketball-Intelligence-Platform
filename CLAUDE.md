@@ -260,6 +260,14 @@ CourtVue Labs uses a hybrid sprint model: major feature sprints typically run as
 
 > Full history → `specs/sprint-history.md`
 
+### Sprint 63 — Team/Insights Workflow Expansion
+
+- Added a canonical team shot-profile service and threaded persisted official shooting-split families into Compare, Prep, pre-read, team-defense, and Style X-Ray.
+- Expanded Style X-Ray with short-horizon archetype history, drift narratives, stronger neighbor-quality context, and direct compare/prep/what-if/replay handoff payloads.
+- Added replay-aware coaching follow-through plus prep snapshot continuity keyed by matchup/date, while preserving evidence source and exact/derived/timeline trust state.
+- Added trust-note handling for ambiguous official split families, including assisted-shot caution wording and weaker-claim gating.
+- Verified with targeted backend tests, frontend `npm run lint`, frontend `npm run build`, and `git diff --check` clean.
+
 ### Sprint 62 — Style Intelligence + Team Shooting Splits
 
 - Added canonical persisted official team shooting splits: new `team_shooting_split_stats` table (Alembic `0009_team_shooting_split_stats`), `nba_client.get_team_shooting_splits`, and `sync_official_team_shooting_splits`.
@@ -269,17 +277,7 @@ CourtVue Labs uses a hybrid sprint model: major feature sprints typically run as
 - Deepened Style X-Ray with persisted shot-profile drivers, dynamic scenario links, shot-profile-aware label reasons, and richer neighbor summaries plus a new `ShotProfileDriversCard`.
 - Verified with targeted backend tests, frontend `npm run lint`, frontend `npm run build`, and `git diff --check` clean.
 
-### Sprint 61 — Shot Lab Polish + Shot Intelligence Ops
-
-- Added shared `ShotHoverTooltip` across `ShotValueMap`, `ShotSprawlMap`, `ShotDistanceProfile`: surfaces attempts, expected FG%, actual FG%, Δ, and `sample_confidence` band with low-sample pills.
-- Shipped "Show me examples" replay handoff: backend samples up to 3 highest-|delta| shots per quality/creation bin with `linkage_quality` (exact/derived/timeline); `ShotExamplesChips` deep-links to Game Explorer from `ShotIntelligencePanel` bins.
-- Factored `IdentityCards()` into standalone `ShotIdentityBadges`; mounted in `PlayerHeader` and `ComparisonView` summary header.
-- New **Shot Intelligence Ops** panel on `/coverage`: `GET /shotchart/ops/{season}` + `shot_intelligence_ops_service` report per-team readiness, stale/missing players, missing-context histogram, baseline status.
-- **Baseline materialization**: new `shot_quality_baselines` table (Alembic `0008_shot_quality_baselines`) + `get_or_build_baseline(season, methodology_version, force_refresh)` replaces on-demand league baseline computation on `shot_quality_service` hot path.
-- **Backfill controls**: `POST /shotchart/ops/{season}/refresh-baseline` + `.../refresh-stale-players` enqueue through the warehouse job framework; action buttons in the ops panel.
-- Verified with 172 backend tests, frontend `npm run lint`, `npm run build`, and `git diff --check` clean.
-
-*Sprint 60 moved to `specs/sprint-history.md`.*
+*Sprint 61 moved to `specs/sprint-history.md`.*
 
 ---
 
@@ -293,7 +291,8 @@ CourtVue Labs uses a hybrid sprint model: major feature sprints typically run as
 | `codex-sprint-59-insights-trend-overhaul` | Codex | Merged to master |
 | `feature/sprint-60-insights-xray-explainability` | Claude | Merged to master |
 | `feature/sprint-61-shot-lab-polish-and-ops` | Claude | Merged to master |
-| `feature/sprint-62-style-intelligence-and-team-shooting-splits` | Codex | Pushed; closeout prepared, pending merge |
+| `feature/sprint-62-style-intelligence-and-team-shooting-splits` | Codex | Merged to master |
+| `feature/sprint-63-team-insights-workflow-expansion` | Codex | Merged to master |
 
 Sprint branches are created at kickoff and listed in `AGENTS.md`.
 

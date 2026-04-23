@@ -1,6 +1,6 @@
 # Agent Coordination
 
-Last updated: 2026-04-21 by Codex (Sprint 62 closeout reset)
+Last updated: 2026-04-22 by Codex (Sprint 63 closeout reset)
 
 > Both agents read this file before touching code at the start of every session.
 > The canonical source of truth is the clean `master` checkout at `/Users/viv/Documents/Basketball Intelligence Platform`.
@@ -14,12 +14,12 @@ Last updated: 2026-04-21 by Codex (Sprint 62 closeout reset)
 
 | Field | Value |
 |-------|-------|
-| Sprint | 63 |
+| Sprint | 64 |
 | Goal | Kickoff pending |
 | Started | TBD |
 | Target merge | TBD |
 | Sprint shape | TBD |
-| Branch | `master` until Sprint 63 kickoff |
+| Branch | `master` until Sprint 64 kickoff |
 | Worker policy | No active sprint; set at kickoff |
 
 ---
@@ -44,7 +44,7 @@ If repo state, sprint numbering, or shipped features appear to disagree across l
 
 ### Codex
 - Branch: —
-- Scope: Sprint 62 closeout prepared; no active Sprint 63 assignment yet
+- Scope: Sprint 63 closed; no active Sprint 64 assignment yet
 - Status: Idle pending kickoff
 
 ---
@@ -72,6 +72,7 @@ Specs or review notes written by one stream for another. Check this before start
 | `specs/sprint-55-closeout.md` | Sprint 55 | Next sprint | Reference — Shot Lab Intelligence baseline |
 | `specs/sprint-history.md` | Sprint 60 | Next sprint | Reference — Sprint 60 section for X-Ray promotion + explainability parity baseline |
 | `specs/sprint-62-closeout.md` | Sprint 62 | Next sprint | Reference — team shooting splits + style intelligence baseline |
+| `specs/sprint-63-closeout.md` | Sprint 63 | Next sprint | Reference — Team/Insights workflow expansion baseline |
 
 ---
 
@@ -83,7 +84,7 @@ No active sprint branch. Next sprint branch/worktree is created at kickoff and m
 
 ## Sprint Work Allocation
 
-No active sprint allocation. Define workstreams, reuse patterns, and any plan file at Sprint 63 kickoff.
+No active sprint allocation. Define workstreams, reuse patterns, and any plan file at Sprint 64 kickoff.
 
 ---
 
@@ -156,7 +157,8 @@ No active sprint allocation. Define workstreams, reuse patterns, and any plan fi
 
 *Free-form, dated, newest first. Use this for coordination and repo-state exceptions.*
 
-2026-04-21 (Codex): Sprint 62 closeout prepared on `feature/sprint-62-style-intelligence-and-team-shooting-splits`. Added canonical `team_shooting_split_stats`, DB-first team shooting-splits API, team-page `Shooting` splits workspace, and shot-profile-driven Style X-Ray follow-ons. Verification passed (`pytest`, `npm run lint`, `npm run build`, `git diff --check`). Pending merge to `master`.
+2026-04-22 (Codex): Sprint 63 closed on `feature/sprint-63-team-insights-workflow-expansion` and merged to `master`. Shipped canonical shot-profile reuse across compare/prep/pre-read/team-defense/X-Ray, richer X-Ray history + drift + handoffs, replay-aware coaching continuity, prep snapshots, and trust-note handling for ambiguous official split families. Closeout: `specs/sprint-63-closeout.md`.
+2026-04-21 (Codex): Sprint 62 closeout prepared on `feature/sprint-62-style-intelligence-and-team-shooting-splits`. Added canonical `team_shooting_split_stats`, DB-first team shooting-splits API, team-page `Shooting` splits workspace, and shot-profile-driven Style X-Ray follow-ons. Verification passed (`pytest`, `npm run lint`, `npm run build`, `git diff --check`). Merged to `master` on 2026-04-22.
 2026-04-20 (Claude): Sprint 61 implementation complete on `feature/sprint-61-shot-lab-polish-and-ops`. Shipped shared `ShotHoverTooltip`, replay-example chips with linkage-quality gating, `ShotIdentityBadges` in PlayerHeader + Compare, Shot Intelligence Ops panel on `/coverage`, `shot_quality_baselines` materialization (Alembic 0008) with `get_or_build_baseline`, and refresh-baseline / refresh-stale-players endpoints. 172 backend tests, frontend lint + build clean. Ready to merge.
 2026-04-20 (Claude): Sprint 61 kickoff on `feature/sprint-61-shot-lab-polish-and-ops`. Plan file: `~/.claude/plans/plan-sprint-related-to-foamy-corbato.md`. Two backlog themes taken to completion in one sequential single-stream sprint: Shot Lab Visual Polish + Replay Examples, and Shot Intelligence Ops + Materialization. Six workstreams sequenced A1→A2→A3→B1→B2→B3.
 2026-04-19 (Claude): Sprint 60 closed on `feature/sprint-60-insights-xray-explainability` and merged to `master`. Shipped Play-Style X-Ray tab promotion, Trajectory + Trends explainability parity, and MVP lineup-aware teammate on/off swings. 37 new backend tests. Reference summary: `specs/sprint-history.md` (Sprint 60 section).

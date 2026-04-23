@@ -9,6 +9,7 @@ import {
   useTeamDefenseShotIdentity,
   useTeamDefenseShotQuality,
   useTeamDefenseShotChartRefresh,
+  useTeamShootingSplits,
   useTeamDefenseZoneProfile,
 } from "@/hooks/usePlayerStats";
 import type { ShotChartShot, ShotLabDateRange, ShotLabSituationalFilters, ShotLabWindowPreset } from "@/lib/types";
@@ -115,6 +116,7 @@ export default function TeamDefenseShotLab({
     seasonType,
     activeFilters
   );
+  const { data: shootingSplits } = useTeamShootingSplits(teamAbbreviation, selectedSeason);
   const { refresh, isRefreshing } = useTeamDefenseShotChartRefresh(
     teamId,
     selectedSeason,
@@ -290,29 +292,51 @@ export default function TeamDefenseShotLab({
       ) : null}
 
       {isIntelligenceView ? (
-        <ShotIntelligencePanel
-          mode={view === "quality" ? "quality" : view === "making" ? "making" : view === "creation" ? "creation" : "summary"}
-          quality={shotQuality}
-          creation={shotCreation}
-          identity={shotIdentity}
-          label={
-            view === "quality"
-              ? "Opponent shot quality allowed"
-              : view === "making"
-                ? "Opponent shot making allowed"
+        <div className="space-y-4">
+          {shootingSplits?.splits?.length ? (
+            <section className="rounded-[1.25rem] border border-[rgba(25,52,42,0.12)] bg-[rgba(255,255,255,0.62)] p-4 text-sm text-[var(--muted-strong)]">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div>
+                  <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[var(--muted)]">
+                    Canonical shot-profile context
+                  </div>
+                  <p className="mt-2 max-w-3xl leading-6">
+                    Keep the defensive shot-lab read tied to the same persisted shooting-split families used by Style X-Ray and team compare.
+                  </p>
+                </div>
+                <a
+                  href={`/teams/${teamAbbreviation}?tab=splits&season=${selectedSeason}`}
+                  className="rounded-full border border-[rgba(25,52,42,0.18)] px-4 py-2 text-sm font-medium text-[var(--accent-strong)] transition hover:bg-[rgba(33,72,59,0.08)]"
+                >
+                  Open shooting splits
+                </a>
+              </div>
+            </section>
+          ) : null}
+          <ShotIntelligencePanel
+            mode={view === "quality" ? "quality" : view === "making" ? "making" : view === "creation" ? "creation" : "summary"}
+            quality={shotQuality}
+            creation={shotCreation}
+            identity={shotIdentity}
+            label={
+              view === "quality"
+                ? "Opponent shot quality allowed"
+                : view === "making"
+                  ? "Opponent shot making allowed"
+                  : view === "creation"
+                    ? "Allowed creation profile"
+                    : "Defensive shot profile identity"
+            }
+            contextLabel={`${teamAbbreviation} defense · depends on opponent shot-chart coverage`}
+            isLoading={
+              view === "quality" || view === "making"
+                ? qualityLoading
                 : view === "creation"
-                  ? "Allowed creation profile"
-                  : "Defensive shot profile identity"
-          }
-          contextLabel={`${teamAbbreviation} defense · depends on opponent shot-chart coverage`}
-          isLoading={
-            view === "quality" || view === "making"
-              ? qualityLoading
-              : view === "creation"
-                ? creationLoading
-                : identityLoading
-          }
-        />
+                  ? creationLoading
+                  : identityLoading
+            }
+          />
+        </div>
       ) : null}
 
       {!isIntelligenceView && !shotLoading && activeShotChart && activeShotChart.shots.length > 0 ? (

@@ -52,6 +52,11 @@ function PreReadPageInner() {
           source_snapshot_id: snapshotId ?? undefined,
           context: {
             mode,
+            xray_url: data?.prep_context?.xray_url ?? "",
+            replay_url: data?.prep_context?.replay_url ?? "",
+            shot_profile_label: data?.prep_context?.shot_profile_driver?.label ?? "",
+            shot_profile_family: data?.prep_context?.shot_profile_driver?.split_family ?? "",
+            shot_profile_value: data?.prep_context?.shot_profile_driver?.split_value ?? "",
           },
         });
         setSnapshotMessage(`Saved snapshot ${response.snapshot_id.slice(0, 8)}. Share: ${response.share_url}`);
@@ -185,6 +190,24 @@ function PreReadPageInner() {
           {data.prep_context.first_adjustment_rationale ? (
             <p className="mt-2">{data.prep_context.first_adjustment_rationale}</p>
           ) : null}
+          {data.prep_context.shot_profile_driver ? (
+            <div className="mt-3 rounded-2xl border border-[var(--border)] bg-[rgba(255,255,255,0.68)] p-4">
+              <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[var(--muted)]">
+                Shot-profile frame
+              </div>
+              <div className="mt-2 text-sm font-semibold text-[var(--foreground)]">
+                {data.prep_context.shot_profile_driver.label}
+              </div>
+              <p className="mt-2 text-sm leading-6 text-[var(--muted-strong)]">
+                {data.prep_context.shot_profile_driver.summary}
+              </p>
+              {data.prep_context.shot_profile_driver.trust_note ? (
+                <p className="mt-2 text-xs leading-5 text-[var(--muted)]">
+                  {data.prep_context.shot_profile_driver.trust_note}
+                </p>
+              ) : null}
+            </div>
+          ) : null}
         </section>
       ) : null}
 
@@ -240,6 +263,16 @@ function PreReadPageInner() {
                 <Link href={data.launch_links.follow_through_url} className="bip-btn-primary rounded-full px-4 py-2 text-sm font-medium">
                   Open team decision tools
                 </Link>
+                {data.launch_links.style_xray_url ? (
+                  <Link href={data.launch_links.style_xray_url} className="rounded-full border border-[var(--border-strong)] px-4 py-2 text-sm font-medium text-[var(--accent-strong)] transition hover:bg-[rgba(33,72,59,0.08)]">
+                    Open Style X-Ray
+                  </Link>
+                ) : null}
+                {data.launch_links.replay_url ? (
+                  <Link href={data.launch_links.replay_url} className="rounded-full border border-[var(--border-strong)] px-4 py-2 text-sm font-medium text-[var(--accent-strong)] transition hover:bg-[rgba(33,72,59,0.08)]">
+                    Review replay
+                  </Link>
+                ) : null}
                 <Link href={`/teams/${activeTeam}?tab=roster`} className="rounded-full border border-[var(--border-strong)] px-4 py-2 text-sm font-medium text-[var(--accent-strong)] transition hover:bg-[rgba(33,72,59,0.08)]">
                   Open availability board
                 </Link>

@@ -12,8 +12,10 @@ from db.models import PreReadSnapshot, Team, TeamStanding, WarehouseGame
 from models.team import TeamPrepQueueItem, TeamPrepQueueResponse
 from services.compare_service import build_team_comparison_report
 from services.runtime_data_policy import canonical_source_for_season, is_modern_warehouse_season, runtime_policy_for_season
+from services.team_shot_profile_service import family_label
 from services.team_availability_service import build_team_availability
 from services.team_focus_service import build_team_focus_levers_report
+from routers.styles import build_style_xray_report
 
 
 def _team_schedule_rows(db: Session, team_id: int, season: str) -> List[WarehouseGame]:
@@ -196,17 +198,22 @@ def _latest_snapshot_for_matchup(
     team_abbreviation: str,
     opponent_abbreviation: str,
     season: str,
+    game_id: Optional[str] = None,
 ) -> Optional[PreReadSnapshot]:
-    return (
-        db.query(PreReadSnapshot)
-        .filter(
-            PreReadSnapshot.team_abbreviation == team_abbreviation.upper(),
-            PreReadSnapshot.opponent_abbreviation == opponent_abbreviation.upper(),
-            PreReadSnapshot.season == season,
-        )
-        .order_by(PreReadSnapshot.created_at.desc(), PreReadSnapshot.id.desc())
-        .first()
+    query = db.query(PreReadSnapshot).filter(
+        PreReadSnapshot.team_abbreviation == team_abbreviation.upper(),
+        PreReadSnapshot.opponent_abbreviation == opponent_abbreviation.upper(),
+        PreReadSnapshot.season == season,
     )
+    if game_id:
+        keyed = (
+            query.filter(PreReadSnapshot.game_id == game_id)
+            .order_by(PreReadSnapshot.created_at.desc(), PreReadSnapshot.id.desc())
+            .first()
+        )
+        if keyed is not None:
+            return keyed
+    return query.order_by(PreReadSnapshot.created_at.desc(), PreReadSnapshot.id.desc()).first()
 
 
 def _prep_urgency(
@@ -357,7 +364,36 @@ def build_team_prep_queue(
             reason=decision_reason,
             factor_id=first_adjustment_factor_id or best_edge_factor_id,
         )
-        latest_snapshot = _latest_snapshot_for_matchup(db, team.abbreviation, opponent_abbreviation, season)
+        xray_url = "/insights?tab=xray&team={0}&season={1}&opponent={2}".format(
+            team.abbreviation,
+            season,
+            opponent_abbreviation,
+        )
+        replay_url = None
+        shot_profile_driver = None
+        style_replay_target = None
+        try:
+            xray = build_style_xray_report(
+                db=db,
+                abbr=team.abbreviation,
+                season=season,
+                window=10,
+                opponent_abbr=opponent_abbreviation,
+            )
+            shot_profile_driver = next((driver for driver in xray.shot_profile_drivers if driver.strong_claim), None)
+            if shot_profile_driver is None and xray.shot_profile_drivers:
+                shot_profile_driver = xray.shot_profile_drivers[0]
+            style_replay_target = xray.replay_target
+            replay_url = xray.launch_links.replay_url
+            if shot_profile_driver and shot_profile_driver.strong_claim:
+                compare_url = "{0}&selected_split_family={1}&selected_split_value={2}".format(
+                    compare_url,
+                    shot_profile_driver.split_family,
+                    shot_profile_driver.split_value.replace(" ", "+"),
+                )
+        except HTTPException:
+            shot_profile_driver = None
+        latest_snapshot = _latest_snapshot_for_matchup(db, team.abbreviation, opponent_abbreviation, season, row.game_id)
         latest_snapshot_share_url = None
         latest_snapshot_id = None
         if latest_snapshot is not None:
@@ -400,6 +436,10 @@ def build_team_prep_queue(
                 game_review_url=game_review_url,
                 latest_snapshot_id=latest_snapshot_id,
                 latest_snapshot_share_url=latest_snapshot_share_url,
+                xray_url=xray_url,
+                replay_url=replay_url,
+                shot_profile_driver=shot_profile_driver,
+                style_replay_target=style_replay_target,
             )
         )
 

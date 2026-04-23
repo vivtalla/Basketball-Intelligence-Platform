@@ -6,6 +6,8 @@ from typing import List, Optional
 from pydantic import BaseModel
 
 from models.stats import LineupStatsResponse
+from models.styles import StyleShotProfileDriver
+from models.trends import ReplayLaunchTarget
 
 
 class TeamRosterPlayer(BaseModel):
@@ -269,6 +271,10 @@ class TeamPrepQueueItem(BaseModel):
     game_review_url: str
     latest_snapshot_id: Optional[str] = None
     latest_snapshot_share_url: Optional[str] = None
+    xray_url: Optional[str] = None
+    replay_url: Optional[str] = None
+    shot_profile_driver: Optional[StyleShotProfileDriver] = None
+    style_replay_target: Optional[ReplayLaunchTarget] = None
 
 
 class TeamPrepQueueResponse(BaseModel):

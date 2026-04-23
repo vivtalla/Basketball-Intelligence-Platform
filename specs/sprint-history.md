@@ -704,3 +704,41 @@ Eliminated live NBA API calls on every player profile load:
 - Made Opportunity Team Roll-Up tiles active: clicking a driver filters the workspace and pins the first qualifying player into the detail panel.
 - Hard-deleted deprecated `/api/insights/usage-efficiency`, its backend service/models, frontend API/hook/types, and orphan `UsageBurdenMatrix`.
 - Verified with 30 targeted backend tests, frontend `npm run lint`, frontend `npm run build`, local API/page smoke checks, and `git diff --check`.
+
+---
+
+### Sprint 60 — Insights X-Ray Explainability Promotion
+**Branch:** `feature/sprint-60-insights-xray-explainability` (Claude)
+
+- Promoted Play-Style X-Ray into the main Insights workflow and brought its explainability depth up to parity with the stronger Insights tabs.
+- Added trajectory/trends explainability parity and MVP lineup-aware teammate on/off swings.
+- Closed on branch and merged to `master`; reference remains in earlier closeout artifacts plus this history log.
+
+---
+
+### Sprint 61 — Shot Lab Polish + Shot Intelligence Ops
+**Branch:** `feature/sprint-61-shot-lab-polish-and-ops` (Claude, single-stream)
+
+- Added shared `ShotHoverTooltip`, replay-example chips with linkage-quality gating, `ShotIdentityBadges` in PlayerHeader + Compare, and a `/coverage` Shot Intelligence Ops panel.
+- Materialized `shot_quality_baselines` with refresh controls so baseline computation moved off the hot path and into an explicit ops workflow.
+- Verified with 172 backend tests, frontend `npm run lint`, frontend `npm run build`, and `git diff --check`.
+
+---
+
+### Sprint 62 — Style Intelligence + Team Shooting Splits
+**Branch:** `feature/sprint-62-style-intelligence-and-team-shooting-splits` (Codex, merged via `ad94ce0`)
+
+- Added canonical persisted official team shooting splits with `team_shooting_split_stats`, DB-first API reads, and daily sync coverage.
+- Upgraded the team Splits tab with a new shooting workspace and expanded Style X-Ray with persisted shot-profile drivers, stronger label reasons, and richer neighbor summaries.
+- Laid the Team/Insights foundation Sprint 63 later extended into compare, prep, team-defense, and replay-connected workflows.
+
+---
+
+### Sprint 63 — Team/Insights Workflow Expansion
+**Branch:** `feature/sprint-63-team-insights-workflow-expansion` (Codex, single-stream)
+
+- Added a canonical team shot-profile service and extended persisted official shooting-split families into Compare, Prep, pre-read, team-defense, and Style X-Ray.
+- Expanded Style X-Ray with short-horizon history, drift narratives, stronger neighbor context, and direct compare/prep/what-if/replay handoff payloads.
+- Added replay-aware coaching follow-through and prep snapshot continuity keyed by matchup/date, while preserving evidence source and exact/derived/timeline trust state.
+- Added trust-note handling for ambiguous official split families, including assisted-shot caution wording and weaker-claim gating.
+- Verified with targeted backend tests, frontend `npm run lint`, frontend `npm run build`, and `git diff --check`.

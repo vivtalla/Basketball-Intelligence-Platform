@@ -1,6 +1,8 @@
 from typing import Dict, List, Literal, Optional
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
+
+from models.styles import StyleShotProfileDriver
 
 
 class TeamComparisonSnapshot(BaseModel):
@@ -14,6 +16,7 @@ class TeamComparisonSnapshot(BaseModel):
     tov_pg: Optional[float] = None
     reb_pg: Optional[float] = None
     pace: Optional[float] = None
+    shot_profile_drivers: List[StyleShotProfileDriver] = Field(default_factory=list)
 
 
 class TeamComparisonRow(BaseModel):
@@ -39,3 +42,4 @@ class TeamComparisonResponse(BaseModel):
     rows: List[TeamComparisonRow]
     stories: List[TeamComparisonStory]
     source_context: Optional[Dict[str, str]] = None
+    warnings: List[str] = Field(default_factory=list)

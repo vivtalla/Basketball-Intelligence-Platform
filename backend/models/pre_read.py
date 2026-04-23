@@ -3,6 +3,8 @@ from typing import Dict, List, Optional
 from pydantic import BaseModel, Field
 
 from models.team import TeamAvailabilityResponse, TeamFocusLever, TeamPrepQueueItem
+from models.styles import StyleShotProfileDriver
+from models.trends import ReplayLaunchTarget
 
 
 class WorkflowLaunchLinks(BaseModel):
@@ -12,6 +14,8 @@ class WorkflowLaunchLinks(BaseModel):
     prep_url: str
     follow_through_url: str
     game_review_url: str
+    style_xray_url: Optional[str] = None
+    replay_url: Optional[str] = None
 
 
 class PreReadSnapshotRef(BaseModel):
@@ -50,6 +54,10 @@ class PreReadPrepContext(BaseModel):
     best_edge_rationale: Optional[str] = None
     first_adjustment_label: Optional[str] = None
     first_adjustment_rationale: Optional[str] = None
+    shot_profile_driver: Optional[StyleShotProfileDriver] = None
+    style_replay_target: Optional[ReplayLaunchTarget] = None
+    xray_url: Optional[str] = None
+    replay_url: Optional[str] = None
 
 
 class PreReadDeckResponse(BaseModel):
