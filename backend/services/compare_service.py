@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session
 
 from db.models import GameTeamStat, Team, WarehouseGame
 from models.compare import TeamComparisonResponse, TeamComparisonRow, TeamComparisonSnapshot, TeamComparisonStory
+from services.team_shot_profile_service import build_team_shot_profile_drivers
 
 
 def _estimate_possessions(fga: Optional[float], oreb: Optional[float], tov: Optional[float], fta: Optional[float]) -> Optional[float]:
@@ -114,6 +115,8 @@ def _build_snapshot(db: Session, abbreviation: str, season: str) -> TeamComparis
     if possessions_total > 0:
         net_rating = ((totals["pts"] - points_allowed) / possessions_total) * 100.0
 
+    shot_profile_drivers, _driver_candidates = build_team_shot_profile_drivers(db, season, team.id, limit=3)
+
     return TeamComparisonSnapshot(
         abbreviation=team.abbreviation,
         name=team.name,
@@ -125,6 +128,7 @@ def _build_snapshot(db: Session, abbreviation: str, season: str) -> TeamComparis
         tov_pg=_safe_round(totals["tov"] / game_count if game_count else None, 1),
         reb_pg=_safe_round(totals["reb"] / game_count if game_count else None, 1),
         pace=_safe_round(pace, 1),
+        shot_profile_drivers=shot_profile_drivers,
     )
 
 
@@ -165,6 +169,7 @@ def build_team_comparison_report(
     add_row("net_rating", "Net Rating", team_a_snapshot.net_rating, team_b_snapshot.net_rating, True, "signed")
 
     stories: List[TeamComparisonStory] = []
+    warnings: List[str] = []
 
     if team_a_snapshot.tov_pg is not None and team_b_snapshot.tov_pg is not None:
         edge = _edge(team_a_snapshot.tov_pg, team_b_snapshot.tov_pg, False)
@@ -191,6 +196,30 @@ def build_team_comparison_report(
         if edge != "even":
             leader = team_a_snapshot if edge == "team_a" else team_b_snapshot
             stories.append(_story("Cleaner overall profile", "{0} owns the better net-rating baseline across the season.".format(leader.abbreviation), edge))
+    if team_a_snapshot.shot_profile_drivers or team_b_snapshot.shot_profile_drivers:
+        a_driver = next((driver for driver in team_a_snapshot.shot_profile_drivers if driver.strong_claim), None) or (
+            team_a_snapshot.shot_profile_drivers[0] if team_a_snapshot.shot_profile_drivers else None
+        )
+        b_driver = next((driver for driver in team_b_snapshot.shot_profile_drivers if driver.strong_claim), None) or (
+            team_b_snapshot.shot_profile_drivers[0] if team_b_snapshot.shot_profile_drivers else None
+        )
+        if a_driver and b_driver and a_driver.label != b_driver.label:
+            stories.append(
+                _story(
+                    "Shot-profile tension",
+                    "{0} leans on {1}, while {2} tilts toward {3}.".format(
+                        team_a_snapshot.abbreviation,
+                        a_driver.label,
+                        team_b_snapshot.abbreviation,
+                        b_driver.label,
+                    ),
+                    "even",
+                )
+            )
+        if any(driver.trust_level == "caution" for driver in team_a_snapshot.shot_profile_drivers + team_b_snapshot.shot_profile_drivers):
+            warnings.append("Assisted-shot families remain directional only until the upstream official split semantics are clearer.")
+    else:
+        warnings.append("Canonical team shooting splits are missing or thin, so shot-profile comparison is limited.")
 
     return TeamComparisonResponse(
         season=season,
@@ -199,4 +228,5 @@ def build_team_comparison_report(
         rows=rows,
         stories=stories[:5],
         source_context=source_context,
+        warnings=warnings,
     )

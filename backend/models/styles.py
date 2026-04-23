@@ -2,6 +2,8 @@ from typing import Dict, List, Literal, Optional
 
 from pydantic import BaseModel, Field
 
+from models.trends import ReplayLaunchTarget
+
 
 class StyleMetricRow(BaseModel):
     metric_id: str
@@ -68,16 +70,21 @@ class StyleNeighbor(BaseModel):
     quality: Literal["high", "medium", "low"] = "medium"
     net_rating: Optional[float] = None
     summary: str
+    matchup_label: Optional[str] = None
 
 
 class StyleShotProfileDriver(BaseModel):
     split_family: str
+    family_label: Optional[str] = None
     split_value: str
     label: str
     attempt_share: Optional[float] = None
     efg_pct: Optional[float] = None
     league_delta: Optional[float] = None
     summary: str
+    trust_level: Literal["strong", "caution"] = "strong"
+    trust_note: Optional[str] = None
+    strong_claim: bool = True
 
 
 class StyleFeatureMovement(BaseModel):
@@ -96,6 +103,14 @@ class StyleMovement(BaseModel):
     features: List[StyleFeatureMovement]
 
 
+class StyleHistoryPoint(BaseModel):
+    label: str
+    archetype: str
+    confidence: Literal["high", "medium", "low"] = "medium"
+    record: Optional[str] = None
+    shot_profile_note: Optional[str] = None
+
+
 class StyleScenarioLink(BaseModel):
     scenario_type: str
     title: str
@@ -107,6 +122,8 @@ class StyleScenarioLink(BaseModel):
 class StyleLaunchLinks(BaseModel):
     prep_url: Optional[str] = None
     compare_url: str
+    what_if_url: Optional[str] = None
+    replay_url: Optional[str] = None
 
 
 class StyleXRayResponse(BaseModel):
@@ -125,9 +142,11 @@ class StyleXRayResponse(BaseModel):
     shot_profile_drivers: List[StyleShotProfileDriver] = Field(default_factory=list)
     stability: Literal["stable", "watch", "shifted"]
     movement: Optional[StyleMovement] = None
+    history: List[StyleHistoryPoint] = Field(default_factory=list)
     scenario_links: List[StyleScenarioLink]
     launch_links: StyleLaunchLinks
     source_context: Optional[Dict[str, str]] = None
+    replay_target: Optional[ReplayLaunchTarget] = None
     warnings: List[str]
 
 
@@ -161,6 +180,7 @@ class StyleComparisonEntity(BaseModel):
     archetype: str
     label_reason: str
     current_profile: List[StyleMetricRow]
+    shot_profile_drivers: List[StyleShotProfileDriver] = Field(default_factory=list)
 
 
 class StyleComparisonResponse(BaseModel):

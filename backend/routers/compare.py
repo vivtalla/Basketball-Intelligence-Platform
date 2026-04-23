@@ -377,6 +377,7 @@ def build_style_comparison_report(
         archetype=xray_a.archetype,
         label_reason=xray_a.label_reason,
         current_profile=profile_a.current_profile,
+        shot_profile_drivers=xray_a.shot_profile_drivers,
     )
     entity_b = StyleComparisonEntity(
         abbreviation=profile_b.team_abbreviation,
@@ -385,6 +386,7 @@ def build_style_comparison_report(
         archetype=xray_b.archetype,
         label_reason=xray_b.label_reason,
         current_profile=profile_b.current_profile,
+        shot_profile_drivers=xray_b.shot_profile_drivers,
     )
 
     return StyleComparisonResponse(

@@ -25,6 +25,16 @@ function storyTone(edge: "team_a" | "team_b" | "even") {
   return "bg-[var(--surface-alt)] text-[var(--muted-strong)]";
 }
 
+function fmtPct(value: number | null | undefined) {
+  if (value == null) return "—";
+  return `${(value * 100).toFixed(1)}%`;
+}
+
+function fmtSignedPoints(value: number | null | undefined) {
+  if (value == null) return "—";
+  return `${value >= 0 ? "+" : ""}${(value * 100).toFixed(1)} pts`;
+}
+
 export default function TeamComparisonView({ comparison }: TeamComparisonViewProps) {
   return (
     <div className="space-y-6">
@@ -45,6 +55,36 @@ export default function TeamComparisonView({ comparison }: TeamComparisonViewPro
                 <div className="mt-2 text-2xl font-semibold text-[var(--accent-strong)]">{formatValue(team.net_rating, "signed")}</div>
               </div>
             </div>
+            {team.shot_profile_drivers?.length ? (
+              <div className="mt-5 space-y-3">
+                <div className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--muted)]">
+                  Canonical shot profile
+                </div>
+                {team.shot_profile_drivers.slice(0, 2).map((driver) => (
+                  <div key={`${team.abbreviation}-${driver.split_family}-${driver.split_value}`} className="rounded-2xl border border-[var(--border)] bg-[rgba(255,255,255,0.68)] p-4">
+                    <div className="flex items-start justify-between gap-3">
+                      <div>
+                        <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[var(--muted)]">
+                          {driver.family_label ?? driver.split_family}
+                        </div>
+                        <div className="mt-1 text-sm font-semibold text-[var(--foreground)]">{driver.label}</div>
+                      </div>
+                      <div className="rounded-full border border-[var(--border)] px-2 py-1 text-[11px] font-semibold text-[var(--muted-strong)]">
+                        {fmtSignedPoints(driver.league_delta)}
+                      </div>
+                    </div>
+                    <div className="mt-3 flex flex-wrap gap-3 text-xs text-[var(--muted-strong)]">
+                      <span>Share {fmtPct(driver.attempt_share)}</span>
+                      <span>eFG {fmtPct(driver.efg_pct)}</span>
+                    </div>
+                    <p className="mt-2 text-sm leading-6 text-[var(--muted-strong)]">{driver.summary}</p>
+                    {driver.trust_note ? (
+                      <p className="mt-2 text-xs leading-5 text-[var(--muted)]">{driver.trust_note}</p>
+                    ) : null}
+                  </div>
+                ))}
+              </div>
+            ) : null}
           </article>
         ))}
       </section>
@@ -72,6 +112,11 @@ export default function TeamComparisonView({ comparison }: TeamComparisonViewPro
             </div>
           ))}
         </div>
+        {comparison.warnings?.length ? (
+          <div className="mt-5 rounded-2xl border border-[var(--border)] bg-[var(--surface-alt)] p-4 text-sm leading-6 text-[var(--muted-strong)]">
+            {comparison.warnings.join(" ")}
+          </div>
+        ) : null}
       </section>
 
       <section className="grid gap-4 lg:grid-cols-2">

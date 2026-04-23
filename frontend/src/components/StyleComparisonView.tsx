@@ -1,6 +1,6 @@
 "use client";
 
-import type { TeamAnalytics, TeamComparisonResponse } from "@/lib/types";
+import type { StyleComparisonResponse, TeamAnalytics, TeamComparisonResponse } from "@/lib/types";
 
 interface StyleComparisonViewProps {
   teamAAbbr: string;
@@ -10,7 +10,7 @@ interface StyleComparisonViewProps {
   season: string;
   analyticsA?: TeamAnalytics | null;
   analyticsB?: TeamAnalytics | null;
-  comparison?: TeamComparisonResponse | null;
+  comparison?: StyleComparisonResponse | TeamComparisonResponse | null;
 }
 
 type ComparisonEdge = "team_a" | "team_b" | "even";
@@ -59,6 +59,9 @@ export default function StyleComparisonView({
   analyticsB,
   comparison,
 }: StyleComparisonViewProps) {
+  const styleComparison =
+    comparison && "entity_a" in comparison && "entity_b" in comparison ? comparison : null;
+
   if (!analyticsA || !analyticsB) {
     return (
       <section className="rounded-[1.75rem] border border-[var(--border)] bg-[var(--surface)] p-6">
@@ -243,6 +246,29 @@ export default function StyleComparisonView({
               <p className="mt-3 text-sm leading-6 text-[var(--muted-strong)]">
                 {story.summary}
               </p>
+            </article>
+          ))}
+        </section>
+      ) : null}
+
+      {(styleComparison?.entity_a?.shot_profile_drivers?.length || styleComparison?.entity_b?.shot_profile_drivers?.length) ? (
+        <section className="grid gap-4 lg:grid-cols-2">
+          {[styleComparison?.entity_a, styleComparison?.entity_b].map((entity) => (
+            <article key={entity?.abbreviation ?? entity?.team_abbreviation} className="rounded-[1.5rem] border border-[var(--border)] bg-[rgba(255,255,255,0.72)] p-5">
+              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--muted)]">
+                {entity?.abbreviation ?? entity?.team_abbreviation} shot profile
+              </p>
+              <div className="mt-3 space-y-3">
+                {entity?.shot_profile_drivers?.slice(0, 2).map((driver) => (
+                  <div key={`${entity?.abbreviation ?? entity?.team_abbreviation}-${driver.split_family}-${driver.split_value}`} className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-4">
+                    <div className="text-sm font-semibold text-[var(--foreground)]">{driver.label}</div>
+                    <p className="mt-2 text-sm leading-6 text-[var(--muted-strong)]">{driver.summary}</p>
+                    {driver.trust_note ? (
+                      <p className="mt-2 text-xs leading-5 text-[var(--muted)]">{driver.trust_note}</p>
+                    ) : null}
+                  </div>
+                ))}
+              </div>
             </article>
           ))}
         </section>

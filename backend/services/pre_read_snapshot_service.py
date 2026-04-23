@@ -55,6 +55,9 @@ def create_pre_read_snapshot(db: Session, payload: PreReadSnapshotCreateRequest)
     snapshot_ref.created_at = deck.generated_at or ""
     deck.snapshot = snapshot_ref
 
+    payload_json = json.loads(deck.model_dump_json())
+    payload_json["_snapshot_context"] = context.model_dump()
+
     row = PreReadSnapshot(
         snapshot_id=snapshot_id,
         team_abbreviation=payload.team.upper(),
@@ -62,7 +65,7 @@ def create_pre_read_snapshot(db: Session, payload: PreReadSnapshotCreateRequest)
         season=payload.season,
         game_id=payload.game_id,
         saved_from=payload.source_view,
-        payload=json.loads(deck.model_dump_json()),
+        payload=payload_json,
     )
     db.add(row)
     db.commit()
@@ -94,6 +97,7 @@ def get_pre_read_snapshot(db: Session, snapshot_id: str) -> PreReadSnapshotRespo
 
     created_at = row.created_at.isoformat() if row.created_at else ""
     deck = _deck_from_payload(row.payload)
+    persisted_context = row.payload.get("_snapshot_context", {}) if isinstance(row.payload, dict) else {}
     deck.snapshot = PreReadSnapshotRef(
         snapshot_id=row.snapshot_id,
         share_url=_share_url(row.snapshot_id),
@@ -104,11 +108,13 @@ def get_pre_read_snapshot(db: Session, snapshot_id: str) -> PreReadSnapshotRespo
         share_url=_share_url(row.snapshot_id),
         created_at=created_at,
         context=PreReadContext(
-            team_abbreviation=row.team_abbreviation,
-            opponent_abbreviation=row.opponent_abbreviation,
-            season=row.season,
-            game_id=row.game_id,
-            source_view=row.saved_from,
+            team_abbreviation=persisted_context.get("team_abbreviation", row.team_abbreviation),
+            opponent_abbreviation=persisted_context.get("opponent_abbreviation", row.opponent_abbreviation),
+            season=persisted_context.get("season", row.season),
+            game_id=persisted_context.get("game_id", row.game_id),
+            source_view=persisted_context.get("source_view", row.saved_from),
+            source_snapshot_id=persisted_context.get("source_snapshot_id"),
+            extras=persisted_context.get("extras", {}),
         ),
         deck=deck,
     )
@@ -137,6 +143,7 @@ def list_pre_read_snapshots(
     items = []
     for row in rows:
         deck = _deck_from_payload(row.payload)
+        persisted_context = row.payload.get("_snapshot_context", {}) if isinstance(row.payload, dict) else {}
         items.append(
             PreReadSnapshotSummary(
                 snapshot_id=row.snapshot_id,
@@ -145,7 +152,7 @@ def list_pre_read_snapshots(
                 team_abbreviation=row.team_abbreviation,
                 opponent_abbreviation=row.opponent_abbreviation,
                 season=row.season,
-                game_id=row.game_id,
+                game_id=persisted_context.get("game_id", row.game_id),
                 prep_headline=deck.prep_context.headline if deck.prep_context else None,
                 saved_from=row.saved_from,
             )

@@ -4,6 +4,7 @@ import math
 import statistics
 from collections import defaultdict
 from typing import Any, Dict, List, Optional, Tuple
+from urllib.parse import urlencode
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import func
@@ -20,6 +21,7 @@ from models.styles import (
     StyleComparisonEntity,
     StyleComparisonResponse,
     StyleFeatureContributor,
+    StyleHistoryPoint,
     StyleFeatureMovement,
     StyleLaunchLinks,
     StyleMetricRow,
@@ -30,6 +32,14 @@ from models.styles import (
     StyleScenarioBin,
     StyleXRayResponse,
     TeamStyleProfileResponse,
+)
+from models.trends import ReplayLaunchTarget
+from services.team_shot_profile_service import (
+    attempt_share_text,
+    build_team_shot_profile_drivers,
+    family_label,
+    signed_points_text,
+    summarize_neighbor_shot_profile,
 )
 
 router = APIRouter()
@@ -316,6 +326,85 @@ def _team_rows(db: Session, team_id: int, season: str) -> List[GameTeamStat]:
     return rows
 
 
+def _event_identifier(event: PlayByPlayEvent) -> str:
+    if event.source_event_id:
+        return str(event.source_event_id)
+    return str(event.id)
+
+
+def _opponent_abbreviation(team_id: int, game: WarehouseGame) -> Optional[str]:
+    if game.home_team_id == team_id:
+        return game.away_team_abbreviation
+    if game.away_team_id == team_id:
+        return game.home_team_abbreviation
+    return None
+
+
+def _build_style_replay_target(
+    db: Session,
+    team: Team,
+    season: str,
+    recent_rows: List[GameTeamStat],
+    source_label: str,
+    return_to: str,
+    reason_prefix: str,
+) -> Optional[ReplayLaunchTarget]:
+    for row in recent_rows[:5]:
+        game = db.query(WarehouseGame).filter(WarehouseGame.game_id == row.game_id).first()
+        if game is None:
+            continue
+        opponent = _opponent_abbreviation(team.id, game)
+        game_date = game.game_date.isoformat() if game.game_date else None
+        matched_event = (
+            db.query(PlayByPlayEvent)
+            .filter(
+                PlayByPlayEvent.game_id == game.game_id,
+                PlayByPlayEvent.team_id == team.id,
+                PlayByPlayEvent.action_type.in_(["2pt", "3pt", "rebound"]),
+            )
+            .order_by(PlayByPlayEvent.order_index.desc())
+            .first()
+        )
+        reason = "{0} review against {1} on {2}.".format(
+            reason_prefix,
+            opponent or "the recent opponent",
+            game_date or "a recent game",
+        )
+        params = {
+            "source": "style-xray",
+            "source_surface": "style-xray",
+            "source_id": team.abbreviation,
+            "source_label": source_label,
+            "reason": reason,
+            "return_to": return_to,
+            "linkage_quality": "derived" if matched_event is not None else "timeline",
+            "team": team.abbreviation,
+            "season": season,
+        }
+        focus_event_id = None
+        focused_action_number = None
+        if matched_event is not None:
+            focus_event_id = _event_identifier(matched_event)
+            focused_action_number = matched_event.action_number or matched_event.order_index
+            params["focus_event_id"] = focus_event_id
+            if focused_action_number is not None:
+                params["focus_action_number"] = str(focused_action_number)
+        deep_link_url = "/games/{0}?{1}".format(game.game_id, urlencode(params))
+        return ReplayLaunchTarget(
+            source_surface="style-xray",
+            source_label=source_label,
+            reason=reason,
+            target_game_id=game.game_id,
+            target_game_date=game_date,
+            target_opponent_abbreviation=opponent,
+            focus_event_id=focus_event_id,
+            focused_action_number=focused_action_number,
+            linkage_quality="derived" if matched_event is not None else "timeline",
+            deep_link_url=deep_link_url,
+        )
+    return None
+
+
 def _all_team_rows(db: Session, season: str) -> Dict[int, List[GameTeamStat]]:
     grouped: Dict[int, List[GameTeamStat]] = defaultdict(list)
     rows = (
@@ -546,10 +635,10 @@ def _select_shot_profile_drivers(
 
 
 def _driver_sentence(driver: StyleShotProfileDriver) -> str:
-    delta_text = _signed_points_text(driver.league_delta)
+    delta_text = signed_points_text(driver.league_delta)
     return "{0} ({1}) is a live shot-profile swing at {2}.".format(
         driver.label,
-        _family_label(driver.split_family),
+        family_label(driver.split_family),
         delta_text,
     )
 
@@ -924,6 +1013,52 @@ def build_style_movement(
     )
 
 
+def _record_for_rows(rows: List[GameTeamStat]) -> Optional[str]:
+    wins = sum(1 for row in rows if row.won is True)
+    losses = sum(1 for row in rows if row.won is False)
+    if wins + losses == 0:
+        return None
+    return "{0}-{1}".format(wins, losses)
+
+
+def _build_style_history(
+    current_rows: List[GameTeamStat],
+    team_metrics_for_rows,
+    all_profiles: Dict[int, Dict[str, Optional[float]]],
+    archetype: str,
+    shot_profile_drivers: List[StyleShotProfileDriver],
+) -> List[StyleHistoryPoint]:
+    if not current_rows:
+        return []
+    history_windows = [
+        ("Last 5", current_rows[:5]),
+        ("Last 10", current_rows[:10]),
+        ("Season", current_rows),
+    ]
+    history: List[StyleHistoryPoint] = []
+    for label, rows in history_windows:
+        if not rows:
+            continue
+        metrics = team_metrics_for_rows(rows)
+        zscores = {
+            metric_id: _zscore([profile.get(metric_id) for profile in all_profiles.values()], metrics.get(metric_id))
+            for metric_id in metrics.keys()
+        }
+        point_archetype, _, _, confidence = _style_xray_label(metrics, zscores)
+        history.append(
+            StyleHistoryPoint(
+                label=label,
+                archetype=point_archetype,
+                confidence=confidence,  # type: ignore[arg-type]
+                record=_record_for_rows(rows),
+                shot_profile_note=shot_profile_drivers[0].summary if shot_profile_drivers and label != "Season" else None,
+            )
+        )
+    if history and history[-1].archetype != archetype:
+        history[-1].archetype = archetype
+    return history
+
+
 def _zscore(values: List[Optional[float]], value: Optional[float]) -> float:
     clean = [item for item in values if item is not None]
     if not clean or value is None:
@@ -1074,6 +1209,8 @@ def build_style_xray_report(
     if team.id not in all_profiles:
         raise HTTPException(status_code=404, detail="No style profile could be built for {0} in {1}.".format(team.abbreviation, season))
 
+    season_rows = _team_rows(db, team.id, season)
+    recent_rows = season_rows[:window] if window else season_rows
     current_metrics = all_profiles[team.id]
     recent_report = build_team_style_profile(db=db, abbr=abbr, season=season, window=window, opponent_abbr=opponent_abbr)
     recent_metrics = {row.metric_id: row.recent_value for row in recent_report.recent_drift}
@@ -1092,9 +1229,10 @@ def build_style_xray_report(
         for metric_id in current_metrics.keys()
     }
     archetype, label_reason, contributors, archetype_confidence = _style_xray_label(current_metrics, zscores)
-    shot_profile_drivers, driver_candidates = _select_shot_profile_drivers(db, season, team.id)
-    if shot_profile_drivers:
-        label_reason = "{0} {1}".format(label_reason, _driver_sentence(shot_profile_drivers[0]))
+    shot_profile_drivers, driver_candidates = build_team_shot_profile_drivers(db, season, team.id)
+    actionable_shot_profile_drivers = [driver for driver in shot_profile_drivers if driver.strong_claim]
+    if actionable_shot_profile_drivers:
+        label_reason = "{0} {1}".format(label_reason, _driver_sentence(actionable_shot_profile_drivers[0]))
 
     neighbor_rows: List[Tuple[float, int, Dict[str, Optional[float]]]] = []
     for team_id, metrics in all_profiles.items():
@@ -1133,7 +1271,7 @@ def build_style_xray_report(
                 TeamShootingSplitStat.split_family == candidate["split_family"],
                 TeamShootingSplitStat.split_value == candidate["split_value"],
             ).first()
-            shot_profile_note = _neighbor_shot_profile_summary(
+            shot_profile_note = summarize_neighbor_shot_profile(
                 team.abbreviation,
                 other_team,
                 candidate,
@@ -1142,6 +1280,9 @@ def build_style_xray_report(
             )
             if shot_profile_note:
                 break
+        matchup_label = None
+        if shot_profile_note:
+            matchup_label = "Shot-profile mirror" if "Shared shot-profile note" in shot_profile_note else "Shot-profile tension"
         nearest_neighbors.append(
             StyleNeighbor(
                 team_abbreviation=other_team.abbreviation,
@@ -1151,6 +1292,7 @@ def build_style_xray_report(
                 quality=classify_neighbor_quality(distance, all_distances),  # type: ignore[arg-type]
                 net_rating=_safe_round(metrics.get("net_rating"), 2),
                 summary=shot_profile_note or other_reason,
+                matchup_label=matchup_label,
             )
         )
 
@@ -1189,6 +1331,8 @@ def build_style_xray_report(
         warnings.extend(recent_report.warnings[:2])
     if not shot_profile_drivers:
         warnings.append("Shot-profile drivers are limited because persisted team shooting splits are missing or thin.")
+    elif any(driver.trust_level == "caution" for driver in shot_profile_drivers):
+        warnings.append("Assisted-shot style reads stay directional only until the official split-family semantics are clearer.")
 
     if not nearest_neighbors:
         data_status = "limited"
@@ -1200,6 +1344,8 @@ def build_style_xray_report(
     scenario_links: List[StyleScenarioLink] = []
     seen_scenarios = set()
     for candidate in driver_candidates:
+        if not candidate.get("strong_claim", True):
+            continue
         scenario = _scenario_from_driver(team.abbreviation, season, window, opponent_abbr, candidate)
         if not scenario or scenario.scenario_type in seen_scenarios:
             continue
@@ -1262,11 +1408,11 @@ def build_style_xray_report(
         team.abbreviation,
         opponent_abbr or (nearest_neighbors[0].team_abbreviation if nearest_neighbors else team.abbreviation),
         season,
-        archetype.replace(" ", "+"),
+        (actionable_shot_profile_drivers[0].label if actionable_shot_profile_drivers else archetype).replace(" ", "+"),
     )
     compare_url = "{0}&return_to={1}".format(
         compare_url,
-        "/insights?tab=whatif&team={0}&season={1}{2}".format(
+        "/insights?tab=xray&team={0}&season={1}{2}".format(
             team.abbreviation,
             season,
             "&opponent={0}".format(opponent_abbr) if opponent_abbr else "",
@@ -1276,6 +1422,38 @@ def build_style_xray_report(
         "/pre-read?team={0}&opponent={1}&season={2}".format(team.abbreviation, opponent_abbr, season)
         if opponent_abbr
         else "/teams/{0}?tab=prep&season={1}".format(team.abbreviation, season)
+    )
+    what_if_url = "/insights?tab=whatif&team={0}&season={1}{2}".format(
+        team.abbreviation,
+        season,
+        "&opponent={0}".format(opponent_abbr) if opponent_abbr else "",
+    )
+    return_to = "/insights?tab=xray&team={0}&season={1}{2}".format(
+        team.abbreviation,
+        season,
+        "&opponent={0}".format(opponent_abbr) if opponent_abbr else "",
+    )
+    replay_target = _build_style_replay_target(
+        db=db,
+        team=team,
+        season=season,
+        recent_rows=season_rows[:window],
+        source_label="{0} X-Ray".format(team.abbreviation),
+        return_to=return_to,
+        reason_prefix=actionable_shot_profile_drivers[0].label if actionable_shot_profile_drivers else archetype,
+    )
+    history = _build_style_history(
+        current_rows=season_rows,
+        team_metrics_for_rows=lambda rows: _build_team_vector(
+            db,
+            team,
+            rows,
+            _opponent_rows(db, season, [row.game_id for row in rows], team.id),
+            _transition_rate(db, [row.game_id for row in rows], team.id),
+        ),
+        all_profiles=all_profiles,
+        archetype=archetype,
+        shot_profile_drivers=shot_profile_drivers,
     )
 
     response = StyleXRayResponse(
@@ -1294,14 +1472,21 @@ def build_style_xray_report(
         shot_profile_drivers=shot_profile_drivers,
         stability=stability,  # type: ignore[arg-type]
         movement=movement,
+        history=history,
         scenario_links=scenario_links,
-        launch_links=StyleLaunchLinks(prep_url=prep_url, compare_url=compare_url),
+        launch_links=StyleLaunchLinks(
+            prep_url=prep_url,
+            compare_url=compare_url,
+            what_if_url=what_if_url,
+            replay_url=replay_target.deep_link_url if replay_target is not None else None,
+        ),
         source_context={
             "source_type": "style-xray",
             "team": team.abbreviation,
             "season": season,
             "opponent": opponent_abbr or "",
         },
+        replay_target=replay_target,
         warnings=warnings,
     )
     CacheManager.set(cache_key, response.model_dump(), 900)

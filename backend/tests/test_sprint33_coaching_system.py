@@ -15,6 +15,7 @@ from db.models import (  # noqa: E402
     PlayerInjury,
     SeasonStat,
     Team,
+    TeamShootingSplitStat,
     TeamStanding,
     WarehouseGame,
 )
@@ -22,6 +23,8 @@ from models.trends import WhatIfRequest  # noqa: E402
 from models.scouting import ScoutingClipExportRequest  # noqa: E402
 from routers.scouting import build_play_type_scouting_report, export_scouting_clip_list  # noqa: E402
 from routers.trends import build_trend_cards_report, build_what_if_report  # noqa: E402
+from routers.styles import build_style_xray_report  # noqa: E402
+from services.compare_service import build_team_comparison_report  # noqa: E402
 from services.pre_read_snapshot_service import create_pre_read_snapshot, get_pre_read_snapshot  # noqa: E402
 from models.pre_read import PreReadSnapshotCreateRequest  # noqa: E402
 
@@ -203,6 +206,19 @@ def seed_context(session):
             detail="Monitor",
         )
     )
+    session.add_all(
+        [
+            TeamShootingSplitStat(team_id=atl.id, season="2025-26", is_playoff=False, split_family="OverallTeamDashboard", split_value="Overall", label="Overall", fga=1000.0, efg_pct=0.56),
+            TeamShootingSplitStat(team_id=bos.id, season="2025-26", is_playoff=False, split_family="OverallTeamDashboard", split_value="Overall", label="Overall", fga=980.0, efg_pct=0.55),
+            TeamShootingSplitStat(team_id=nyk.id, season="2025-26", is_playoff=False, split_family="OverallTeamDashboard", split_value="Overall", label="Overall", fga=975.0, efg_pct=0.54),
+            TeamShootingSplitStat(team_id=atl.id, season="2025-26", is_playoff=False, split_family="ShotTypeTeamDashboard", split_value="Above the Break 3", label="Above the Break 3", fga=420.0, efg_pct=0.59),
+            TeamShootingSplitStat(team_id=bos.id, season="2025-26", is_playoff=False, split_family="ShotTypeTeamDashboard", split_value="Above the Break 3", label="Above the Break 3", fga=320.0, efg_pct=0.55),
+            TeamShootingSplitStat(team_id=nyk.id, season="2025-26", is_playoff=False, split_family="ShotTypeTeamDashboard", split_value="Above the Break 3", label="Above the Break 3", fga=280.0, efg_pct=0.53),
+            TeamShootingSplitStat(team_id=atl.id, season="2025-26", is_playoff=False, split_family="AssitedShotTeamDashboard", split_value="Assisted", label="Assisted", fga=640.0, efg_pct=0.61, pct_ast_fgm=1.0, pct_uast_fgm=0.0),
+            TeamShootingSplitStat(team_id=bos.id, season="2025-26", is_playoff=False, split_family="AssitedShotTeamDashboard", split_value="Assisted", label="Assisted", fga=590.0, efg_pct=0.59, pct_ast_fgm=1.0, pct_uast_fgm=0.0),
+            TeamShootingSplitStat(team_id=nyk.id, season="2025-26", is_playoff=False, split_family="AssitedShotTeamDashboard", split_value="Assisted", label="Assisted", fga=560.0, efg_pct=0.58, pct_ast_fgm=1.0, pct_uast_fgm=0.0),
+        ]
+    )
     session.commit()
     return atl, bos, nyk
 
@@ -218,6 +234,7 @@ def test_pre_read_snapshot_is_frozen_after_underlying_data_changes():
                 opponent=bos.abbreviation,
                 season="2025-26",
                 source_view="prep-queue-card",
+                context={"xray_url": "/insights?tab=xray&team=ATL&season=2025-26&opponent=BOS"},
             ),
         )
         original_headline = snapshot.deck.prep_context.headline if snapshot.deck.prep_context else None
@@ -238,6 +255,24 @@ def test_pre_read_snapshot_is_frozen_after_underlying_data_changes():
         assert reopened.deck.snapshot is not None
         assert reopened.deck.snapshot.snapshot_id == snapshot.snapshot_id
         assert (reopened.deck.prep_context.headline if reopened.deck.prep_context else None) == original_headline
+        assert reopened.context.extras.get("xray_url") == "/insights?tab=xray&team=ATL&season=2025-26&opponent=BOS"
+    finally:
+        session.close()
+
+
+def test_team_compare_and_style_xray_expose_shot_profile_context():
+    session = make_session()
+    try:
+        atl, bos, _ = seed_context(session)
+        comparison = build_team_comparison_report(session, atl.abbreviation, bos.abbreviation, "2025-26")
+        xray = build_style_xray_report(session, atl.abbreviation, "2025-26", 3, bos.abbreviation)
+
+        assert comparison.team_a.shot_profile_drivers
+        assert comparison.team_a.shot_profile_drivers[0].family_label is not None
+        assert xray.history
+        assert xray.launch_links.replay_url is not None
+        assert xray.replay_target is not None
+        assert any(driver.trust_level in {"strong", "caution"} for driver in xray.shot_profile_drivers)
     finally:
         session.close()
 

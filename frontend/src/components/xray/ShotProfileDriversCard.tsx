@@ -54,6 +54,11 @@ export function ShotProfileDriversCard({ drivers }: Props) {
                   {FAMILY_LABELS[driver.split_family] ?? driver.split_family}
                 </div>
                 <h4 className="mt-1 text-sm font-semibold text-[var(--foreground)]">{driver.label}</h4>
+                {driver.trust_level === "caution" ? (
+                  <div className="mt-1 text-[10px] font-semibold uppercase tracking-[0.14em] text-[var(--accent-strong)]">
+                    Directional only
+                  </div>
+                ) : null}
               </div>
               <div className="rounded-full border border-[var(--border)] px-2 py-[2px] text-[10px] font-semibold uppercase tracking-[0.14em] text-[var(--muted-strong)]">
                 {fmtSignedPoints(driver.league_delta)}
@@ -76,6 +81,9 @@ export function ShotProfileDriversCard({ drivers }: Props) {
             </div>
 
             <p className="mt-3 text-sm leading-5 text-[var(--muted-strong)]">{driver.summary}</p>
+            {driver.trust_note ? (
+              <p className="mt-2 text-xs leading-5 text-[var(--muted)]">{driver.trust_note}</p>
+            ) : null}
           </article>
         ))}
       </div>

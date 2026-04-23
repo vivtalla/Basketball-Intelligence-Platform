@@ -69,6 +69,8 @@ def _build_launch_links(
             ),
         ),
         game_review_url="/games?team={0}&season={1}&opponent={2}".format(team, season, opponent),
+        style_xray_url="/insights?tab=xray&team={0}&season={1}&opponent={2}".format(team, season, opponent),
+        replay_url=prep_item.replay_url if prep_item else None,
     )
 
 
@@ -177,6 +179,10 @@ def build_pre_read_deck(
             best_edge_rationale=prep_item.best_edge_rationale,
             first_adjustment_label=prep_item.first_adjustment_label,
             first_adjustment_rationale=prep_item.first_adjustment_rationale,
+            shot_profile_driver=prep_item.shot_profile_driver,
+            style_replay_target=prep_item.style_replay_target,
+            xray_url=prep_item.xray_url,
+            replay_url=prep_item.replay_url,
         )
 
     if focus_report is None and comparison is None:
