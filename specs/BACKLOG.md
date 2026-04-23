@@ -62,13 +62,13 @@ Likely shape:
 - Finish the shared `ShotCourt` silhouette so the three-point shell, baseline, lane, and free-throw geometry unmistakably match a real half-court
 - Keep tuning shot-frequency heatmaps so the hottest pockets pop on neutral backgrounds without making the whole surface feel heavy
 
-### Replay Workflow Expansion
+### Replay Workflow Follow-Ons
 Why it matters:
-Sprints 40 and 41 turned replay into a real workflow across Game Explorer, scouting, shot lab, trend cards, and What-If. The next gains come from broadening the remaining surfaces and making sequence review feel even more analytical.
+Sprints 40, 41, and 63 turned replay into a real workflow across Game Explorer, scouting, shot lab, trend cards, Style X-Ray, prep, and related coaching handoffs. The next gains come from making sequence review feel more analytical and more selective, not merely broader.
 
 Likely shape:
-- extend focused replay handoffs deeper into the newly shipped prep and decision workflow, especially when a selected lever can be tied to a strong recent-game sequence
 - deepen the 3D scene choreography beyond the current short sequence view without losing the exact/derived/timeline trust model
+- improve sequence ranking and matchup-specific evidence selection so replay launches feel more intentional when multiple recent candidates exist
 - keep sharpening sequence summaries, labels, and analyst controls so replay feels like a coaching tool rather than only a visual drill-down
 
 ### Visualization Follow-Ons (Sprint 31 seeds)
@@ -82,21 +82,21 @@ Likely shape:
 
 ### Team Prep Queue Follow-Ons
 Why it matters:
-Sprint 42 made the prep queue substantially more opponent-aware, but the workflow can still get more direct and more archival-ready without losing its current lightweight feel.
+Sprints 42 and 63 made the prep queue substantially more opponent-aware, replay-aware, and archival-ready, but the workflow can still get more durable and more staff-friendly without losing its current lightweight feel.
 
 Likely shape:
-- add direct replay targets for prep cards when a recommended lever has credible recent-game evidence
-- save prep snapshots by team/opponent/date instead of relying only on live query-state share links
+- add snapshot management affordances such as naming, list/history views, and cleaner reopen/share flows for staff prep archives
+- extend prep continuity into compare/export surfaces so a saved prep state can become a fuller staff handoff
 - continue tuning urgency and first-action summaries for local performance and edge-case matchups
 
 ### Team Shooting Split Workflow Expansion
 Why it matters:
-Sprint 62 shipped the canonical team shooting-splits foundation, team-page shooting dashboard, and Style X-Ray shot-profile drivers. The next gains come from carrying that canonical shot-profile context deeper into adjacent workflows and tightening data trust.
+Sprints 62 and 63 shipped the canonical team shooting-splits foundation, team-page shooting dashboard, Style X-Ray shot-profile drivers, and deeper compare/prep/team-defense workflow use. The next gains come from tightening trust, expanding ops visibility, and improving how staff package those insights.
 
 Likely shape:
-- extend the persisted shot-profile families into compare, prep, and team-defense surfaces where they sharpen matchup context
-- add stronger workflow handoffs from a detected shot-profile edge into scouting, decision, or replay-style follow-through where evidence exists
 - validate tricky official families such as assisted-shot semantics and expose honest trust notes when upstream meaning is ambiguous
+- add stronger coverage-health and refresh visibility for the shooting-split families if they become a daily coaching dependency
+- improve printable/shareable outputs for shot-profile matchup edges once the underlying trust framing is stable
 
 ---
 
@@ -113,11 +113,11 @@ Likely shape:
 
 ### Style Intelligence Follow-Ons
 Why it matters:
-Sprints 60 and 62 turned Style X-Ray into a real team-identity surface with archetypes, neighbors, movement, and shot-profile drivers. What remains is making that identity layer feel more historical, more matchup-aware, and more actionable across workflows.
+Sprints 60, 62, and 63 turned Style X-Ray into a real team-identity surface with archetypes, neighbors, movement, shot-profile drivers, drift context, and workflow bridges. What remains is calibrating that identity layer so it feels more trustworthy over longer windows and more specific in matchup use.
 
 Likely shape:
-- deepen archetype history, drift narratives, and neighbor context beyond the current single-snapshot view
-- connect style deltas more directly into prep, compare, and what-if follow-through when a style edge suggests a coaching action
+- extend history beyond the current short-horizon view and add clearer stability/scatter framing for noisy teams
+- improve style-confidence explanations so analysts can tell when a neighbor or drift story is strong enough for coaching use
 - keep improving shot-profile-aware explanations so the x-ray feels like a coaching identity tool rather than a standalone data-science card
 
 ### Comparison Sandbox Follow-Ons
@@ -209,11 +209,11 @@ Likely shape:
 
 ### Pre-Read Deck Follow-Ons
 Why it matters:
-The browser deck is stronger after Sprint 27 and Sprint 32, but staff workflows will still want deeper archiving and broader decision context than live links alone can provide.
+The browser deck is stronger after Sprints 27, 32, and 63, but staff workflows still want deeper archiving, cleaner snapshot management, and broader decision context than live links alone can provide.
 
 Likely shape:
-- support saved pre-read snapshots by matchup and date
 - add lineup-specific notes, compare launches, and game-film follow-through links
+- add snapshot library, naming, and reuse workflows so archived pre-read states are easier to manage over a season
 
 ### Metrics Follow-Ons
 Why it matters:
