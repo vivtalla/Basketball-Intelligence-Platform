@@ -10,7 +10,7 @@ from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from data.cache import CacheManager
-from db.models import GamePlayerStat, GameTeamStat, LineupStats, PlayByPlayEvent, Player, Team, WarehouseGame
+from db.models import GamePlayerStat, GameTeamStat, LineupStats, PlayByPlayEvent, Player, Team, TeamSeasonStat, WarehouseGame
 from models.decision import (
     FollowThroughGame,
     FollowThroughRequest,
@@ -21,6 +21,7 @@ from models.decision import (
     MatchupFlag,
     MatchupFlagEvidence,
     MatchupFlagsResponse,
+    PaceEdge,
     PlayTypeEVFilters,
     PlayTypeEVResponse,
     PlayTypeEVRow,
@@ -932,3 +933,91 @@ def build_follow_through_report(db: Session, payload: FollowThroughRequest) -> F
     )
     CacheManager.set(cache_key, response.model_dump(), 900)
     return response
+
+
+def build_pace_edge(
+    db: Session,
+    team_abbr: str,
+    opponent_abbr: str,
+    season: str,
+) -> PaceEdge:
+    """Compute pace edge: your pace vs what opponent allows."""
+    try:
+        team = db.query(Team).filter(Team.abbreviation == team_abbr).first()
+        opponent = db.query(Team).filter(Team.abbreviation == opponent_abbr).first()
+
+        if not team or not opponent:
+            return PaceEdge(
+                team_pace=None,
+                opponent_pace=None,
+                pace_delta=None,
+                framing="Unable to compute pace edge.",
+                edge_label="unavailable",
+                magnitude="none",
+            )
+
+        team_season = (
+            db.query(TeamSeasonStat)
+            .filter(TeamSeasonStat.team_id == team.id, TeamSeasonStat.season == season)
+            .first()
+        )
+        opponent_season = (
+            db.query(TeamSeasonStat)
+            .filter(TeamSeasonStat.team_id == opponent.id, TeamSeasonStat.season == season)
+            .first()
+        )
+
+        team_pace = team_season.pace if team_season else None
+        opponent_pace = opponent_season.pace if opponent_season else None
+
+        if team_pace is None or opponent_pace is None:
+            return PaceEdge(
+                team_pace=team_pace,
+                opponent_pace=opponent_pace,
+                pace_delta=None,
+                framing="Pace data unavailable.",
+                edge_label="unavailable",
+                magnitude="none",
+            )
+
+        pace_delta = team_pace - opponent_pace
+
+        if abs(pace_delta) >= 3:
+            magnitude = "significant"
+            if pace_delta > 0:
+                framing = f"You run at {team_pace:.1f}, {opponent_abbr} allows {opponent_pace:.1f}. Significant pace advantage — push tempo."
+                edge_label = "Pace advantage"
+            else:
+                framing = f"You run at {team_pace:.1f}, {opponent_abbr} allows {opponent_pace:.1f}. Opponent is faster. Control the pace."
+                edge_label = "Pace disadvantage"
+        elif abs(pace_delta) >= 1:
+            magnitude = "moderate"
+            if pace_delta > 0:
+                framing = f"You run at {team_pace:.1f}, {opponent_abbr} allows {opponent_pace:.1f}. Slight pace advantage."
+                edge_label = "Pace advantage"
+            else:
+                framing = f"You run at {team_pace:.1f}, {opponent_abbr} allows {opponent_pace:.1f}. Slight pace disadvantage."
+                edge_label = "Pace disadvantage"
+        else:
+            magnitude = "marginal"
+            edge_label = "Pace neutral"
+            framing = f"You run at {team_pace:.1f}, {opponent_abbr} allows {opponent_pace:.1f}. Pace is neutral."
+
+        return PaceEdge(
+            team_pace=round(team_pace, 1),
+            opponent_pace=round(opponent_pace, 1),
+            pace_delta=round(pace_delta, 1),
+            framing=framing,
+            edge_label=edge_label,
+            magnitude=magnitude,
+        )
+
+    except Exception:
+        return PaceEdge(
+            team_pace=None,
+            opponent_pace=None,
+            pace_delta=None,
+            framing="Error computing pace edge.",
+            edge_label="error",
+            magnitude="none",
+        )

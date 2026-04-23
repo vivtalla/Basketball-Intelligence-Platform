@@ -18,6 +18,13 @@ import {
   usePlayTypeEVReport,
   useMatchupFlagsReport,
   useFollowThroughReport,
+  useOpponentPlayTypes,
+  useH2HHistory,
+  usePaceEdge,
+  useTeamClutch,
+  useTeamNetRatingSeries,
+  useTeamPeriodScoring,
+  useTeamBenchAnalytics,
 } from "@/hooks/usePlayerStats";
 import AvailabilitySummaryCard from "@/components/AvailabilitySummaryCard";
 import TeamAnalyticsPanel from "@/components/TeamAnalyticsPanel";
@@ -29,6 +36,12 @@ import TeamLineupsPanel from "@/components/TeamLineupsPanel";
 import TeamDecisionToolsPanel from "@/components/TeamDecisionToolsPanel";
 import TeamShootingSplitsPanel from "@/components/TeamShootingSplitsPanel";
 import TeamSplitsPanel from "@/components/TeamSplitsPanel";
+import OpponentPlayTypePanel from "@/components/OpponentPlayTypePanel";
+import H2HHistoryCard from "@/components/H2HHistoryCard";
+import TeamClutchCard from "@/components/TeamClutchCard";
+import TeamNetRatingChart from "@/components/TeamNetRatingChart";
+import TeamPeriodScoringPanel from "@/components/TeamPeriodScoringPanel";
+import TeamBenchAnalyticsPanel from "@/components/TeamBenchAnalyticsPanel";
 import type { TeamPrepQueueItem, TeamRosterPlayer } from "@/lib/types";
 
 const DEFAULT_SEASON = "2024-25";
@@ -200,6 +213,45 @@ export default function TeamDetailPage() {
     activeTab === "decision" ? selectedOpponent : null,
     activeTab === "decision" ? effectiveSeason : null
   );
+
+  const { data: opponentPlayTypes } = useOpponentPlayTypes(
+    activeTab === "prep" || activeTab === "decision" ? selectedOpponent : null,
+    effectiveSeason
+  );
+
+  const { data: h2hHistory } = useH2HHistory(
+    activeTab === "prep" || activeTab === "decision" ? teamAbbreviation : null,
+    activeTab === "prep" || activeTab === "decision" ? selectedOpponent : null,
+    effectiveSeason
+  );
+
+  const { data: paceEdge } = usePaceEdge(
+    activeTab === "decision" ? teamAbbreviation : null,
+    activeTab === "decision" ? selectedOpponent : null,
+    effectiveSeason
+  );
+
+  const { data: teamClutch } = useTeamClutch(
+    activeTab === "analytics" ? teamAbbreviation : null,
+    effectiveSeason
+  );
+
+  const { data: teamNetRatingSeries } = useTeamNetRatingSeries(
+    activeTab === "analytics" ? teamAbbreviation : null,
+    effectiveSeason,
+    10
+  );
+
+  const { data: teamPeriodScoring } = useTeamPeriodScoring(
+    activeTab === "analytics" ? teamAbbreviation : null,
+    effectiveSeason
+  );
+
+  const { data: teamBenchAnalytics } = useTeamBenchAnalytics(
+    activeTab === "lineups" ? teamAbbreviation : null,
+    effectiveSeason
+  );
+
   const decisionReason =
     reasonParam ??
     selectedPrepItem?.first_adjustment_label ??
@@ -526,6 +578,21 @@ export default function TeamDetailPage() {
         ))}
       </div>
 
+      {activeTab === "decision" && roster && intelligence && selectedOpponent && (
+        <section className="space-y-4">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            {h2hHistory && <H2HHistoryCard teamAbbreviation={teamAbbreviation ?? ""} opponentAbbreviation={selectedOpponent} season={effectiveSeason} />}
+            {opponentPlayTypes && <OpponentPlayTypePanel teamAbbreviation={selectedOpponent} season={effectiveSeason} />}
+          </div>
+          {paceEdge && (
+            <div className="p-4 bg-[var(--surface-alt)] rounded border border-[var(--border-color)] text-sm">
+              <div className="font-semibold mb-2">Pace Edge</div>
+              <div className="text-[var(--text-secondary)]">{paceEdge.framing}</div>
+            </div>
+          )}
+        </section>
+      )}
+
       {activeTab === "decision" && roster && intelligence && (
         <section>
           <TeamDecisionToolsPanel
@@ -554,7 +621,15 @@ export default function TeamDetailPage() {
       )}
 
       {activeTab === "prep" && (
-        <section>
+        <section className="space-y-4">
+          {selectedOpponent && (
+            <>
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                <H2HHistoryCard teamAbbreviation={teamAbbreviation ?? ""} opponentAbbreviation={selectedOpponent} season={effectiveSeason} />
+                <OpponentPlayTypePanel teamAbbreviation={selectedOpponent} season={effectiveSeason} />
+              </div>
+            </>
+          )}
           {prepLoading && (
             <div className="space-y-4 animate-pulse">
               <div className="h-40 rounded-[2rem] bg-gray-200 dark:bg-gray-700" />
@@ -656,7 +731,10 @@ export default function TeamDetailPage() {
           )}
           {currentAnalytics && !analyticsLoading && (
             <div className="space-y-6">
+              {teamNetRatingSeries && <TeamNetRatingChart teamAbbreviation={teamAbbreviation ?? ""} season={effectiveSeason} />}
               <TeamAnalyticsPanel analytics={currentAnalytics} />
+              {teamClutch && <TeamClutchCard teamAbbreviation={teamAbbreviation ?? ""} season={effectiveSeason} />}
+              {teamPeriodScoring && <TeamPeriodScoringPanel teamAbbreviation={teamAbbreviation ?? ""} season={effectiveSeason} />}
               {roster ? (
                 <TeamDefenseShotLab
                   teamId={roster.team_id}
@@ -726,7 +804,10 @@ export default function TeamDetailPage() {
 
       {/* Lineups tab */}
       {activeTab === "lineups" && roster && (
-        <TeamLineupsPanel teamId={roster.team_id} season={effectiveSeason} />
+        <section className="space-y-6">
+          {teamBenchAnalytics && <TeamBenchAnalyticsPanel teamAbbreviation={teamAbbreviation ?? ""} season={effectiveSeason} />}
+          <TeamLineupsPanel teamId={roster.team_id} season={effectiveSeason} />
+        </section>
       )}
 
       {/* Roster tab */}

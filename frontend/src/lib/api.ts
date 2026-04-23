@@ -1468,3 +1468,70 @@ export async function getTeamShootingSplits(
     `/api/teams/${encodeURIComponent(teamAbbreviation)}/shooting-splits?season=${encodeURIComponent(season)}`
   );
 }
+
+export async function getOpponentPlayTypes(
+  teamAbbreviation: string,
+  season: string
+): Promise<import("./types").OpponentPlayTypeResponse> {
+  return fetchApi<import("./types").OpponentPlayTypeResponse>(
+    `/api/decision/opponent-play-types?team=${encodeURIComponent(teamAbbreviation)}&season=${encodeURIComponent(season)}`
+  );
+}
+
+export async function getH2HHistory(
+  teamAbbreviation: string,
+  opponentAbbreviation: string,
+  season: string
+): Promise<import("./types").H2HResponse> {
+  return fetchApi<import("./types").H2HResponse>(
+    `/api/decision/h2h?team=${encodeURIComponent(teamAbbreviation)}&opponent=${encodeURIComponent(opponentAbbreviation)}&season=${encodeURIComponent(season)}`
+  );
+}
+
+export async function getPaceEdge(
+  teamAbbreviation: string,
+  opponentAbbreviation: string,
+  season: string
+): Promise<import("./types").PaceEdge> {
+  return fetchApi<import("./types").PaceEdge>(
+    `/api/decision/pace-edge?team=${encodeURIComponent(teamAbbreviation)}&opponent=${encodeURIComponent(opponentAbbreviation)}&season=${encodeURIComponent(season)}`
+  );
+}
+
+export async function getTeamClutch(
+  teamAbbreviation: string,
+  season: string
+): Promise<import("./types").TeamClutchResponse> {
+  return fetchApi<import("./types").TeamClutchResponse>(
+    `/api/teams/${encodeURIComponent(teamAbbreviation)}/clutch?season=${encodeURIComponent(season)}`
+  );
+}
+
+export async function getTeamNetRatingSeries(
+  teamAbbreviation: string,
+  season: string,
+  window: number = 10
+): Promise<import("./types").TeamNetRatingSeriesResponse> {
+  return fetchApi<import("./types").TeamNetRatingSeriesResponse>(
+    `/api/teams/${encodeURIComponent(teamAbbreviation)}/net-rating-series?season=${encodeURIComponent(season)}&window=${window}`
+  );
+}
+
+export async function getTeamPeriodScoring(
+  teamAbbreviation: string,
+  season: string
+): Promise<import("./types").TeamPeriodScoringResponse> {
+  return fetchApi<import("./types").TeamPeriodScoringResponse>(
+    `/api/teams/${encodeURIComponent(teamAbbreviation)}/period-scoring?season=${encodeURIComponent(season)}`
+  );
+}
+
+export async function getTeamBenchAnalytics(
+  teamAbbreviation: string,
+  season: string,
+  minPossessions: number = 20
+): Promise<import("./types").BenchAnalyticsResponse> {
+  return fetchApi<import("./types").BenchAnalyticsResponse>(
+    `/api/teams/${encodeURIComponent(teamAbbreviation)}/bench-analytics?season=${encodeURIComponent(season)}&min_possessions=${minPossessions}`
+  );
+}

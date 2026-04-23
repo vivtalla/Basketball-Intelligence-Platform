@@ -134,3 +134,54 @@ class FollowThroughResponse(BaseModel):
     window: int
     games: List[FollowThroughGame]
     warnings: List[str]
+
+
+class OpponentPlayTypeRow(BaseModel):
+    play_type: str
+    poss_pct: Optional[float] = None
+    ppp: Optional[float] = None
+    percentile: Optional[float] = None
+    fg_pct: Optional[float] = None
+    score_pct: Optional[float] = None
+
+
+class OpponentPlayTypeResponse(BaseModel):
+    team_abbr: str
+    season: str
+    plays: List[OpponentPlayTypeRow]
+    data_status: str
+    source: str = "synergy"
+
+
+class H2HGame(BaseModel):
+    game_id: str
+    game_date: Optional[str] = None
+    season: str
+    is_home: bool
+    team_score: Optional[int] = None
+    opponent_score: Optional[int] = None
+    margin: Optional[int] = None
+    result: str
+
+
+class H2HResponse(BaseModel):
+    team_abbr: str
+    opponent_abbr: str
+    seasons_covered: List[str]
+    wins: int
+    losses: int
+    series_record: str
+    avg_margin: Optional[float] = None
+    last_meeting_date: Optional[str] = None
+    last_meeting_result: Optional[str] = None
+    games: List[H2HGame]
+    data_status: str
+
+
+class PaceEdge(BaseModel):
+    team_pace: Optional[float] = None
+    opponent_pace: Optional[float] = None
+    pace_delta: Optional[float] = None
+    framing: str
+    edge_label: str
+    magnitude: str

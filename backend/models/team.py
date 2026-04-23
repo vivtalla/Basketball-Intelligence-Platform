@@ -360,3 +360,84 @@ class TeamAvailabilityResponse(BaseModel):
     unavailable_players: List[TeamAvailabilityPlayer]
     questionable_players: List[TeamAvailabilityPlayer]
     probable_players: List[TeamAvailabilityPlayer]
+
+
+class TeamClutchResponse(BaseModel):
+    team_abbr: str
+    season: str
+    gp: Optional[int] = None
+    w: Optional[int] = None
+    l: Optional[int] = None
+    w_pct: Optional[float] = None
+    pts_pg: Optional[float] = None
+    plus_minus_pg: Optional[float] = None
+    fg_pct: Optional[float] = None
+    ft_pct: Optional[float] = None
+    ts_pct: Optional[float] = None
+    w_pct_rank: Optional[int] = None
+    plus_minus_rank: Optional[int] = None
+    data_status: str
+    source: str = "stats.nba.com/leaguedashteamclutch"
+
+
+class TeamNetRatingGame(BaseModel):
+    game_id: Optional[str] = None
+    game_date: Optional[str] = None
+    opponent_abbr: Optional[str] = None
+    pts: Optional[int] = None
+    opp_pts: Optional[int] = None
+    margin: Optional[int] = None
+    rolling_net_rating: Optional[float] = None
+    wl: Optional[str] = None
+
+
+class TeamNetRatingSeriesResponse(BaseModel):
+    team_abbr: str
+    season: str
+    window: int
+    games: List[TeamNetRatingGame]
+    season_avg_margin: Optional[float] = None
+    data_status: str
+
+
+class TeamPeriodRow(BaseModel):
+    period_label: str
+    pts: Optional[float] = None
+    opp_pts: Optional[float] = None
+    diff: Optional[float] = None
+    fg_pct: Optional[float] = None
+    w: Optional[int] = None
+    l: Optional[int] = None
+    gp: Optional[int] = None
+
+
+class TeamPeriodScoringResponse(BaseModel):
+    team_abbr: str
+    season: str
+    by_period: List[TeamPeriodRow]
+    by_half: List[TeamPeriodRow]
+    best_period: Optional[str] = None
+    worst_period: Optional[str] = None
+    data_status: str
+
+
+class BenchUnitRow(BaseModel):
+    lineup_key: str
+    player_names: List[str]
+    starter_count: int
+    net_rating: Optional[float] = None
+    minutes: Optional[float] = None
+    possessions: Optional[int] = None
+
+
+class BenchAnalyticsResponse(BaseModel):
+    team_abbr: str
+    season: str
+    starter_net_rating: Optional[float] = None
+    bench_net_rating: Optional[float] = None
+    net_rating_gap: Optional[float] = None
+    bench_anchor_name: Optional[str] = None
+    bench_anchor_id: Optional[int] = None
+    best_bench_lineups: List[BenchUnitRow]
+    worst_bench_lineups: List[BenchUnitRow]
+    data_status: str

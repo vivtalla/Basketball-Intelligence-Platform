@@ -79,6 +79,13 @@ import type {
   MvpSnapshotFreshness,
   MvpTimelineResponse,
   MvpVoterRoomResponse,
+  OpponentPlayTypeResponse,
+  H2HResponse,
+  PaceEdge,
+  TeamClutchResponse,
+  TeamNetRatingSeriesResponse,
+  TeamPeriodScoringResponse,
+  BenchAnalyticsResponse,
 } from "@/lib/types";
 import {
   getPlayerProfile,
@@ -158,6 +165,13 @@ import {
   getMvpSnapshotFreshness,
   getMvpTimeline,
   getMvpVoterRoom,
+  getOpponentPlayTypes,
+  getH2HHistory,
+  getPaceEdge,
+  getTeamClutch,
+  getTeamNetRatingSeries,
+  getTeamPeriodScoring,
+  getTeamBenchAnalytics,
 } from "@/lib/api";
 
 const DEFAULT_SHOT_LAB_FILTERS: ShotLabFilters = {
@@ -1208,5 +1222,83 @@ export function useMvpGravity(season: string | null, options?: MvpRaceOptions) {
   return useSWR<MvpGravityLeaderboardResponse>(
     key,
     () => getMvpGravity(season!, options)
+  );
+}
+
+export function useOpponentPlayTypes(teamAbbreviation: string | null, season: string) {
+  const key = teamAbbreviation ? ["opponent-play-types", teamAbbreviation, season] : null;
+  return useSWR(
+    key,
+    () => getOpponentPlayTypes(teamAbbreviation!, season)
+  );
+}
+
+export function useH2HHistory(
+  teamAbbreviation: string | null,
+  opponentAbbreviation: string | null,
+  season: string
+) {
+  const key =
+    teamAbbreviation && opponentAbbreviation
+      ? ["h2h-history", teamAbbreviation, opponentAbbreviation, season]
+      : null;
+  return useSWR(
+    key,
+    () => getH2HHistory(teamAbbreviation!, opponentAbbreviation!, season)
+  );
+}
+
+export function usePaceEdge(
+  teamAbbreviation: string | null,
+  opponentAbbreviation: string | null,
+  season: string
+) {
+  const key =
+    teamAbbreviation && opponentAbbreviation
+      ? ["pace-edge", teamAbbreviation, opponentAbbreviation, season]
+      : null;
+  return useSWR(
+    key,
+    () => getPaceEdge(teamAbbreviation!, opponentAbbreviation!, season)
+  );
+}
+
+export function useTeamClutch(teamAbbreviation: string | null, season: string) {
+  const key = teamAbbreviation ? ["team-clutch", teamAbbreviation, season] : null;
+  return useSWR(
+    key,
+    () => getTeamClutch(teamAbbreviation!, season)
+  );
+}
+
+export function useTeamNetRatingSeries(
+  teamAbbreviation: string | null,
+  season: string,
+  window: number = 10
+) {
+  const key = teamAbbreviation ? ["team-net-rating-series", teamAbbreviation, season, window] : null;
+  return useSWR(
+    key,
+    () => getTeamNetRatingSeries(teamAbbreviation!, season, window)
+  );
+}
+
+export function useTeamPeriodScoring(teamAbbreviation: string | null, season: string) {
+  const key = teamAbbreviation ? ["team-period-scoring", teamAbbreviation, season] : null;
+  return useSWR(
+    key,
+    () => getTeamPeriodScoring(teamAbbreviation!, season)
+  );
+}
+
+export function useTeamBenchAnalytics(
+  teamAbbreviation: string | null,
+  season: string,
+  minPossessions: number = 20
+) {
+  const key = teamAbbreviation ? ["team-bench-analytics", teamAbbreviation, season, minPossessions] : null;
+  return useSWR(
+    key,
+    () => getTeamBenchAnalytics(teamAbbreviation!, season, minPossessions)
   );
 }

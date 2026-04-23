@@ -3407,3 +3407,135 @@ export interface UsageEfficiencyPlayerRow {
   efficiency_score: number | null;
   category: "overused" | "underused";
 }
+
+export interface OpponentPlayTypeRow {
+  play_type: string;
+  poss_pct: number | null;
+  ppp: number | null;
+  percentile: number | null;
+  fg_pct: number | null;
+  score_pct: number | null;
+}
+
+export interface OpponentPlayTypeResponse {
+  team_abbr: string;
+  season: string;
+  plays: OpponentPlayTypeRow[];
+  data_status: string;
+  source: string;
+}
+
+export interface H2HGame {
+  game_id: string;
+  game_date: string | null;
+  season: string;
+  is_home: boolean;
+  team_score: number | null;
+  opponent_score: number | null;
+  margin: number | null;
+  result: string;
+}
+
+export interface H2HResponse {
+  team_abbr: string;
+  opponent_abbr: string;
+  seasons_covered: string[];
+  wins: number;
+  losses: number;
+  series_record: string;
+  avg_margin: number | null;
+  last_meeting_date: string | null;
+  last_meeting_result: string | null;
+  games: H2HGame[];
+  data_status: string;
+}
+
+export interface PaceEdge {
+  team_pace: number | null;
+  opponent_pace: number | null;
+  pace_delta: number | null;
+  framing: string;
+  edge_label: string;
+  magnitude: string;
+}
+
+export interface TeamClutchResponse {
+  team_abbr: string;
+  season: string;
+  gp: number | null;
+  w: number | null;
+  l: number | null;
+  w_pct: number | null;
+  pts_pg: number | null;
+  plus_minus_pg: number | null;
+  fg_pct: number | null;
+  ft_pct: number | null;
+  ts_pct: number | null;
+  w_pct_rank: number | null;
+  plus_minus_rank: number | null;
+  data_status: string;
+  source: string;
+}
+
+export interface TeamNetRatingGame {
+  game_id: string | null;
+  game_date: string | null;
+  opponent_abbr: string | null;
+  pts: number | null;
+  opp_pts: number | null;
+  margin: number | null;
+  rolling_net_rating: number | null;
+  wl: string | null;
+}
+
+export interface TeamNetRatingSeriesResponse {
+  team_abbr: string;
+  season: string;
+  window: number;
+  games: TeamNetRatingGame[];
+  season_avg_margin: number | null;
+  data_status: string;
+}
+
+export interface TeamPeriodRow {
+  period_label: string;
+  pts: number | null;
+  opp_pts: number | null;
+  diff: number | null;
+  fg_pct: number | null;
+  w: number | null;
+  l: number | null;
+  gp: number | null;
+}
+
+export interface TeamPeriodScoringResponse {
+  team_abbr: string;
+  season: string;
+  by_period: TeamPeriodRow[];
+  by_half: TeamPeriodRow[];
+  best_period: string | null;
+  worst_period: string | null;
+  data_status: string;
+}
+
+export interface BenchUnitRow {
+  lineup_key: string;
+  player_names: string[];
+  starter_count: number;
+  net_rating: number | null;
+  minutes: number | null;
+  possessions: number | null;
+}
+
+export interface BenchAnalyticsResponse {
+  team_abbr: string;
+  season: string;
+  starter_net_rating: number | null;
+  bench_net_rating: number | null;
+  net_rating_gap: number | null;
+  bench_anchor_name: string | null;
+  bench_anchor_id: number | null;
+  best_bench_lineups: BenchUnitRow[];
+  worst_bench_lineups: BenchUnitRow[];
+  data_status: string;
+}
