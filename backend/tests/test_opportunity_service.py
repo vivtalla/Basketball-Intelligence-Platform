@@ -311,3 +311,139 @@ def test_role_fit_includes_cohort_reference_values():
             assert row.role_fit.efg_bucket_avg is not None
     finally:
         session.close()
+
+
+# --- Sprint 65 — caching, compare handoff, role-fit depth, hint gate ---
+
+
+def test_opportunity_cache_hits_on_identical_key():
+    from services.opportunity_service import _OPPORTUNITY_CACHE, clear_opportunity_cache
+
+    session = make_session()
+    try:
+        seed_pool(session)
+        clear_opportunity_cache()
+        first = build_opportunity_report(session, season="2025-26", team="OKC", min_minutes=15.0)
+        # Identical call must return the cached object, not rebuild.
+        cache_size_after_first = len(_OPPORTUNITY_CACHE)
+        second = build_opportunity_report(session, season="2025-26", team="OKC", min_minutes=15.0)
+        assert cache_size_after_first == 1
+        assert second is first  # cache returns the exact object reference
+    finally:
+        clear_opportunity_cache()
+        session.close()
+
+
+def test_opportunity_cache_misses_on_different_filters():
+    from services.opportunity_service import _OPPORTUNITY_CACHE, clear_opportunity_cache
+
+    session = make_session()
+    try:
+        seed_pool(session)
+        clear_opportunity_cache()
+        build_opportunity_report(session, season="2025-26", team="OKC", min_minutes=15.0)
+        build_opportunity_report(session, season="2025-26", team="BOS", min_minutes=15.0)
+        build_opportunity_report(session, season="2025-26", team=None, min_minutes=15.0)
+        build_opportunity_report(session, season="2025-26", team=None, min_minutes=20.0)
+        build_opportunity_report(session, season="2025-26", team=None, min_minutes=15.0, position="G")
+        assert len(_OPPORTUNITY_CACHE) == 5
+    finally:
+        clear_opportunity_cache()
+        session.close()
+
+
+def test_opportunity_cache_bypass_with_flag():
+    from services.opportunity_service import _OPPORTUNITY_CACHE, clear_opportunity_cache
+
+    session = make_session()
+    try:
+        seed_pool(session)
+        clear_opportunity_cache()
+        a = build_opportunity_report(session, season="2025-26", team="OKC", min_minutes=15.0)
+        b = build_opportunity_report(
+            session, season="2025-26", team="OKC", min_minutes=15.0, use_cache=False
+        )
+        assert a is not b  # fresh compute when cache is bypassed
+        assert a.rows[0].player_id == b.rows[0].player_id  # but same result
+    finally:
+        clear_opportunity_cache()
+        session.close()
+
+
+def test_compare_handoff_peers_same_bucket_and_exclude_self():
+    session = make_session()
+    try:
+        seed_pool(session)
+        report = build_opportunity_report(
+            session, season="2025-26", team=None, min_minutes=15.0, use_cache=False
+        )
+        by_id = {r.player_id: r for r in report.rows}
+        for row in report.rows:
+            handoff = row.compare_handoff
+            assert handoff is not None
+            assert handoff.pinned_player_id == row.player_id
+            assert handoff.cohort_bucket == row.position_bucket
+            assert row.player_id not in handoff.positional_peers
+            assert len(handoff.positional_peers) <= 3
+            # Every peer shares the focal player's position bucket.
+            for peer_id in handoff.positional_peers:
+                # Peer might fall outside the top-25 slice; look it up from full rows.
+                peer_row = by_id.get(peer_id)
+                if peer_row is not None:
+                    assert peer_row.position_bucket == row.position_bucket
+
+
+        # The top guard should have other guards as peers.
+        guards = [r for r in report.rows if r.position_bucket == "G"]
+        assert guards, "expected at least one guard in the pool"
+        top_guard = guards[0]
+        assert top_guard.compare_handoff is not None
+        if top_guard.compare_handoff.positional_peers:
+            # Peers should be sorted by opportunity score descending.
+            peer_scores = []
+            all_guards_by_id = {r.player_id: r for r in report.rows if r.position_bucket == "G"}
+            for pid in top_guard.compare_handoff.positional_peers:
+                if pid in all_guards_by_id:
+                    peer_scores.append(all_guards_by_id[pid].opportunity_score)
+            assert peer_scores == sorted(peer_scores, reverse=True)
+    finally:
+        session.close()
+
+
+def test_role_fit_includes_ast_and_tov_depth():
+    session = make_session()
+    try:
+        seed_pool(session)
+        report = build_opportunity_report(
+            session, season="2025-26", team=None, min_minutes=15.0, use_cache=False
+        )
+        for row in report.rows:
+            rf = row.role_fit
+            assert rf is not None
+            # Ast/tov bucket averages are always populated from the cohort.
+            assert rf.ast_bucket_avg is not None
+            assert rf.tov_bucket_avg is not None
+            # Seeded pool has ast_pg/tov_pg for everyone.
+            assert rf.ast_pg is not None
+            assert rf.tov_pg is not None
+    finally:
+        session.close()
+
+
+def test_directional_hint_gate_requires_two_basis_chips_and_confidence():
+    session = make_session()
+    try:
+        seed_pool(session)
+        report = build_opportunity_report(
+            session, season="2025-26", team=None, min_minutes=15.0, use_cache=False
+        )
+        for row in report.rows:
+            if row.directional_hint is not None:
+                # Gate: no hint ever emitted at low confidence, and basis carries ≥2 chips.
+                assert row.confidence in ("high", "medium")
+                assert len(row.hint_basis) >= 2
+            else:
+                # No hint ⇒ basis must be empty (no orphan chips in the response).
+                assert row.hint_basis == []
+    finally:
+        session.close()

@@ -173,6 +173,12 @@ function ComparePageInner() {
   const replaySourceSurface = searchParams.get("replay_source_surface");
   const replaySourceLabel = searchParams.get("replay_source_label");
   const replayReason = searchParams.get("replay_reason");
+  // Sprint 65: inbound-context handoff from Opportunity ("Compare with peers") and Scouting claims.
+  const inboundSource = searchParams.get("source");
+  const inboundCohort = searchParams.get("cohort");
+  const inboundPeers = searchParams.get("peers");
+  const inboundClaim = searchParams.get("claim_title");
+  const inboundClaimReason = searchParams.get("claim_reason");
 
   const { data: profile1, error: profile1Error } = usePlayerProfile(p1Id);
   const { data: career1, error: career1Error } = usePlayerCareerStats(p1Id);
@@ -386,6 +392,22 @@ function ComparePageInner() {
           <div className="mt-4 rounded-2xl border border-[rgba(33,72,59,0.16)] bg-[rgba(216,228,221,0.22)] px-4 py-4 text-sm leading-6 text-[var(--muted-strong)]">
             Replay continuity is attached to this compare session: {replayReason}
             {replayLinkageQuality ? ` The handoff stays labeled as ${replayLinkageQuality}.` : ""}
+          </div>
+        ) : null}
+        {inboundSource === "opportunity" ? (
+          <div className="mt-4 rounded-2xl border border-[rgba(33,72,59,0.16)] bg-[rgba(216,228,221,0.22)] px-4 py-4 text-sm leading-6 text-[var(--muted-strong)]">
+            From <span className="font-semibold text-[var(--foreground)]">Opportunity</span>
+            {inboundCohort ? ` — comparing against the ${inboundCohort} positional cohort` : ""}.
+            {inboundPeers
+              ? ` ${inboundPeers.split(",").filter(Boolean).length} peer${inboundPeers.split(",").filter(Boolean).length === 1 ? "" : "s"} available for this handoff.`
+              : ""}
+          </div>
+        ) : null}
+        {inboundSource === "scouting" ? (
+          <div className="mt-4 rounded-2xl border border-[rgba(181,145,78,0.22)] bg-[rgba(181,145,78,0.10)] px-4 py-4 text-sm leading-6 text-[var(--muted-strong)]">
+            From <span className="font-semibold text-[var(--foreground)]">Scouting</span>
+            {inboundClaim ? `: ${decodeURIComponent(inboundClaim)}` : ""}.
+            {inboundClaimReason ? ` ${decodeURIComponent(inboundClaimReason)}` : ""}
           </div>
         ) : null}
       </div>

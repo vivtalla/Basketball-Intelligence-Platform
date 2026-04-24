@@ -117,6 +117,17 @@ class OpportunityRoleFit(BaseModel):
     ftr_bucket_avg: Optional[float] = None
     efg_pct: Optional[float] = None
     efg_bucket_avg: Optional[float] = None
+    ast_pg: Optional[float] = None
+    ast_bucket_avg: Optional[float] = None
+    tov_pg: Optional[float] = None
+    tov_bucket_avg: Optional[float] = None
+
+
+class OpportunityCompareHandoff(BaseModel):
+    """Sprint 65: pre-selected positional peers for a Compare launch from Opportunity."""
+    pinned_player_id: int
+    positional_peers: List[int] = []       # top cohort peers by opportunity_score (<=3, excludes self)
+    cohort_bucket: str                     # position_bucket used for peer selection
 
 
 class OpportunityPlayerRow(BaseModel):
@@ -162,6 +173,9 @@ class OpportunityPlayerRow(BaseModel):
 
     # Classification badge shown on the row — highest positive driver name
     top_driver: Optional[str] = None
+
+    # Sprint 65: pre-computed peer set so Compare launches do not re-query
+    compare_handoff: Optional[OpportunityCompareHandoff] = None
 
 
 class OpportunityMethodology(BaseModel):

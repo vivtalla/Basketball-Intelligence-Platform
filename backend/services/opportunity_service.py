@@ -16,13 +16,16 @@ from __future__ import annotations
 
 import math
 import statistics
+import time
 from collections import defaultdict
-from typing import Dict, List, Optional, Tuple
+from datetime import date
+from typing import Any, Dict, List, Optional, Tuple
 
 from sqlalchemy.orm import Session
 
 from db.models import LineupStats, Player, PlayerOnOff, SeasonStat
 from models.insights import (
+    OpportunityCompareHandoff,
     OpportunityDriverContribution,
     OpportunityMethodology,
     OpportunityPlayerRow,
@@ -34,6 +37,44 @@ from models.insights import (
 
 
 METHODOLOGY_VERSION = "opportunity_v1"
+
+# Sprint 65: in-process TTL cache. The `team=ALL` whole-league traversal is the hot path
+# (scouting boards iterating every team) and it re-does ~30 lineup+on/off queries per call.
+# Short TTL for the live season, longer for historical (which never changes intra-day).
+_CURRENT_SEASON_CACHE_TTL = 600         # 10 min
+_HISTORICAL_SEASON_CACHE_TTL = 24 * 3600
+
+_OPPORTUNITY_CACHE: Dict[Tuple[Any, ...], Tuple[float, OpportunityResponse]] = {}
+
+
+def _active_nba_season() -> str:
+    """Current NBA season in 'YYYY-YY' form. Duplicated from nba_client to avoid the import cycle."""
+    now = time.localtime()
+    start_year = now.tm_year if now.tm_mon >= 8 else now.tm_year - 1
+    return f"{start_year}-{str((start_year + 1) % 100).zfill(2)}"
+
+
+def _opportunity_cache_ttl(season: str) -> int:
+    return _CURRENT_SEASON_CACHE_TTL if season == _active_nba_season() else _HISTORICAL_SEASON_CACHE_TTL
+
+
+def _opportunity_cache_key(
+    season: str, team: Optional[str], min_minutes: float, position: Optional[str]
+) -> Tuple[Any, ...]:
+    # date-bucket keeps the cache honest across the nightly sync; historical seasons
+    # do not change day-over-day but the date bucket costs nothing and prevents drift.
+    return (
+        season,
+        (team or "ALL").upper(),
+        round(float(min_minutes), 1),
+        (position or "NONE").upper(),
+        date.today().isoformat(),
+    )
+
+
+def clear_opportunity_cache() -> None:
+    """Test + ops hook."""
+    _OPPORTUNITY_CACHE.clear()
 
 WEIGHTS: Dict[str, float] = {
     "efficiency_load_gap": 0.30,
@@ -229,8 +270,24 @@ def build_opportunity_report(
     team: Optional[str],
     min_minutes: float,
     position: Optional[str] = None,
+    use_cache: bool = True,
 ) -> OpportunityResponse:
-    """Build the Opportunity Workspace report."""
+    """Build the Opportunity Workspace report.
+
+    Results are cached in-process with a TTL keyed by
+    ``(season, team, min_minutes, position, today)`` so the ``team=ALL`` scouting
+    traversal does not recompute on every tab open. The date bucket invalidates
+    the cache naturally at UTC midnight after the nightly sync.
+    """
+    cache_key = _opportunity_cache_key(season, team, min_minutes, position)
+    if use_cache:
+        cached = _OPPORTUNITY_CACHE.get(cache_key)
+        if cached is not None:
+            expires_at, response = cached
+            if expires_at > time.monotonic():
+                return response
+            _OPPORTUNITY_CACHE.pop(cache_key, None)
+
     query = (
         db.query(SeasonStat, Player)
         .join(Player, Player.id == SeasonStat.player_id)
@@ -305,7 +362,7 @@ def build_opportunity_report(
 
     bucket_stats: Dict[str, Dict[str, Tuple[float, float]]] = defaultdict(dict)
     for bucket in bucket_members.keys():
-        for attr in ("ts_pct", "usg_pct", "par3", "ftr", "efg_pct", "net_rating", "pts_pg"):
+        for attr in ("ts_pct", "usg_pct", "par3", "ftr", "efg_pct", "net_rating", "pts_pg", "ast_pg", "tov_pg"):
             bucket_stats[bucket][attr] = _cohort_stats(_collect(bucket, attr))
 
     # On/off net z-score is computed across the full pool (not bucket-scoped)
@@ -430,8 +487,11 @@ def build_opportunity_report(
 
         confidence = _confidence(stat.min_pg, on_off.on_minutes if on_off else None)
 
-        # Directional hint conditions: efficiency_load_gap + team_impact_swing both positive
-        # and non-trivial, AND confidence ≥ medium.
+        # Directional hint gate — Sprint 65 calibration:
+        #   1) confidence ∈ {high, medium}  (low-confidence never surfaces a banner)
+        #   2) signal basis contains ≥2 concurrent positive drivers
+        # Both conditions are enforced explicitly so future threshold changes can't
+        # accidentally let a 1-signal hint through.
         hint: Optional[str] = None
         hint_basis: List[str] = []
         if (
@@ -439,14 +499,19 @@ def build_opportunity_report(
             and z_efficiency_load > 0.8
             and z_team_impact > 0.5
         ):
-            hint = (
-                "Usage redistribution toward {name} is supported by an above-cohort efficiency-load gap "
-                "and a team that performs better with him on the floor."
-            ).format(name=player.full_name)
             hint_basis = ["efficiency_load_gap", "team_impact_swing"]
             if z_lineup_synergy > 0.5 and synergy_top is not None:
                 hint_basis.append("lineup_synergy_lift")
+            if len(hint_basis) >= 2:
+                hint = (
+                    "Usage redistribution toward {name} is supported by an above-cohort efficiency-load gap "
+                    "and a team that performs better with him on the floor."
+                ).format(name=player.full_name)
+            else:
+                hint_basis = []
 
+        ast_m, ast_s = bs.get("ast_pg", (0.0, 1.0))
+        tov_m, tov_s = bs.get("tov_pg", (0.0, 1.0))
         role_fit = OpportunityRoleFit(
             par3=round(float(stat.par3), 3) if stat.par3 is not None else None,
             par3_bucket_avg=round(par3_m, 3),
@@ -454,6 +519,10 @@ def build_opportunity_report(
             ftr_bucket_avg=round(ftr_m, 3),
             efg_pct=round(float(stat.efg_pct), 3) if stat.efg_pct is not None else None,
             efg_bucket_avg=round(efg_m, 3),
+            ast_pg=round(float(stat.ast_pg), 2) if stat.ast_pg is not None else None,
+            ast_bucket_avg=round(ast_m, 2),
+            tov_pg=round(float(stat.tov_pg), 2) if stat.tov_pg is not None else None,
+            tov_bucket_avg=round(tov_m, 2),
         )
 
         row = OpportunityPlayerRow(
@@ -494,7 +563,27 @@ def build_opportunity_report(
         rows = [r for r in rows if r.position_bucket == pos_upper]
 
     rows.sort(key=lambda r: r.opportunity_score, reverse=True)
+
+    # Sprint 65: pre-compute Compare handoff peers from the full pool (not the top-25
+    # slice) so a pinned player's peers can still be loaded even when they rank
+    # outside the visible leaderboard. Peers are same position_bucket, exclude self,
+    # sorted by opportunity_score desc, capped at 3.
+    bucket_ranked: Dict[str, List[OpportunityPlayerRow]] = defaultdict(list)
+    for r in rows:
+        bucket_ranked[r.position_bucket].append(r)
+
     top_rows = rows[:25]
+    for r in top_rows:
+        peers = [
+            other.player_id
+            for other in bucket_ranked.get(r.position_bucket, [])
+            if other.player_id != r.player_id
+        ][:3]
+        r.compare_handoff = OpportunityCompareHandoff(
+            pinned_player_id=r.player_id,
+            positional_peers=peers,
+            cohort_bucket=r.position_bucket,
+        )
 
     team_rollup: Optional[OpportunityTeamRollup] = None
     if team_upper:
@@ -508,7 +597,7 @@ def build_opportunity_report(
     if not top_rows:
         warnings.append("No qualifying opportunity candidates after filters.")
 
-    return OpportunityResponse(
+    response = OpportunityResponse(
         season=season,
         team=team_upper,
         min_minutes=min_minutes,
@@ -518,3 +607,9 @@ def build_opportunity_report(
         methodology=methodology,
         warnings=warnings,
     )
+    if use_cache:
+        _OPPORTUNITY_CACHE[cache_key] = (
+            time.monotonic() + _opportunity_cache_ttl(season),
+            response,
+        )
+    return response

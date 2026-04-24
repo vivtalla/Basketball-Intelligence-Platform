@@ -3179,6 +3179,16 @@ export interface OpportunityRoleFit {
   ftr_bucket_avg: number | null;
   efg_pct: number | null;
   efg_bucket_avg: number | null;
+  ast_pg: number | null;
+  ast_bucket_avg: number | null;
+  tov_pg: number | null;
+  tov_bucket_avg: number | null;
+}
+
+export interface OpportunityCompareHandoff {
+  pinned_player_id: number;
+  positional_peers: number[];
+  cohort_bucket: string;
 }
 
 export interface OpportunityPlayerRow {
@@ -3214,6 +3224,7 @@ export interface OpportunityPlayerRow {
   directional_hint: string | null;
   hint_basis: string[];
   top_driver: OpportunitySignal | null;
+  compare_handoff: OpportunityCompareHandoff | null;
 }
 
 export interface OpportunityMethodology {

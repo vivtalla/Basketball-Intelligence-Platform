@@ -11,10 +11,20 @@ function pctText(value: number | null | undefined): string {
   return value == null ? "—" : `${(value * 100).toFixed(1)}%`;
 }
 
+function numText(value: number | null | undefined): string {
+  return value == null ? "—" : value.toFixed(1);
+}
+
 function deltaText(a: number | null | undefined, b: number | null | undefined): string {
   if (a == null || b == null) return "—";
   const d = (a - b) * 100;
   return `${d >= 0 ? "+" : ""}${d.toFixed(1)} pp`;
+}
+
+function deltaNum(a: number | null | undefined, b: number | null | undefined): string {
+  if (a == null || b == null) return "—";
+  const d = a - b;
+  return `${d >= 0 ? "+" : ""}${d.toFixed(1)}`;
 }
 
 export function RoleFitCard({ row }: Props) {
@@ -25,24 +35,42 @@ export function RoleFitCard({ row }: Props) {
     player: number | null | undefined;
     cohort: number | null | undefined;
     hint: string;
+    format: "pct" | "num";
   }> = [
     {
       label: "3PA rate",
       player: rf.par3,
       cohort: rf.par3_bucket_avg,
       hint: "Share of field-goal attempts from three",
+      format: "pct",
     },
     {
       label: "FT rate",
       player: rf.ftr,
       cohort: rf.ftr_bucket_avg,
       hint: "Free-throw attempts per field-goal attempt",
+      format: "pct",
     },
     {
       label: "eFG%",
       player: rf.efg_pct,
       cohort: rf.efg_bucket_avg,
       hint: "Effective field-goal percentage",
+      format: "pct",
+    },
+    {
+      label: "AST/G",
+      player: rf.ast_pg,
+      cohort: rf.ast_bucket_avg,
+      hint: "Assists per game vs position cohort",
+      format: "num",
+    },
+    {
+      label: "TOV/G",
+      player: rf.tov_pg,
+      cohort: rf.tov_bucket_avg,
+      hint: "Turnovers per game vs position cohort — lower is better",
+      format: "num",
     },
   ];
   return (
@@ -56,12 +84,23 @@ export function RoleFitCard({ row }: Props) {
             How his shot profile compares to his position
           </h3>
         </div>
-        <Link
-          href={`/players/${row.player_id}?tab=shots`}
-          className="rounded-full border border-[var(--border)] bg-[var(--surface)] px-3 py-1 text-[11px] font-medium text-[var(--muted-strong)] transition hover:border-[var(--accent-strong)] hover:text-[var(--accent-strong)]"
-        >
-          Open Shot Lab →
-        </Link>
+        <div className="flex items-center gap-1.5">
+          {row.compare_handoff && row.compare_handoff.positional_peers.length > 0 ? (
+            <Link
+              href={`/compare?mode=players&p1=${row.compare_handoff.pinned_player_id}&p2=${row.compare_handoff.positional_peers[0]}&source=opportunity&cohort=${row.compare_handoff.cohort_bucket}&peers=${row.compare_handoff.positional_peers.join(",")}`}
+              className="rounded-full border border-[var(--border)] bg-[var(--surface)] px-3 py-1 text-[11px] font-medium text-[var(--muted-strong)] transition hover:border-[var(--accent-strong)] hover:text-[var(--accent-strong)]"
+              title={`Compare vs top positional peer (${row.compare_handoff.positional_peers.length} available)`}
+            >
+              Compare with peers →
+            </Link>
+          ) : null}
+          <Link
+            href={`/players/${row.player_id}?tab=shots`}
+            className="rounded-full border border-[var(--border)] bg-[var(--surface)] px-3 py-1 text-[11px] font-medium text-[var(--muted-strong)] transition hover:border-[var(--accent-strong)] hover:text-[var(--accent-strong)]"
+          >
+            Open Shot Lab →
+          </Link>
+        </div>
       </div>
       <ul className="mt-3 divide-y divide-[var(--border)] rounded-xl border border-[var(--border)] bg-[var(--surface-alt)] text-sm">
         {rows.map((r) => (
@@ -74,13 +113,13 @@ export function RoleFitCard({ row }: Props) {
               {r.label}
             </span>
             <span className="text-right font-semibold tabular-nums text-[var(--foreground)]">
-              {pctText(r.player)}
+              {r.format === "pct" ? pctText(r.player) : numText(r.player)}
             </span>
             <span className="text-right text-xs text-[var(--muted-strong)]">
-              vs {pctText(r.cohort)}
+              vs {r.format === "pct" ? pctText(r.cohort) : numText(r.cohort)}
             </span>
             <span className="text-right text-xs font-semibold tabular-nums text-[var(--muted-strong)]">
-              {deltaText(r.player, r.cohort)}
+              {r.format === "pct" ? deltaText(r.player, r.cohort) : deltaNum(r.player, r.cohort)}
             </span>
           </li>
         ))}
