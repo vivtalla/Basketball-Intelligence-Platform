@@ -96,16 +96,25 @@ CONFIDENCE_THRESHOLDS = {
 # Position buckets reused from trajectory_service; duplicated here to avoid
 # cross-service coupling and keep the opportunity rules explicit.
 _POSITION_BUCKET_MAP: Dict[str, str] = {
-    "pg": "G", "sg": "G", "g": "G",
-    "sf": "F", "pf": "F", "f": "F",
-    "c": "C",
+    "pg": "G", "sg": "G", "g": "G", "guard": "G",
+    "sf": "F", "pf": "F", "f": "F", "forward": "F",
+    "c": "C", "center": "C",
 }
 
 
 def _position_bucket(position: Optional[str]) -> str:
+    """Map a player's NBA position string to {G, F, C, other}.
+
+    NBA positions often come back as compound strings like 'Guard-Forward',
+    'Forward-Guard', 'Center-Forward', or 'SG/SF'. Sprint 65 fix: split on
+    '-' / '/' and take the first token so compound positions bucket correctly
+    (e.g. 'Guard-Forward' → 'G', not 'other').
+    """
     if not position:
         return "other"
-    return _POSITION_BUCKET_MAP.get(position.lower().strip(), "other")
+    cleaned = position.lower().strip().replace("/", "-")
+    primary = cleaned.split("-", 1)[0].strip()
+    return _POSITION_BUCKET_MAP.get(primary, "other")
 
 
 def _clamp(value: float, cap: float = Z_CAP) -> float:

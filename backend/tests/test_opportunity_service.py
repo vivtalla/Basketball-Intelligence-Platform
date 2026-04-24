@@ -430,6 +430,30 @@ def test_role_fit_includes_ast_and_tov_depth():
         session.close()
 
 
+def test_position_bucket_handles_compound_positions():
+    """Sprint 65 bugfix: 'Guard-Forward' / 'Forward-Guard' / 'Center-Forward' / 'SG/SF'
+    must bucket on the primary role, not fall through to 'other'.
+    """
+    from services.opportunity_service import _position_bucket
+
+    assert _position_bucket("Guard-Forward") == "G"
+    assert _position_bucket("Forward-Guard") == "F"
+    assert _position_bucket("Center-Forward") == "C"
+    assert _position_bucket("Forward-Center") == "F"
+    assert _position_bucket("SG/SF") == "G"
+    assert _position_bucket("PF/C") == "F"
+    # Plain forms still work.
+    assert _position_bucket("Guard") == "G"
+    assert _position_bucket("Forward") == "F"
+    assert _position_bucket("Center") == "C"
+    assert _position_bucket("PG") == "G"
+    assert _position_bucket("C") == "C"
+    # None / empty / unknown → other.
+    assert _position_bucket(None) == "other"
+    assert _position_bucket("") == "other"
+    assert _position_bucket("Wing") == "other"
+
+
 def test_directional_hint_gate_requires_two_basis_chips_and_confidence():
     session = make_session()
     try:
