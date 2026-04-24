@@ -915,6 +915,115 @@ def player_shot_identity(
     )
 
 
+@router.get("/{player_id}/diagnosis")
+def player_shot_diagnosis(
+    player_id: int,
+    season: str = Query(..., description='Season ID, e.g. "2023-24"'),
+    season_type: str = Query("Regular Season", description='"Regular Season" or "Playoffs"'),
+    start_date: Optional[str] = Query(None),
+    end_date: Optional[str] = Query(None),
+    period_bucket: str = Query("all"),
+    result: str = Query("all"),
+    shot_value: str = Query("all"),
+    db: Session = Depends(get_db),
+):
+    """Sprint 67 (B6) Shot Profile Diagnosis.
+
+    Composes quality + creation Shot Lab responses and runs the Sprint 67
+    diagnosis taxonomy over them. Archetype-derived gating features (size,
+    ftr_z, par3_z) are attached when the player is in the archetype peer pool;
+    when missing, size-gated tags (dead_corners, three_point_volume_low,
+    high_ftr_creator, low_ftr_floor_spacer) simply don't fire.
+    """
+    from services.player_archetype_service import (
+        classify_player_archetype,
+        parse_height_to_inches,
+    )
+    from services.shot_diagnosis_service import build_shot_diagnosis
+    from db.models import Player as PlayerOrm
+
+    (
+        filtered_shots,
+        available_shots,
+        data_status,
+        _last_synced,
+        parsed_start_date,
+        parsed_end_date,
+        parsed_period_bucket,
+        parsed_result,
+        parsed_shot_value,
+    ) = _player_shot_context(
+        db=db,
+        player_id=player_id,
+        season=season,
+        season_type=season_type,
+        start_date=start_date,
+        end_date=end_date,
+        period_bucket=period_bucket,
+        result=result,
+        shot_value=shot_value,
+    )
+    quality = build_shot_quality_response(
+        db,
+        subject_type="player",
+        subject_id=player_id,
+        season=season,
+        season_type=season_type,
+        filtered_shots=filtered_shots,
+        available_shots=available_shots,
+        data_status=data_status,
+        start_date=parsed_start_date.isoformat() if parsed_start_date else None,
+        end_date=parsed_end_date.isoformat() if parsed_end_date else None,
+        period_bucket=parsed_period_bucket,
+        result=parsed_result,
+        shot_value=parsed_shot_value,
+    )
+    creation = build_shot_creation_response(
+        db,
+        subject_type="player",
+        subject_id=player_id,
+        season=season,
+        season_type=season_type,
+        filtered_shots=filtered_shots,
+        available_shots=available_shots,
+        data_status=data_status,
+        start_date=parsed_start_date.isoformat() if parsed_start_date else None,
+        end_date=parsed_end_date.isoformat() if parsed_end_date else None,
+        period_bucket=parsed_period_bucket,
+        result=parsed_result,
+        shot_value=parsed_shot_value,
+    )
+
+    # Archetype-derived gating features (best-effort; None is graceful).
+    size_inches: Optional[int] = None
+    ftr_z: Optional[float] = None
+    par3_z: Optional[float] = None
+    try:
+        player = db.query(PlayerOrm).filter(PlayerOrm.id == player_id).first()
+        if player is not None:
+            size_inches = parse_height_to_inches(player.height)
+        arch = classify_player_archetype(db, player_id, season)
+        for contributor in arch.contributors:
+            if contributor.feature_key == "ftr_z":
+                ftr_z = contributor.z
+            elif contributor.feature_key == "par3_z":
+                par3_z = contributor.z
+    except Exception:
+        # Archetype gating is best-effort; diagnosis still works without it.
+        pass
+
+    return build_shot_diagnosis(
+        player_id=player_id,
+        season=season,
+        season_type=season_type,
+        quality=quality,
+        creation=creation,
+        size_inches=size_inches,
+        ftr_z=ftr_z,
+        par3_z=par3_z,
+    )
+
+
 @router.get("/{player_id}/coverage", response_model=ShotIntelligenceCoverage)
 def player_shot_coverage(
     player_id: int,

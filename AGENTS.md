@@ -18,8 +18,8 @@ Last updated: 2026-04-23 by Claude (Sprint 67 kickoff)
 | Goal | Decision Intelligence — Player Archetypes + Similarity, Shot Profile Diagnosis, Scouting Summary Cards |
 | Started | 2026-04-23 |
 | Target merge | 2026-05-14 (2–3 week target) |
-| Sprint shape | Two-stream split available (Stream A = Claude: Archetype + Similarity; Stream B = Codex: Shot Diagnosis + Scouting Brief). Single-stream fallback: Claude executes A then B sequentially. |
-| Branch | `feature/sprint-67-decision-intelligence` (Claude); `codex-sprint-67-decision-intelligence` (Codex, if engaged) |
+| Sprint shape | Single-stream — Claude executes Stream A (Archetype + Similarity) then Stream B (Shot Diagnosis + Scouting Brief) on one branch. |
+| Branch | `feature/sprint-67-decision-intelligence` (Claude, owns both streams) |
 | Worker policy | Bounded workers only for independent analytics-modeling subtasks (archetype rule tuning against fixture samples, tag threshold calibration). No worker fan-out for integration work. |
 
 ---
@@ -43,9 +43,8 @@ If repo state, sprint numbering, or shipped features appear to disagree across l
 - Status: In progress — kickoff 2026-04-23
 
 ### Codex
-- Branch: `codex-sprint-67-decision-intelligence`
-- Scope: **Stream B** — Shot Profile Diagnosis + Scouting Summary Cards. Diagnosis tag taxonomy spec, `shot_diagnosis_service`, `scouting_brief_service`, new diagnosis + scouting-brief routes, `ShotDiagnosisPanel` wired into `ShotChart`, `ScoutingBrief` 5-card strip inserted below `PlayerHeader` in `PlayerDashboard`.
-- Status: Not started — awaiting Codex pickup
+- Branch: n/a for Sprint 67 — Claude is executing both streams on the single sprint branch at Vivek's direction.
+- Status: Not engaged this sprint
 
 ---
 
@@ -59,12 +58,12 @@ Claim a shared file here before editing. If a file is already claimed, read that
 | File | Claimed by | Purpose |
 |------|------------|---------|
 | `backend/services/similarity_service.py` | Claude | Extend with `mode` param (season/age/team_fit) + archetype attachment on comps (Stream A) |
-| `backend/services/shot_intelligence_service.py` | Codex (read-only) | Diagnosis service reads from this; no mutation. Claude will not touch. |
+| `backend/services/shot_intelligence_service.py` | Claude (read-only) | Diagnosis service reads from this; no mutation. |
 | `frontend/src/components/PlayerSimilarity.tsx` | Claude | Upgrade to 3-tab header + archetype pill per comp (Stream A) |
-| `frontend/src/components/ShotChart.tsx` | Codex | Insert `<ShotDiagnosisPanel>` slot beneath `ShotIntelligencePanel` (Stream B) |
-| `frontend/src/components/PlayerDashboard.tsx` | Codex | Insert `<ScoutingBrief>` strip below `PlayerHeader` (Stream B) |
-| `frontend/src/lib/types.ts` | Both (append-only) | Claude appends archetype + similarity types; Codex appends diagnosis + scouting-brief types. |
-| `frontend/src/lib/api.ts` | Both (append-only) | Same split as `types.ts`. |
+| `frontend/src/components/ShotChart.tsx` | Claude | Insert `<ShotDiagnosisPanel>` slot beneath `ShotIntelligencePanel` (Stream B) |
+| `frontend/src/components/PlayerDashboard.tsx` | Claude | Insert `<ScoutingBrief>` strip below `PlayerHeader` (Stream B) |
+| `frontend/src/lib/types.ts` | Claude (append-only) | All Sprint 67 types land here in append order — archetype/similarity first, then diagnosis + scouting-brief. |
+| `frontend/src/lib/api.ts` | Claude (append-only) | Same as `types.ts`. |
 
 ---
 

@@ -1,6 +1,6 @@
 # Sprint 67 — Archetype & Shot Diagnosis Taxonomy
 
-**Status:** A1 (player archetypes) — 15 archetypes, three tune passes complete, locked for B1 implementation. A2 (shot diagnosis tags) pending Codex.
+**Status:** A1 (player archetypes) — 15 archetypes, three tune passes complete, shipped as B1/B2. A2 (shot diagnosis tags) — 12 tags locked for B5 implementation.
 **Consumed by:** `backend/services/player_archetype_service.py` (A1) and `backend/services/shot_diagnosis_service.py` (A2).
 **Discipline:** deterministic rules only, mirroring `backend/routers/styles.py::classify_archetype` (Sprint 60). No ML, no embeddings.
 
@@ -177,16 +177,133 @@ One golden test per archetype using a known-plausible player / season. If the re
 
 ---
 
-## Part 2 — Shot Diagnosis Tag Taxonomy (Stream B / Codex)
+## Part 2 — Shot Diagnosis Tag Taxonomy (Stream B)
 
-*Pending — Codex to append A2 in this section.*
+### 2.1 Inputs
 
-Expected structure:
-- Tag catalog (~12 tags): key, label, sentiment (strength|risk|neutral), triggering metric + threshold, grade band (green/yellow/red cutoffs), sample confidence gating.
-- Sustainability rule: zone-level delta spread + baseline coverage → {Sustainable, Hot Streak, Cold Streak, Insufficient Sample}.
-- Creation burden rule: thresholds on existing `build_shot_creation_response` output → {Self-Created Heavy, Balanced, Assisted Heavy}.
-- Headline template: 1-sentence composition from top-1 tag + sustainability + creation burden.
-- Minimum-sample gate for emitting any tag (plan says ≥ 50 attempts).
+The diagnosis service is a pure layer over already-computed Shot Lab outputs:
+
+- `build_shot_quality_response` → `ShotQualityResponse` with `summary` (actual/expected FG%, eFG%, PPS, confidence), `bins` (fine-grained action × zone × distance bins with `pps_delta` and `sample_confidence`), and `zones` (per NBA `zone_basic` + `zone_area` with `fg_pct_delta`, `pps_delta`, `sample_confidence`).
+- `build_shot_creation_response` → `ShotCreationResponse` with `splits` list. Each split has `split_key` (`"assisted"`, `"self_created"`, etc.), `frequency`, `efg_pct`, and `precision` (trust label).
+- `build_shot_identity_response` → `ShotIdentityResponse` with `cards` (tier: `"elite"` | `"solid"` | `"emerging"` | `"low"`; identity keys like `shot_maker`, `shot_diet`, `shot_quality`).
+
+No new data; no new table; no changes to `shot_quality_baselines` or Alembic 0008. The diagnosis service is idempotent given its inputs.
+
+### 2.2 Minimum-sample gate
+
+Before emitting any tag the service checks `quality.summary.shots >= 50` AND `coverage_state in {"ready", "partial"}`. If that fails, the response is a single `insufficient_sample` tag with grade `red` and the headline "Not enough tracked shots to diagnose."
+
+### 2.3 Tag catalog (12)
+
+Each tag carries `{key, label, sentiment: "strength"|"risk"|"neutral", grade: "green"|"yellow"|"red", sample_confidence: "high"|"medium"|"low", evidence: {metric, value, delta, zone?}}`. All thresholds are on actual-vs-expected deltas (not raw values) so era/rule changes don't require re-tuning.
+
+| # | Key | Label | Sentiment | Trigger | Evidence source |
+|---|---|---|---|---|---|
+| 1 | `elite_corner_gravity` | Elite corner gravity | strength | Any zone with `zone_basic in {"Left Corner 3","Right Corner 3"}` AND `pps_delta >= 0.10` AND `attempts >= 15` | quality.zones |
+| 2 | `dead_corners` | Dead corners | risk | Corner zones total `frequency <= 0.04` AND player is not a big (size > 80" via archetype sample) | quality.zones + archetype |
+| 3 | `midrange_dependency` | Mid-range dependency | risk | Sum of mid-range zone `frequency` (`zone_basic == "Mid-Range"`) `>= 0.25` | quality.zones |
+| 4 | `rim_pressure_elite` | Elite rim pressure | strength | Restricted-Area `frequency >= 0.30` AND `fg_pct_delta >= 0.03` | quality.zones |
+| 5 | `rim_finishing_variance` | Rim finishing variance | risk | Restricted-Area `attempts >= 40` AND `fg_pct_delta <= -0.05` | quality.zones |
+| 6 | `three_point_volume_low` | Low 3-point volume | risk | All-3PT zones total `frequency <= 0.20` AND size < 80" (perimeter player expected to shoot) | quality.zones + archetype |
+| 7 | `long_two_diet_problem` | Long-two diet problem | risk | Mid-range `pps_delta <= -0.05` AND `frequency >= 0.15` | quality.zones |
+| 8 | `high_ftr_creator` | Foul-drawing creator | strength | Creation summary `fta_per_fga` (or archetype `ftr_z`) >= top-25% of peer pool | creation.summary + archetype |
+| 9 | `low_ftr_floor_spacer` | Floor-spacer (low FTR) | neutral | `ftr_z <= -0.5` AND `par3_z >= 0.5` (shoots threes, doesn't draw fouls) | archetype |
+| 10 | `catch_and_shoot_specialist` | Catch-and-shoot specialist | strength | Creation `splits` where `split_key == "assisted"` has `frequency >= 0.55` AND `efg_pct_delta >= 0.03` | creation.splits |
+| 11 | `off_dribble_heavy` | Off-dribble heavy | neutral | Creation `splits` where `split_key == "self_created"` has `frequency >= 0.55` | creation.splits |
+| 12 | `heat_check_overperformance` | Heat-check overperformance | risk | Summary `pps_delta >= 0.08` AND coverage `sample_confidence in {"medium","low"}` (skill looks real but sample is small) | quality.summary |
+
+**Ranking.** When more than 4 tags fire, keep the top 4 by `|delta| × confidence_weight` where `confidence_weight = {"high": 1.0, "medium": 0.7, "low": 0.4}`. Drop any tag with `grade == "red"` confidence `"low"` — too noisy to display.
+
+**Grade cutoffs.** Per-tag:
+- `green`: trigger met AND `sample_confidence == "high"`
+- `yellow`: trigger met AND `sample_confidence == "medium"`
+- `red` (risk tags only): trigger met with sample_confidence >= medium
+- Neutral tags never emit `red`.
+
+### 2.4 Sustainability label
+
+Derived once per response from zone-level evidence:
+
+- `Insufficient Sample`: fewer than 50 shots or coverage `"legacy"` / `"missing"`.
+- `Hot Streak`: `summary.pps_delta >= 0.08` AND mean zone `sample_confidence == "low"` AND zone `pps_delta` stdev >= 0.10.
+- `Cold Streak`: `summary.pps_delta <= -0.08` under the same noise conditions.
+- `Sustainable`: otherwise.
+
+### 2.5 Creation burden label
+
+Derived from `creation.splits`:
+
+- `Assisted Heavy`: `assisted.frequency >= 0.55`
+- `Self-Created Heavy`: `self_created.frequency >= 0.55`
+- `Balanced`: otherwise, OR if splits are missing.
+
+### 2.6 Headline template
+
+One sentence composed server-side. Patterns:
+
+- Tags present: `"{top_tag_label} with a {sustainability} shot profile — {creation_burden.lower()}."`
+- Only fallback tag: `"Not enough tracked shots to diagnose."`
+- Balanced diet: `"Balanced shot profile with no red flags or breakout strengths."`
+
+### 2.7 Output schema
+
+```python
+# backend/models/shot_diagnosis.py
+class ShotDiagnosisEvidence(BaseModel):
+    metric: str           # e.g. "zone.pps_delta"
+    value: Optional[float]
+    delta: Optional[float]
+    zone: Optional[str]   # NBA zone_basic when relevant
+    note: Optional[str]
+
+class ShotDiagnosisTag(BaseModel):
+    key: str
+    label: str
+    sentiment: Literal["strength","risk","neutral"]
+    grade: Literal["green","yellow","red"]
+    sample_confidence: Literal["high","medium","low"]
+    evidence: List[ShotDiagnosisEvidence]
+
+class ShotDiagnosisResponse(BaseModel):
+    player_id: int
+    season: str
+    season_type: str
+    methodology_version: str           # "shot_diagnosis_v1"
+    headline: str
+    sustainability: Literal["Sustainable","Hot Streak","Cold Streak","Insufficient Sample"]
+    creation_burden: Literal["Self-Created Heavy","Balanced","Assisted Heavy"]
+    tags: List[ShotDiagnosisTag]
+    sample_confidence: Literal["high","medium","low"]  # inherited from summary.confidence
+    coverage_state: str                # echo from upstream
+```
+
+### 2.8 Scouting Brief card composition (B7)
+
+The brief endpoint composes five cards in fixed order. Each card is independently data-gated; a card hides rather than shows a sparse state when its source service returns no usable data.
+
+| Card | Source | Headline template | Evidence lines |
+|---|---|---|---|
+| 1. Role | `player_archetype_service.classify_player_archetype` | `"{archetype.label} — {archetype.confidence} confidence"` | Top 2 contributors as `"{label} (z{±X.X})"` |
+| 2. Strengths / Weaknesses | Archetype contributors | `"Leans into {top_positive.label}; {top_negative.label} lags."` | One strength + one weakness row each |
+| 3. Usage & Efficiency | `opportunity_service.build_opportunity_report` filtered to player | `"Usage {usg_pct:.1f}%, TS% {ts_pct:.1%} ({percentile} percentile)"` | Opportunity score + team rollup rank |
+| 4. Shot Profile | `shot_diagnosis_service.build_shot_diagnosis` | Top 1-2 tag labels + sustainability | Creation burden + top tag evidence |
+| 5. Trajectory | `trajectory_service.build_player_trajectory` (current function signature) | `"{label} — {driver_summary}"` | Recent-form delta vs baseline |
+
+Card shape (Pydantic):
+
+```python
+class ScoutingBriefCard(BaseModel):
+    card_type: Literal["role","strengths","usage_efficiency","shot_profile","trajectory"]
+    title: str
+    summary: str                       # one sentence
+    evidence: List[str]                # 1-3 short lines
+    confidence: Literal["high","medium","low"]
+    deep_link: str                     # frontend route anchor
+```
+
+Composition is server-side so the confidence language is consistent across cards. If a source service raises or returns `None`, the card is skipped (not shown sparse).
+
+---
 
 ---
 

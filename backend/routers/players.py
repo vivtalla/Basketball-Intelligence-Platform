@@ -159,3 +159,22 @@ def get_player_trend_report(
         raise HTTPException(status_code=404, detail=f"Player {player_id} not found in local warehouse.")
 
     return build_player_trend_report(db=db, player=player, season=season)
+
+
+@router.get("/{player_id}/scouting-brief")
+def get_player_scouting_brief(
+    player_id: int,
+    season: str = Query("2024-25"),
+    db: Session = Depends(get_db),
+):
+    """Sprint 67 (B8) — one-minute scouting brief.
+
+    Five composed cards (Role, Strengths, Usage & Efficiency, Shot Profile,
+    Trajectory). Any source service that can't supply its card is skipped
+    silently; `warnings` in the response surfaces what was missing.
+    """
+    from services.scouting_brief_service import build_scouting_brief
+    player = db.query(Player).filter(Player.id == player_id).first()
+    if not player:
+        raise HTTPException(status_code=404, detail=f"Player {player_id} not found in local warehouse.")
+    return build_scouting_brief(db=db, player_id=player_id, season=season)
