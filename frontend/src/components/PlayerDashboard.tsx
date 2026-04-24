@@ -11,6 +11,7 @@ import PlayerPbpInsights from "./PlayerPbpInsights";
 import PlayerTrendIntelligencePanel from "./PlayerTrendIntelligencePanel";
 import GameLogTable from "./GameLogTable";
 import PlayerSimilarity from "./PlayerSimilarity";
+import { PlayerArchetypeProfile } from "./archetype/PlayerArchetypeProfile";
 import SeasonSplits from "./SeasonSplits";
 import ExternalMetricsPanel from "./ExternalMetricsPanel";
 import ChartStatusBadge from "./ChartStatusBadge";
@@ -250,6 +251,8 @@ export default function PlayerDashboard({ playerId }: PlayerDashboardProps) {
 
       {/* Game Log has its own internal RS/Playoffs toggle */}
       <GameLogTable playerId={playerId} season={effectiveSeasonStr} />
+
+      <PlayerArchetypeProfile playerId={playerId} season={effectiveSeasonStr} />
 
       <PlayerSimilarity playerId={playerId} season={effectiveSeasonStr} />
 
