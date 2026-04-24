@@ -168,18 +168,119 @@ def test_age_mode_excludes_subject_across_seasons_and_filters_to_age_window():
         db.close()
 
 
-# --- team_fit deferred -----------------------------------------------------
+# --- team_fit mode (Sprint 68) ---------------------------------------------
 
 
-def test_team_fit_mode_raises_not_implemented():
+def test_team_fit_mode_returns_same_season_comps_excluding_subject():
+    clear_archetype_cache()
     db = make_session()
     try:
-        _add_row(db, 1, "Subject", "1998-01-01", "2023-24")
-        for i in range(10):
-            _add_row(db, 100 + i, f"Filler {i}", "1998-01-01", "2023-24", usg_pct=18.0 + i * 0.5)
+        _add_row(db, 1, "Subject", "1998-01-01", "2023-24",
+                 team_abbreviation="BOS",
+                 usg_pct=28.0, ast_pg=7.0, pts_pg=24.0)
+        for i in range(12):
+            team = "BOS" if i % 3 == 0 else "LAL"
+            _add_row(db, 100 + i, f"Peer {i}", "1998-01-01", "2023-24",
+                     team_abbreviation=team,
+                     usg_pct=18.0 + i * 0.5, ast_pg=3.0 + i * 0.3, pts_pg=12.0 + i)
         db.commit()
-        with pytest.raises(NotImplementedError):
-            find_similar_players_with_archetype(db, 1, "2023-24", mode="team_fit", n=5)
+        comps = find_similar_players_with_archetype(db, 1, "2023-24", mode="team_fit", n=5)
+        assert comps, "team_fit should return comps now (Sprint 68)"
+        ids = {c["player_id"] for c in comps}
+        assert 1 not in ids
+        # All comps must be same-season
+        assert all(c["season"] == "2023-24" for c in comps)
+        # Archetype labels attached
+        assert all("archetype_key" in c for c in comps)
+
+
+    finally:
+        db.close()
+
+
+def test_team_fit_weight_overrides_penalize_duplicated_features():
+    """Unit-level check on the penalty mechanism: when the subject and a
+    same-team teammate have similar z-scores on a feature (|gap| < 0.5), the
+    weight override for that feature is 0.4× baseline. Features without a
+    teammate match keep the 1.0× multiplier."""
+    from services.similarity_service import (
+        _team_fit_weight_overrides,
+        _qualified_rows_v2,
+        _season_norms_v2,
+        _TEAM_FIT_PENALTY,
+    )
+    clear_archetype_cache()
+    db = make_session()
+    try:
+        # Subject and teammate both high-usage (overlap on usg_pct)
+        _add_row(db, 1, "Subject", "1998-01-01", "2023-24",
+                 team_abbreviation="BOS",
+                 usg_pct=30.0, ast_pg=5.0)
+        _add_row(db, 2, "Teammate", "1998-01-01", "2023-24",
+                 team_abbreviation="BOS",
+                 usg_pct=29.5, ast_pg=2.5)  # close on usg, far on ast
+        for i in range(15):
+            _add_row(db, 100 + i, f"Filler {i}", "1998-01-01", "2023-24",
+                     team_abbreviation="CHI",
+                     usg_pct=18.0 + i * 0.3, ast_pg=3.0 + i * 0.2)
+        db.commit()
+
+        all_rows = _qualified_rows_v2(db)
+        norms = _season_norms_v2(all_rows)
+        subject = next(r for r in all_rows if r.player_id == 1)
+        overrides = _team_fit_weight_overrides(subject, all_rows, norms)
+
+        # usg should be penalized (subject and teammate both high)
+        assert overrides["usg_pct"] == _TEAM_FIT_PENALTY
+        # ast should NOT be penalized (teammate is low vs subject high, gap > 0.5)
+        assert overrides["ast_pg"] == 1.0
+    finally:
+        db.close()
+
+
+def test_team_fit_changes_ranking_vs_season_mode():
+    """When a teammate duplicates a feature, team_fit should produce a
+    DIFFERENT top-N ordering than season mode. We don't care which comp wins;
+    we care that the penalty actually shifts the ranking."""
+    clear_archetype_cache()
+    db = make_session()
+    try:
+        # Subject has high usage AND high assists on BOS; teammate ALSO has
+        # high usage but low assists → only usage is "covered" by team.
+        _add_row(db, 1, "Subject", "1998-01-01", "2023-24",
+                 team_abbreviation="BOS",
+                 usg_pct=30.0, ast_pg=7.0, pts_pg=26.0, ts_pct=0.580, per=22.0)
+        _add_row(db, 2, "BOS Teammate", "1998-01-01", "2023-24",
+                 team_abbreviation="BOS",
+                 usg_pct=29.5, ast_pg=2.5, pts_pg=18.0, ts_pct=0.540, per=14.0)
+        # Candidate A: matches subject on usg, differs on ast (duplicates covered)
+        _add_row(db, 10, "High-Usg Low-Ast", "1998-01-01", "2023-24",
+                 team_abbreviation="LAL",
+                 usg_pct=30.5, ast_pg=2.0, pts_pg=25.0, ts_pct=0.555, per=20.0)
+        # Candidate B: differs on usg, matches subject on ast (complement)
+        _add_row(db, 11, "Low-Usg High-Ast", "1998-01-01", "2023-24",
+                 team_abbreviation="LAL",
+                 usg_pct=18.0, ast_pg=7.5, pts_pg=14.0, ts_pct=0.560, per=15.0)
+        for i in range(15):
+            _add_row(db, 200 + i, f"Filler {i}", "1998-01-01", "2023-24",
+                     team_abbreviation="CHI",
+                     usg_pct=18.0 + i * 0.3, ast_pg=3.0 + i * 0.25,
+                     pts_pg=12.0 + i * 0.4, ts_pct=0.540, per=13.0 + i * 0.1)
+        db.commit()
+
+        season_comps = find_similar_players_with_archetype(db, 1, "2023-24", mode="season", n=6)
+        team_fit_comps = find_similar_players_with_archetype(db, 1, "2023-24", mode="team_fit", n=6)
+
+        # Ordering must differ between the two modes — that's the point of the penalty.
+        season_ids = tuple(c["player_id"] for c in season_comps)
+        team_fit_ids = tuple(c["player_id"] for c in team_fit_comps)
+        assert season_ids != team_fit_ids, (
+            "team_fit should produce a different ranking than season mode when "
+            "a teammate duplicates the subject's usage profile."
+        )
+        # Subject excluded from both
+        assert 1 not in season_ids
+        assert 1 not in team_fit_ids
     finally:
         db.close()
 

@@ -306,11 +306,93 @@ def _build_candidate_pool(
         return out
 
     if mode == "team_fit":
-        # Deferred to Sprint 67 follow-up (plan task B10). Raise so the router can surface
-        # a clear 501 instead of silently returning season-mode comps.
-        raise NotImplementedError("team_fit similarity mode is deferred (plan task B10)")
+        # Same-season league-wide candidate pool, subject excluded. The
+        # teammate-duplicate penalty is applied at the distance layer, not the
+        # pool layer — candidates remain the same as season-mode, what changes
+        # is how distance weights shift per feature for THIS subject.
+        return [r for r in all_rows if _not_self(r) and r.season == target_row.season]
 
     raise ValueError(f"unknown similarity mode: {mode!r}")
+
+
+# --- Team-fit teammate-duplicate penalty (spec §1.7) ------------------------
+
+# Z-gap threshold below which we consider the subject "already covered" on a
+# feature by a teammate. Per spec §1.7.
+_TEAM_FIT_DUPLICATE_THRESHOLD = 0.5
+# Weight multiplier applied to duplicated features so comps differentiating
+# there contribute less to distance (team-fit-style complement ranking).
+_TEAM_FIT_PENALTY = 0.4
+
+
+def _raw_z(row: SeasonStat, norms: Dict[str, Dict[str, Dict[str, float]]]) -> Optional[Dict[str, float]]:
+    """Return unweighted z-scores keyed by feature name, or None if any feature is missing."""
+    season_norms = norms.get(row.season)
+    if not season_norms:
+        return None
+    out: Dict[str, float] = {}
+    for key, _weight in SIMILARITY_STATS_V2:
+        stat_norm = season_norms.get(key)
+        val = getattr(row, key, None)
+        if stat_norm is None or val is None:
+            return None
+        std = stat_norm["std"] or 1.0
+        out[key] = (float(val) - stat_norm["mean"]) / std
+    return out
+
+
+def _team_fit_weight_overrides(
+    target_row: SeasonStat,
+    all_rows: List[SeasonStat],
+    norms: Dict[str, Dict[str, Dict[str, float]]],
+) -> Dict[str, float]:
+    """For each similarity feature, return a multiplier that softens (×0.4) the
+    feature's weight when the subject and a same-team teammate both project at
+    similar z-scores — i.e. the team already covers that feature and comps who
+    merely duplicate it shouldn't dominate the ranking.
+    """
+    subject_z = _raw_z(target_row, norms) or {}
+    teammate_rows = [
+        r for r in all_rows
+        if r.season == target_row.season
+        and r.team_abbreviation == target_row.team_abbreviation
+        and r.player_id != target_row.player_id
+    ]
+    teammate_raw = [z for z in (_raw_z(r, norms) for r in teammate_rows) if z is not None]
+
+    overrides: Dict[str, float] = {}
+    for key, _weight in SIMILARITY_STATS_V2:
+        subj_z = subject_z.get(key)
+        if subj_z is None:
+            overrides[key] = 1.0
+            continue
+        closest_gap = None
+        for tm in teammate_raw:
+            tm_z = tm.get(key)
+            if tm_z is None:
+                continue
+            gap = abs(subj_z - tm_z)
+            if closest_gap is None or gap < closest_gap:
+                closest_gap = gap
+        if closest_gap is not None and closest_gap < _TEAM_FIT_DUPLICATE_THRESHOLD:
+            overrides[key] = _TEAM_FIT_PENALTY
+        else:
+            overrides[key] = 1.0
+    return overrides
+
+
+def _weighted_vec(
+    raw: Dict[str, float],
+    overrides: Optional[Dict[str, float]] = None,
+) -> List[float]:
+    """Apply the base SIMILARITY_STATS_V2 weights (and optional per-feature
+    multipliers) to a raw z-score dict in canonical feature order.
+    """
+    out: List[float] = []
+    for key, weight in SIMILARITY_STATS_V2:
+        mult = (overrides or {}).get(key, 1.0)
+        out.append(raw[key] * weight * mult)
+    return out
 
 
 def find_similar_players_with_archetype(
@@ -336,17 +418,26 @@ def find_similar_players_with_archetype(
     if target_row is None:
         return []
 
-    target_vec = _z_vector_v2(target_row, norms)
-    if target_vec is None:
+    # Team-fit mode applies a per-feature penalty to the distance weights when
+    # the subject duplicates a teammate's strength on that feature. Other modes
+    # use the baseline SIMILARITY_STATS_V2 weights unchanged.
+    weight_overrides: Optional[Dict[str, float]] = None
+    if mode == "team_fit":
+        weight_overrides = _team_fit_weight_overrides(target_row, all_rows, norms)
+
+    target_raw = _raw_z(target_row, norms)
+    if target_raw is None:
         return []
+    target_vec = _weighted_vec(target_raw, weight_overrides)
 
     candidates = _build_candidate_pool(all_rows, target_row, mode, db)
     scored: List[Tuple[float, SeasonStat]] = []
     for row in candidates:
-        vec = _z_vector_v2(row, norms)
-        if vec is None:
+        cand_raw = _raw_z(row, norms)
+        if cand_raw is None:
             continue
-        scored.append((_euclidean(target_vec, vec), row))
+        cand_vec = _weighted_vec(cand_raw, weight_overrides)
+        scored.append((_euclidean(target_vec, cand_vec), row))
     scored.sort(key=lambda pair: pair[0])
     top = scored[:n]
 

@@ -31,10 +31,13 @@ def similar_players(
     - Legacy (default, `mode` omitted): weighted Euclidean distance on 9 z-score-
       normalized box stats. `cross_era=true` compares across all seasons;
       `cross_era=false` restricts to the same season.
-    - Sprint 67 role-aware (`mode` set): extended 13-feature distance with
-      archetype labels attached to every comp. Supported values: `season`
-      (same-season league-wide), `age` (age ±1 across all seasons).
-      `team_fit` is reserved and returns 501 until the B10 follow-up lands.
+    - Sprint 67/68 role-aware (`mode` set): extended 13-feature distance with
+      archetype labels attached to every comp. Supported values:
+      `season` (same-season league-wide), `age` (age ±1 across all seasons),
+      `team_fit` (same-season league-wide with a teammate-duplicate penalty —
+      features where the subject's z-score is within 0.5 of a same-team
+      teammate's z-score carry a 0.4× distance weight, so comps that
+      complement gaps rank ahead of comps that duplicate existing strengths).
     """
     # Verify the target player-season has enough data
     target = db.query(SeasonStat).filter_by(
@@ -63,12 +66,6 @@ def similar_players(
 
     if mode not in ("season", "age", "team_fit"):
         raise HTTPException(status_code=400, detail=f"unknown mode '{mode}'")
-
-    if mode == "team_fit":
-        raise HTTPException(
-            status_code=501,
-            detail="team_fit similarity mode is deferred (Sprint 67 task B10)",
-        )
 
     results = find_similar_players_with_archetype(
         db, player_id, season, mode=mode, n=n,
