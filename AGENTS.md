@@ -1,6 +1,6 @@
 # Agent Coordination
 
-Last updated: 2026-04-22 by Codex (Sprint 63 closeout reset)
+Last updated: 2026-04-23 by Claude (Sprint 65 kickoff)
 
 > Both agents read this file before touching code at the start of every session.
 > The canonical source of truth is the clean `master` checkout at `/Users/viv/Documents/Basketball Intelligence Platform`.
@@ -14,13 +14,13 @@ Last updated: 2026-04-22 by Codex (Sprint 63 closeout reset)
 
 | Field | Value |
 |-------|-------|
-| Sprint | 64 |
-| Goal | Kickoff pending |
-| Started | TBD |
+| Sprint | 65 |
+| Goal | Scouting & Opportunity Fit — opportunity caching + compare handoff, opponent-aware scouting claims w/ inference confidence, stale Usage* scaffolding cleanup |
+| Started | 2026-04-23 |
 | Target merge | TBD |
-| Sprint shape | TBD |
-| Branch | `master` until Sprint 64 kickoff |
-| Worker policy | No active sprint; set at kickoff |
+| Sprint shape | Single-stream sequential (Claude only); Workstreams A → B → C |
+| Branch | `feature/sprint-65-scouting-opportunity-fit` |
+| Worker policy | No spawned workers; sequential workstreams |
 
 ---
 
@@ -38,14 +38,15 @@ If repo state, sprint numbering, or shipped features appear to disagree across l
 ## Current Assignments
 
 ### Claude
-- Branch: —
-- Scope: No active sprint assignment
-- Status: Idle
+- Branch: `feature/sprint-65-scouting-opportunity-fit`
+- Scope: All Sprint 65 workstreams (A: opportunity caching/handoff/role-fit; B: scouting inference confidence + opponent-aware ranking; C: cross-tab compare/pre-read continuity + Usage* cleanup)
+- Status: In progress (kicked off 2026-04-23)
+- Plan: `~/.claude/plans/plan-next-sprint-you-jazzy-duckling.md`
 
 ### Codex
 - Branch: —
-- Scope: Sprint 63 closed; no active Sprint 64 assignment yet
-- Status: Idle pending kickoff
+- Scope: No active Sprint 65 assignment
+- Status: Idle
 
 ---
 
@@ -58,7 +59,16 @@ Claim a shared file here before editing. If a file is already claimed, read that
 
 | File | Claimed by | Purpose |
 |------|------------|---------|
-| — | — | No active claims; claim here at the next sprint kickoff before editing shared files |
+| `backend/models/insights.py` | Claude | Extend `OpportunityPlayerRow` additively with `compare_handoff` |
+| `backend/models/scouting.py` | Claude | Extend claim / clip-anchor models additively with `inference_confidence`, `inference_reasons`, `opponent_specific_events` |
+| `backend/services/opportunity_service.py` | Claude | In-process opportunity cache + compare-handoff peers + role-fit depth |
+| `backend/routers/scouting.py` | Claude | Opponent-aware claim ranking + scouting-context in exports |
+| `backend/routers/pre_read.py` | Claude | `build_play_type_scouting_report` inference-confidence emission |
+| `frontend/src/app/compare/page.tsx` | Claude | `source=opportunity\|scouting` inbound-context banner |
+| `frontend/src/app/pre-read/page.tsx` | Claude | Scouting-context banner on pre-read deep-links |
+| `frontend/src/lib/types.ts` | Claude | Append-only additions for new fields |
+| `frontend/src/lib/api.ts` | Claude | Append-only additions for any new params |
+| `frontend/src/components/UsageEfficiencyDashboard.tsx` | Claude | Rename to `OpportunityDashboard.tsx` |
 
 ---
 
@@ -78,13 +88,26 @@ Specs or review notes written by one stream for another. Check this before start
 
 ## Merge Order
 
-No active sprint branch. Next sprint branch/worktree is created at kickoff and merges back to `master` at closeout.
+Single stream: `feature/sprint-65-scouting-opportunity-fit` merges back to `master` at closeout.
 
 ---
 
 ## Sprint Work Allocation
 
-No active sprint allocation. Define workstreams, reuse patterns, and any plan file at Sprint 64 kickoff.
+Plan file: `~/.claude/plans/plan-next-sprint-you-jazzy-duckling.md`.
+
+**Workstream A — Opportunity caching + compare handoff + role-fit depth** (Claude)
+- Owner files: `backend/services/opportunity_service.py`, `backend/models/insights.py`, `backend/routers/insights.py`, `frontend/src/components/opportunity/RoleFitCard.tsx`, `frontend/src/components/opportunity/DirectionalHintBanner.tsx`
+- Reuse: `_cache_ttl_for_season()` pattern from `backend/data/nba_client.py`; existing opportunity signal/gating logic
+
+**Workstream B — Scouting inference confidence + opponent-aware ranking** (Claude)
+- Owner files: `backend/routers/scouting.py`, `backend/models/scouting.py`, `backend/routers/pre_read.py`, `frontend/src/components/ScoutingReportView.tsx`
+- Reuse: existing `ScoutingClipAnchor` + `linkage_quality`; `build_play_type_scouting_report`
+
+**Workstream C — Cross-tab glue + Usage cleanup** (Claude)
+- Owner files: `frontend/src/app/compare/page.tsx`, `frontend/src/app/pre-read/page.tsx`, `frontend/src/components/opportunity/OpportunityRow.tsx`, `frontend/src/components/UsageEfficiencyDashboard.tsx` (→ rename)
+- Delete: untracked `backend/services/usage_efficiency_service.py`, `frontend/src/components/UsageBurdenMatrix.tsx`, `frontend/src/components/UsageLoadBoard.tsx` (stale pre-Sprint-58 scaffolding)
+- Reuse: `InsightsHeader` chip styling for inbound-context banners
 
 ---
 
@@ -157,6 +180,7 @@ No active sprint allocation. Define workstreams, reuse patterns, and any plan fi
 
 *Free-form, dated, newest first. Use this for coordination and repo-state exceptions.*
 
+2026-04-23 (Claude): Sprint 65 kickoff on `feature/sprint-65-scouting-opportunity-fit`. Theme: Scouting & Opportunity Fit. Plan file: `~/.claude/plans/plan-next-sprint-you-jazzy-duckling.md`. Three workstreams sequenced A (opportunity caching + compare handoff + role-fit depth) → B (scouting inference confidence + opponent-aware ranking) → C (cross-tab glue + Usage* cleanup including rename of `UsageEfficiencyDashboard.tsx` → `OpportunityDashboard.tsx` and deletion of stale untracked Usage* scaffolding).
 2026-04-22 (Codex): Sprint 63 closed on `feature/sprint-63-team-insights-workflow-expansion` and merged to `master`. Shipped canonical shot-profile reuse across compare/prep/pre-read/team-defense/X-Ray, richer X-Ray history + drift + handoffs, replay-aware coaching continuity, prep snapshots, and trust-note handling for ambiguous official split families. Closeout: `specs/sprint-63-closeout.md`.
 2026-04-21 (Codex): Sprint 62 closeout prepared on `feature/sprint-62-style-intelligence-and-team-shooting-splits`. Added canonical `team_shooting_split_stats`, DB-first team shooting-splits API, team-page `Shooting` splits workspace, and shot-profile-driven Style X-Ray follow-ons. Verification passed (`pytest`, `npm run lint`, `npm run build`, `git diff --check`). Merged to `master` on 2026-04-22.
 2026-04-20 (Claude): Sprint 61 implementation complete on `feature/sprint-61-shot-lab-polish-and-ops`. Shipped shared `ShotHoverTooltip`, replay-example chips with linkage-quality gating, `ShotIdentityBadges` in PlayerHeader + Compare, Shot Intelligence Ops panel on `/coverage`, `shot_quality_baselines` materialization (Alembic 0008) with `get_or_build_baseline`, and refresh-baseline / refresh-stale-players endpoints. 172 backend tests, frontend lint + build clean. Ready to merge.
