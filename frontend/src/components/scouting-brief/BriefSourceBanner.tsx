@@ -8,16 +8,16 @@ import { useSearchParams } from "next/navigation";
 const DIAGNOSIS_TAG_LABELS: Record<string, string> = {
   elite_corner_gravity: "Elite corner gravity",
   dead_corners: "Dead corners",
-  midrange_dependency: "Mid-range dependency",
+  midrange_dependency: "Mid-range heavy",
   rim_pressure_elite: "Elite rim pressure",
-  rim_finishing_variance: "Rim finishing variance",
-  three_point_volume_low: "Low 3-point volume",
-  long_two_diet_problem: "Long-two diet problem",
-  high_ftr_creator: "Foul-drawing creator",
-  low_ftr_floor_spacer: "Floor-spacer (low FTR)",
+  rim_finishing_variance: "Finishing below average at the rim",
+  three_point_volume_low: "Won't pull from 3",
+  long_two_diet_problem: "Long-two habit",
+  high_ftr_creator: "Gets to the line",
+  low_ftr_floor_spacer: "Floor spacer",
   catch_and_shoot_specialist: "Catch-and-shoot specialist",
   off_dribble_heavy: "Off-dribble heavy",
-  heat_check_overperformance: "Heat-check overperformance",
+  heat_check_overperformance: "Running hot",
   insufficient_sample: "Insufficient sample",
 };
 

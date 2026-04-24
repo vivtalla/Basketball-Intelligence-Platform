@@ -97,11 +97,12 @@ def _strengths_card(archetype) -> Optional[ScoutingBriefCard]:
     parts: List[str] = []
     if top_up is not None:
         prose = _FEATURE_PROSE.get(top_up.feature_key, top_up.label.lower())
-        parts.append(f"Leans into {prose} (z={top_up.z:+.2f})")
+        parts.append(f"Leans into {prose}")
     if top_down is not None:
         prose = _FEATURE_PROSE.get(top_down.feature_key, top_down.label.lower())
-        parts.append(f"{prose.capitalize()} lags (z={top_down.z:+.2f})")
+        parts.append(f"{prose.capitalize()} lags")
     summary = " · ".join(parts)
+    # Evidence keeps the z-scores — it's the audit trail, not the headline.
     evidence: List[str] = []
     for c in above[:2]:
         evidence.append(f"+ {c.label} (z={c.z:+.2f})")
@@ -130,8 +131,8 @@ def _usage_efficiency_card(player_id: int, opportunity_response) -> Optional[Sco
     # season_stats stores both usg_pct and ts_pct as fractions (0.285, 0.663),
     # not percentages — confirmed against the live warehouse.
     summary = (
-        f"Usage {_fmt_pct(row.usg_pct)}, TS {_fmt_pct(row.ts_pct)} "
-        f"({_fmt_float(row.cohort_percentile, 0)} pct cohort)"
+        f"Usage {_fmt_pct(row.usg_pct)} · TS {_fmt_pct(row.ts_pct)} · "
+        f"{_fmt_float(row.cohort_percentile, 0)}th cohort percentile"
     )
     evidence: List[str] = []
     evidence.append(f"Opportunity score {row.opportunity_score:+.2f}")
@@ -164,9 +165,9 @@ def _shot_profile_card(player_id: int, diagnosis) -> Optional[ScoutingBriefCard]
     summary = (
         f"{top_tags[0].label}"
         + (f" · {top_tags[1].label}" if len(top_tags) > 1 else "")
-        + f" — {diagnosis.sustainability}"
+        + f" · {diagnosis.sustainability}"
     )
-    evidence: List[str] = [f"Creation burden: {diagnosis.creation_burden}"]
+    evidence: List[str] = [f"Creation: {diagnosis.creation_burden}"]
     for tag in top_tags:
         if tag.evidence:
             ev = tag.evidence[0]
