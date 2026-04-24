@@ -5,13 +5,20 @@ using z-score normalization (within each season) followed by Euclidean distance.
 
 Normalization per season removes era bias — a player is compared to how they
 ranked among their peers, not against raw numbers from a different decade.
+
+Sprint 67 (B2) adds:
+- role-aware V2 distance with 4 extra features (par3, ftr, stl/36, blk/36)
+- `mode` parameter selecting the candidate pool: season|age|team_fit
+- archetype label attached to every comp via batch classify
+The legacy `find_similar_players(cross_era=...)` signature is preserved for
+existing callers (the /api/similarity/{player_id} default response).
 """
 
 from __future__ import annotations
 
 import math
 from collections import defaultdict
-from typing import Optional
+from typing import Dict, List, Literal, Optional, Tuple
 
 from sqlalchemy.orm import Session
 
@@ -175,4 +182,211 @@ def find_similar_players(
             "per": row.per,
         })
 
+    return results
+
+
+# ---------------------------------------------------------------------------
+# Sprint 67 (B2) — role-aware similarity with archetype attachment
+# ---------------------------------------------------------------------------
+
+SimilarityMode = Literal["season", "age", "team_fit"]
+
+# Extended feature set: the original 9 role-defining box stats plus 4 dimensions
+# that the Sprint 67 archetype engine uses (perimeter diet, foul drawing, and
+# per-36 defensive activity). These push "Nic Claxton vs Clint Capela" apart
+# from "Nic Claxton vs Draymond Green" in ways raw pts/reb/ast don't.
+SIMILARITY_STATS_V2: List[Tuple[str, float]] = [
+    *SIMILARITY_STATS,
+    ("par3", 1.0),   # FG3A / FGA
+    ("ftr",  1.0),   # FTA / FGA
+    ("stl_pg", 0.6),
+    ("blk_pg", 0.6),
+]
+STAT_KEYS_V2 = [s for s, _ in SIMILARITY_STATS_V2]
+
+# Age-mode window (season start year +/- this many years).
+AGE_WINDOW = 1
+
+
+def _qualified_rows_v2(db: Session) -> List[SeasonStat]:
+    """Same MIN_GP + regular-season filter as the legacy path but against the V2 feature list."""
+    rows = (
+        db.query(SeasonStat)
+        .filter(
+            SeasonStat.gp >= MIN_GP,
+            SeasonStat.is_playoff == False,  # noqa: E712
+        )
+        .all()
+    )
+    return [r for r in rows if all(getattr(r, k, None) is not None for k in STAT_KEYS_V2)]
+
+
+def _season_norms_v2(rows: List[SeasonStat]) -> Dict[str, Dict[str, Dict[str, float]]]:
+    by_season: Dict[str, Dict[str, List[float]]] = defaultdict(lambda: defaultdict(list))
+    for row in rows:
+        for key in STAT_KEYS_V2:
+            val = getattr(row, key, None)
+            if val is not None:
+                by_season[row.season][key].append(float(val))
+    norms: Dict[str, Dict[str, Dict[str, float]]] = {}
+    for season, stat_vals in by_season.items():
+        norms[season] = {}
+        for key, vals in stat_vals.items():
+            if len(vals) < 2:
+                norms[season][key] = {"mean": vals[0] if vals else 0.0, "std": 1.0}
+                continue
+            mean = sum(vals) / len(vals)
+            variance = sum((v - mean) ** 2 for v in vals) / (len(vals) - 1)
+            std = math.sqrt(variance) if variance > 0 else 1.0
+            norms[season][key] = {"mean": mean, "std": std}
+    return norms
+
+
+def _z_vector_v2(row: SeasonStat, norms: Dict[str, Dict[str, Dict[str, float]]]) -> Optional[List[float]]:
+    season_norms = norms.get(row.season)
+    if not season_norms:
+        return None
+    z: List[float] = []
+    for key, weight in SIMILARITY_STATS_V2:
+        stat_norm = season_norms.get(key)
+        val = getattr(row, key, None)
+        if stat_norm is None or val is None:
+            return None
+        std = stat_norm["std"] or 1.0
+        z.append(((float(val) - stat_norm["mean"]) / std) * weight)
+    return z
+
+
+def _player_birth_lookup(db: Session, player_ids: List[int]) -> Dict[int, Optional[str]]:
+    if not player_ids:
+        return {}
+    return {
+        p.id: p.birth_date
+        for p in db.query(Player).filter(Player.id.in_(player_ids)).all()
+    }
+
+
+def _build_candidate_pool(
+    all_rows: List[SeasonStat],
+    target_row: SeasonStat,
+    mode: SimilarityMode,
+    db: Session,
+) -> List[SeasonStat]:
+    """Filter the qualified pool down to the candidates a given mode cares about."""
+    # Never compare a player to themselves in that same season.
+    def _not_self(r: SeasonStat) -> bool:
+        return not (r.player_id == target_row.player_id and r.season == target_row.season)
+
+    if mode == "season":
+        return [r for r in all_rows if _not_self(r) and r.season == target_row.season]
+
+    if mode == "age":
+        # Import locally to avoid module-load cycle with player_archetype_service.
+        from services.player_archetype_service import parse_age_as_of_season
+
+        target_birth = _player_birth_lookup(db, [target_row.player_id]).get(target_row.player_id)
+        target_age = parse_age_as_of_season(target_birth, target_row.season)
+        if target_age is None:
+            return []
+
+        candidate_ids = list({r.player_id for r in all_rows})
+        births = _player_birth_lookup(db, candidate_ids)
+
+        out: List[SeasonStat] = []
+        for r in all_rows:
+            # In age mode, exclude the subject player across all seasons — showing
+            # "you at 23" next to "you at 25" isn't a comp, it's trivia.
+            if r.player_id == target_row.player_id:
+                continue
+            age = parse_age_as_of_season(births.get(r.player_id), r.season)
+            if age is None:
+                continue
+            if abs(age - target_age) <= AGE_WINDOW:
+                out.append(r)
+        return out
+
+    if mode == "team_fit":
+        # Deferred to Sprint 67 follow-up (plan task B10). Raise so the router can surface
+        # a clear 501 instead of silently returning season-mode comps.
+        raise NotImplementedError("team_fit similarity mode is deferred (plan task B10)")
+
+    raise ValueError(f"unknown similarity mode: {mode!r}")
+
+
+def find_similar_players_with_archetype(
+    db: Session,
+    player_id: int,
+    season: str,
+    mode: SimilarityMode = "season",
+    n: int = 8,
+) -> List[dict]:
+    """Sprint 67 (B2) role-aware similarity.
+
+    Extends the legacy 9-feature Euclidean distance with 4 archetype-defining
+    dimensions and attaches an archetype label to every returned comp. See
+    specs/sprint-67-archetype-rules.md §1.7 for contract details.
+    """
+    all_rows = _qualified_rows_v2(db)
+    norms = _season_norms_v2(all_rows)
+
+    target_row = next(
+        (r for r in all_rows if r.player_id == player_id and r.season == season),
+        None,
+    )
+    if target_row is None:
+        return []
+
+    target_vec = _z_vector_v2(target_row, norms)
+    if target_vec is None:
+        return []
+
+    candidates = _build_candidate_pool(all_rows, target_row, mode, db)
+    scored: List[Tuple[float, SeasonStat]] = []
+    for row in candidates:
+        vec = _z_vector_v2(row, norms)
+        if vec is None:
+            continue
+        scored.append((_euclidean(target_vec, vec), row))
+    scored.sort(key=lambda pair: pair[0])
+    top = scored[:n]
+
+    # Player metadata for display
+    player_ids = {row.player_id for _, row in top}
+    players = {p.id: p for p in db.query(Player).filter(Player.id.in_(player_ids)).all()}
+
+    # Batch-classify archetypes for each comp's (player_id, season).
+    # Grouping by season lets the classifier cache reuse frames cheaply.
+    from services.player_archetype_service import classify_player_archetype
+
+    archetype_cache: Dict[Tuple[int, str], object] = {}
+
+    def _archetype_for(pid: int, s: str):
+        key = (pid, s)
+        if key not in archetype_cache:
+            archetype_cache[key] = classify_player_archetype(db, pid, s)
+        return archetype_cache[key]
+
+    results: List[dict] = []
+    for dist, row in top:
+        player = players.get(row.player_id)
+        arch = _archetype_for(row.player_id, row.season)
+        results.append({
+            "player_id": row.player_id,
+            "player_name": player.full_name if player else str(row.player_id),
+            "headshot_url": player.headshot_url if player else None,
+            "season": row.season,
+            "team_abbreviation": row.team_abbreviation,
+            "similarity_score": _distance_to_similarity(dist),
+            "gp": row.gp,
+            "pts_pg": row.pts_pg,
+            "reb_pg": row.reb_pg,
+            "ast_pg": row.ast_pg,
+            "ts_pct": row.ts_pct,
+            "usg_pct": row.usg_pct,
+            "per": row.per,
+            # Sprint 67 additions
+            "archetype_key": getattr(arch, "archetype_key", None),
+            "archetype_label": getattr(arch, "label", None),
+            "archetype_confidence": getattr(arch, "confidence", None),
+        })
     return results

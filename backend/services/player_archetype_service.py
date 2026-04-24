@@ -101,6 +101,58 @@ def _cache_ttl(season: str) -> int:
 
 _HEIGHT_RE = re.compile(r"^\s*(\d+)\s*[-'’]\s*(\d+)")
 
+# Common birth_date string formats seen in the Players table.
+_BIRTH_DATE_FORMATS = (
+    "%Y-%m-%d",
+    "%Y-%m-%dT%H:%M:%S",
+    "%Y-%m-%d %H:%M:%S",
+    "%b %d, %Y",
+    "%B %d, %Y",
+    "%m/%d/%Y",
+)
+
+
+def parse_age_as_of_season(birth_date: Optional[str], season: str) -> Optional[int]:
+    """Return player age on Oct 1 of the season's start year.
+
+    `season == "2023-24"` → reference date 2023-10-01. Handles the variable
+    birth_date string formats seen in the Players table; returns None on
+    unparseable input.
+    """
+    if not birth_date:
+        return None
+    parsed = None
+    raw = str(birth_date).strip()
+    for fmt in _BIRTH_DATE_FORMATS:
+        try:
+            from datetime import datetime
+            parsed = datetime.strptime(raw, fmt).date()
+            break
+        except ValueError:
+            continue
+    if parsed is None:
+        # Last-resort: take the leading YYYY-MM-DD prefix if present.
+        import re as _re
+        m = _re.match(r"(\d{4})-(\d{2})-(\d{2})", raw)
+        if m:
+            try:
+                from datetime import date as _date
+                parsed = _date(int(m.group(1)), int(m.group(2)), int(m.group(3)))
+            except ValueError:
+                return None
+        else:
+            return None
+    try:
+        start_year = int(str(season).split("-")[0])
+    except (ValueError, IndexError):
+        return None
+    from datetime import date as _date2
+    ref = _date2(start_year, 10, 1)
+    years = ref.year - parsed.year - ((ref.month, ref.day) < (parsed.month, parsed.day))
+    if years < 15 or years > 50:
+        return None  # sanity range
+    return years
+
 
 def parse_height_to_inches(value: Optional[str]) -> Optional[int]:
     """Parse 'players.height' (string) into inches.
