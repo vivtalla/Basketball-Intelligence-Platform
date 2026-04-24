@@ -3,7 +3,7 @@
 import { Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { TrajectoryTracker } from "@/components/TrajectoryTracker";
-import UsageEfficiencyDashboard from "@/components/UsageEfficiencyDashboard";
+import OpportunityDashboard from "@/components/OpportunityDashboard";
 import TrendCardsPanel from "@/components/TrendCardsPanel";
 import WhatIfPanel from "@/components/WhatIfPanel";
 import StyleXRayWorkspace from "@/components/StyleXRayWorkspace";
@@ -79,7 +79,7 @@ function InsightsPageInner() {
           onPlayerPin={(id) => handleParamChange("player_id", id == null ? null : String(id))}
         />
       ) : mode === "usage" ? (
-        <UsageEfficiencyDashboard
+        <OpportunityDashboard
           season={season}
           team={team}
           pinnedPlayerId={selectedPlayerId}

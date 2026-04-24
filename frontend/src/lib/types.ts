@@ -1757,6 +1757,14 @@ export interface TrendCardsResponse {
   warnings: string[];
 }
 
+export interface ClaimInferenceConfidence {
+  level: "high" | "medium" | "low";
+  reasons: string[];
+  anchored_event_count: number;
+  opponent_specific_event_count: number;
+  evidence_source_diversity: number;
+}
+
 export interface ScoutingClaim {
   claim_id: string;
   title: string;
@@ -1768,6 +1776,7 @@ export interface ScoutingClaim {
   }[];
   drilldowns: InsightDrilldown[];
   clip_anchor_ids: string[];
+  inference_confidence?: ClaimInferenceConfidence | null;
 }
 
 export interface ScoutingSection {
@@ -1797,6 +1806,7 @@ export interface ScoutingClipAnchor {
   linkage_quality?: "exact" | "derived" | "timeline";
   source_context?: Record<string, string> | null;
   deep_link_url: string;
+  opponent_specific?: boolean;
 }
 
 export interface PlayTypeScoutingReportResponse {
@@ -3179,6 +3189,16 @@ export interface OpportunityRoleFit {
   ftr_bucket_avg: number | null;
   efg_pct: number | null;
   efg_bucket_avg: number | null;
+  ast_pg: number | null;
+  ast_bucket_avg: number | null;
+  tov_pg: number | null;
+  tov_bucket_avg: number | null;
+}
+
+export interface OpportunityCompareHandoff {
+  pinned_player_id: number;
+  positional_peers: number[];
+  cohort_bucket: string;
 }
 
 export interface OpportunityPlayerRow {
@@ -3214,6 +3234,7 @@ export interface OpportunityPlayerRow {
   directional_hint: string | null;
   hint_basis: string[];
   top_driver: OpportunitySignal | null;
+  compare_handoff: OpportunityCompareHandoff | null;
 }
 
 export interface OpportunityMethodology {
@@ -3390,22 +3411,6 @@ export interface PreReadPrepContext {
   style_replay_target?: ReplayLaunchTarget | null;
   xray_url?: string | null;
   replay_url?: string | null;
-}
-
-export interface UsageEfficiencyPlayerRow {
-  player_id: number;
-  player_name: string;
-  team_abbreviation: string | null;
-  minutes_pg: number | null;
-  usg_pct: number | null;
-  ts_pct: number | null;
-  off_rating: number | null;
-  pts_pg: number | null;
-  ast_pg: number | null;
-  tov_pg: number | null;
-  burden_score: number | null;
-  efficiency_score: number | null;
-  category: "overused" | "underused";
 }
 
 export interface OpponentPlayTypeRow {

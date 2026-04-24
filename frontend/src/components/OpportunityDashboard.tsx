@@ -23,7 +23,7 @@ import {
 
 type SignalFilter = "all" | OpportunitySignal;
 
-interface UsageEfficiencyDashboardProps {
+interface OpportunityDashboardProps {
   season: string;
   team: string;
   pinnedPlayerId: number | null;
@@ -52,14 +52,14 @@ function isSignalFilter(value: string): value is OpportunitySignal {
   return SIGNAL_FILTER_OPTIONS.some((option) => option.value === value && value !== "all");
 }
 
-export default function UsageEfficiencyDashboard({
+export default function OpportunityDashboard({
   season,
   team,
   pinnedPlayerId,
   signal,
   onPlayerPin,
   onSignalChange,
-}: UsageEfficiencyDashboardProps) {
+}: OpportunityDashboardProps) {
   const [position, setPosition] = useState("");
   const [minMinutes, setMinMinutes] = useState(15);
   const [selectedId, setSelectedId] = useState<number | null>(null);
