@@ -1,6 +1,6 @@
 # Sprint 67 — Archetype & Shot Diagnosis Taxonomy
 
-**Status:** A1 (player archetypes) complete by Claude. A2 (shot diagnosis tags) pending Codex.
+**Status:** A1 (player archetypes) — 15 archetypes, tuned twice; ready for B1 implementation. A2 (shot diagnosis tags) pending Codex.
 **Consumed by:** `backend/services/player_archetype_service.py` (A1) and `backend/services/shot_diagnosis_service.py` (A2).
 **Discipline:** deterministic rules only, mirroring `backend/routers/styles.py::classify_archetype` (Sprint 60). No ML, no embeddings.
 
@@ -39,35 +39,40 @@ All features are computed from `SeasonStat` (and `Player` for size). No new upst
 
 ### 1.2 Archetype catalog
 
-14 archetypes total, ordered most-specific → least-specific in the classifier (first match wins, like `classify_archetype`). Every archetype has (a) trigger rule, (b) reason phrase template, and (c) trigger-magnitude list feeding `_archetype_confidence`.
+15 archetypes total, ordered most-specific → least-specific in the classifier (first match wins, like `classify_archetype`). Every archetype has (a) trigger rule, (b) reason phrase template, and (c) trigger-magnitude list feeding `_archetype_confidence`.
 
-**Ordering policy.** Offensive-identity rules first (heliocentric → ball-handler → iso scorer → secondary playmaker), then shooter/wing profiles (movement shooter → 3-and-D → rim pressure guard → connective forward), then interior offense (interior finisher), then defensive-primary rules (defensive anchor → stretch big → switchable stopper), then low-usage fallback (rotational energy), then the developmental catch-all. Defensive Anchor is intentionally placed **before** Stretch Big so that Wembanyama / Holmgren-type players whose defense defines them don't get re-labeled by incidental perimeter volume.
+**Ordering policy.** Offensive-identity rules first (heliocentric → ball-handler → iso scorer → secondary playmaker), then shooter/wing profiles (movement shooter → 3-and-D → rim pressure guard → connective forward), then the defensive-primary big lane (defensive anchor) before the offensive-primary big lanes (interior finisher → stretch big), then perimeter defense (switchable stopper), then low-usage fallback (rotational energy), then the two `balanced_role` / `developmental` catch-alls. Defensive Anchor is intentionally placed **before** Interior Finisher and Stretch Big so that Wembanyama / Gobert / Holmgren — players whose defense defines them — don't get relabeled by their offensive profile.
 
 | # | Key | Label | Trigger | Reason template |
 |---|---|---|---|---|
-| 1 | `heliocentric_creator` | Heliocentric Creator | `usg_z >= 1.2 AND ast_rate_z >= 1.0 AND obpm_z >= 1.0` | "High usage, elite playmaking, and above-average efficiency — possessions orbit this player." |
+| 1 | `heliocentric_creator` | Heliocentric Creator | `usg_z >= 1.0 AND ast_rate_z >= 1.0 AND obpm_z >= 1.0` | "High usage, elite playmaking, and above-average efficiency — possessions orbit this player." |
 | 2 | `lead_ball_handler` | Lead Ball-Handler | `usg_z >= 0.7 AND ast_rate_z >= 0.8` | "High usage with heavy on-ball creation — defined by volume and playmaking regardless of shot diet." |
 | 3 | `iso_scorer` | Iso Scorer | `usg_z >= 0.7 AND ast_rate_z <= 0.5 AND par3_z <= 0.0 AND ftr_z >= 0.2` | "High-usage mid-range and rim scorer without a heavy passing burden — a bucket-getter." |
 | 4 | `secondary_playmaker` | Secondary Playmaker | `ast_rate_z >= 0.6 AND usg_z <= 0.5 AND ast_tov_z >= 0.3` | "Connective passing with controlled usage and low turnover risk." |
 | 5 | `movement_shooter` | Movement Shooter | `par3_z >= 0.8 AND fg3_pct_z >= 0.3 AND usg_z <= 0.5` | "High perimeter volume at reliable accuracy in a low-to-moderate usage role." |
 | 6 | `three_and_d_wing` | 3-and-D Wing | `par3_z >= 0.5 AND fg3_pct_z >= 0.3 AND dbpm_z >= 0.5 AND 77 <= size_inches <= 82` | "Spot-up perimeter threat at wing size paired with above-average defense." |
 | 7 | `rim_pressure_guard` | Rim Pressure Guard | `ftr_z >= 0.6 AND par3_z <= 0.0 AND usg_z >= 0.0 AND size_inches <= 77` | "Downhill guard with above-average foul drawing, a paint-first diet, and meaningful on-ball usage." |
-| 8 | `connective_forward` | Connective Forward | `ast_rate_z >= 0.4 AND par3_z >= 0.2 AND size_inches >= 78 AND usg_z <= 0.5` | "Positional playmaking from the wing/forward with modern spacing." |
-| 9 | `interior_finisher` | Interior Finisher | `ts_z >= 0.7 AND par3_z <= -0.4 AND oreb_z >= 0.4` | "Paint-bound scorer finishing efficiently at high volume inside, with rebound activity." |
-| 10 | `defensive_anchor` | Defensive Anchor | `blk_rate_z >= 1.0 AND dbpm_z >= 0.8 AND size_inches >= 80` | "Rim protection and team-defense impact anchor the back line." |
-| 11 | `stretch_big` | Stretch Big | `par3_z >= 0.5 AND size_inches >= 80 AND blk_rate_z >= -0.2` | "Frontcourt size with a perimeter shot the opponent must respect." |
-| 12 | `switchable_stopper` | Switchable Stopper | `stl_rate_z >= 0.7 AND dbpm_z >= 0.6 AND 76 <= size_inches <= 82` | "On-ball disruption at wing size — switches across multiple positions." |
+| 8 | `connective_forward` | Connective Forward | `ast_rate_z >= 0.4 AND size_inches >= 78 AND usg_z <= 0.5` | "Positional playmaking from the wing/forward, regardless of shot diet." |
+| 9 | `defensive_anchor` | Defensive Anchor | `blk_rate_z >= 1.0 AND dbpm_z >= 0.8 AND size_inches >= 80` | "Rim protection and team-defense impact anchor the back line." |
+| 10 | `interior_finisher` | Interior Finisher | `ts_z >= 0.7 AND par3_z <= -0.4 AND oreb_z >= 0.4` | "Paint-bound scorer finishing efficiently at high volume inside, with rebound activity." |
+| 11 | `stretch_big` | Stretch Big | `par3_z >= 0.5 AND size_inches >= 80` | "Frontcourt size with a perimeter shot the opponent must respect." |
+| 12 | `switchable_stopper` | Switchable Stopper | `stl_rate_z >= 0.7 AND dbpm_z >= 0.6 AND 75 <= size_inches <= 82` | "On-ball disruption at wing or combo-guard size — switches across multiple positions." |
 | 13 | `rotational_energy` | Rotational Energy | `oreb_z >= 0.5 AND ftr_z >= 0.3 AND usg_z <= 0.0` | "Low-usage energy role — second chances, fouls drawn, hustle impact." |
-| 14 | `developmental` | Developmental / Balanced | Fallback: no rule above fired | If `gp < 30 OR min_pg < 20`: "Sample too thin to commit to an archetype yet." Otherwise emit `reason_variant="balanced"`: "Role profile sits near league average across the archetype-defining features." Label flips to **"Balanced Role"** for the balanced variant. |
+| 14 | `balanced_role` | Balanced Role | No rule above fired **AND** `gp >= 30 AND min_pg >= 20` | "Role profile sits near league average across the archetype-defining features — no single style signal dominates." |
+| 15 | `developmental` | Developmental | No rule above fired **AND** (`gp < 30 OR min_pg < 20`) | "Sample too thin to commit to an archetype yet." |
 
 **Rationale notes on specific thresholds (don't "clean these up" without re-reading).**
-- `lead_ball_handler` has *no* `par3_z` gate. This is deliberate — a high-usage, high-assist guard with a mid-range diet (SGA-style, DeRozan-style when playmaking) is still a lead ball-handler. Adding a par3 floor previously orphaned the entire mid-range-creator lane.
-- `iso_scorer` (rank 3) catches the *other* side: high usage, low assists, mid-range-heavy scorers like DeMar DeRozan's peak. Positioned right after `lead_ball_handler` so a DeRozan-year with higher-than-usual assists still routes to ball-handler.
+- `heliocentric_creator`'s `usg_z >= 1.0` (not 1.2) is intentional. Top-~15% usage combined with elite playmaking and obpm is a strong enough signal; 1.2 was excluding Jokić-style centers whose usage is "only" top-15 rather than top-5.
+- `lead_ball_handler` has *no* `par3_z` gate. A high-usage, high-assist guard with a mid-range diet (SGA-style) is still a lead ball-handler. Adding a par3 floor previously orphaned the mid-range-creator lane.
+- `iso_scorer` (rank 3) catches the *other* side: high usage, low assists, mid-range-heavy scorers (DeMar DeRozan peak). Positioned right after `lead_ball_handler` so a DeRozan-year with spiked assists still routes to ball-handler.
 - `movement_shooter` (rank 5) was loosened from the original `par3_z >= 1.0 / fg3_pct_z >= 0.6` to catch high-volume veteran shooters whose accuracy dropped to league-average but whose role is still specialist spacer (late-career Klay Thompson profile).
 - `three_and_d_wing` size floor raised to 77" (6'5") to exclude pure guards whose defense happens to grade well.
-- `rim_pressure_guard` thresholds tuned: `ftr_z >= 0.6` catches top-~30% rim pressure (was top-~20%, too strict); `par3_z <= 0.0` means below-average 3PA rate (was `<= 0.2` which paradoxically allowed above-average perimeter volume); `usg_z >= 0.0` floor distinguishes an on-ball creator from a bench energy guard.
-- `stretch_big` `blk_rate_z >= -0.2` floor excludes pure stretch-4s with no rim presence, preserving the "big" framing. Defensive Anchor fires first for elite rim protectors, so Stretch Big is what's *left* — size-gated floor-spacers who aren't defensive-primary.
-- `defensive_anchor` placed before `stretch_big` so Wembanyama / Chet Holmgren, who shoot threes but are *defined by* rim protection, route to the defensive label.
+- `rim_pressure_guard` thresholds tuned: `ftr_z >= 0.6` (top-~30%, was top-~20% too strict); `par3_z <= 0.0` (below-average perimeter volume — archetype *requires* paint-first); `usg_z >= 0.0` floor distinguishes an on-ball creator from a bench energy guard.
+- `connective_forward` drops the `par3_z` gate so old-school passing forwards (Draymond in his low-shooting years, or any non-spacing connective big) still route here. The signal is passing at size, not modern spacing.
+- `defensive_anchor` placed at rank 9 (before Interior Finisher at 10 and Stretch Big at 11) so rim-protecting bigs with *any* offensive profile — shooting (Chet, Wemby) or paint-scoring (Gobert) — route to the defensive label that defines them.
+- `stretch_big` dropped the `blk_rate_z >= -0.2` floor. Size-gated wings/forwards who bomb 3s (Keegan Murray, Jabari Smith Jr.) legitimately fit the archetype even without rim presence.
+- `switchable_stopper` size floor lowered from 76 to 75 (6'3") to catch strong-built combo-guard stoppers like Lu Dort.
+- `balanced_role` (rank 14) and `developmental` (rank 15) are distinct archetype keys, not variants of the same key. A rotation player whose feature profile is genuinely league-average is a different story from a low-sample player; the schema makes that honest.
 
 ### 1.3 Confidence band
 
@@ -131,17 +136,17 @@ One golden test per archetype using a known-plausible player / season. If the re
 | `secondary_playmaker` | Tyrese Haliburton 2022-23 (pre-injury) | — |
 | `movement_shooter` | Duncan Robinson 2023-24 | — |
 | `three_and_d_wing` | OG Anunoby 2023-24 | Must fail Movement Shooter (`par3_z < 0.8` or `usg_z > 0.5`). |
-| `rim_pressure_guard` | Ja Morant 2022-23 | — |
+| `rim_pressure_guard` | De'Aaron Fox 2022-23 | Must fail Lead Ball-Handler (`ast_rate_z < 0.8`) — Fox's moderate assist rate is the distinguishing feature vs. Morant-style ball-handlers. |
 | `connective_forward` | Draymond Green 2022-23 | — |
-| `interior_finisher` | Jarrett Allen 2023-24 (Gobert-type offensive profile without Defensive Anchor tripping; Gobert himself routes to Defensive Anchor first) | Gobert routes to Defensive Anchor at rank 10 before reaching this rule. |
-| `defensive_anchor` | Victor Wembanyama 2024-25 | Fires before Stretch Big, so Wemby's 3PA volume doesn't relabel him. |
+| `defensive_anchor` | Victor Wembanyama 2024-25 | Fires before Interior Finisher and Stretch Big, so rim-protecting bigs with any offensive profile route here. Rudy Gobert 2020-21 also routes here (not to Interior Finisher). |
+| `interior_finisher` | Ivica Zubac 2023-24 | Must fail Defensive Anchor (`dbpm_z < 0.8` or `blk_rate_z < 1.0`). Zubac's solid-but-not-elite rim protection is the distinguishing feature vs. Gobert. |
 | `stretch_big` | Kristaps Porziņģis 2023-24 | Must fail Defensive Anchor (`dbpm_z < 0.8` typically). |
 | `switchable_stopper` | Jrue Holiday 2022-23 | — |
-| `rotational_energy` | Mitchell Robinson 2022-23 | — |
+| `rotational_energy` | Mitchell Robinson 2022-23 | Must fail Defensive Anchor — his blk_rate is elite but `size_inches >= 80` is close and `dbpm_z >= 0.8` may trip. If DA triggers, this routes to DA and the fixture should be moved. Fallback fixture: **Robert Williams III** in a low-minutes season. |
+| `balanced_role` | Harrison Barnes 2023-24 | Rotation-starter workload (`gp >= 30 AND min_pg >= 20`) with no feature crossing any archetype threshold. |
 | `developmental` | Any player with `gp < 30 OR min_pg < 20` | — |
-| `developmental` (balanced) | Any rotation player with no rule firing | `reason_variant="balanced"` — label renders as "Balanced Role". |
 
-**Rule ordering policy.** First rule whose trigger evaluates true wins. If a fixture expects a later archetype, the earlier rules must fail their own triggers on that fixture — never rely on short-circuit logic beyond the documented ordering.
+**Rule ordering policy.** First rule whose trigger evaluates true wins. If a fixture expects a later archetype, the earlier rules must fail their own triggers on that fixture — never rely on short-circuit logic beyond the documented ordering. Fixtures are aspirational-plausible: when real 2024-25 data disagrees with a fixture, tune the thresholds in the spec *before* changing the test, but tune only if the basketball argument is stronger than the fixture itself.
 
 ---
 
@@ -162,3 +167,4 @@ Expected structure:
 
 - 2026-04-23 (Claude): A1 drafted. 13 archetypes, feature dictionary, confidence bands, similarity mode extensions, golden test fixtures.
 - 2026-04-23 (Claude): A1 review/tune pass. Catalog grew to 14 archetypes. Changes: (a) dropped `par3_z >= 0.2` gate from Lead Ball-Handler so mid-range creators route correctly; (b) added `iso_scorer` archetype to catch high-usage low-assist mid-range scorers (DeRozan prototype); (c) reordered Defensive Anchor before Stretch Big so rim-protecting shooters (Wemby, Chet) route defensively; (d) loosened Movement Shooter (`par3_z >= 0.8 AND fg3_pct_z >= 0.3 AND usg_z <= 0.5`); (e) raised 3-and-D Wing size floor to 77"; (f) tuned Rim Pressure Guard: `ftr_z >= 0.6`, `par3_z <= 0.0`, new `usg_z >= 0.0` floor; (g) added rationale notes for thresholds that look odd but are load-bearing; (h) updated fixture table with dual-eligibility notes; (i) split developmental into "thin sample" vs "balanced role" variants.
+- 2026-04-23 (Claude): A1 second tune pass. Catalog now 15 archetypes with real schema split between `balanced_role` and `developmental`. Changes: (a) **BUG** — moved Defensive Anchor from rank 10 to rank 9 so Gobert's offensive profile can't route him to Interior Finisher first; (b) dropped `par3_z >= 0.2` gate from Connective Forward (old-school passing forwards don't need modern spacing); (c) dropped `blk_rate_z >= -0.2` floor from Stretch Big (size gate is enough; Keegan Murray / Jabari Smith types legitimately fit); (d) lowered Switchable Stopper size floor from 76 to 75 (catches Lu Dort); (e) lowered Heliocentric usg threshold from 1.2 to 1.0 (lets Jokić-volume centers route here); (f) **BUG** — swapped Rim Pressure Guard fixture from Ja Morant (fires Lead Ball-Handler) to De'Aaron Fox 22-23; (g) swapped Interior Finisher fixture to Ivica Zubac so it's clearly distinguishable from Defensive Anchor; (h) promoted `balanced_role` to a real 15th archetype key instead of a `reason_variant` flag. Confidence band thresholds unchanged.
