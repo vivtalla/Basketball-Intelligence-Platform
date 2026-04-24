@@ -1,6 +1,7 @@
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi.responses import PlainTextResponse
 from sqlalchemy.orm import Session
 
 from db.database import get_db
@@ -9,14 +10,17 @@ from models.pre_read import (
     PreReadSnapshotCreateRequest,
     PreReadSnapshotListResponse,
     PreReadSnapshotResponse,
+    PreReadSnapshotUpdateRequest,
 )
 from models.scouting import PlayTypeScoutingReportResponse
 from routers.scouting import build_play_type_scouting_report
 from services.pre_read_service import build_pre_read_deck
 from services.pre_read_snapshot_service import (
     create_pre_read_snapshot,
+    export_pre_read_snapshot_markdown,
     get_pre_read_snapshot,
     list_pre_read_snapshots,
+    update_pre_read_snapshot,
 )
 
 router = APIRouter()
@@ -62,6 +66,23 @@ def get_pre_read_snapshot_route(
     db: Session = Depends(get_db),
 ):
     return get_pre_read_snapshot(db=db, snapshot_id=snapshot_id)
+
+
+@router.patch("/snapshots/{snapshot_id}", response_model=PreReadSnapshotResponse)
+def patch_pre_read_snapshot_route(
+    snapshot_id: str,
+    payload: PreReadSnapshotUpdateRequest,
+    db: Session = Depends(get_db),
+):
+    return update_pre_read_snapshot(db=db, snapshot_id=snapshot_id, payload=payload)
+
+
+@router.get("/snapshots/{snapshot_id}/markdown", response_class=PlainTextResponse)
+def get_pre_read_snapshot_markdown_route(
+    snapshot_id: str,
+    db: Session = Depends(get_db),
+):
+    return export_pre_read_snapshot_markdown(db=db, snapshot_id=snapshot_id)
 
 
 @router.get("/scouting", response_model=PlayTypeScoutingReportResponse)

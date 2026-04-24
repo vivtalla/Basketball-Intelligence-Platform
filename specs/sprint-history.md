@@ -742,3 +742,24 @@ Eliminated live NBA API calls on every player profile load:
 - Added replay-aware coaching follow-through and prep snapshot continuity keyed by matchup/date, while preserving evidence source and exact/derived/timeline trust state.
 - Added trust-note handling for ambiguous official split families, including assisted-shot caution wording and weaker-claim gating.
 - Verified with targeted backend tests, frontend `npm run lint`, frontend `npm run build`, and `git diff --check`.
+
+---
+
+### Sprint 65 — Scouting & Opportunity Fit
+**Branch:** `feature/sprint-65-scouting-opportunity-fit` (Claude, single-stream)
+
+- Added in-process TTL cache on `build_opportunity_report`, compare-handoff peers per row, and AST/G + TOV/G role-fit depth so Opportunity became more reusable inside staff workflows.
+- Added `ClaimInferenceConfidence` on every scouting claim, opponent-specific anchored-play counts, confidence-order ranking inside sections, and claim-level Compare handoff with inbound-context banners on Compare and Pre-Read.
+- Renamed `UsageEfficiencyDashboard.tsx` to `OpportunityDashboard.tsx`, deleted stale pre-Sprint-58 usage scaffolding, and fixed compound position bucketing so hybrid-position players stop falling into `other`.
+- Verified with 14 new backend tests, frontend `npm run lint`, frontend `npm run build`, and live dev-server exercise.
+
+---
+
+### Sprint 66 — Staff Packet And Coaching Handoff
+**Branch:** `codex-sprint-66-staff-packet-handoff` (Codex, single-stream)
+
+- Upgraded `pre_read_snapshots` into named staff packets with Alembic revision `0010_pre_read_packet_metadata`, editable packet metadata (`title`, `note`), and frozen packet payload preservation.
+- Added packet-aware Pre-Read snapshot contracts and service flows for create/list/get/update, matchup/team-history packet summaries, and markdown export generated from the saved snapshot.
+- Rebuilt `/pre-read` around a packet workflow: packet library tabs, inline packet metadata editing, scouting-packet rendering, and snapshot-level `Open` / `Copy share link` / `Export markdown` actions.
+- Added ScoutingReportView packet pinning so analysts can carry up to 3 claims with confidence pills and ranked clip anchors directly into the saved Pre-Read packet.
+- Verified with targeted Sprint 66 backend tests, full backend `pytest` (196 passing), frontend `npm run build`, frontend `npm run lint` with pre-existing warnings only, and a live manual smoke walkthrough after applying the local Postgres migration.

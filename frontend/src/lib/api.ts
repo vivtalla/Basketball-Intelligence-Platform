@@ -1535,3 +1535,51 @@ export async function getTeamBenchAnalytics(
     `/api/teams/${encodeURIComponent(teamAbbreviation)}/bench-analytics?season=${encodeURIComponent(season)}&min_possessions=${minPossessions}`
   );
 }
+
+async function fetchApiText(path: string, init?: RequestInit): Promise<string> {
+  const res = await fetch(`${API_BASE}${path}`, init);
+  if (!res.ok) {
+    throw new Error(`API error: ${res.status} ${res.statusText}`);
+  }
+  return res.text();
+}
+
+export async function createPreReadPacketSnapshot(payload: {
+  team: string;
+  opponent: string;
+  season: string;
+  game_id?: string;
+  source_view?: string;
+  source_snapshot_id?: string;
+  title?: string;
+  note?: string;
+  packet_selection?: import("./types").PreReadPacketSelection;
+  context?: Record<string, string>;
+}): Promise<import("./types").PreReadSnapshotResponse> {
+  return fetchApi<import("./types").PreReadSnapshotResponse>(`/api/pre-read/snapshots`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function updatePreReadPacketSnapshot(
+  snapshotId: string,
+  payload: {
+    title?: string;
+    note?: string;
+  }
+): Promise<import("./types").PreReadSnapshotResponse> {
+  return fetchApi<import("./types").PreReadSnapshotResponse>(
+    `/api/pre-read/snapshots/${encodeURIComponent(snapshotId)}`,
+    {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    }
+  );
+}
+
+export async function getPreReadSnapshotMarkdown(snapshotId: string): Promise<string> {
+  return fetchApiText(`/api/pre-read/snapshots/${encodeURIComponent(snapshotId)}/markdown`);
+}

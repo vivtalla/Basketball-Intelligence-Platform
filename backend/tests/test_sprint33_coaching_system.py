@@ -19,6 +19,7 @@ from db.models import (  # noqa: E402
     TeamStanding,
     WarehouseGame,
 )
+from data.cache import CacheManager  # noqa: E402
 from models.trends import WhatIfRequest  # noqa: E402
 from models.scouting import ScoutingClipExportRequest  # noqa: E402
 from routers.scouting import build_play_type_scouting_report, export_scouting_clip_list  # noqa: E402
@@ -30,6 +31,7 @@ from models.pre_read import PreReadSnapshotCreateRequest  # noqa: E402
 
 
 def make_session():
+    CacheManager.initialize()
     engine = create_engine("sqlite:///:memory:")
     testing_session = sessionmaker(autocommit=False, autoflush=False, bind=engine)
     Base.metadata.create_all(bind=engine)

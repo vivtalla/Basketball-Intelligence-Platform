@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { useState, useTransition } from "react";
-import { createPreReadSnapshot } from "@/lib/api";
-import type { TeamPrepQueueResponse, TeamSplitsResponse } from "@/lib/types";
+import { createPreReadPacketSnapshot, updatePreReadPacketSnapshot } from "@/lib/api";
+import type { PreReadSnapshotResponse, TeamPrepQueueResponse, TeamSplitsResponse } from "@/lib/types";
 
 interface TeamPrepQueuePanelProps {
   queue: TeamPrepQueueResponse;
@@ -56,6 +56,10 @@ function plusMinusTone(value: number | null | undefined): string {
 export default function TeamPrepQueuePanel({ queue, splits }: TeamPrepQueuePanelProps) {
   const [copiedGameId, setCopiedGameId] = useState<string | null>(null);
   const [savedGameId, setSavedGameId] = useState<string | null>(null);
+  const [savingGameId, setSavingGameId] = useState<string | null>(null);
+  const [updatingGameId, setUpdatingGameId] = useState<string | null>(null);
+  const [savedPackets, setSavedPackets] = useState<Record<string, PreReadSnapshotResponse>>({});
+  const [packetDrafts, setPacketDrafts] = useState<Record<string, { title: string; note: string }>>({});
   const [isSaving, startSaving] = useTransition();
 
   async function copyShareLink(url: string, gameId: string) {
@@ -69,9 +73,10 @@ export default function TeamPrepQueuePanel({ queue, splits }: TeamPrepQueuePanel
   }
 
   function saveSnapshot(item: TeamPrepQueueResponse["items"][number]) {
+    setSavingGameId(item.game_id);
     startSaving(async () => {
       try {
-        await createPreReadSnapshot({
+        const response = await createPreReadPacketSnapshot({
           team: queue.abbreviation,
           opponent: item.opponent_abbreviation ?? "",
           season: queue.season,
@@ -89,12 +94,42 @@ export default function TeamPrepQueuePanel({ queue, splits }: TeamPrepQueuePanel
             shot_profile_value: item.shot_profile_driver?.split_value ?? "",
           },
         });
+        setSavedPackets((current) => ({ ...current, [item.game_id]: response }));
+        setPacketDrafts((current) => ({
+          ...current,
+          [item.game_id]: {
+            title: response.title ?? "",
+            note: response.note ?? "",
+          },
+        }));
         setSavedGameId(item.game_id);
         window.setTimeout(() => {
           setSavedGameId((current) => (current === item.game_id ? null : current));
         }, 1800);
       } catch {
         setSavedGameId("error");
+      } finally {
+        setSavingGameId(null);
+      }
+    });
+  }
+
+  function updatePacket(gameId: string, snapshotId: string) {
+    const draft = packetDrafts[gameId];
+    if (!draft) return;
+    setUpdatingGameId(gameId);
+    startSaving(async () => {
+      try {
+        const response = await updatePreReadPacketSnapshot(snapshotId, {
+          title: draft.title,
+          note: draft.note,
+        });
+        setSavedPackets((current) => ({ ...current, [gameId]: response }));
+        setSavedGameId(gameId);
+      } catch {
+        setSavedGameId("error");
+      } finally {
+        setUpdatingGameId(null);
       }
     });
   }
@@ -133,248 +168,301 @@ export default function TeamPrepQueuePanel({ queue, splits }: TeamPrepQueuePanel
       ) : (
         <section className="grid gap-4 xl:grid-cols-2">
           {queue.items.map((item) => (
-            <article
-              key={item.game_id}
-              className="relative overflow-hidden rounded-[1.8rem] border border-[var(--border)] bg-[linear-gradient(145deg,rgba(255,255,255,0.95),rgba(231,239,235,0.82))] p-6 shadow-[0_18px_45px_rgba(20,37,29,0.08)]"
-            >
-              <div className="pointer-events-none absolute inset-x-0 top-0 h-1 bg-[linear-gradient(90deg,var(--accent),rgba(181,145,78,0.7),rgba(165,72,54,0.7))]" />
-              <div className="flex items-start justify-between gap-4">
-                <div>
-                  <div className="flex flex-wrap items-center gap-2">
-                    <span className={`rounded-full px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] ${urgencyTone(item.prep_urgency)}`}>
-                      {item.prep_urgency} urgency
-                    </span>
-                    <span className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--muted)]">
-                      {item.game_date ?? "TBD"} · {item.is_home ? "vs" : "at"}
-                    </span>
-                  </div>
-                  <h3 className="mt-2 text-2xl font-semibold text-[var(--foreground)]">
-                    {item.opponent_abbreviation ?? item.opponent_name ?? "Opponent TBD"}
-                  </h3>
-                  <p className="mt-2 text-sm text-[var(--muted-strong)]">
-                    {item.opponent_record
-                      ? `${item.opponent_record}${item.opponent_playoff_rank ? ` · ${item.opponent_conference ?? "Conference"} #${item.opponent_playoff_rank}` : ""}`
-                      : "Standings context is still filling in."}
-                  </p>
-                  <p className="mt-3 max-w-2xl text-sm leading-6 text-[var(--muted-strong)]">
-                    {item.prep_headline}
-                  </p>
-                  {item.urgency_rationale ? (
-                    <p className="mt-2 text-xs font-semibold uppercase tracking-[0.14em] text-[var(--muted)]">
-                      Why now: {item.urgency_rationale}
-                    </p>
-                  ) : null}
-                </div>
-                <div className="rounded-2xl border border-[var(--border)] bg-[rgba(255,255,255,0.68)] px-4 py-3 text-right">
-                  <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[var(--muted)]">
-                    Schedule
-                  </div>
-                  <div className="mt-2 text-sm font-semibold text-[var(--foreground)]">
-                    {item.schedule_pressure}
-                  </div>
-                  <div className={`mt-1 text-xs ${restTone(item.rest_advantage)}`}>
-                    {restLabel(item.team_rest_days)} vs {restLabel(item.opponent_rest_days)}
-                  </div>
-                </div>
-              </div>
-
-              {splits && splits.splits.length > 0 && (() => {
-                const locationValue = item.is_home ? "Home" : "Away";
-                const locationRow = splits.splits.find(
-                  (r) => r.split_family === "Location" && r.split_value === locationValue
-                );
-                const wlRow = splits.splits.find(
-                  (r) => r.split_family === "Win/Loss" && r.split_value === "Wins"
-                );
-                if (!locationRow && !wlRow) return null;
-                return (
-                  <div className="mt-4 flex flex-wrap gap-3">
-                    {locationRow && (
-                      <div className="rounded-xl border border-[var(--border)] bg-[rgba(255,255,255,0.56)] px-3 py-2 text-xs">
-                        <span className="font-semibold uppercase tracking-[0.14em] text-[var(--muted)]">
-                          {locationValue} W%
-                        </span>
-                        <span className="ml-2 font-bold text-[var(--foreground)]">
-                          {fmtPct(locationRow.w_pct)}
-                        </span>
-                        <span className="ml-1 text-[var(--muted)]">
-                          ({locationRow.w}–{locationRow.l})
-                        </span>
-                        {locationRow.plus_minus != null && (
-                          <span className={`ml-2 font-semibold ${plusMinusTone(locationRow.plus_minus)}`}>
-                            {fmtPlusMinus(locationRow.plus_minus)} +/-
-                          </span>
-                        )}
-                      </div>
-                    )}
-                    {wlRow && (
-                      <div className="rounded-xl border border-[var(--border)] bg-[rgba(255,255,255,0.56)] px-3 py-2 text-xs">
-                        <span className="font-semibold uppercase tracking-[0.14em] text-[var(--muted)]">
-                          In Wins
-                        </span>
-                        <span className="ml-2 font-bold text-[var(--foreground)]">
-                          {fmtPct(wlRow.w_pct)}
-                        </span>
-                        {wlRow.pts != null && (
-                          <span className="ml-2 text-[var(--muted-strong)]">
-                            {wlRow.pts.toFixed(1)} PTS
-                          </span>
-                        )}
-                        {wlRow.plus_minus != null && (
-                          <span className={`ml-2 font-semibold ${plusMinusTone(wlRow.plus_minus)}`}>
-                            {fmtPlusMinus(wlRow.plus_minus)} +/-
-                          </span>
-                        )}
-                      </div>
-                    )}
-                  </div>
-                );
-              })()}
-
-              <div className="mt-5 grid gap-3 md:grid-cols-3">
-                <div className="rounded-2xl border border-[var(--border)] bg-[rgba(255,255,255,0.72)] p-4">
-                  <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[var(--muted)]">
-                    Availability Watch
-                  </div>
-                  <div className="mt-2 text-sm leading-6 text-[var(--muted-strong)]">
-                    {item.availability_summary}
-                  </div>
-                  <div className="mt-3 flex flex-wrap gap-2 text-[11px] font-semibold uppercase tracking-[0.16em]">
-                    <span className="rounded-full bg-[rgba(165,72,54,0.12)] px-2 py-1 text-[var(--danger-ink)]">
-                      Out {item.unavailable_count}
-                    </span>
-                    <span className="rounded-full bg-[rgba(181,145,78,0.14)] px-2 py-1 text-[var(--foreground)]">
-                      Q {item.questionable_count}
-                    </span>
-                    <span className="rounded-full bg-[rgba(33,72,59,0.08)] px-2 py-1 text-[var(--accent-strong)]">
-                      P {item.probable_count}
-                    </span>
-                  </div>
-                </div>
-                <div className="rounded-2xl border border-[var(--border)] bg-[rgba(255,255,255,0.72)] p-4">
-                  <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[var(--muted)]">
-                    Best Edge To Press
-                  </div>
-                  <div className="mt-2 text-sm font-semibold text-[var(--foreground)]">
-                    {item.best_edge_label ?? "Still calibrating"}
-                  </div>
-                  <div className="mt-1 text-sm leading-6 text-[var(--muted-strong)]">
-                    {item.best_edge_summary ?? "This matchup needs more local data before a clean edge call shows up."}
-                  </div>
-                  {item.best_edge_rationale ? (
-                    <div className="mt-2 text-xs leading-5 text-[var(--muted)]">
-                      {item.best_edge_rationale}
-                    </div>
-                  ) : null}
-                </div>
-                <div className="rounded-2xl border border-[var(--border)] bg-[rgba(255,255,255,0.72)] p-4">
-                  <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[var(--muted)]">
-                    First Adjustment
-                  </div>
-                  <div className="mt-2 text-sm font-semibold text-[var(--foreground)]">
-                    {item.first_adjustment_label ?? "Still calibrating"}
-                  </div>
-                  <div className="mt-1 text-sm leading-6 text-[var(--muted-strong)]">
-                    {item.first_adjustment_summary ?? "Adjustment guidance will appear once more team-game stats are available."}
-                  </div>
-                  {item.first_adjustment_rationale ? (
-                    <div className="mt-2 text-xs leading-5 text-[var(--muted)]">
-                      {item.first_adjustment_rationale}
-                    </div>
-                  ) : null}
-                </div>
-              </div>
-
-              {item.shot_profile_driver ? (
-                <div className="mt-4 rounded-2xl border border-[var(--border)] bg-[rgba(255,255,255,0.72)] p-4">
-                  <div className="flex flex-wrap items-start justify-between gap-3">
+            (() => {
+              const savedPacket = savedPackets[item.game_id];
+              const packetDraft = packetDrafts[item.game_id];
+              const packetLink = savedPacket?.share_url ?? item.latest_snapshot_share_url ?? item.pre_read_url;
+              return (
+                <article
+                  key={item.game_id}
+                  className="relative overflow-hidden rounded-[1.8rem] border border-[var(--border)] bg-[linear-gradient(145deg,rgba(255,255,255,0.95),rgba(231,239,235,0.82))] p-6 shadow-[0_18px_45px_rgba(20,37,29,0.08)]"
+                >
+                  <div className="pointer-events-none absolute inset-x-0 top-0 h-1 bg-[linear-gradient(90deg,var(--accent),rgba(181,145,78,0.7),rgba(165,72,54,0.7))]" />
+                  <div className="flex items-start justify-between gap-4">
                     <div>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className={`rounded-full px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] ${urgencyTone(item.prep_urgency)}`}>
+                          {item.prep_urgency} urgency
+                        </span>
+                        <span className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--muted)]">
+                          {item.game_date ?? "TBD"} · {item.is_home ? "vs" : "at"}
+                        </span>
+                      </div>
+                      <h3 className="mt-2 text-2xl font-semibold text-[var(--foreground)]">
+                        {item.opponent_abbreviation ?? item.opponent_name ?? "Opponent TBD"}
+                      </h3>
+                      <p className="mt-2 text-sm text-[var(--muted-strong)]">
+                        {item.opponent_record
+                          ? `${item.opponent_record}${item.opponent_playoff_rank ? ` · ${item.opponent_conference ?? "Conference"} #${item.opponent_playoff_rank}` : ""}`
+                          : "Standings context is still filling in."}
+                      </p>
+                      <p className="mt-3 max-w-2xl text-sm leading-6 text-[var(--muted-strong)]">
+                        {item.prep_headline}
+                      </p>
+                      {item.urgency_rationale ? (
+                        <p className="mt-2 text-xs font-semibold uppercase tracking-[0.14em] text-[var(--muted)]">
+                          Why now: {item.urgency_rationale}
+                        </p>
+                      ) : null}
+                    </div>
+                    <div className="rounded-2xl border border-[var(--border)] bg-[rgba(255,255,255,0.68)] px-4 py-3 text-right">
                       <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[var(--muted)]">
-                        Shot-Profile Edge
+                        Schedule
                       </div>
                       <div className="mt-2 text-sm font-semibold text-[var(--foreground)]">
-                        {item.shot_profile_driver.label}
+                        {item.schedule_pressure}
+                      </div>
+                      <div className={`mt-1 text-xs ${restTone(item.rest_advantage)}`}>
+                        {restLabel(item.team_rest_days)} vs {restLabel(item.opponent_rest_days)}
                       </div>
                     </div>
-                    <div className="rounded-full border border-[var(--border)] px-3 py-1 text-[11px] font-semibold text-[var(--muted-strong)]">
-                      {fmtSignedPoints(item.shot_profile_driver.league_delta)}
+                  </div>
+
+                  {splits && splits.splits.length > 0 && (() => {
+                    const locationValue = item.is_home ? "Home" : "Away";
+                    const locationRow = splits.splits.find(
+                      (r) => r.split_family === "Location" && r.split_value === locationValue
+                    );
+                    const wlRow = splits.splits.find(
+                      (r) => r.split_family === "Win/Loss" && r.split_value === "Wins"
+                    );
+                    if (!locationRow && !wlRow) return null;
+                    return (
+                      <div className="mt-4 flex flex-wrap gap-3">
+                        {locationRow && (
+                          <div className="rounded-xl border border-[var(--border)] bg-[rgba(255,255,255,0.56)] px-3 py-2 text-xs">
+                            <span className="font-semibold uppercase tracking-[0.14em] text-[var(--muted)]">
+                              {locationValue} W%
+                            </span>
+                            <span className="ml-2 font-bold text-[var(--foreground)]">
+                              {fmtPct(locationRow.w_pct)}
+                            </span>
+                            <span className="ml-1 text-[var(--muted)]">
+                              ({locationRow.w}–{locationRow.l})
+                            </span>
+                            {locationRow.plus_minus != null && (
+                              <span className={`ml-2 font-semibold ${plusMinusTone(locationRow.plus_minus)}`}>
+                                {fmtPlusMinus(locationRow.plus_minus)} +/-
+                              </span>
+                            )}
+                          </div>
+                        )}
+                        {wlRow && (
+                          <div className="rounded-xl border border-[var(--border)] bg-[rgba(255,255,255,0.56)] px-3 py-2 text-xs">
+                            <span className="font-semibold uppercase tracking-[0.14em] text-[var(--muted)]">
+                              In Wins
+                            </span>
+                            <span className="ml-2 font-bold text-[var(--foreground)]">
+                              {fmtPct(wlRow.w_pct)}
+                            </span>
+                            {wlRow.pts != null && (
+                              <span className="ml-2 text-[var(--muted-strong)]">
+                                {wlRow.pts.toFixed(1)} PTS
+                              </span>
+                            )}
+                            {wlRow.plus_minus != null && (
+                              <span className={`ml-2 font-semibold ${plusMinusTone(wlRow.plus_minus)}`}>
+                                {fmtPlusMinus(wlRow.plus_minus)} +/-
+                              </span>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })()}
+
+                  <div className="mt-5 grid gap-3 md:grid-cols-3">
+                    <div className="rounded-2xl border border-[var(--border)] bg-[rgba(255,255,255,0.72)] p-4">
+                      <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[var(--muted)]">
+                        Availability Watch
+                      </div>
+                      <div className="mt-2 text-sm leading-6 text-[var(--muted-strong)]">
+                        {item.availability_summary}
+                      </div>
+                      <div className="mt-3 flex flex-wrap gap-2 text-[11px] font-semibold uppercase tracking-[0.16em]">
+                        <span className="rounded-full bg-[rgba(165,72,54,0.12)] px-2 py-1 text-[var(--danger-ink)]">
+                          Out {item.unavailable_count}
+                        </span>
+                        <span className="rounded-full bg-[rgba(181,145,78,0.14)] px-2 py-1 text-[var(--foreground)]">
+                          Q {item.questionable_count}
+                        </span>
+                        <span className="rounded-full bg-[rgba(33,72,59,0.08)] px-2 py-1 text-[var(--accent-strong)]">
+                          P {item.probable_count}
+                        </span>
+                      </div>
+                    </div>
+                    <div className="rounded-2xl border border-[var(--border)] bg-[rgba(255,255,255,0.72)] p-4">
+                      <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[var(--muted)]">
+                        Best Edge To Press
+                      </div>
+                      <div className="mt-2 text-sm font-semibold text-[var(--foreground)]">
+                        {item.best_edge_label ?? "Still calibrating"}
+                      </div>
+                      <div className="mt-1 text-sm leading-6 text-[var(--muted-strong)]">
+                        {item.best_edge_summary ?? "This matchup needs more local data before a clean edge call shows up."}
+                      </div>
+                      {item.best_edge_rationale ? (
+                        <div className="mt-2 text-xs leading-5 text-[var(--muted)]">
+                          {item.best_edge_rationale}
+                        </div>
+                      ) : null}
+                    </div>
+                    <div className="rounded-2xl border border-[var(--border)] bg-[rgba(255,255,255,0.72)] p-4">
+                      <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[var(--muted)]">
+                        First Adjustment
+                      </div>
+                      <div className="mt-2 text-sm font-semibold text-[var(--foreground)]">
+                        {item.first_adjustment_label ?? "Still calibrating"}
+                      </div>
+                      <div className="mt-1 text-sm leading-6 text-[var(--muted-strong)]">
+                        {item.first_adjustment_summary ?? "Adjustment guidance will appear once more team-game stats are available."}
+                      </div>
+                      {item.first_adjustment_rationale ? (
+                        <div className="mt-2 text-xs leading-5 text-[var(--muted)]">
+                          {item.first_adjustment_rationale}
+                        </div>
+                      ) : null}
                     </div>
                   </div>
-                  <p className="mt-2 text-sm leading-6 text-[var(--muted-strong)]">{item.shot_profile_driver.summary}</p>
-                  {item.shot_profile_driver.trust_note ? (
-                    <p className="mt-2 text-xs leading-5 text-[var(--muted)]">{item.shot_profile_driver.trust_note}</p>
-                  ) : null}
-                </div>
-              ) : null}
 
-              <div className="mt-5 flex flex-wrap gap-3">
-                <Link
-                  href={item.pre_read_url}
-                  className="bip-btn-primary rounded-full px-4 py-2 text-sm font-medium"
-                >
-                  Open pre-read
-                </Link>
-                <Link
-                  href={item.scouting_url}
-                  className="rounded-full border border-[var(--border-strong)] px-4 py-2 text-sm font-medium text-[var(--accent-strong)] transition hover:bg-[rgba(33,72,59,0.08)]"
-                >
-                  Open scouting mode
-                </Link>
-                <Link
-                  href={item.compare_url}
-                  className="bip-btn-secondary rounded-full px-4 py-2 text-sm font-medium"
-                >
-                  Open team compare
-                </Link>
-                <Link
-                  href={item.follow_through_url}
-                  className="rounded-full border border-[var(--border-strong)] px-4 py-2 text-sm font-medium text-[var(--accent-strong)] transition hover:bg-[rgba(33,72,59,0.08)]"
-                >
-                  Open follow-through
-                </Link>
-                {item.xray_url ? (
-                  <Link
-                    href={item.xray_url}
-                    className="rounded-full border border-[var(--border-strong)] px-4 py-2 text-sm font-medium text-[var(--accent-strong)] transition hover:bg-[rgba(33,72,59,0.08)]"
-                  >
-                    Open Style X-Ray
-                  </Link>
-                ) : null}
-                {item.replay_url ? (
-                  <Link
-                    href={item.replay_url}
-                    className="rounded-full border border-[var(--border-strong)] px-4 py-2 text-sm font-medium text-[var(--accent-strong)] transition hover:bg-[rgba(33,72,59,0.08)]"
-                  >
-                    Review replay
-                  </Link>
-                ) : null}
-                <Link
-                  href={item.game_review_url}
-                  className="rounded-full border border-[var(--border-strong)] px-4 py-2 text-sm font-medium text-[var(--accent-strong)] transition hover:bg-[rgba(33,72,59,0.08)]"
-                >
-                  Open game review
-                </Link>
-                <button
-                  type="button"
-                  onClick={() => saveSnapshot(item)}
-                  className="rounded-full border border-[var(--border)] px-4 py-2 text-sm font-medium text-[var(--foreground)] transition hover:bg-[rgba(255,255,255,0.5)]"
-                >
-                  {savedGameId === item.game_id ? "Saved snapshot" : isSaving ? "Saving..." : "Save snapshot"}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => copyShareLink(item.latest_snapshot_share_url ?? item.pre_read_url, item.game_id)}
-                  className="rounded-full border border-[var(--border)] px-4 py-2 text-sm font-medium text-[var(--foreground)] transition hover:bg-[rgba(255,255,255,0.5)]"
-                >
-                  {copiedGameId === item.game_id ? "Copied link" : "Copy share link"}
-                </button>
-              </div>
-              {item.latest_snapshot_share_url ? (
-                <div className="mt-4 text-xs font-semibold uppercase tracking-[0.14em] text-[var(--muted)]">
-                  Latest snapshot: <Link href={item.latest_snapshot_share_url} className="text-[var(--accent-strong)] underline underline-offset-4">{item.latest_snapshot_id?.slice(0, 8)}</Link>
-                </div>
-              ) : null}
-            </article>
+                  {item.shot_profile_driver ? (
+                    <div className="mt-4 rounded-2xl border border-[var(--border)] bg-[rgba(255,255,255,0.72)] p-4">
+                      <div className="flex flex-wrap items-start justify-between gap-3">
+                        <div>
+                          <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[var(--muted)]">
+                            Shot-Profile Edge
+                          </div>
+                          <div className="mt-2 text-sm font-semibold text-[var(--foreground)]">
+                            {item.shot_profile_driver.label}
+                          </div>
+                        </div>
+                        <div className="rounded-full border border-[var(--border)] px-3 py-1 text-[11px] font-semibold text-[var(--muted-strong)]">
+                          {fmtSignedPoints(item.shot_profile_driver.league_delta)}
+                        </div>
+                      </div>
+                      <p className="mt-2 text-sm leading-6 text-[var(--muted-strong)]">{item.shot_profile_driver.summary}</p>
+                      {item.shot_profile_driver.trust_note ? (
+                        <p className="mt-2 text-xs leading-5 text-[var(--muted)]">{item.shot_profile_driver.trust_note}</p>
+                      ) : null}
+                    </div>
+                  ) : null}
+
+                  <div className="mt-5 flex flex-wrap gap-3">
+                    <Link
+                      href={packetLink}
+                      className="bip-btn-primary rounded-full px-4 py-2 text-sm font-medium"
+                    >
+                      Open packet
+                    </Link>
+                    <Link
+                      href={item.scouting_url}
+                      className="rounded-full border border-[var(--border-strong)] px-4 py-2 text-sm font-medium text-[var(--accent-strong)] transition hover:bg-[rgba(33,72,59,0.08)]"
+                    >
+                      Open scouting mode
+                    </Link>
+                    <Link
+                      href={item.compare_url}
+                      className="bip-btn-secondary rounded-full px-4 py-2 text-sm font-medium"
+                    >
+                      Open team compare
+                    </Link>
+                    <Link
+                      href={item.follow_through_url}
+                      className="rounded-full border border-[var(--border-strong)] px-4 py-2 text-sm font-medium text-[var(--accent-strong)] transition hover:bg-[rgba(33,72,59,0.08)]"
+                    >
+                      Open follow-through
+                    </Link>
+                    {item.xray_url ? (
+                      <Link
+                        href={item.xray_url}
+                        className="rounded-full border border-[var(--border-strong)] px-4 py-2 text-sm font-medium text-[var(--accent-strong)] transition hover:bg-[rgba(33,72,59,0.08)]"
+                      >
+                        Open Style X-Ray
+                      </Link>
+                    ) : null}
+                    {item.replay_url ? (
+                      <Link
+                        href={item.replay_url}
+                        className="rounded-full border border-[var(--border-strong)] px-4 py-2 text-sm font-medium text-[var(--accent-strong)] transition hover:bg-[rgba(33,72,59,0.08)]"
+                      >
+                        Review replay
+                      </Link>
+                    ) : null}
+                    <Link
+                      href={item.game_review_url}
+                      className="rounded-full border border-[var(--border-strong)] px-4 py-2 text-sm font-medium text-[var(--accent-strong)] transition hover:bg-[rgba(33,72,59,0.08)]"
+                    >
+                      Open game review
+                    </Link>
+                    <button
+                      type="button"
+                      onClick={() => saveSnapshot(item)}
+                      className="rounded-full border border-[var(--border)] px-4 py-2 text-sm font-medium text-[var(--foreground)] transition hover:bg-[rgba(255,255,255,0.5)]"
+                    >
+                      {savedGameId === item.game_id ? "Saved packet" : isSaving && savingGameId === item.game_id ? "Saving..." : "Save packet"}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => copyShareLink(packetLink, item.game_id)}
+                      className="rounded-full border border-[var(--border)] px-4 py-2 text-sm font-medium text-[var(--foreground)] transition hover:bg-[rgba(255,255,255,0.5)]"
+                    >
+                      {copiedGameId === item.game_id ? "Copied link" : "Copy share link"}
+                    </button>
+                  </div>
+                  {savedPacket && packetDraft ? (
+                    <div className="mt-5 grid gap-4 rounded-[1.4rem] border border-[var(--border)] bg-[rgba(255,255,255,0.62)] p-4 lg:grid-cols-[1fr,1.2fr,auto]">
+                      <label className="space-y-2">
+                        <span className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[var(--muted)]">
+                          Packet title
+                        </span>
+                        <input
+                          value={packetDraft.title}
+                          onChange={(event) =>
+                            setPacketDrafts((current) => ({
+                              ...current,
+                              [item.game_id]: { ...current[item.game_id], title: event.target.value },
+                            }))
+                          }
+                          className="bip-input w-full rounded-2xl px-4 py-3 text-sm"
+                        />
+                      </label>
+                      <label className="space-y-2">
+                        <span className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[var(--muted)]">
+                          Coach note
+                        </span>
+                        <textarea
+                          value={packetDraft.note}
+                          onChange={(event) =>
+                            setPacketDrafts((current) => ({
+                              ...current,
+                              [item.game_id]: { ...current[item.game_id], note: event.target.value },
+                            }))
+                          }
+                          className="bip-input min-h-[92px] w-full rounded-2xl px-4 py-3 text-sm"
+                        />
+                      </label>
+                      <div className="flex items-end">
+                        <button
+                          type="button"
+                          onClick={() => updatePacket(item.game_id, savedPacket.snapshot_id)}
+                          className="bip-btn-secondary rounded-full px-4 py-2 text-sm font-medium"
+                        >
+                          {isSaving && updatingGameId === item.game_id ? "Updating..." : "Save packet details"}
+                        </button>
+                      </div>
+                    </div>
+                  ) : null}
+                  {item.latest_snapshot_share_url || savedPacket ? (
+                    <div className="mt-4 text-xs font-semibold uppercase tracking-[0.14em] text-[var(--muted)]">
+                      Latest packet:{" "}
+                      <Link href={packetLink} className="text-[var(--accent-strong)] underline underline-offset-4">
+                        {(savedPacket?.snapshot_id ?? item.latest_snapshot_id ?? "").slice(0, 8)}
+                      </Link>
+                    </div>
+                  ) : null}
+                </article>
+              );
+            })()
           ))}
         </section>
       )}

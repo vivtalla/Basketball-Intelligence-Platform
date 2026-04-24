@@ -12,6 +12,7 @@ from models.pre_read import (
     PreReadContext,
     PreReadDeckResponse,
     PreReadPrepContext,
+    PreReadScoutingPacket,
     PreReadSlide,
     PreReadSnapshotRef,
     WorkflowLaunchLinks,
@@ -79,6 +80,7 @@ def build_pre_read_deck(
     team: str,
     opponent: str,
     season: str,
+    scouting_packet: PreReadScoutingPacket | None = None,
     snapshot_ref: PreReadSnapshotRef | None = None,
     source_context: PreReadContext | None = None,
 ) -> PreReadDeckResponse:
@@ -208,6 +210,7 @@ def build_pre_read_deck(
         slides=slides,
         launch_links=_build_launch_links(team.upper(), opponent.upper(), season, prep_context),
         prep_context=prep_context,
+        scouting_packet=scouting_packet,
         snapshot=snapshot_ref,
         warnings=warnings,
     )
