@@ -7,6 +7,7 @@ from config import CORS_ORIGINS
 from data.cache import CacheManager
 from routers import (
     advanced,
+    archetype,
     compare,
     decision,
     gamelogs,
@@ -52,6 +53,7 @@ app.include_router(advanced.router, prefix="/api/advanced", tags=["advanced"])
 app.include_router(gamelogs.router, prefix="/api/gamelogs", tags=["gamelogs"])
 app.include_router(games.router, prefix="/api/games", tags=["games"])
 app.include_router(similarity.router, prefix="/api/similarity", tags=["similarity"])
+app.include_router(archetype.router, prefix="/api/archetype", tags=["archetype"])
 app.include_router(compare.router, prefix="/api/compare", tags=["compare"])
 app.include_router(standings.router, prefix="/api/standings", tags=["standings"])
 app.include_router(insights.router, prefix="/api/insights", tags=["insights"])

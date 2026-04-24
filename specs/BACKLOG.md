@@ -100,6 +100,52 @@ Likely shape:
 
 ---
 
+## Now — Decision Intelligence (Sprint 67 follow-ons)
+
+### Team-Fit Similarity Mode
+Why it matters:
+Sprint 67 shipped season + age similarity modes with archetype-labeled comps. The `team_fit` mode was spec'd and the service scaffold is in place, but the implementation was deferred to keep the sprint scope tight. `team_fit` is the variant a coach wants most — "which comps complement the current roster" — so finishing it has real staff value.
+
+Likely shape:
+- Implement the teammate-duplicate penalty described in `specs/sprint-67-archetype-rules.md` §1.7: for each feature, if the subject's z-score is within 0.5 of a same-team teammate's max z, multiply that feature's distance weight by 0.4.
+- Replace the `NotImplementedError` in `similarity_service._build_candidate_pool` and the 501 in `routers/similarity.py`.
+- Swap the frontend team-fit tab deferred-state card for real comps.
+
+### Player Archetype Evolution Timeline
+Why it matters:
+Sprint 60 shipped the team Style X-Ray `MovementTimeline` for drift. The Sprint 67 player archetype engine is per-season; there's no multi-season archetype-drift surface yet. This is a natural extension once analysts start asking "how has this player's archetype changed?"
+
+Likely shape:
+- Port the team movement timeline pattern to players — classify each of a player's past seasons, render the sequence with transition markers and confidence bands.
+- Keep the classifier deterministic; any time the archetype rules are retuned, every historical label can be recomputed instantly.
+
+### Coaching Copy Polish for Diagnosis + Brief
+Why it matters:
+Sprint 67's shot diagnosis tag labels and scouting-brief headlines are accurate but not yet tuned for coaching ergonomics. Staff-facing copy should sound less like a data-science card and more like a pre-game note.
+
+Likely shape:
+- One pass on each of the 12 diagnosis tag labels and evidence templates for coaching phrasing.
+- Similar pass on the five scouting-brief card summaries.
+- Leave the methodology drawer factual; only the user-facing summary surfaces need the polish.
+
+### Scouting Brief — Deep-Link Banners
+Why it matters:
+The Sprint 67 scouting brief cards carry `deep_link` fields that render as simple anchor links. The Sprint 65 inbound-context banner pattern (Compare and Pre-Read) is a better UX: when a user follows a brief card link, the destination surface should acknowledge the source context.
+
+Likely shape:
+- Add an inbound-banner behavior to Shot Lab when the URL carries `source=brief` and a tag key, mirroring the Sprint 65 source=opportunity / source=scouting banners.
+- Preselect the relevant diagnosis tag / Shot Lab view on arrival.
+
+### Opportunity Row `usg_pct` Precision
+Why it matters:
+The live-DB smoke during Sprint 67 surfaced a cosmetic bug: `OpportunityPlayerRow.usg_pct` is rounded to `round(x, 1)`, which collapses 0.285/0.30/0.32 into the same 0.3 display. Jokić, SGA, and Tatum all render as "Usage 30.0%" despite having distinct usage values.
+
+Likely shape:
+- Bump `round(x, 1)` to `round(x, 3)` at the opportunity service, or defer the rounding entirely to the display layer.
+- Small fix; call it out only because it's a visible quality issue on the scouting brief.
+
+---
+
 ## Now — Product Intelligence
 
 ### Counterfactual What-If Suggestions

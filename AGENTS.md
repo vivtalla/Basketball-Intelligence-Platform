@@ -1,6 +1,6 @@
 # Agent Coordination
 
-Last updated: 2026-04-23 by Codex (Sprint 66 closeout reset)
+Last updated: 2026-04-24 by Claude (Sprint 67 closeout reset)
 
 > Both agents read this file before touching code at the start of every session.
 > The canonical source of truth is the clean `master` checkout at `/Users/viv/Documents/Basketball Intelligence Platform`.
@@ -14,12 +14,12 @@ Last updated: 2026-04-23 by Codex (Sprint 66 closeout reset)
 
 | Field | Value |
 |-------|-------|
-| Sprint | 67 |
+| Sprint | 68 |
 | Goal | TBD — awaiting Vivek's sprint kickoff |
 | Started | TBD |
 | Target merge | TBD |
 | Sprint shape | TBD |
-| Branch | `master` until Sprint 67 kickoff |
+| Branch | `master` until Sprint 68 kickoff |
 | Worker policy | No active sprint; set at kickoff |
 
 ---
@@ -38,12 +38,12 @@ If repo state, sprint numbering, or shipped features appear to disagree across l
 ## Current Assignments
 
 ### Claude
-- Branch: `feature/sprint-67-[slug]`
+- Branch: `feature/sprint-68-[slug]`
 - Scope: No active sprint assignment
 - Status: Not started
 
 ### Codex
-- Branch: `codex-sprint-67-[slug]`
+- Branch: `codex-sprint-68-[slug]`
 - Scope: No active sprint assignment
 - Status: Not started
 
@@ -84,7 +84,7 @@ TBD at kickoff. Next sprint branch/worktree is created at kickoff and merges bac
 
 ## Sprint Work Allocation
 
-Sprint 67 allocation — TBD at kickoff.
+Sprint 68 allocation — TBD at kickoff.
 
 ---
 
@@ -156,6 +156,10 @@ Sprint 67 allocation — TBD at kickoff.
 ## Notes
 
 *Free-form, dated, newest first. Use this for coordination and repo-state exceptions.*
+
+2026-04-24 (Claude): Sprint 67 closeout on `feature/sprint-67-decision-intelligence`. Shipped the 15-archetype Player Archetype Engine, role-aware similarity (season + age modes), 12-tag Shot Profile Diagnosis, and the 5-card Scouting Brief. Three spec tune passes before code caught two routing bugs and one coverage gap; live-DB smoke caught two more bugs before merge. 47 new backend tests (243 passing). Closeout: `specs/sprint-67-closeout.md`. Cleaned up four untracked Sprint-65 leftover files that were silently breaking `npm run build`.
+
+2026-04-23 (Claude): Sprint 67 kickoff on `feature/sprint-67-decision-intelligence`. Theme: Decision Intelligence — make the player page answer "Who is this player, how do they create value, and what should I do with that?" Three features: Player Archetype + Similarity Engine (Stream A, Claude), Shot Profile Diagnosis Panel + Scouting Summary Cards (Stream B, Codex). Plan file: `~/.claude/plans/you-are-acting-as-gentle-tiger.md`. Merge order A → B. Starting on A1 (archetype taxonomy spec).
 
 2026-04-23 (Codex): Sprint 66 closed on `codex-sprint-66-staff-packet-handoff` and merged to `master`. Shipped named Pre-Read staff packets with editable title/note metadata, scouting claim pinning into frozen packets, packet library/history on `/pre-read`, markdown export, Prep Queue save continuity, and a manual smoke walkthrough that surfaced and resolved the missing live DB migration. Closeout: `specs/sprint-66-closeout.md`.
 2026-04-23 (Claude): Sprint 65 closed on `feature/sprint-65-scouting-opportunity-fit` and merged to `master`. Shipped opportunity TTL cache + compare-handoff peers + role-fit AST/TOV depth, scouting claim inference confidence + opponent-aware ranking, `UsageEfficiencyDashboard.tsx` → `OpportunityDashboard.tsx` rename with stale scaffolding deletion, Compare + Pre-Read inbound-context banners, compound-position bucketing bugfix, and a Sprint-64 Tooltip formatter type fix. 14 new backend tests (193 total). Closeout: `specs/sprint-65-closeout.md`.

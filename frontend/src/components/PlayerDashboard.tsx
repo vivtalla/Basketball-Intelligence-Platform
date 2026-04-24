@@ -11,6 +11,8 @@ import PlayerPbpInsights from "./PlayerPbpInsights";
 import PlayerTrendIntelligencePanel from "./PlayerTrendIntelligencePanel";
 import GameLogTable from "./GameLogTable";
 import PlayerSimilarity from "./PlayerSimilarity";
+import { PlayerArchetypeProfile } from "./archetype/PlayerArchetypeProfile";
+import { ScoutingBrief } from "./scouting-brief/ScoutingBrief";
 import SeasonSplits from "./SeasonSplits";
 import ExternalMetricsPanel from "./ExternalMetricsPanel";
 import ChartStatusBadge from "./ChartStatusBadge";
@@ -113,6 +115,8 @@ export default function PlayerDashboard({ playerId }: PlayerDashboardProps) {
   return (
     <div className="space-y-6">
       <PlayerHeader profile={profile} currentSeason={currentSeason} priorSeason={priorSeason} />
+
+      <ScoutingBrief playerId={playerId} season={effectiveSeasonStr} />
 
       {(missingCoreData || staleCoreData) && (
         <div className="rounded-[1.5rem] border border-[rgba(25,52,42,0.12)] bg-[rgba(255,255,255,0.74)] px-5 py-4">
@@ -250,6 +254,8 @@ export default function PlayerDashboard({ playerId }: PlayerDashboardProps) {
 
       {/* Game Log has its own internal RS/Playoffs toggle */}
       <GameLogTable playerId={playerId} season={effectiveSeasonStr} />
+
+      <PlayerArchetypeProfile playerId={playerId} season={effectiveSeasonStr} />
 
       <PlayerSimilarity playerId={playerId} season={effectiveSeasonStr} />
 

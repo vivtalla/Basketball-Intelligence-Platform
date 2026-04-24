@@ -261,6 +261,16 @@ CourtVue Labs uses a hybrid sprint model: major feature sprints typically run as
 
 > Full history → `specs/sprint-history.md`
 
+### Sprint 67 — Decision Intelligence: Archetypes, Shot Diagnosis, Scouting Brief
+
+- Shipped a deterministic 15-archetype Player Archetype Engine — z-score feature extraction over `season_stats` + parsed `players.height`, first-match-wins rule engine (Heliocentric Creator → Lead Ball-Handler → Iso Scorer → Secondary Playmaker → Movement Shooter → 3-and-D Wing → Rim Pressure Guard → Connective Forward → Defensive Anchor → Interior Finisher → Stretch Big → Switchable Stopper → Rotational Energy → Balanced Role → Developmental), confidence bands, top-4 contributor fingerprint, per-season TTL-cached peer-pool frame, TOT-preferred subject-row selection for mid-season trades. Three spec tune passes before code caught two routing bugs and the SGA-band coverage gap.
+- Upgraded `similarity_service` with a `mode ∈ {season, age, team_fit}` parameter and a 13-feature V2 distance (9 legacy box stats + `par3`, `ftr`, `stl_pg`, `blk_pg`). Every V2 comp carries the subject's archetype label via batch-classify. Legacy `find_similar_players(cross_era=...)` signature preserved untouched; `team_fit` reserved with `NotImplementedError` / 501 until the B10 follow-up.
+- New `/api/archetype/{player_id}` and `/api/players/{player_id}/scouting-brief` routes, plus `/api/shotchart/{player_id}/diagnosis`. The scouting brief composes five cards (Role, Strengths/Weaknesses, Usage & Efficiency, Shot Profile, Trajectory) from archetype + opportunity + shot-diagnosis + trajectory services — each card best-effort, skipped silently on source failure.
+- Shot Profile Diagnosis: pure layer over the existing `shot_intelligence_service` outputs. 12 graded tags (`elite_corner_gravity`, `dead_corners`, `midrange_dependency`, `rim_pressure_elite`, `rim_finishing_variance`, `three_point_volume_low`, `long_two_diet_problem`, `high_ftr_creator`, `low_ftr_floor_spacer`, `catch_and_shoot_specialist`, `off_dribble_heavy`, `heat_check_overperformance`) with sentiment/grade/confidence, plus sustainability label (`Sustainable | Hot Streak | Cold Streak | Insufficient Sample`) and creation burden. 50-shot minimum-sample gate with explicit insufficient-sample fallback.
+- Frontend: new `<PlayerArchetypeProfile>` (ported from team Style X-Ray patterns) above `<PlayerSimilarity>` — now with Season/Age/Team-Fit tabs and confidence-tinted archetype pills on each comp. `<ShotDiagnosisPanel>` beneath `<ShotIntelligencePanel>` in Shot Lab. `<ScoutingBrief>` 5-card strip inserted directly below `<PlayerHeader>` on the player page.
+- Cleaned up four untracked stale files from the Sprint 65 closeout that were silently blocking `npm run build` once type-check ran (`UsageBurdenMatrix.tsx`, `UsageLoadBoard.tsx`, `UsageEfficiencyDashboard.tsx` pre-rename copy, `usage_efficiency_service.py` pre-rename copy).
+- Verified with 47 new backend tests (14 archetype, 8 similarity modes, 20 shot diagnosis, 5 scouting brief; full suite **243 passing**), `npm run build` clean, `npm run lint` clean (only 7 pre-existing warnings), `tsc --noEmit` clean, and a live-DB scouting-brief smoke against Jokić / SGA / Tatum on 2024-25 that caught two real bugs (wrong `PlayerShotChart` timestamp field name; `usg_pct` storage convention mis-assumption) before merge.
+
 ### Sprint 66 — Staff Packet And Coaching Handoff
 
 - Upgraded `pre_read_snapshots` into named staff packets with Alembic revision `0010_pre_read_packet_metadata`, adding editable packet metadata (`title`, `note`) while keeping frozen saved payloads stable.
@@ -269,19 +279,7 @@ CourtVue Labs uses a hybrid sprint model: major feature sprints typically run as
 - Added ScoutingReportView packet pinning so analysts can carry up to 3 claims with confidence pills and ranked clip anchors directly into the saved staff packet.
 - Verified with new Sprint 66 backend coverage, full backend `pytest` (196 passing), frontend `npm run build`, frontend `npm run lint` with only pre-existing warnings, and a live manual smoke walkthrough after migrating the local dev Postgres schema.
 
-### Sprint 65 — Scouting & Opportunity Fit
-
-- Added in-process TTL cache on `build_opportunity_report` keyed by `(season, team, min_minutes, position, date)` so `team=ALL` scouting traversals no longer recompute per call; 10 min current-season, 24 h historical.
-- Pre-computed `OpportunityCompareHandoff` on every top-row (pinned + top 3 same-bucket peers drawn from the full pool); RoleFitCard ships a `Compare with peers →` CTA that threads `source=opportunity` + cohort into the Compare URL.
-- Extended `OpportunityRoleFit` with AST/G and TOV/G vs cohort (delta column), and locked the directional-hint gate to `confidence ∈ {high, medium}` AND `len(hint_basis) ≥ 2` with no orphan chips.
-- New `ClaimInferenceConfidence` on every scouting claim (level + reasons + anchored/opponent-specific counts); `_rank_claims_by_confidence` promotes opponent-backed high-confidence claims in each section; `ScoutingClipAnchor.opponent_specific` flag populated.
-- ScoutingReportView renders a calibrated confidence pill per claim + `Compare with this claim →` link; Compare and Pre-Read render inbound-context banners for `source=opportunity` / `source=scouting`.
-- Renamed `UsageEfficiencyDashboard.tsx` → `OpportunityDashboard.tsx`, deleted three stale pre-Sprint-58 files, removed the orphan `UsageEfficiencyPlayerRow` type.
-- Bugfix: `_position_bucket` now handles compound NBA positions (`Guard-Forward`, `Forward-Center`, `SG/SF`) via primary-token split + full-word map; Jaylen Brown no longer collapses to bucket `other`.
-- Bonus: relaxed Recharts Tooltip formatter value type in `TeamNetRatingChart` so `npm run build` type-check passes (regression from Sprint 64).
-- Verified with 14 new backend tests (193 passing), frontend `npm run lint` clean, `npm run build` clean, and live dev-server exercise against `/insights?tab=usage&team=BOS` + `/pre-read?team=OKC&opponent=BOS&mode=scouting`.
-
-*Sprint 64 and older moved to `specs/sprint-history.md`.*
+*Sprint 65 and older moved to `specs/sprint-history.md`.*
 
 ---
 
@@ -300,6 +298,7 @@ CourtVue Labs uses a hybrid sprint model: major feature sprints typically run as
 | `feature/sprint-64-coaching-workflow-intelligence` | Claude | Merged to master |
 | `feature/sprint-65-scouting-opportunity-fit` | Claude | Merged to master |
 | `codex-sprint-66-staff-packet-handoff` | Codex | Merged to master |
+| `feature/sprint-67-decision-intelligence` | Claude | Merged to master |
 
 Sprint branches are created at kickoff and listed in `AGENTS.md`.
 

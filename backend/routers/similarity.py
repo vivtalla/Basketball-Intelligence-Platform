@@ -1,11 +1,16 @@
 """Player similarity endpoints."""
 
+from typing import Optional
+
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
 from db.database import get_db
 from db.models import SeasonStat
-from services.similarity_service import find_similar_players
+from services.similarity_service import (
+    find_similar_players,
+    find_similar_players_with_archetype,
+)
 
 router = APIRouter()
 
@@ -16,15 +21,20 @@ def similar_players(
     season: str = "2024-25",
     n: int = 8,
     cross_era: bool = True,
+    mode: Optional[str] = None,
     db: Session = Depends(get_db),
 ):
     """Return the top-N most statistically similar player-seasons.
 
-    Similarity is computed via weighted Euclidean distance on z-score-normalized
-    stats (normalized within each season to remove era bias).
+    Two paths:
 
-    cross_era=true compares across all available seasons.
-    cross_era=false restricts to the same season only.
+    - Legacy (default, `mode` omitted): weighted Euclidean distance on 9 z-score-
+      normalized box stats. `cross_era=true` compares across all seasons;
+      `cross_era=false` restricts to the same season.
+    - Sprint 67 role-aware (`mode` set): extended 13-feature distance with
+      archetype labels attached to every comp. Supported values: `season`
+      (same-season league-wide), `age` (age ±1 across all seasons).
+      `team_fit` is reserved and returns 501 until the B10 follow-up lands.
     """
     # Verify the target player-season has enough data
     target = db.query(SeasonStat).filter_by(
@@ -36,16 +46,41 @@ def similar_players(
             detail=f"No stats for player {player_id} in {season}. Sync the player first.",
         )
 
-    results = find_similar_players(db, player_id, season, n=n, cross_era=cross_era)
+    if mode is None:
+        results = find_similar_players(db, player_id, season, n=n, cross_era=cross_era)
+        if not results:
+            raise HTTPException(
+                status_code=404,
+                detail="Not enough data to compute similarity. Player may lack required stats.",
+            )
+        return {
+            "player_id": player_id,
+            "season": season,
+            "cross_era": cross_era,
+            "mode": "legacy",
+            "comps": results,
+        }
+
+    if mode not in ("season", "age", "team_fit"):
+        raise HTTPException(status_code=400, detail=f"unknown mode '{mode}'")
+
+    if mode == "team_fit":
+        raise HTTPException(
+            status_code=501,
+            detail="team_fit similarity mode is deferred (Sprint 67 task B10)",
+        )
+
+    results = find_similar_players_with_archetype(
+        db, player_id, season, mode=mode, n=n,
+    )
     if not results:
         raise HTTPException(
             status_code=404,
             detail="Not enough data to compute similarity. Player may lack required stats.",
         )
-
     return {
         "player_id": player_id,
         "season": season,
-        "cross_era": cross_era,
+        "mode": mode,
         "comps": results,
     }
