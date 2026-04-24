@@ -131,12 +131,12 @@ Likely shape:
 
 ### Play-Type Scouting and Clip Workflow
 Why it matters:
-Sprint 40 turned scouting claims into event-backed replay targets and exportable clip candidates, but the workflow is still early and should become more actionable for staff review.
+Sprint 65 shipped `ClaimInferenceConfidence` on every claim, opponent-specific event counts, reason-bearing confidence pills, opponent-aware claim ranking inside each section, and a "Compare with this claim" handoff into Compare + Pre-Read banners. What remains is packaging the claim output for staff and extending the same calibration to adjacent surfaces.
 
 Likely shape:
-- strengthen inferred action-family confidence and opponent-specific scouting claims
-- improve clip-list export formatting, selection controls, and workflow continuity with pre-read and compare
-- keep all action-family claims evidence-backed and explicit about inference quality
+- improve clip-list export formatting, selection controls, and workflow continuity with pre-read and compare (printable/CSV/Markdown packet formats were deferred from Sprint 65)
+- surface inference-confidence analogs on focus-levers, what-if scenarios, and decision-tool rotation suggestions so the trust model is consistent across coaching surfaces
+- add a scouting-claim-to-Pre-Read jump from inside ScoutingReportView so the banner has a symmetric entry point (today only Compare has one)
 
 ---
 
@@ -199,13 +199,12 @@ Likely shape:
 
 ### Opportunity Workspace Follow-Ons
 Why it matters:
-Sprints 58-59 replaced usage-efficiency with the Opportunity Workspace, added shared cross-tab pinning, and made team roll-up tiles actionable. The remaining gains are performance, calibration, and richer compare/share handoffs.
+Sprint 65 closed out the core Opportunity follow-ons (TTL cache, compare-handoff peers, role-fit AST/TOV depth, directional-hint gating calibration, and the long-standing `UsageEfficiencyDashboard.tsx` → `OpportunityDashboard.tsx` rename). The remaining gains are about expanding the peer model beyond same-team scope and continuing to tune against real roster cases.
 
 Likely shape:
-- add short-lived Opportunity score caching keyed by season/team/minutes/position, especially for all-team reads
-- add compare handoff with pinned player plus top positional peers
+- expand Compare handoff peer lookup to league-wide positional cohorts instead of only the currently-scoped team, so a same-team handoff on BOS can still surface league-wide G peers when that is the intent
 - keep tuning directional hints and confidence labels against real roster cases
-- consider renaming `UsageEfficiencyDashboard.tsx` after references settle, so component naming matches the Opportunity product language
+- lift `_position_bucket` out of `opportunity_service.py` into a shared helper and switch `trajectory_service` plus any future callers, so bucket rules cannot drift between surfaces
 
 ### Pre-Read Deck Follow-Ons
 Why it matters:
