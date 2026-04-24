@@ -127,9 +127,10 @@ def _usage_efficiency_card(player_id: int, opportunity_response) -> Optional[Sco
     row = next((r for r in opportunity_response.rows if r.player_id == player_id), None)
     if row is None:
         return None
+    # season_stats stores both usg_pct and ts_pct as fractions (0.285, 0.663),
+    # not percentages — confirmed against the live warehouse.
     summary = (
-        f"Usage {_fmt_pct((row.usg_pct or 0) / 100.0 if row.usg_pct else None)}, "
-        f"TS {_fmt_pct(row.ts_pct)} "
+        f"Usage {_fmt_pct(row.usg_pct)}, TS {_fmt_pct(row.ts_pct)} "
         f"({_fmt_float(row.cohort_percentile, 0)} pct cohort)"
     )
     evidence: List[str] = []
@@ -303,7 +304,7 @@ def build_scouting_brief(
                 filtered_shots=available_shots,
                 available_shots=available_shots,
                 data_status=(
-                    "fresh" if cached.last_synced_at and (datetime.utcnow() - cached.last_synced_at).days < 2
+                    "fresh" if cached.fetched_at and (datetime.utcnow() - cached.fetched_at).days < 2
                     else "stale"
                 ),
                 start_date=None,
@@ -321,7 +322,7 @@ def build_scouting_brief(
                 filtered_shots=available_shots,
                 available_shots=available_shots,
                 data_status=(
-                    "fresh" if cached.last_synced_at and (datetime.utcnow() - cached.last_synced_at).days < 2
+                    "fresh" if cached.fetched_at and (datetime.utcnow() - cached.fetched_at).days < 2
                     else "stale"
                 ),
                 start_date=None,
