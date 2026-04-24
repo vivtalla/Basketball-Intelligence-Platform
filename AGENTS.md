@@ -1,6 +1,6 @@
 # Agent Coordination
 
-Last updated: 2026-04-23 by Claude (Sprint 67 kickoff)
+Last updated: 2026-04-24 by Claude (Sprint 67 closeout reset)
 
 > Both agents read this file before touching code at the start of every session.
 > The canonical source of truth is the clean `master` checkout at `/Users/viv/Documents/Basketball Intelligence Platform`.
@@ -14,13 +14,13 @@ Last updated: 2026-04-23 by Claude (Sprint 67 kickoff)
 
 | Field | Value |
 |-------|-------|
-| Sprint | 67 |
-| Goal | Decision Intelligence — Player Archetypes + Similarity, Shot Profile Diagnosis, Scouting Summary Cards |
-| Started | 2026-04-23 |
-| Target merge | 2026-05-14 (2–3 week target) |
-| Sprint shape | Single-stream — Claude executes Stream A (Archetype + Similarity) then Stream B (Shot Diagnosis + Scouting Brief) on one branch. |
-| Branch | `feature/sprint-67-decision-intelligence` (Claude, owns both streams) |
-| Worker policy | Bounded workers only for independent analytics-modeling subtasks (archetype rule tuning against fixture samples, tag threshold calibration). No worker fan-out for integration work. |
+| Sprint | 68 |
+| Goal | TBD — awaiting Vivek's sprint kickoff |
+| Started | TBD |
+| Target merge | TBD |
+| Sprint shape | TBD |
+| Branch | `master` until Sprint 68 kickoff |
+| Worker policy | No active sprint; set at kickoff |
 
 ---
 
@@ -38,13 +38,14 @@ If repo state, sprint numbering, or shipped features appear to disagree across l
 ## Current Assignments
 
 ### Claude
-- Branch: `feature/sprint-67-decision-intelligence`
-- Scope: **Stream A** — Player Archetype + Similarity Engine end-to-end. Archetype taxonomy spec, `player_archetype_service`, `similarity_service` upgrade with `mode` param + archetype attachment, new `routers/archetype.py`, `PlayerArchetypeProfile` + `ArchetypeContributors` + `ArchetypeMethodologyDrawer` frontend, upgraded `PlayerSimilarity.tsx` with Season/Age/Team-Fit tabs.
-- Status: In progress — kickoff 2026-04-23
+- Branch: `feature/sprint-68-[slug]`
+- Scope: No active sprint assignment
+- Status: Not started
 
 ### Codex
-- Branch: n/a for Sprint 67 — Claude is executing both streams on the single sprint branch at Vivek's direction.
-- Status: Not engaged this sprint
+- Branch: `codex-sprint-68-[slug]`
+- Scope: No active sprint assignment
+- Status: Not started
 
 ---
 
@@ -57,13 +58,7 @@ Claim a shared file here before editing. If a file is already claimed, read that
 
 | File | Claimed by | Purpose |
 |------|------------|---------|
-| `backend/services/similarity_service.py` | Claude | Extend with `mode` param (season/age/team_fit) + archetype attachment on comps (Stream A) |
-| `backend/services/shot_intelligence_service.py` | Claude (read-only) | Diagnosis service reads from this; no mutation. |
-| `frontend/src/components/PlayerSimilarity.tsx` | Claude | Upgrade to 3-tab header + archetype pill per comp (Stream A) |
-| `frontend/src/components/ShotChart.tsx` | Claude | Insert `<ShotDiagnosisPanel>` slot beneath `ShotIntelligencePanel` (Stream B) |
-| `frontend/src/components/PlayerDashboard.tsx` | Claude | Insert `<ScoutingBrief>` strip below `PlayerHeader` (Stream B) |
-| `frontend/src/lib/types.ts` | Claude (append-only) | All Sprint 67 types land here in append order — archetype/similarity first, then diagnosis + scouting-brief. |
-| `frontend/src/lib/api.ts` | Claude (append-only) | Same as `types.ts`. |
+| — | — | No active claims; claim here at the next sprint kickoff before editing shared files |
 
 ---
 
@@ -83,48 +78,13 @@ Specs or review notes written by one stream for another. Check this before start
 
 ## Merge Order
 
-1. Stream A (`feature/sprint-67-decision-intelligence`) merges to `master` first — its archetype service + types are consumed by Stream B's scouting brief Role card.
-2. Stream B (`codex-sprint-67-decision-intelligence`) rebases on post-merge `master`, then merges.
-3. If Stream B lands first, its scouting brief `Role` card renders a skeleton until A lands.
+TBD at kickoff. Next sprint branch/worktree is created at kickoff and merges back to `master` at closeout.
 
 ---
 
 ## Sprint Work Allocation
 
-Sprint 67 — Plan file: `~/.claude/plans/you-are-acting-as-gentle-tiger.md`
-
-**Stream A — Claude** (Feature 1: Archetype + Similarity Engine)
-- A1 [MUST] Write `specs/sprint-67-archetype-rules.md` — ~12 archetypes with deterministic z-score rules (usage, assist rate, 3PA rate, rim rate, creation share, defensive pressure, size) + confidence bands.
-- B1 [MUST] `backend/services/player_archetype_service.py` — classifier + feature extraction + in-process TTL cache (10 min current / 24 h historical).
-- B2 [MUST] Extend `backend/services/similarity_service.py` with `mode ∈ {season, age, team_fit}` + archetype attachment on each comp.
-- B3 [MUST] New `backend/routers/archetype.py`; register in `main.py`.
-- B4 [MUST] Extend `backend/routers/similarity.py` to accept `mode` (backwards-compatible default).
-- B9a [MUST] Backend tests: 1 golden per archetype (fixture player IDs) + similarity-mode tests.
-- C1/C2 [MUST] Append archetype + extended similarity types/clients to `lib/types.ts`, `lib/api.ts`.
-- C3 [MUST] `components/archetype/PlayerArchetypeProfile.tsx`, `ArchetypeContributors.tsx`, `ArchetypeMethodologyDrawer.tsx` (port from `components/xray/`).
-- C4 [MUST] Upgrade `PlayerSimilarity.tsx` — 3-tab header + archetype pill per comp.
-- C7a [MUST] `usePlayerArchetype` SWR hook.
-- B10 [NICE] Team-fit similarity mode with teammate-duplicate penalty (defer if running long).
-- A3 [NICE] Hand-label 30 players to validate archetype rules; retune thresholds once.
-- C8 [NICE] Copy polish on labels.
-
-**Stream B — Codex** (Features 2 + 3: Shot Diagnosis + Scouting Brief)
-- A2 [MUST] Extend `specs/sprint-67-archetype-rules.md` with ~12 diagnosis tags (triggering deltas + grade bands).
-- B5 [MUST] `backend/services/shot_diagnosis_service.py` — pure layer over `shot_intelligence_service`.
-- B6 [MUST] `GET /shotchart/{player_id}/diagnosis` in `backend/routers/shotchart.py`.
-- B7 [MUST] `backend/services/scouting_brief_service.py` — composes archetype + diagnosis + opportunity + trajectory.
-- B8 [MUST] `GET /api/players/{player_id}/scouting-brief` route.
-- B9b [MUST] Backend tests: 1 per diagnosis tag trigger + scouting-brief composition snapshot.
-- C1/C2 [MUST] Append diagnosis + scouting-brief types/clients to `lib/types.ts`, `lib/api.ts`.
-- C5 [MUST] `ShotDiagnosisPanel.tsx` — graded tag chips + sustainability band; wire into `ShotChart.tsx`.
-- C6 [MUST] `scouting-brief/ScoutingBrief.tsx` + 5 card components; insert below `PlayerHeader` in `PlayerDashboard.tsx`.
-- C7b [MUST] `usePlayerShotDiagnosis`, `usePlayerScoutingBrief` SWR hooks.
-- C9 [NICE] Inbound deep-link banners (scouting card → Shot Lab with preselected diagnosis tag), mirroring Sprint 65 banner pattern.
-
-**Shared D — verification**
-- D1 [MUST] Manual smoke walkthrough: 10 diverse players (≥3 archetypes, ≥1 small-sample rookie, ≥1 historical season). Confirm brief < 1 s warm cache, all 5 cards graceful, no orphan chips.
-- D2 [MUST] Full backend `pytest`; frontend `npm run lint` + `npm run build` clean.
-- D3 [MUST] Sprint 67 closeout doc + CLAUDE.md Recent Sprints update + BACKLOG.md refresh.
+Sprint 68 allocation — TBD at kickoff.
 
 ---
 
@@ -196,6 +156,8 @@ Sprint 67 — Plan file: `~/.claude/plans/you-are-acting-as-gentle-tiger.md`
 ## Notes
 
 *Free-form, dated, newest first. Use this for coordination and repo-state exceptions.*
+
+2026-04-24 (Claude): Sprint 67 closeout on `feature/sprint-67-decision-intelligence`. Shipped the 15-archetype Player Archetype Engine, role-aware similarity (season + age modes), 12-tag Shot Profile Diagnosis, and the 5-card Scouting Brief. Three spec tune passes before code caught two routing bugs and one coverage gap; live-DB smoke caught two more bugs before merge. 47 new backend tests (243 passing). Closeout: `specs/sprint-67-closeout.md`. Cleaned up four untracked Sprint-65 leftover files that were silently breaking `npm run build`.
 
 2026-04-23 (Claude): Sprint 67 kickoff on `feature/sprint-67-decision-intelligence`. Theme: Decision Intelligence — make the player page answer "Who is this player, how do they create value, and what should I do with that?" Three features: Player Archetype + Similarity Engine (Stream A, Claude), Shot Profile Diagnosis Panel + Scouting Summary Cards (Stream B, Codex). Plan file: `~/.claude/plans/you-are-acting-as-gentle-tiger.md`. Merge order A → B. Starting on A1 (archetype taxonomy spec).
 
