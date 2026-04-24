@@ -26,6 +26,10 @@ function PreReadPageInner() {
   const [team, setTeam] = useState(searchParams.get("team")?.toUpperCase() ?? "OKC");
   const [opponent, setOpponent] = useState(searchParams.get("opponent")?.toUpperCase() ?? "BOS");
   const [season, setSeason] = useState(searchParams.get("season") ?? "2024-25");
+  // Sprint 65: inbound scouting-context banner (when deep-linked from a scouting claim).
+  const inboundSource = searchParams.get("source");
+  const inboundClaimTitle = searchParams.get("claim_title");
+  const inboundClaimReason = searchParams.get("claim_reason");
   const [mode, setMode] = useState<ViewMode>(rawMode === "scouting" ? "scouting" : "briefing");
   const [snapshotMessage, setSnapshotMessage] = useState<string | null>(null);
   const [isSaving, startSaving] = useTransition();
@@ -90,6 +94,13 @@ function PreReadPageInner() {
       {data?.snapshot ? (
         <div className="rounded-[1.5rem] border border-[rgba(33,72,59,0.18)] bg-[rgba(216,228,221,0.28)] px-5 py-4 text-sm text-[var(--muted-strong)]">
           Frozen snapshot: {data.snapshot.snapshot_id.slice(0, 8)} · created {new Date(data.snapshot.created_at).toLocaleString()}
+        </div>
+      ) : null}
+
+      {inboundSource === "scouting" && inboundClaimTitle ? (
+        <div className="rounded-[1.5rem] border border-[rgba(181,145,78,0.22)] bg-[rgba(181,145,78,0.10)] px-5 py-4 text-sm leading-6 text-[var(--muted-strong)]">
+          From <span className="font-semibold text-[var(--foreground)]">Scouting</span>: {decodeURIComponent(inboundClaimTitle)}.
+          {inboundClaimReason ? ` ${decodeURIComponent(inboundClaimReason)}` : ""}
         </div>
       ) : null}
 

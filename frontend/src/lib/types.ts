@@ -3413,22 +3413,6 @@ export interface PreReadPrepContext {
   replay_url?: string | null;
 }
 
-export interface UsageEfficiencyPlayerRow {
-  player_id: number;
-  player_name: string;
-  team_abbreviation: string | null;
-  minutes_pg: number | null;
-  usg_pct: number | null;
-  ts_pct: number | null;
-  off_rating: number | null;
-  pts_pg: number | null;
-  ast_pg: number | null;
-  tov_pg: number | null;
-  burden_score: number | null;
-  efficiency_score: number | null;
-  category: "overused" | "underused";
-}
-
 export interface OpponentPlayTypeRow {
   play_type: string;
   poss_pct: number | null;
