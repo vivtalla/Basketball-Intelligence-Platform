@@ -1,6 +1,6 @@
 # Sprint 67 — Archetype & Shot Diagnosis Taxonomy
 
-**Status:** A1 (player archetypes) — 15 archetypes, tuned twice; ready for B1 implementation. A2 (shot diagnosis tags) pending Codex.
+**Status:** A1 (player archetypes) — 15 archetypes, three tune passes complete, locked for B1 implementation. A2 (shot diagnosis tags) pending Codex.
 **Consumed by:** `backend/services/player_archetype_service.py` (A1) and `backend/services/shot_diagnosis_service.py` (A2).
 **Discipline:** deterministic rules only, mirroring `backend/routers/styles.py::classify_archetype` (Sprint 60). No ML, no embeddings.
 
@@ -10,32 +10,47 @@
 
 ### 1.1 Feature extraction
 
-All features are computed from `SeasonStat` (and `Player` for size). No new upstream data this sprint. Features are normalized to **per-season z-scores** against a peer pool of qualifying players so era-independence is preserved (same discipline as `similarity_service.find_similar_players`).
+All features are computed from `SeasonStat` (and `Player` for size/age). No new upstream data this sprint. Features are normalized to **per-season z-scores** against a peer pool of qualifying players so era-independence is preserved (same discipline as `similarity_service.find_similar_players`).
 
-**Peer pool for z-score computation.** All players in the same `season` with `gp >= 20` AND `min_pg >= 15` AND `is_playoff == False` AND all required features non-null. Rationale: keep the pool to rotation players so the distribution isn't dragged by 5-minute cameos.
+**Subject-row selection.** `season_stats` has a row per `(player_id, season, team_abbreviation, is_playoff)`. For a mid-season trade the NBA produces a `"TOT"` aggregate row. Classifier resolution order, per player+season:
+1. Prefer `is_playoff == False AND team_abbreviation == "TOT"` when present.
+2. Else use the single `is_playoff == False` row for that player+season.
+3. If multiple non-`TOT` regular-season rows exist and no `TOT` is present, fall through to `developmental` with a `reason` note "split-season without TOT aggregate — sample ambiguous".
+
+Playoff rows (`is_playoff == True`) are never used by the classifier — archetype is a regular-season identity.
+
+**Peer pool for z-score computation.** All players in the same `season` whose subject-row selection yielded a single well-defined row AND `gp >= 20` AND `min_pg >= 15` AND all of the following non-null: `usg_pct, ast_pg, par3, ftr, ts_pct, stl_pg, blk_pg, oreb_pct, dbpm, obpm, min_pg`. Rationale: keep the pool to rotation players so the distribution isn't dragged by 5-minute cameos. A player who fails pool entry is not classified at all — returns `developmental` with `reason` = "below minute/game threshold for archetype classification".
 
 **Feature dictionary.**
 
 | Feature key | Source | Formula | Role signal |
 |---|---|---|---|
 | `usg_z` | `season_stats.usg_pct` | raw value | creation burden |
-| `ast_rate_z` | `season_stats.ast_pg / min_pg * 36` (AST/36) | per-36 assists | playmaking |
+| `ast_rate_z` | `season_stats` | `(ast_pg * 36) / min_pg` (per-36 assists) | playmaking volume |
 | `ast_tov_z` | `season_stats.ast_tov` | raw | playmaking quality |
-| `par3_z` | `season_stats.par3` | FG3A / FGA | perimeter diet |
-| `ftr_z` | `season_stats.ftr` | FTA / FGA | rim pressure / foul drawing |
+| `par3_z` | `season_stats.par3` | `fg3a / fga` | perimeter diet |
+| `ftr_z` | `season_stats.ftr` | `fta / fga` | rim pressure / foul drawing |
 | `ts_z` | `season_stats.ts_pct` | raw | shooting efficiency |
-| `stl_rate_z` | `season_stats.stl_pg / min_pg * 36` | per-36 steals | perimeter defense |
-| `blk_rate_z` | `season_stats.blk_pg / min_pg * 36` | per-36 blocks | rim protection |
+| `stl_rate_z` | `season_stats` | `(stl_pg * 36) / min_pg` (per-36 steals) | perimeter defense |
+| `blk_rate_z` | `season_stats` | `(blk_pg * 36) / min_pg` (per-36 blocks) | rim protection |
 | `oreb_z` | `season_stats.oreb_pct` | raw | interior activity |
-| `dreb_rate_z` | `season_stats.dreb / (dreb + opp_dreb)` fallback to `dreb / min_total * 36` if opp unavailable | defensive rebound share | defensive anchor signal |
 | `dbpm_z` | `season_stats.dbpm` | raw | all-round defense |
 | `obpm_z` | `season_stats.obpm` | raw | all-round offense |
-| `fg3_pct_z` | `season_stats.fg3_pct` (gated on `fg3a >= 50`) | raw | shooting talent |
-| `size_inches` | `players.height` | raw inches (not z-scored) | archetype gating |
+| `fg3_pct_z` | `season_stats.fg3_pct` (sample-gated: excluded from the player's feature vector if `fg3a < 50`) | raw | shooting talent |
+| `size_inches` | `players.height` parsed (see below) | integer inches | archetype gating (not z-scored) |
 
-**Missing-feature policy.** If a required feature for a rule is null, the rule **does not fire** (does not contribute a magnitude). A player with all required features null falls through to `Developmental` or `Rotational`.
+**Height parsing.** `players.height` is stored as a string like `"6-7"` (feet-inches). Parser:
+```
+parse_height("6-7") -> 79   # 6 * 12 + 7
+parse_height("7-0") -> 84
+parse_height("")    -> None
+parse_height(None)  -> None
+```
+A player whose height parses to `None` is **excluded from the peer pool** (not just from size-gated rules) because size is a gating feature on multiple archetypes.
 
-**Rim rate fallback.** The plan notes rim rate as a target feature but `SeasonStat` has no rim-zone column. For this sprint, use `ftr_z` as a rim-pressure proxy. If Shot Lab zone aggregation is cheap per-player (it already powers `build_shot_quality_response`), a follow-on can swap in true rim rate; for now `ftr_z` is the documented proxy.
+**Age derivation (for similarity `mode="age"`).** `players.birth_date` is a string (format varies: `"1998-02-01"`, `"Feb 1, 1998"`, or similar — use `dateutil.parser` with fallback). Compute age as of `October 1` of the season's start year: for `season == "2023-24"`, reference date is `2023-10-01`. A player whose birth date fails to parse is excluded from the age-mode peer pool.
+
+**Missing-feature policy inside a rule.** If any feature named in a rule's trigger is null for the subject player (after sample-gating), the rule **does not fire** and contributes nothing to `trigger_magnitudes`. The next rule in order is evaluated.
 
 ### 1.2 Archetype catalog
 
@@ -47,7 +62,7 @@ All features are computed from `SeasonStat` (and `Player` for size). No new upst
 |---|---|---|---|---|
 | 1 | `heliocentric_creator` | Heliocentric Creator | `usg_z >= 1.0 AND ast_rate_z >= 1.0 AND obpm_z >= 1.0` | "High usage, elite playmaking, and above-average efficiency — possessions orbit this player." |
 | 2 | `lead_ball_handler` | Lead Ball-Handler | `usg_z >= 0.7 AND ast_rate_z >= 0.8` | "High usage with heavy on-ball creation — defined by volume and playmaking regardless of shot diet." |
-| 3 | `iso_scorer` | Iso Scorer | `usg_z >= 0.7 AND ast_rate_z <= 0.5 AND par3_z <= 0.0 AND ftr_z >= 0.2` | "High-usage mid-range and rim scorer without a heavy passing burden — a bucket-getter." |
+| 3 | `iso_scorer` | Iso Scorer | `usg_z >= 0.7 AND ast_rate_z <= 0.8 AND par3_z <= 0.0 AND ftr_z >= 0.2` | "High-usage mid-range and rim scorer without a heavy passing burden — a bucket-getter." |
 | 4 | `secondary_playmaker` | Secondary Playmaker | `ast_rate_z >= 0.6 AND usg_z <= 0.5 AND ast_tov_z >= 0.3` | "Connective passing with controlled usage and low turnover risk." |
 | 5 | `movement_shooter` | Movement Shooter | `par3_z >= 0.8 AND fg3_pct_z >= 0.3 AND usg_z <= 0.5` | "High perimeter volume at reliable accuracy in a low-to-moderate usage role." |
 | 6 | `three_and_d_wing` | 3-and-D Wing | `par3_z >= 0.5 AND fg3_pct_z >= 0.3 AND dbpm_z >= 0.5 AND 77 <= size_inches <= 82` | "Spot-up perimeter threat at wing size paired with above-average defense." |
@@ -64,7 +79,7 @@ All features are computed from `SeasonStat` (and `Player` for size). No new upst
 **Rationale notes on specific thresholds (don't "clean these up" without re-reading).**
 - `heliocentric_creator`'s `usg_z >= 1.0` (not 1.2) is intentional. Top-~15% usage combined with elite playmaking and obpm is a strong enough signal; 1.2 was excluding Jokić-style centers whose usage is "only" top-15 rather than top-5.
 - `lead_ball_handler` has *no* `par3_z` gate. A high-usage, high-assist guard with a mid-range diet (SGA-style) is still a lead ball-handler. Adding a par3 floor previously orphaned the mid-range-creator lane.
-- `iso_scorer` (rank 3) catches the *other* side: high usage, low assists, mid-range-heavy scorers (DeMar DeRozan peak). Positioned right after `lead_ball_handler` so a DeRozan-year with spiked assists still routes to ball-handler.
+- `iso_scorer` (rank 3) catches the *other* side: high usage, mid-range-heavy scorers without Lead Ball-Handler-level passing (DeRozan peak, SGA-style mid-range creators). Positioned right after `lead_ball_handler`, with `ast_rate_z <= 0.8` as a hard ceiling that matches LBH's floor (no overlap, no gap). The previous `<= 0.5` threshold was too tight — it left high-usage moderate-assist mid-range creators orphaned in Balanced Role.
 - `movement_shooter` (rank 5) was loosened from the original `par3_z >= 1.0 / fg3_pct_z >= 0.6` to catch high-volume veteran shooters whose accuracy dropped to league-average but whose role is still specialist spacer (late-career Klay Thompson profile).
 - `three_and_d_wing` size floor raised to 77" (6'5") to exclude pure guards whose defense happens to grade well.
 - `rim_pressure_guard` thresholds tuned: `ftr_z >= 0.6` (top-~30%, was top-~20% too strict); `par3_z <= 0.0` (below-average perimeter volume — archetype *requires* paint-first); `usg_z >= 0.0` floor distinguishes an on-ball creator from a bench energy guard.
@@ -86,7 +101,7 @@ Port `_archetype_confidence(trigger_magnitudes)` verbatim:
 
 Same pattern as `_style_xray_label`: rank the full feature list by `|z|` descending and return the top 4 as `ArchetypeContributor` records. Each contributor carries `{feature_key, label, value, z, direction}` where `direction ∈ {"above", "below"}` based on sign of z.
 
-A dedicated `ARCHETYPE_CONTRIBUTOR_KEYS` set (analog of `_STYLE_CONTRIBUTOR_KEYS`) restricts contributors to features with basketball-native labels: `usg_z`, `ast_rate_z`, `par3_z`, `ftr_z`, `ts_z`, `stl_rate_z`, `blk_rate_z`, `oreb_z`, `dbpm_z`, `obpm_z`, `fg3_pct_z`. (Skips `ast_tov_z`, `dreb_rate_z`, `size_inches` — those are gating features used only inside triggers, not for user-facing fingerprints.)
+A dedicated `ARCHETYPE_CONTRIBUTOR_KEYS` set (analog of `_STYLE_CONTRIBUTOR_KEYS`) restricts contributors to features with basketball-native labels: `usg_z`, `ast_rate_z`, `par3_z`, `ftr_z`, `ts_z`, `stl_rate_z`, `blk_rate_z`, `oreb_z`, `dbpm_z`, `obpm_z`, `fg3_pct_z`. (Skips `ast_tov_z` and `size_inches` — those are gating features used only inside triggers, not for user-facing fingerprints.)
 
 ### 1.5 Output schema
 
@@ -148,6 +163,18 @@ One golden test per archetype using a known-plausible player / season. If the re
 
 **Rule ordering policy.** First rule whose trigger evaluates true wins. If a fixture expects a later archetype, the earlier rules must fail their own triggers on that fixture — never rely on short-circuit logic beyond the documented ordering. Fixtures are aspirational-plausible: when real 2024-25 data disagrees with a fixture, tune the thresholds in the spec *before* changing the test, but tune only if the basketball argument is stronger than the fixture itself.
 
+**Sanity-trace expectations for B1 verification.** After B1 lands, these additional trace expectations must hold on real 2024-25 data (not part of the golden test set, but a smoke verification for D1):
+
+| Player (2024-25) | Expected archetype | Expected *not* archetype |
+|---|---|---|
+| Shai Gilgeous-Alexander | `iso_scorer` (or `heliocentric_creator` if `ast_rate_z` exceeds 1.0) | `balanced_role` |
+| Nikola Jokić | `heliocentric_creator` | `lead_ball_handler` |
+| Rudy Gobert | `defensive_anchor` | `interior_finisher` |
+| Chet Holmgren | `defensive_anchor` | `stretch_big` |
+| Draymond Green | `connective_forward` | `switchable_stopper` |
+| Lu Dort | `switchable_stopper` | `developmental` |
+| Keegan Murray | `stretch_big` or `three_and_d_wing` | `balanced_role` |
+
 ---
 
 ## Part 2 — Shot Diagnosis Tag Taxonomy (Stream B / Codex)
@@ -168,3 +195,4 @@ Expected structure:
 - 2026-04-23 (Claude): A1 drafted. 13 archetypes, feature dictionary, confidence bands, similarity mode extensions, golden test fixtures.
 - 2026-04-23 (Claude): A1 review/tune pass. Catalog grew to 14 archetypes. Changes: (a) dropped `par3_z >= 0.2` gate from Lead Ball-Handler so mid-range creators route correctly; (b) added `iso_scorer` archetype to catch high-usage low-assist mid-range scorers (DeRozan prototype); (c) reordered Defensive Anchor before Stretch Big so rim-protecting shooters (Wemby, Chet) route defensively; (d) loosened Movement Shooter (`par3_z >= 0.8 AND fg3_pct_z >= 0.3 AND usg_z <= 0.5`); (e) raised 3-and-D Wing size floor to 77"; (f) tuned Rim Pressure Guard: `ftr_z >= 0.6`, `par3_z <= 0.0`, new `usg_z >= 0.0` floor; (g) added rationale notes for thresholds that look odd but are load-bearing; (h) updated fixture table with dual-eligibility notes; (i) split developmental into "thin sample" vs "balanced role" variants.
 - 2026-04-23 (Claude): A1 second tune pass. Catalog now 15 archetypes with real schema split between `balanced_role` and `developmental`. Changes: (a) **BUG** — moved Defensive Anchor from rank 10 to rank 9 so Gobert's offensive profile can't route him to Interior Finisher first; (b) dropped `par3_z >= 0.2` gate from Connective Forward (old-school passing forwards don't need modern spacing); (c) dropped `blk_rate_z >= -0.2` floor from Stretch Big (size gate is enough; Keegan Murray / Jabari Smith types legitimately fit); (d) lowered Switchable Stopper size floor from 76 to 75 (catches Lu Dort); (e) lowered Heliocentric usg threshold from 1.2 to 1.0 (lets Jokić-volume centers route here); (f) **BUG** — swapped Rim Pressure Guard fixture from Ja Morant (fires Lead Ball-Handler) to De'Aaron Fox 22-23; (g) swapped Interior Finisher fixture to Ivica Zubac so it's clearly distinguishable from Defensive Anchor; (h) promoted `balanced_role` to a real 15th archetype key instead of a `reason_variant` flag. Confidence band thresholds unchanged.
+- 2026-04-23 (Claude): A1 third (final) tune pass — spec locked. Changes: (a) **SCHEMA BUG** — `Player.height` is `String(10)` (`"6-7"` format), not an int; added explicit height-parser contract. Same for `Player.birth_date` (variable-format string) needed by similarity `mode="age"`. (b) **COVERAGE GAP** — loosened Iso Scorer's `ast_rate_z` cap from 0.5 to 0.8 so SGA-band mid-range lead creators route correctly instead of falling to Balanced Role; no-overlap-no-gap at 0.8 against Lead Ball-Handler's 0.8 floor. (c) **CRUFT** — removed `dreb_rate_z` from feature dictionary; it wasn't used by any rule and couldn't be computed cleanly (`opp_dreb` not on SeasonStat). (d) **MULTI-ROW EDGE** — documented subject-row selection policy for mid-season trades (prefer `team_abbreviation=="TOT"`, regular-season only, ambiguous split-season falls to developmental). (e) Added peer-pool explicit required-features list. (f) Added sanity-trace expectations table for D1 smoke verification beyond the golden fixture set.
