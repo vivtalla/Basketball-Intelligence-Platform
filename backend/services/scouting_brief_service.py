@@ -74,7 +74,7 @@ def _role_card(archetype) -> Optional[ScoutingBriefCard]:
         summary=f"{archetype.label} — {archetype.confidence} confidence",
         evidence=evidence,
         confidence=confidence,
-        deep_link=f"/players/{archetype.player_id}#archetype",
+        deep_link=f"/players/{archetype.player_id}?source=brief&card=role#archetype",
     )
 
 
@@ -114,7 +114,7 @@ def _strengths_card(archetype) -> Optional[ScoutingBriefCard]:
         summary=summary,
         evidence=evidence,
         confidence=archetype.confidence,
-        deep_link=f"/players/{archetype.player_id}#archetype",
+        deep_link=f"/players/{archetype.player_id}?source=brief&card=strengths#archetype",
     )
 
 
@@ -148,7 +148,7 @@ def _usage_efficiency_card(player_id: int, opportunity_response) -> Optional[Sco
         summary=summary,
         evidence=evidence,
         confidence=confidence_raw,  # type: ignore[arg-type]
-        deep_link=f"/insights?tab=usage&player_id={player_id}",
+        deep_link=f"/insights?tab=usage&player_id={player_id}&source=brief",
     )
 
 
@@ -175,13 +175,17 @@ def _shot_profile_card(player_id: int, diagnosis) -> Optional[ScoutingBriefCard]
             elif ev.value is not None:
                 evidence.append(f"{tag.label}: {ev.value:.2f}")
     confidence: ScoutingCardConfidence = diagnosis.sample_confidence
+    top_tag_key = top_tags[0].key if top_tags else ""
     return ScoutingBriefCard(
         card_type="shot_profile",
         title="Shot profile",
         summary=summary,
         evidence=evidence,
         confidence=confidence,
-        deep_link=f"/players/{player_id}#shot-lab",
+        deep_link=(
+            f"/players/{player_id}?source=brief&card=shot_profile"
+            f"&diagnosis_tag={top_tag_key}#shot-lab"
+        ),
     )
 
 
@@ -209,7 +213,7 @@ def _trajectory_card(player_id: int, trajectory_response) -> Optional[ScoutingBr
         summary=summary,
         evidence=evidence,
         confidence=conf,
-        deep_link=f"/insights?tab=trajectory&player_id={player_id}",
+        deep_link=f"/insights?tab=trajectory&player_id={player_id}&source=brief",
     )
 
 
