@@ -3605,3 +3605,66 @@ export interface PreReadSnapshotResponse {
   note: string | null;
   packet_summary: PreReadPacketSummary | null;
 }
+
+// --- Sprint 67 — Player Archetype + Similarity Engine ---------------------
+
+export type ArchetypeKey =
+  | "heliocentric_creator"
+  | "lead_ball_handler"
+  | "iso_scorer"
+  | "secondary_playmaker"
+  | "movement_shooter"
+  | "three_and_d_wing"
+  | "rim_pressure_guard"
+  | "connective_forward"
+  | "defensive_anchor"
+  | "interior_finisher"
+  | "stretch_big"
+  | "switchable_stopper"
+  | "rotational_energy"
+  | "balanced_role"
+  | "developmental";
+
+export type ArchetypeConfidence = "high" | "medium" | "low";
+
+export interface ArchetypeContributor {
+  feature_key: string;
+  label: string;
+  value: number | null;
+  z: number;
+  direction: "above" | "below";
+}
+
+export interface ArchetypeSample {
+  gp: number;
+  min_pg: number;
+  peer_pool_size: number;
+}
+
+export interface PlayerArchetype {
+  player_id: number;
+  season: string;
+  archetype_key: ArchetypeKey;
+  label: string;
+  confidence: ArchetypeConfidence;
+  reason: string;
+  contributors: ArchetypeContributor[];
+  sample: ArchetypeSample;
+  methodology_version: string;
+}
+
+// Extended similarity comp carrying the archetype label attached by B2.
+export interface SimilarPlayerCompWithArchetype extends SimilarPlayerComp {
+  archetype_key: ArchetypeKey | null;
+  archetype_label: string | null;
+  archetype_confidence: ArchetypeConfidence | null;
+}
+
+export type SimilarityMode = "season" | "age" | "team_fit";
+
+export interface SimilarityResponseWithArchetype {
+  player_id: number;
+  season: string;
+  mode: SimilarityMode;
+  comps: SimilarPlayerCompWithArchetype[];
+}

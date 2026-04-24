@@ -1583,3 +1583,25 @@ export async function updatePreReadPacketSnapshot(
 export async function getPreReadSnapshotMarkdown(snapshotId: string): Promise<string> {
   return fetchApiText(`/api/pre-read/snapshots/${encodeURIComponent(snapshotId)}/markdown`);
 }
+
+// --- Sprint 67 — Player Archetype + Similarity Engine ---------------------
+
+export async function getPlayerArchetype(
+  playerId: number,
+  season: string
+): Promise<import("./types").PlayerArchetype> {
+  return fetchApi<import("./types").PlayerArchetype>(
+    `/api/archetype/${playerId}?season=${encodeURIComponent(season)}`
+  );
+}
+
+export async function getSimilarPlayersWithArchetype(
+  playerId: number,
+  season: string,
+  mode: import("./types").SimilarityMode = "season",
+  n = 8
+): Promise<import("./types").SimilarityResponseWithArchetype> {
+  return fetchApi<import("./types").SimilarityResponseWithArchetype>(
+    `/api/similarity/${playerId}?season=${encodeURIComponent(season)}&mode=${mode}&n=${n}`
+  );
+}
