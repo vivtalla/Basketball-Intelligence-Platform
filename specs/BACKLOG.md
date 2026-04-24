@@ -82,11 +82,11 @@ Likely shape:
 
 ### Team Prep Queue Follow-Ons
 Why it matters:
-Sprints 42 and 63 made the prep queue substantially more opponent-aware, replay-aware, and archival-ready, but the workflow can still get more durable and more staff-friendly without losing its current lightweight feel.
+Sprints 42, 63, and 66 made the prep queue substantially more opponent-aware, replay-aware, and archival-ready. The next gains are less about basic save/reopen support and more about making packet archives easier to manage at staff scale.
 
 Likely shape:
-- add snapshot management affordances such as naming, list/history views, and cleaner reopen/share flows for staff prep archives
-- extend prep continuity into compare/export surfaces so a saved prep state can become a fuller staff handoff
+- add richer packet archive controls such as search, sort, season filters, and series/opponent grouping for staff prep libraries
+- extend prep continuity into compare/export surfaces so a saved packet can become a fuller staff handoff
 - continue tuning urgency and first-action summaries for local performance and edge-case matchups
 
 ### Team Shooting Split Workflow Expansion
@@ -131,12 +131,12 @@ Likely shape:
 
 ### Play-Type Scouting and Clip Workflow
 Why it matters:
-Sprint 65 shipped `ClaimInferenceConfidence` on every claim, opponent-specific event counts, reason-bearing confidence pills, opponent-aware claim ranking inside each section, and a "Compare with this claim" handoff into Compare + Pre-Read banners. What remains is packaging the claim output for staff and extending the same calibration to adjacent surfaces.
+Sprints 65 and 66 turned play-type scouting into a real staff handoff workflow: confidence-ranked claims, opponent-specific anchors, compare continuity, and packet pinning into Pre-Read. What remains is making claim curation and export more powerful once staff use rises.
 
 Likely shape:
-- improve clip-list export formatting, selection controls, and workflow continuity with pre-read and compare (printable/CSV/Markdown packet formats were deferred from Sprint 65)
+- improve clip-list export formatting, multi-claim curation controls, and workflow continuity with compare and broader staff packets
 - surface inference-confidence analogs on focus-levers, what-if scenarios, and decision-tool rotation suggestions so the trust model is consistent across coaching surfaces
-- add a scouting-claim-to-Pre-Read jump from inside ScoutingReportView so the banner has a symmetric entry point (today only Compare has one)
+- explore richer clip packaging once staff need printable or bulk-shareable evidence bundles beyond the current packet markdown path
 
 ---
 
@@ -208,11 +208,11 @@ Likely shape:
 
 ### Pre-Read Deck Follow-Ons
 Why it matters:
-The browser deck is stronger after Sprints 27, 32, and 63, but staff workflows still want deeper archiving, cleaner snapshot management, and broader decision context than live links alone can provide.
+The browser deck is materially stronger after Sprints 27, 32, 63, and 66: named packets, scouting claim carry-through, packet library/history, share links, and markdown export now exist. The next gains are about deeper archive management and broader packet-aware follow-through.
 
 Likely shape:
-- add lineup-specific notes, compare launches, and game-film follow-through links
-- add snapshot library, naming, and reuse workflows so archived pre-read states are easier to manage over a season
+- add lineup-specific notes, compare launches, and game-film follow-through links that preserve packet context
+- add richer archive management such as search, filtering, packet presets, and season-long staff reuse workflows
 
 ### Metrics Follow-Ons
 Why it matters:

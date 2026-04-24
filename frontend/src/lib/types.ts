@@ -3544,3 +3544,64 @@ export interface BenchAnalyticsResponse {
   worst_bench_lineups: BenchUnitRow[];
   data_status: string;
 }
+
+export interface PreReadPacketSelection {
+  claim_ids: string[];
+  clip_anchor_ids: string[];
+}
+
+export interface PreReadPacketSummary {
+  claim_count: number;
+  clip_count: number;
+  claim_titles: string[];
+}
+
+export interface PreReadScoutingPacketClaim {
+  claim_id: string;
+  title: string;
+  summary: string;
+  evidence: {
+    label: string;
+    value: number | string | null;
+    context?: string | null;
+  }[];
+  inference_confidence: ClaimInferenceConfidence | null;
+  clip_anchors: ScoutingClipAnchor[];
+}
+
+export interface PreReadScoutingPacket {
+  selection: PreReadPacketSelection;
+  claims: PreReadScoutingPacketClaim[];
+  generated_at: string | null;
+  source_url: string | null;
+}
+
+export interface PreReadSnapshotRef {
+  title: string | null;
+  note: string | null;
+  packet_summary: PreReadPacketSummary | null;
+}
+
+export interface PreReadPrepContext {
+  shot_profile_driver?: StyleShotProfileDriver | null;
+  style_replay_target?: ReplayLaunchTarget | null;
+  xray_url?: string | null;
+  replay_url?: string | null;
+}
+
+export interface PreReadDeckResponse {
+  runtime_policy?: string | null;
+  scouting_packet: PreReadScoutingPacket | null;
+}
+
+export interface PreReadSnapshotSummary {
+  title: string | null;
+  note: string | null;
+  packet_summary: PreReadPacketSummary | null;
+}
+
+export interface PreReadSnapshotResponse {
+  title: string | null;
+  note: string | null;
+  packet_summary: PreReadPacketSummary | null;
+}

@@ -261,6 +261,14 @@ CourtVue Labs uses a hybrid sprint model: major feature sprints typically run as
 
 > Full history → `specs/sprint-history.md`
 
+### Sprint 66 — Staff Packet And Coaching Handoff
+
+- Upgraded `pre_read_snapshots` into named staff packets with Alembic revision `0010_pre_read_packet_metadata`, adding editable packet metadata (`title`, `note`) while keeping frozen saved payloads stable.
+- Extended Pre-Read snapshot contracts and services with packet selection summaries, frozen scouting-claim persistence, inline packet metadata updates, and markdown export from saved snapshots.
+- Rebuilt `/pre-read` around a real packet workflow: packet library tabs (`This Matchup`, `Team History`), inline rename/note editing, scouting-packet rendering, and packet-level `Open` / `Copy share link` / `Export markdown` actions.
+- Added ScoutingReportView packet pinning so analysts can carry up to 3 claims with confidence pills and ranked clip anchors directly into the saved staff packet.
+- Verified with new Sprint 66 backend coverage, full backend `pytest` (196 passing), frontend `npm run build`, frontend `npm run lint` with only pre-existing warnings, and a live manual smoke walkthrough after migrating the local dev Postgres schema.
+
 ### Sprint 65 — Scouting & Opportunity Fit
 
 - Added in-process TTL cache on `build_opportunity_report` keyed by `(season, team, min_minutes, position, date)` so `team=ALL` scouting traversals no longer recompute per call; 10 min current-season, 24 h historical.
@@ -273,23 +281,7 @@ CourtVue Labs uses a hybrid sprint model: major feature sprints typically run as
 - Bonus: relaxed Recharts Tooltip formatter value type in `TeamNetRatingChart` so `npm run build` type-check passes (regression from Sprint 64).
 - Verified with 14 new backend tests (193 passing), frontend `npm run lint` clean, `npm run build` clean, and live dev-server exercise against `/insights?tab=usage&team=BOS` + `/pre-read?team=OKC&opponent=BOS&mode=scouting`.
 
-### Sprint 64 — Coaching Workflow Intelligence
-
-- Added pre-game matchup intelligence: opponent play-type tendencies (Synergy team endpoint), head-to-head series history from `game_logs`, and pace-edge framing comparing team pace vs opponent allowed pace.
-- Added team profile depth: team clutch analytics (last 5 min, score within 5), rolling net-rating Recharts chart, quarter/half scoring profile scaffold, and bench vs starter lineup intelligence derived from `lineup_stats` + `player_game_logs`.
-- Extended `nba_client.py` with `get_synergy_team_play_types`, `get_team_clutch_stats`, and `get_team_game_log`; period breakdown returns graceful `unavailable` status since `nba_api` does not expose that endpoint.
-- Mounted 6 new components across team Prep, Decision, Analytics, and Lineups tabs with graceful empty states throughout.
-- Verified with backend import smoke test, frontend `npm run lint` (0 errors), and live dev-server exercise against `/teams/BOS`.
-
-### Sprint 63 — Team/Insights Workflow Expansion
-
-- Added a canonical team shot-profile service and threaded persisted official shooting-split families into Compare, Prep, pre-read, team-defense, and Style X-Ray.
-- Expanded Style X-Ray with short-horizon archetype history, drift narratives, stronger neighbor-quality context, and direct compare/prep/what-if/replay handoff payloads.
-- Added replay-aware coaching follow-through plus prep snapshot continuity keyed by matchup/date, while preserving evidence source and exact/derived/timeline trust state.
-- Added trust-note handling for ambiguous official split families, including assisted-shot caution wording and weaker-claim gating.
-- Verified with targeted backend tests, frontend `npm run lint`, frontend `npm run build`, and `git diff --check` clean.
-
-*Sprint 62 moved to `specs/sprint-history.md`.*
+*Sprint 64 and older moved to `specs/sprint-history.md`.*
 
 ---
 
@@ -307,6 +299,7 @@ CourtVue Labs uses a hybrid sprint model: major feature sprints typically run as
 | `feature/sprint-63-team-insights-workflow-expansion` | Codex | Merged to master |
 | `feature/sprint-64-coaching-workflow-intelligence` | Claude | Merged to master |
 | `feature/sprint-65-scouting-opportunity-fit` | Claude | Merged to master |
+| `codex-sprint-66-staff-packet-handoff` | Codex | Ready to merge to master |
 
 Sprint branches are created at kickoff and listed in `AGENTS.md`.
 

@@ -683,6 +683,20 @@ export function usePreReadSnapshot(snapshotId: string | null) {
   );
 }
 
+export function usePreReadPacketLibrary(
+  team: string | null,
+  season: string | null,
+  opponent?: string | null,
+  limit = 8
+) {
+  return useSWR<PreReadSnapshotListResponse>(
+    team && season
+      ? `pre-read-packet-library-${team}-${season}-${opponent ?? "all"}-${limit}`
+      : null,
+    () => getPreReadSnapshots(team!, opponent ?? undefined, season!, limit)
+  );
+}
+
 export function useWhatIfScenario(
   payload:
     | {

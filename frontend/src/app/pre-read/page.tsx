@@ -2,58 +2,88 @@
 
 import { Suspense, useState, useTransition } from "react";
 import Link from "next/link";
-import { useSearchParams } from "next/navigation";
-import { createPreReadSnapshot } from "@/lib/api";
+import { useRouter, useSearchParams } from "next/navigation";
+import { useSWRConfig } from "swr";
+import {
+  createPreReadPacketSnapshot,
+  getPreReadSnapshotMarkdown,
+  updatePreReadPacketSnapshot,
+} from "@/lib/api";
 import {
   usePreReadDeck,
+  usePreReadPacketLibrary,
   usePreReadSnapshot,
-  usePreReadSnapshots,
   useTeamIntelligence,
   useTeamRotationReport,
   useTeams,
 } from "@/hooks/usePlayerStats";
+import type { PreReadScoutingPacket } from "@/lib/types";
 import AvailabilitySummaryCard from "@/components/AvailabilitySummaryCard";
 import ScoutingReportView from "@/components/ScoutingReportView";
 
 const SEASONS = ["2025-26", "2024-25", "2023-24", "2022-23"];
 type ViewMode = "briefing" | "scouting";
+type LibraryMode = "matchup" | "team";
+
+async function copyText(value: string) {
+  if (typeof window === "undefined" || !navigator.clipboard) return;
+  await navigator.clipboard.writeText(value);
+}
 
 function PreReadPageInner() {
+  const router = useRouter();
   const searchParams = useSearchParams();
+  const { mutate } = useSWRConfig();
   const rawMode = searchParams.get("mode");
   const snapshotId = searchParams.get("snapshot_id");
 
   const [team, setTeam] = useState(searchParams.get("team")?.toUpperCase() ?? "OKC");
   const [opponent, setOpponent] = useState(searchParams.get("opponent")?.toUpperCase() ?? "BOS");
   const [season, setSeason] = useState(searchParams.get("season") ?? "2024-25");
-  // Sprint 65: inbound scouting-context banner (when deep-linked from a scouting claim).
   const inboundSource = searchParams.get("source");
   const inboundClaimTitle = searchParams.get("claim_title");
   const inboundClaimReason = searchParams.get("claim_reason");
   const [mode, setMode] = useState<ViewMode>(rawMode === "scouting" ? "scouting" : "briefing");
-  const [snapshotMessage, setSnapshotMessage] = useState<string | null>(null);
+  const [libraryMode, setLibraryMode] = useState<LibraryMode>("matchup");
+  const [packetMessage, setPacketMessage] = useState<string | null>(null);
+  const [packetDraft, setPacketDraft] = useState<PreReadScoutingPacket | null>(null);
+  const [packetTitle, setPacketTitle] = useState("");
+  const [packetNote, setPacketNote] = useState("");
   const [isSaving, startSaving] = useTransition();
+  const [isUpdating, startUpdating] = useTransition();
+  const [isExporting, startExporting] = useTransition();
+
   const { data: teams } = useTeams();
   const { data: snapshot } = usePreReadSnapshot(snapshotId);
   const activeTeam = snapshot?.context.team_abbreviation ?? team;
   const activeOpponent = snapshot?.context.opponent_abbreviation ?? opponent;
   const activeSeason = snapshot?.context.season ?? season;
   const { data, isLoading } = usePreReadDeck(activeTeam, activeOpponent, activeSeason, snapshotId);
-  const { data: recentSnapshots } = usePreReadSnapshots(activeTeam, activeOpponent, activeSeason, 6);
+  const matchupLibrary = usePreReadPacketLibrary(activeTeam, activeSeason, activeOpponent, 6);
+  const teamHistoryLibrary = usePreReadPacketLibrary(activeTeam, activeSeason, null, 10);
   const { data: teamIntelligence } = useTeamIntelligence(activeTeam, activeSeason);
   const { data: rotationReport } = useTeamRotationReport(activeTeam, activeSeason);
   const nextGame = data?.team_availability.next_game ?? null;
+  const activePacket = snapshot?.deck.scouting_packet ?? data?.scouting_packet ?? packetDraft;
+  const metadataTitle = snapshot ? (packetTitle || snapshot.title || "") : packetTitle;
+  const metadataNote = snapshot ? (packetNote || snapshot.note || "") : packetNote;
+  const snapshotShareUrl = data?.snapshot?.share_url ?? null;
+
+  async function refreshPacketViews() {
+    await mutate((key) => typeof key === "string" && key.startsWith("pre-read"));
+  }
 
   function handleSaveSnapshot(sourceView: "pre-read-briefing" | "pre-read-scouting") {
     startSaving(async () => {
       try {
-        const response = await createPreReadSnapshot({
+        const response = await createPreReadPacketSnapshot({
           team: activeTeam,
           opponent: activeOpponent,
           season: activeSeason,
           game_id: data?.prep_context?.prep_item?.game_id ?? undefined,
           source_view: sourceView,
           source_snapshot_id: snapshotId ?? undefined,
+          packet_selection: activePacket?.selection,
           context: {
             mode,
             xray_url: data?.prep_context?.xray_url ?? "",
@@ -63,12 +93,64 @@ function PreReadPageInner() {
             shot_profile_value: data?.prep_context?.shot_profile_driver?.split_value ?? "",
           },
         });
-        setSnapshotMessage(`Saved snapshot ${response.snapshot_id.slice(0, 8)}. Share: ${response.share_url}`);
+        setPacketTitle(response.title ?? "");
+        setPacketNote(response.note ?? "");
+        setPacketMessage(`Saved packet ${response.snapshot_id.slice(0, 8)}.`);
+        await refreshPacketViews();
+        router.replace(response.share_url);
       } catch {
-        setSnapshotMessage("Snapshot save failed.");
+        setPacketMessage("Packet save failed.");
       }
     });
   }
+
+  function handleUpdateSnapshot() {
+    if (!snapshotId) return;
+    startUpdating(async () => {
+      try {
+        const response = await updatePreReadPacketSnapshot(snapshotId, {
+          title: metadataTitle,
+          note: metadataNote,
+        });
+        setPacketTitle(response.title ?? "");
+        setPacketNote(response.note ?? "");
+        setPacketMessage("Packet details updated.");
+        await refreshPacketViews();
+      } catch {
+        setPacketMessage("Packet update failed.");
+      }
+    });
+  }
+
+  function handleCopyShareLink(shareUrl: string) {
+    startExporting(async () => {
+      try {
+        if (typeof window !== "undefined") {
+          await copyText(new URL(shareUrl, window.location.origin).toString());
+        }
+        setPacketMessage("Packet link copied.");
+      } catch {
+        setPacketMessage("Could not copy the packet link.");
+      }
+    });
+  }
+
+  function handleExportMarkdown(targetSnapshotId: string) {
+    startExporting(async () => {
+      try {
+        const markdown = await getPreReadSnapshotMarkdown(targetSnapshotId);
+        await copyText(markdown);
+        setPacketMessage("Packet markdown copied.");
+      } catch {
+        setPacketMessage("Markdown export failed.");
+      }
+    });
+  }
+
+  const libraryItems =
+    libraryMode === "matchup"
+      ? matchupLibrary.data?.items ?? []
+      : teamHistoryLibrary.data?.items ?? [];
 
   return (
     <div className="mx-auto max-w-6xl space-y-8 print:space-y-4">
@@ -79,21 +161,32 @@ function PreReadPageInner() {
             Game-Day Pre-Read
           </h1>
           <p className="mt-3 max-w-2xl text-sm leading-6 text-[var(--muted-strong)]">
-            A short printable deck for game-day coaching: focus levers, matchup edges, tactical adjustments, and a scouting mode that keeps the next game readable in one place.
+            Make Pre-Read the canonical coaching packet: focus levers, tactical adjustments, packet-ready scouting claims, and the fastest path into compare or replay when the staff wants more detail.
           </p>
         </div>
-        <button
-          type="button"
-          onClick={() => window.print()}
-          className="bip-btn-primary rounded-full px-4 py-2 text-sm font-medium"
-        >
-          Print deck
-        </button>
+        <div className="flex flex-wrap justify-end gap-3">
+          <button
+            type="button"
+            onClick={() => window.print()}
+            className="bip-btn-primary rounded-full px-4 py-2 text-sm font-medium"
+          >
+            Print deck
+          </button>
+          {snapshotId ? (
+            <button
+              type="button"
+              onClick={() => handleExportMarkdown(snapshotId)}
+              className="rounded-full border border-[var(--border-strong)] px-4 py-2 text-sm font-medium text-[var(--accent-strong)] transition hover:bg-[rgba(33,72,59,0.08)]"
+            >
+              {isExporting ? "Exporting..." : "Export markdown"}
+            </button>
+          ) : null}
+        </div>
       </div>
 
       {data?.snapshot ? (
         <div className="rounded-[1.5rem] border border-[rgba(33,72,59,0.18)] bg-[rgba(216,228,221,0.28)] px-5 py-4 text-sm text-[var(--muted-strong)]">
-          Frozen snapshot: {data.snapshot.snapshot_id.slice(0, 8)} · created {new Date(data.snapshot.created_at).toLocaleString()}
+          Frozen packet: <span className="font-semibold text-[var(--foreground)]">{data.snapshot.title ?? data.snapshot.snapshot_id.slice(0, 8)}</span> · created {new Date(data.snapshot.created_at).toLocaleString()}
         </div>
       ) : null}
 
@@ -125,7 +218,14 @@ function PreReadPageInner() {
         <div className="grid gap-4 md:grid-cols-3">
           <label className="space-y-2">
             <span className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--muted)]">Team</span>
-            <select value={team} onChange={(event) => setTeam(event.target.value)} className="bip-input w-full rounded-2xl px-4 py-3 text-sm">
+            <select
+              value={team}
+              onChange={(event) => {
+                setTeam(event.target.value);
+                setPacketDraft(null);
+              }}
+              className="bip-input w-full rounded-2xl px-4 py-3 text-sm"
+            >
               {(teams ?? []).map((entry) => (
                 <option key={entry.abbreviation} value={entry.abbreviation}>
                   {entry.abbreviation} · {entry.name}
@@ -135,7 +235,14 @@ function PreReadPageInner() {
           </label>
           <label className="space-y-2">
             <span className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--muted)]">Opponent</span>
-            <select value={opponent} onChange={(event) => setOpponent(event.target.value)} className="bip-input w-full rounded-2xl px-4 py-3 text-sm">
+            <select
+              value={opponent}
+              onChange={(event) => {
+                setOpponent(event.target.value);
+                setPacketDraft(null);
+              }}
+              className="bip-input w-full rounded-2xl px-4 py-3 text-sm"
+            >
               {(teams ?? []).map((entry) => (
                 <option key={entry.abbreviation} value={entry.abbreviation}>
                   {entry.abbreviation} · {entry.name}
@@ -145,7 +252,14 @@ function PreReadPageInner() {
           </label>
           <label className="space-y-2">
             <span className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--muted)]">Season</span>
-            <select value={season} onChange={(event) => setSeason(event.target.value)} className="bip-input w-full rounded-2xl px-4 py-3 text-sm">
+            <select
+              value={season}
+              onChange={(event) => {
+                setSeason(event.target.value);
+                setPacketDraft(null);
+              }}
+              className="bip-input w-full rounded-2xl px-4 py-3 text-sm"
+            >
               {SEASONS.map((option) => (
                 <option key={option} value={option}>
                   {option}
@@ -154,32 +268,140 @@ function PreReadPageInner() {
             </select>
           </label>
         </div>
-        <div className="mt-4 flex flex-wrap gap-3">
+
+        <div className="mt-5 flex flex-wrap gap-3">
           <button
             type="button"
             onClick={() => handleSaveSnapshot(mode === "scouting" ? "pre-read-scouting" : "pre-read-briefing")}
             className="rounded-full border border-[var(--border-strong)] px-4 py-2 text-sm font-medium text-[var(--accent-strong)] transition hover:bg-[rgba(33,72,59,0.08)]"
           >
-            {isSaving ? "Saving snapshot..." : "Save frozen snapshot"}
+            {isSaving ? "Saving packet..." : "Save frozen packet"}
           </button>
-          {snapshotMessage ? <div className="text-sm text-[var(--muted-strong)]">{snapshotMessage}</div> : null}
+          {snapshotId && snapshotShareUrl ? (
+            <button
+              type="button"
+              onClick={() => handleCopyShareLink(snapshotShareUrl)}
+              className="rounded-full border border-[var(--border)] px-4 py-2 text-sm font-medium text-[var(--foreground)] transition hover:bg-[rgba(255,255,255,0.5)]"
+            >
+              Copy share link
+            </button>
+          ) : null}
+          <div className="text-sm text-[var(--muted-strong)]">
+            {activePacket?.claims.length
+              ? `${activePacket.claims.length} scouting claim${activePacket.claims.length === 1 ? "" : "s"} attached to this packet.`
+              : "No scouting claims pinned yet."}
+          </div>
         </div>
-        {recentSnapshots?.items?.length ? (
-          <div className="mt-5 space-y-2">
-            <div className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--muted)]">Recent snapshots</div>
-            <div className="flex flex-wrap gap-2">
-              {recentSnapshots.items.map((item) => (
-                <Link
-                  key={item.snapshot_id}
-                  href={item.share_url}
-                  className="rounded-full border border-[var(--border)] bg-white/80 px-3 py-2 text-xs font-semibold uppercase tracking-[0.14em] text-[var(--muted-strong)] transition hover:border-[rgba(33,72,59,0.24)]"
-                >
-                  {item.snapshot_id.slice(0, 8)} · {item.created_at.slice(0, 10)}
-                </Link>
-              ))}
+
+        {snapshotId ? (
+          <div className="mt-5 grid gap-4 lg:grid-cols-[1fr,1.2fr,auto]">
+            <label className="space-y-2">
+              <span className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--muted)]">Packet title</span>
+              <input
+                value={metadataTitle}
+                onChange={(event) => setPacketTitle(event.target.value)}
+                className="bip-input w-full rounded-2xl px-4 py-3 text-sm"
+                placeholder="Packet title"
+              />
+            </label>
+            <label className="space-y-2">
+              <span className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--muted)]">Coach note</span>
+              <textarea
+                value={metadataNote}
+                onChange={(event) => setPacketNote(event.target.value)}
+                className="bip-input min-h-[92px] w-full rounded-2xl px-4 py-3 text-sm"
+                placeholder="Add the handoff note that should travel with this packet."
+              />
+            </label>
+            <div className="flex items-end">
+              <button
+                type="button"
+                onClick={handleUpdateSnapshot}
+                className="bip-btn-secondary rounded-full px-4 py-2 text-sm font-medium"
+              >
+                {isUpdating ? "Updating..." : "Save packet details"}
+              </button>
             </div>
           </div>
         ) : null}
+
+        {packetMessage ? <div className="mt-4 text-sm text-[var(--muted-strong)]">{packetMessage}</div> : null}
+      </section>
+
+      <section className="rounded-[1.8rem] border border-[var(--border)] bg-[var(--surface)] p-6 print:hidden">
+        <div className="flex flex-wrap items-center justify-between gap-4">
+          <div>
+            <div className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--muted)]">Packet library</div>
+            <h2 className="mt-2 text-2xl font-semibold text-[var(--foreground)]">Saved packets for this staff flow</h2>
+          </div>
+          <div className="flex rounded-xl overflow-hidden border border-[var(--border)] text-sm">
+            <button
+              type="button"
+              onClick={() => setLibraryMode("matchup")}
+              className={`px-4 py-2 transition-colors ${libraryMode === "matchup" ? "bip-toggle-active" : "bip-toggle"}`}
+            >
+              This Matchup
+            </button>
+            <button
+              type="button"
+              onClick={() => setLibraryMode("team")}
+              className={`px-4 py-2 transition-colors ${libraryMode === "team" ? "bip-toggle-active" : "bip-toggle"}`}
+            >
+              Team History
+            </button>
+          </div>
+        </div>
+        <div className="mt-5 grid gap-3">
+          {libraryItems.length ? (
+            libraryItems.map((item) => (
+              <article key={item.snapshot_id} className="rounded-[1.4rem] border border-[var(--border)] bg-white/70 p-4">
+                <div className="flex flex-wrap items-start justify-between gap-4">
+                  <div>
+                    <div className="font-semibold text-[var(--foreground)]">{item.title ?? `${item.team_abbreviation} vs ${item.opponent_abbreviation}`}</div>
+                    <div className="mt-1 text-xs uppercase tracking-[0.16em] text-[var(--muted)]">
+                      {item.team_abbreviation} vs {item.opponent_abbreviation} · {item.created_at.slice(0, 16).replace("T", " ")} · {item.saved_from ?? "packet"}
+                    </div>
+                    {item.prep_headline ? (
+                      <p className="mt-2 text-sm leading-6 text-[var(--muted-strong)]">{item.prep_headline}</p>
+                    ) : null}
+                    {item.note ? <p className="mt-2 text-sm leading-6 text-[var(--muted)]">{item.note}</p> : null}
+                  </div>
+                  {item.packet_summary ? (
+                    <div className="rounded-2xl border border-[var(--border)] bg-[rgba(216,228,221,0.34)] px-4 py-3 text-right">
+                      <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[var(--muted)]">Packet summary</div>
+                      <div className="mt-2 text-sm font-semibold text-[var(--foreground)]">
+                        {item.packet_summary.claim_count} claims · {item.packet_summary.clip_count} clips
+                      </div>
+                    </div>
+                  ) : null}
+                </div>
+                <div className="mt-4 flex flex-wrap gap-3">
+                  <Link href={item.share_url} className="bip-btn-primary rounded-full px-4 py-2 text-sm font-medium">
+                    Open
+                  </Link>
+                  <button
+                    type="button"
+                    onClick={() => handleCopyShareLink(item.share_url)}
+                    className="rounded-full border border-[var(--border)] px-4 py-2 text-sm font-medium text-[var(--foreground)] transition hover:bg-[rgba(255,255,255,0.5)]"
+                  >
+                    Copy share link
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleExportMarkdown(item.snapshot_id)}
+                    className="rounded-full border border-[var(--border)] px-4 py-2 text-sm font-medium text-[var(--foreground)] transition hover:bg-[rgba(255,255,255,0.5)]"
+                  >
+                    Export markdown
+                  </button>
+                </div>
+              </article>
+            ))
+          ) : (
+            <div className="rounded-[1.4rem] border border-[var(--border)] bg-white/70 px-4 py-5 text-sm text-[var(--muted-strong)]">
+              No saved packets yet for this view.
+            </div>
+          )}
+        </div>
       </section>
 
       {data ? (
@@ -219,6 +441,53 @@ function PreReadPageInner() {
               ) : null}
             </div>
           ) : null}
+        </section>
+      ) : null}
+
+      {activePacket?.claims.length ? (
+        <section className="rounded-[1.8rem] border border-[var(--border)] bg-[var(--surface)] p-6">
+          <div className="flex flex-wrap items-center justify-between gap-4">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--muted)]">Scouting packet</p>
+              <h2 className="mt-2 text-2xl font-semibold text-[var(--foreground)]">Claims carried into the staff packet</h2>
+            </div>
+            <div className="text-sm text-[var(--muted-strong)]">
+              {activePacket.claims.length} claim{activePacket.claims.length === 1 ? "" : "s"} · {activePacket.claims.reduce((total, claim) => total + claim.clip_anchors.length, 0)} clip links
+            </div>
+          </div>
+          <div className="mt-5 grid gap-4 lg:grid-cols-2">
+            {activePacket.claims.map((claim) => (
+              <article key={claim.claim_id} className="rounded-[1.4rem] border border-[var(--border)] bg-white/70 p-4">
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <div className="font-semibold text-[var(--foreground)]">{claim.title}</div>
+                  {claim.inference_confidence ? (
+                    <span className="rounded-full bg-[rgba(33,72,59,0.12)] px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.14em] text-[var(--accent-strong)]">
+                      {claim.inference_confidence.level}
+                    </span>
+                  ) : null}
+                </div>
+                <p className="mt-3 text-sm leading-6 text-[var(--muted-strong)]">{claim.summary}</p>
+                {claim.inference_confidence?.reasons.length ? (
+                  <p className="mt-2 text-xs leading-5 text-[var(--muted)]">
+                    {claim.inference_confidence.reasons.join(" · ")}
+                  </p>
+                ) : null}
+                {claim.clip_anchors.length ? (
+                  <div className="mt-4 flex flex-wrap gap-2">
+                    {claim.clip_anchors.map((anchor) => (
+                      <Link
+                        key={anchor.clip_anchor_id}
+                        href={anchor.deep_link_url}
+                        className="rounded-full bg-[rgba(216,228,221,0.4)] px-3 py-2 text-xs font-semibold uppercase tracking-[0.12em] text-[var(--accent-strong)] transition hover:bg-[rgba(216,228,221,0.62)]"
+                      >
+                        {anchor.game_date ?? "Game"} · {anchor.evidence_summary}
+                      </Link>
+                    ))}
+                  </div>
+                ) : null}
+              </article>
+            ))}
+          </div>
         </section>
       ) : null}
 
@@ -304,6 +573,9 @@ function PreReadPageInner() {
             deck={data}
             intelligence={teamIntelligence ?? null}
             rotationReport={rotationReport ?? null}
+            packet={activePacket}
+            onPacketChange={snapshotId ? undefined : setPacketDraft}
+            readOnlyPacket={Boolean(snapshotId)}
           />
         )
       ) : null}

@@ -2,6 +2,7 @@ from typing import Dict, List, Optional
 
 from pydantic import BaseModel, Field
 
+from models.scouting import ClaimInferenceConfidence, ScoutingClipAnchor, ScoutingEvidence
 from models.team import TeamAvailabilityResponse, TeamFocusLever, TeamPrepQueueItem
 from models.styles import StyleShotProfileDriver
 from models.trends import ReplayLaunchTarget
@@ -22,6 +23,9 @@ class PreReadSnapshotRef(BaseModel):
     snapshot_id: str
     share_url: str
     created_at: str
+    title: Optional[str] = None
+    note: Optional[str] = None
+    packet_summary: Optional["PreReadPacketSummary"] = None
 
 
 class PreReadContext(BaseModel):
@@ -37,6 +41,33 @@ class PreReadContext(BaseModel):
 class PreReadAdjustment(BaseModel):
     label: str
     recommendation: str
+
+
+class PreReadPacketSelection(BaseModel):
+    claim_ids: List[str] = Field(default_factory=list)
+    clip_anchor_ids: List[str] = Field(default_factory=list)
+
+
+class PreReadScoutingPacketClaim(BaseModel):
+    claim_id: str
+    title: str
+    summary: str
+    evidence: List[ScoutingEvidence] = Field(default_factory=list)
+    inference_confidence: Optional[ClaimInferenceConfidence] = None
+    clip_anchors: List[ScoutingClipAnchor] = Field(default_factory=list)
+
+
+class PreReadScoutingPacket(BaseModel):
+    selection: PreReadPacketSelection = Field(default_factory=PreReadPacketSelection)
+    claims: List[PreReadScoutingPacketClaim] = Field(default_factory=list)
+    generated_at: Optional[str] = None
+    source_url: Optional[str] = None
+
+
+class PreReadPacketSummary(BaseModel):
+    claim_count: int = 0
+    clip_count: int = 0
+    claim_titles: List[str] = Field(default_factory=list)
 
 
 class PreReadSlide(BaseModel):
@@ -76,6 +107,7 @@ class PreReadDeckResponse(BaseModel):
     slides: List[PreReadSlide]
     launch_links: WorkflowLaunchLinks
     prep_context: Optional[PreReadPrepContext] = None
+    scouting_packet: Optional[PreReadScoutingPacket] = None
     snapshot: Optional[PreReadSnapshotRef] = None
     warnings: List[str] = Field(default_factory=list)
 
@@ -87,7 +119,15 @@ class PreReadSnapshotCreateRequest(BaseModel):
     game_id: Optional[str] = None
     source_view: Optional[str] = None
     source_snapshot_id: Optional[str] = None
+    title: Optional[str] = None
+    note: Optional[str] = None
+    packet_selection: Optional[PreReadPacketSelection] = None
     context: Dict[str, str] = Field(default_factory=dict)
+
+
+class PreReadSnapshotUpdateRequest(BaseModel):
+    title: Optional[str] = None
+    note: Optional[str] = None
 
 
 class PreReadSnapshotSummary(BaseModel):
@@ -100,12 +140,18 @@ class PreReadSnapshotSummary(BaseModel):
     game_id: Optional[str] = None
     prep_headline: Optional[str] = None
     saved_from: Optional[str] = None
+    title: Optional[str] = None
+    note: Optional[str] = None
+    packet_summary: Optional[PreReadPacketSummary] = None
 
 
 class PreReadSnapshotResponse(BaseModel):
     snapshot_id: str
     share_url: str
     created_at: str
+    title: Optional[str] = None
+    note: Optional[str] = None
+    packet_summary: Optional[PreReadPacketSummary] = None
     context: PreReadContext
     deck: PreReadDeckResponse
 
