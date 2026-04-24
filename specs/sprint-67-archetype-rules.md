@@ -39,25 +39,35 @@ All features are computed from `SeasonStat` (and `Player` for size). No new upst
 
 ### 1.2 Archetype catalog
 
-13 archetypes total, ordered most-specific → least-specific in the classifier (first match wins, like `classify_archetype`). Every archetype has (a) trigger rule, (b) reason phrase template, and (c) trigger-magnitude list feeding `_archetype_confidence`.
+14 archetypes total, ordered most-specific → least-specific in the classifier (first match wins, like `classify_archetype`). Every archetype has (a) trigger rule, (b) reason phrase template, and (c) trigger-magnitude list feeding `_archetype_confidence`.
+
+**Ordering policy.** Offensive-identity rules first (heliocentric → ball-handler → iso scorer → secondary playmaker), then shooter/wing profiles (movement shooter → 3-and-D → rim pressure guard → connective forward), then interior offense (interior finisher), then defensive-primary rules (defensive anchor → stretch big → switchable stopper), then low-usage fallback (rotational energy), then the developmental catch-all. Defensive Anchor is intentionally placed **before** Stretch Big so that Wembanyama / Holmgren-type players whose defense defines them don't get re-labeled by incidental perimeter volume.
 
 | # | Key | Label | Trigger | Reason template |
 |---|---|---|---|---|
 | 1 | `heliocentric_creator` | Heliocentric Creator | `usg_z >= 1.2 AND ast_rate_z >= 1.0 AND obpm_z >= 1.0` | "High usage, elite playmaking, and above-average efficiency — possessions orbit this player." |
-| 2 | `lead_ball_handler` | Lead Ball-Handler | `usg_z >= 0.7 AND ast_rate_z >= 0.8 AND par3_z >= 0.2` | "High usage with heavy on-ball creation and a modern perimeter diet." |
-| 3 | `secondary_playmaker` | Secondary Playmaker | `ast_rate_z >= 0.6 AND usg_z <= 0.5 AND ast_tov_z >= 0.3` | "Connective passing with controlled usage and low turnover risk." |
-| 4 | `movement_shooter` | Movement Shooter | `par3_z >= 1.0 AND fg3_pct_z >= 0.6 AND usg_z <= 0.3` | "High perimeter volume at elite accuracy in a low-usage role." |
-| 5 | `three_and_d_wing` | 3-and-D Wing | `par3_z >= 0.5 AND fg3_pct_z >= 0.3 AND dbpm_z >= 0.5 AND 76 <= size_inches <= 82` | "Spot-up perimeter threat paired with above-average wing defense." |
-| 6 | `rim_pressure_guard` | Rim Pressure Guard | `ftr_z >= 0.8 AND par3_z <= 0.2 AND size_inches <= 77` | "Downhill guard with heavy foul drawing and a paint-first diet." |
-| 7 | `connective_forward` | Connective Forward | `ast_rate_z >= 0.4 AND par3_z >= 0.2 AND size_inches >= 78 AND usg_z <= 0.5` | "Positional playmaking from the wing with modern spacing." |
-| 8 | `interior_finisher` | Interior Finisher | `ts_z >= 0.7 AND par3_z <= -0.4 AND oreb_z >= 0.4` | "Paint-bound scorer finishing efficiently at high volume inside." |
-| 9 | `stretch_big` | Stretch Big | `par3_z >= 0.5 AND size_inches >= 80 AND blk_rate_z >= -0.2` | "Frontcourt size with a perimeter shot the opponent must respect." |
+| 2 | `lead_ball_handler` | Lead Ball-Handler | `usg_z >= 0.7 AND ast_rate_z >= 0.8` | "High usage with heavy on-ball creation — defined by volume and playmaking regardless of shot diet." |
+| 3 | `iso_scorer` | Iso Scorer | `usg_z >= 0.7 AND ast_rate_z <= 0.5 AND par3_z <= 0.0 AND ftr_z >= 0.2` | "High-usage mid-range and rim scorer without a heavy passing burden — a bucket-getter." |
+| 4 | `secondary_playmaker` | Secondary Playmaker | `ast_rate_z >= 0.6 AND usg_z <= 0.5 AND ast_tov_z >= 0.3` | "Connective passing with controlled usage and low turnover risk." |
+| 5 | `movement_shooter` | Movement Shooter | `par3_z >= 0.8 AND fg3_pct_z >= 0.3 AND usg_z <= 0.5` | "High perimeter volume at reliable accuracy in a low-to-moderate usage role." |
+| 6 | `three_and_d_wing` | 3-and-D Wing | `par3_z >= 0.5 AND fg3_pct_z >= 0.3 AND dbpm_z >= 0.5 AND 77 <= size_inches <= 82` | "Spot-up perimeter threat at wing size paired with above-average defense." |
+| 7 | `rim_pressure_guard` | Rim Pressure Guard | `ftr_z >= 0.6 AND par3_z <= 0.0 AND usg_z >= 0.0 AND size_inches <= 77` | "Downhill guard with above-average foul drawing, a paint-first diet, and meaningful on-ball usage." |
+| 8 | `connective_forward` | Connective Forward | `ast_rate_z >= 0.4 AND par3_z >= 0.2 AND size_inches >= 78 AND usg_z <= 0.5` | "Positional playmaking from the wing/forward with modern spacing." |
+| 9 | `interior_finisher` | Interior Finisher | `ts_z >= 0.7 AND par3_z <= -0.4 AND oreb_z >= 0.4` | "Paint-bound scorer finishing efficiently at high volume inside, with rebound activity." |
 | 10 | `defensive_anchor` | Defensive Anchor | `blk_rate_z >= 1.0 AND dbpm_z >= 0.8 AND size_inches >= 80` | "Rim protection and team-defense impact anchor the back line." |
-| 11 | `switchable_stopper` | Switchable Stopper | `stl_rate_z >= 0.7 AND dbpm_z >= 0.6 AND 76 <= size_inches <= 82` | "On-ball disruption at wing size — switches across multiple positions." |
-| 12 | `rotational_energy` | Rotational Energy | `oreb_z >= 0.5 AND ftr_z >= 0.3 AND usg_z <= 0.0` | "Low-usage energy role — second chances, fouls drawn, hustle impact." |
-| 13 | `developmental` | Developmental | Fallback: no rule above fired, OR `gp < 30 AND min_pg < 20` | "Sample too thin or role signals too mixed to commit to an archetype yet." |
+| 11 | `stretch_big` | Stretch Big | `par3_z >= 0.5 AND size_inches >= 80 AND blk_rate_z >= -0.2` | "Frontcourt size with a perimeter shot the opponent must respect." |
+| 12 | `switchable_stopper` | Switchable Stopper | `stl_rate_z >= 0.7 AND dbpm_z >= 0.6 AND 76 <= size_inches <= 82` | "On-ball disruption at wing size — switches across multiple positions." |
+| 13 | `rotational_energy` | Rotational Energy | `oreb_z >= 0.5 AND ftr_z >= 0.3 AND usg_z <= 0.0` | "Low-usage energy role — second chances, fouls drawn, hustle impact." |
+| 14 | `developmental` | Developmental / Balanced | Fallback: no rule above fired | If `gp < 30 OR min_pg < 20`: "Sample too thin to commit to an archetype yet." Otherwise emit `reason_variant="balanced"`: "Role profile sits near league average across the archetype-defining features." Label flips to **"Balanced Role"** for the balanced variant. |
 
-**Default fallback** between 12 and 13: if `gp >= 30 AND min_pg >= 20` but no rule fired, emit `balanced_role` → "Role profile sits near league average across the archetype-defining features" (reuse `developmental` key with a `reason_variant: "balanced"` flag to keep the catalog at 13 labels; the label string flips to "Balanced Role" in this case).
+**Rationale notes on specific thresholds (don't "clean these up" without re-reading).**
+- `lead_ball_handler` has *no* `par3_z` gate. This is deliberate — a high-usage, high-assist guard with a mid-range diet (SGA-style, DeRozan-style when playmaking) is still a lead ball-handler. Adding a par3 floor previously orphaned the entire mid-range-creator lane.
+- `iso_scorer` (rank 3) catches the *other* side: high usage, low assists, mid-range-heavy scorers like DeMar DeRozan's peak. Positioned right after `lead_ball_handler` so a DeRozan-year with higher-than-usual assists still routes to ball-handler.
+- `movement_shooter` (rank 5) was loosened from the original `par3_z >= 1.0 / fg3_pct_z >= 0.6` to catch high-volume veteran shooters whose accuracy dropped to league-average but whose role is still specialist spacer (late-career Klay Thompson profile).
+- `three_and_d_wing` size floor raised to 77" (6'5") to exclude pure guards whose defense happens to grade well.
+- `rim_pressure_guard` thresholds tuned: `ftr_z >= 0.6` catches top-~30% rim pressure (was top-~20%, too strict); `par3_z <= 0.0` means below-average 3PA rate (was `<= 0.2` which paradoxically allowed above-average perimeter volume); `usg_z >= 0.0` floor distinguishes an on-ball creator from a bench energy guard.
+- `stretch_big` `blk_rate_z >= -0.2` floor excludes pure stretch-4s with no rim presence, preserving the "big" framing. Defensive Anchor fires first for elite rim protectors, so Stretch Big is what's *left* — size-gated floor-spacers who aren't defensive-primary.
+- `defensive_anchor` placed before `stretch_big` so Wembanyama / Chet Holmgren, who shoot threes but are *defined by* rim protection, route to the defensive label.
 
 ### 1.3 Confidence band
 
@@ -71,7 +81,7 @@ Port `_archetype_confidence(trigger_magnitudes)` verbatim:
 
 Same pattern as `_style_xray_label`: rank the full feature list by `|z|` descending and return the top 4 as `ArchetypeContributor` records. Each contributor carries `{feature_key, label, value, z, direction}` where `direction ∈ {"above", "below"}` based on sign of z.
 
-A dedicated `ARCHETYPE_CONTRIBUTOR_KEYS` set (analog of `_STYLE_CONTRIBUTOR_KEYS`) restricts contributors to features with basketball-native labels: `usg_z`, `ast_rate_z`, `par3_z`, `ftr_z`, `ts_z`, `stl_rate_z`, `blk_rate_z`, `oreb_z`, `dbpm_z`, `obpm_z`, `fg3_pct_z`. (Skips `ast_tov_z`, `dreb_rate_z`, `size_inches` — those are gating features, not display features.)
+A dedicated `ARCHETYPE_CONTRIBUTOR_KEYS` set (analog of `_STYLE_CONTRIBUTOR_KEYS`) restricts contributors to features with basketball-native labels: `usg_z`, `ast_rate_z`, `par3_z`, `ftr_z`, `ts_z`, `stl_rate_z`, `blk_rate_z`, `oreb_z`, `dbpm_z`, `obpm_z`, `fg3_pct_z`. (Skips `ast_tov_z`, `dreb_rate_z`, `size_inches` — those are gating features used only inside triggers, not for user-facing fingerprints.)
 
 ### 1.5 Output schema
 
@@ -113,23 +123,25 @@ Every comp payload gets `archetype_label`, `archetype_key`, `archetype_confidenc
 
 One golden test per archetype using a known-plausible player / season. If the real 2024-25 data disagrees, the test records the actual archetype and the spec rules get a tuning revision before merge — not the test. Tests are aspirational-realistic, not brittle.
 
-| Archetype | Fixture |
-|---|---|
-| `heliocentric_creator` | Luka Dončić 2023-24 |
-| `lead_ball_handler` | Trae Young 2024-25 |
-| `secondary_playmaker` | Tyrese Haliburton 2022-23 (pre-injury uptick) |
-| `movement_shooter` | Duncan Robinson 2023-24 |
-| `three_and_d_wing` | OG Anunoby 2023-24 |
-| `rim_pressure_guard` | Ja Morant 2022-23 |
-| `connective_forward` | Draymond Green 2022-23 |
-| `interior_finisher` | Rudy Gobert 2020-21 (offensive lane only — dual eligibility with defensive_anchor) |
-| `stretch_big` | Kristaps Porziņģis 2023-24 |
-| `defensive_anchor` | Victor Wembanyama 2024-25 |
-| `switchable_stopper` | Jrue Holiday 2022-23 |
-| `rotational_energy` | Mitchell Robinson 2022-23 |
-| `developmental` | Any G-League call-up with `gp < 30` |
+| Archetype | Fixture | Dual-eligibility note |
+|---|---|---|
+| `heliocentric_creator` | Luka Dončić 2023-24 | — |
+| `lead_ball_handler` | Trae Young 2024-25 | — |
+| `iso_scorer` | DeMar DeRozan 2021-22 | Must fail Lead Ball-Handler (`ast_rate_z < 0.8`) to route here. |
+| `secondary_playmaker` | Tyrese Haliburton 2022-23 (pre-injury) | — |
+| `movement_shooter` | Duncan Robinson 2023-24 | — |
+| `three_and_d_wing` | OG Anunoby 2023-24 | Must fail Movement Shooter (`par3_z < 0.8` or `usg_z > 0.5`). |
+| `rim_pressure_guard` | Ja Morant 2022-23 | — |
+| `connective_forward` | Draymond Green 2022-23 | — |
+| `interior_finisher` | Jarrett Allen 2023-24 (Gobert-type offensive profile without Defensive Anchor tripping; Gobert himself routes to Defensive Anchor first) | Gobert routes to Defensive Anchor at rank 10 before reaching this rule. |
+| `defensive_anchor` | Victor Wembanyama 2024-25 | Fires before Stretch Big, so Wemby's 3PA volume doesn't relabel him. |
+| `stretch_big` | Kristaps Porziņģis 2023-24 | Must fail Defensive Anchor (`dbpm_z < 0.8` typically). |
+| `switchable_stopper` | Jrue Holiday 2022-23 | — |
+| `rotational_energy` | Mitchell Robinson 2022-23 | — |
+| `developmental` | Any player with `gp < 30 OR min_pg < 20` | — |
+| `developmental` (balanced) | Any rotation player with no rule firing | `reason_variant="balanced"` — label renders as "Balanced Role". |
 
-Dual-eligibility cases (e.g., Gobert fires both `defensive_anchor` and `interior_finisher`) resolve via the ordered rule list — `defensive_anchor` wins because it appears later but its trigger is stricter. **Rule ordering policy:** specific offensive roles first, then size-gated roles, then defensive anchors, then fallbacks. If a fixture expects a later archetype, the earlier rules must fail their triggers on that fixture, not short-circuit on dual-eligibility.
+**Rule ordering policy.** First rule whose trigger evaluates true wins. If a fixture expects a later archetype, the earlier rules must fail their own triggers on that fixture — never rely on short-circuit logic beyond the documented ordering.
 
 ---
 
@@ -149,3 +161,4 @@ Expected structure:
 ## Change log
 
 - 2026-04-23 (Claude): A1 drafted. 13 archetypes, feature dictionary, confidence bands, similarity mode extensions, golden test fixtures.
+- 2026-04-23 (Claude): A1 review/tune pass. Catalog grew to 14 archetypes. Changes: (a) dropped `par3_z >= 0.2` gate from Lead Ball-Handler so mid-range creators route correctly; (b) added `iso_scorer` archetype to catch high-usage low-assist mid-range scorers (DeRozan prototype); (c) reordered Defensive Anchor before Stretch Big so rim-protecting shooters (Wemby, Chet) route defensively; (d) loosened Movement Shooter (`par3_z >= 0.8 AND fg3_pct_z >= 0.3 AND usg_z <= 0.5`); (e) raised 3-and-D Wing size floor to 77"; (f) tuned Rim Pressure Guard: `ftr_z >= 0.6`, `par3_z <= 0.0`, new `usg_z >= 0.0` floor; (g) added rationale notes for thresholds that look odd but are load-bearing; (h) updated fixture table with dual-eligibility notes; (i) split developmental into "thin sample" vs "balanced role" variants.
