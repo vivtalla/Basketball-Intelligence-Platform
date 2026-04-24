@@ -74,7 +74,10 @@ export default function TeamNetRatingChart({
             }}
             cursor={{ stroke: "var(--border-color)", strokeDasharray: "3 3" }}
             labelStyle={{ color: "var(--text-secondary)", fontSize: 12 }}
-            formatter={(value: number) => [(value > 0 ? "+" : "") + value.toFixed(1), "Rolling NR"]}
+            formatter={(value) => {
+              const n = typeof value === "number" ? value : Number(value ?? 0);
+              return [(n > 0 ? "+" : "") + n.toFixed(1), "Rolling NR"];
+            }}
             labelFormatter={(label) => `Date: ${label}`}
           />
           <ReferenceLine
