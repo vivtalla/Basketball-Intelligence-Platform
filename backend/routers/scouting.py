@@ -8,6 +8,7 @@ from sqlalchemy.orm import Session
 from db.database import get_db
 from db.models import PlayByPlayEvent, Team, WarehouseGame
 from models.scouting import (
+    ClaimInferenceConfidence,
     PlayTypeScoutingReportResponse,
     ScoutingClaim,
     ScoutingClipAnchor,
@@ -195,9 +196,12 @@ def _derive_clip_anchors(
     claims: List[ScoutingClaim],
 ) -> List[ScoutingClipAnchor]:
     opponent_team = db.query(Team).filter(Team.abbreviation == opponent.upper()).first()
-    recent_games = _recent_games(db=db, team_id=team_id, season=season, opponent_id=opponent_team.id if opponent_team else None)
-    if not recent_games:
-        recent_games = _recent_games(db=db, team_id=team_id, season=season)
+    opponent_id = opponent_team.id if opponent_team else None
+    opponent_specific_games = (
+        _recent_games(db=db, team_id=team_id, season=season, opponent_id=opponent_id) if opponent_id else []
+    )
+    opponent_specific_game_ids = {game.game_id for game in opponent_specific_games}
+    recent_games = opponent_specific_games or _recent_games(db=db, team_id=team_id, season=season)
     game_ids = [game.game_id for game in recent_games]
     events = (
         db.query(PlayByPlayEvent)
@@ -214,6 +218,9 @@ def _derive_clip_anchors(
     anchors: List[ScoutingClipAnchor] = []
     for claim in claims:
         scored_games: List[Tuple[int, WarehouseGame, Optional[PlayByPlayEvent]]] = []
+        anchored_event_count = 0
+        opponent_specific_event_count = 0
+        linkage_tiers: set = set()
         for game in recent_games:
             best_match: Optional[Tuple[int, PlayByPlayEvent]] = None
             for event in events_by_game.get(game.game_id, []):
@@ -222,6 +229,10 @@ def _derive_clip_anchors(
                     continue
                 if best_match is None or score > best_match[0]:
                     best_match = (score, event)
+            if best_match is not None:
+                anchored_event_count += 1
+                if game.game_id in opponent_specific_game_ids:
+                    opponent_specific_event_count += 1
             scored_games.append((best_match[0] if best_match else 0, game, best_match[1] if best_match else None))
 
         scored_games.sort(key=lambda item: (item[2] is not None, item[0]), reverse=True)
@@ -231,6 +242,8 @@ def _derive_clip_anchors(
             clip_anchor_ids.append(clip_anchor_id)
             reason = claim.summary[:100]
             anchor_linkage_quality = "derived" if event is not None else "timeline"
+            linkage_tiers.add(anchor_linkage_quality)
+            anchor_opponent_specific = game.game_id in opponent_specific_game_ids
             source_context = {
                 "source": "scouting-report",
                 "source_id": claim.claim_id,
@@ -260,6 +273,7 @@ def _derive_clip_anchors(
                     evidence_summary=(event.description or claim.evidence[0].label) if event else claim.evidence[0].label,
                     event_description=event.description if event else None,
                     linkage_quality=anchor_linkage_quality,
+                    opponent_specific=anchor_opponent_specific,
                     source_context=source_context,
                     deep_link_url=_game_link(
                         team,
@@ -277,7 +291,79 @@ def _derive_clip_anchors(
                 )
             )
         claim.clip_anchor_ids = clip_anchor_ids
+        claim.inference_confidence = _compute_claim_confidence(
+            claim=claim,
+            anchored_event_count=anchored_event_count,
+            opponent_specific_event_count=opponent_specific_event_count,
+            linkage_tiers=linkage_tiers,
+        )
     return anchors
+
+
+def _compute_claim_confidence(
+    claim: ScoutingClaim,
+    anchored_event_count: int,
+    opponent_specific_event_count: int,
+    linkage_tiers: set,
+) -> ClaimInferenceConfidence:
+    """Sprint 65: explicit, reason-bearing confidence for a play-type scouting claim.
+
+    Level rules:
+      * high   — ≥3 anchored events, at least 1 opponent-specific, multiple linkage tiers,
+                 and ≥2 evidence records on the claim itself.
+      * medium — ≥1 anchored event OR (opponent-specific support and ≥2 evidence records).
+      * low    — no anchored events and sparse evidence.
+    """
+    evidence_records = len([e for e in claim.evidence if e.value is not None or e.context])
+    source_diversity = len(linkage_tiers) + (1 if evidence_records >= 2 else 0)
+    reasons: List[str] = []
+
+    if anchored_event_count >= 3 and opponent_specific_event_count >= 1 and len(linkage_tiers) >= 2 and evidence_records >= 2:
+        level = "high"
+        reasons.append("{0} matching plays across recent games".format(anchored_event_count))
+        reasons.append("{0} from direct {1} matchups".format(opponent_specific_event_count, "matchup" if opponent_specific_event_count == 1 else "matchups"))
+        reasons.append("supported by both derived-event and timeline-linked evidence")
+    elif anchored_event_count >= 1 or (opponent_specific_event_count >= 1 and evidence_records >= 2):
+        level = "medium"
+        if anchored_event_count >= 1:
+            reasons.append("{0} matching {1}".format(anchored_event_count, "play" if anchored_event_count == 1 else "plays"))
+        if opponent_specific_event_count >= 1:
+            reasons.append("{0} opponent-specific".format(opponent_specific_event_count))
+        if evidence_records >= 2:
+            reasons.append("multiple season-level evidence records")
+    else:
+        level = "low"
+        if anchored_event_count == 0:
+            reasons.append("no event-level plays matched this claim above the linkage floor")
+        if evidence_records < 2:
+            reasons.append("limited season-level evidence records")
+
+    return ClaimInferenceConfidence(
+        level=level,
+        reasons=reasons,
+        anchored_event_count=anchored_event_count,
+        opponent_specific_event_count=opponent_specific_event_count,
+        evidence_source_diversity=source_diversity,
+    )
+
+
+_CONFIDENCE_RANK = {"high": 3, "medium": 2, "low": 1}
+
+
+def _rank_claims_by_confidence(sections: List[ScoutingSection]) -> None:
+    """Sprint 65: stable in-place re-order of claims within each section by
+    (confidence level, opponent-specific count, anchored event count) so that
+    opponent-backed high-confidence claims surface first.
+    """
+    for section in sections:
+        section.claims.sort(
+            key=lambda c: (
+                _CONFIDENCE_RANK.get(c.inference_confidence.level if c.inference_confidence else "low", 0),
+                c.inference_confidence.opponent_specific_event_count if c.inference_confidence else 0,
+                c.inference_confidence.anchored_event_count if c.inference_confidence else 0,
+            ),
+            reverse=True,
+        )
 
 
 def build_play_type_scouting_report(
@@ -464,6 +550,18 @@ def build_play_type_scouting_report(
     ) if team_row else []
     if not clip_anchors:
         warnings.append("Clip anchors are limited because recent event-level support is thin.")
+    # Sprint 65: ensure every claim has a confidence record (fallback for claims with no
+    # derived anchors, e.g. when team_row is missing) then rank within each section.
+    for section in sections:
+        for claim in section.claims:
+            if claim.inference_confidence is None:
+                claim.inference_confidence = _compute_claim_confidence(
+                    claim=claim,
+                    anchored_event_count=0,
+                    opponent_specific_event_count=0,
+                    linkage_tiers=set(),
+                )
+    _rank_claims_by_confidence(sections)
     data_status = "limited" if not sections else "partial" if warnings else "ready"
 
     print_meta = {

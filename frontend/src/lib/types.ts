@@ -1757,6 +1757,14 @@ export interface TrendCardsResponse {
   warnings: string[];
 }
 
+export interface ClaimInferenceConfidence {
+  level: "high" | "medium" | "low";
+  reasons: string[];
+  anchored_event_count: number;
+  opponent_specific_event_count: number;
+  evidence_source_diversity: number;
+}
+
 export interface ScoutingClaim {
   claim_id: string;
   title: string;
@@ -1768,6 +1776,7 @@ export interface ScoutingClaim {
   }[];
   drilldowns: InsightDrilldown[];
   clip_anchor_ids: string[];
+  inference_confidence?: ClaimInferenceConfidence | null;
 }
 
 export interface ScoutingSection {
@@ -1797,6 +1806,7 @@ export interface ScoutingClipAnchor {
   linkage_quality?: "exact" | "derived" | "timeline";
   source_context?: Record<string, string> | null;
   deep_link_url: string;
+  opponent_specific?: boolean;
 }
 
 export interface PlayTypeScoutingReportResponse {
