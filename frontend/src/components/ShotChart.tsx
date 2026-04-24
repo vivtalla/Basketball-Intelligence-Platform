@@ -29,6 +29,7 @@ import ShotContextPanel from "./ShotContextPanel";
 import ShotLabControls from "./ShotLabControls";
 import ShotSnapshotButton from "./ShotSnapshotButton";
 import ShotIntelligencePanel from "./ShotIntelligencePanel";
+import { ShotDiagnosisPanel } from "./ShotDiagnosisPanel";
 
 const ShotLab3DScene = dynamic(() => import("./three/ShotLab3DScene"), {
   ssr: false,
@@ -675,6 +676,10 @@ export default function ShotChart({
                   : isIdentityLoading
             }
           />
+        )}
+
+        {isIntelligenceView && (
+          <ShotDiagnosisPanel playerId={playerId} season={selectedSeason} />
         )}
 
         {/* Value map — full replacement for the SVG court section */}

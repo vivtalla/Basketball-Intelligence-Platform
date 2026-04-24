@@ -3668,3 +3668,74 @@ export interface SimilarityResponseWithArchetype {
   mode: SimilarityMode;
   comps: SimilarPlayerCompWithArchetype[];
 }
+
+// --- Sprint 67 (Stream B) — Shot Profile Diagnosis ------------------------
+
+export type ShotDiagnosisSentiment = "strength" | "risk" | "neutral";
+export type ShotDiagnosisGrade = "green" | "yellow" | "red";
+export type ShotSampleConfidence = "high" | "medium" | "low";
+export type ShotSustainability =
+  | "Sustainable"
+  | "Hot Streak"
+  | "Cold Streak"
+  | "Insufficient Sample";
+export type ShotCreationBurden = "Self-Created Heavy" | "Balanced" | "Assisted Heavy";
+
+export interface ShotDiagnosisEvidence {
+  metric: string;
+  value: number | null;
+  delta: number | null;
+  zone: string | null;
+  note: string | null;
+}
+
+export interface ShotDiagnosisTag {
+  key: string;
+  label: string;
+  sentiment: ShotDiagnosisSentiment;
+  grade: ShotDiagnosisGrade;
+  sample_confidence: ShotSampleConfidence;
+  evidence: ShotDiagnosisEvidence[];
+}
+
+export interface ShotDiagnosisResponse {
+  player_id: number;
+  season: string;
+  season_type: string;
+  methodology_version: string;
+  headline: string;
+  sustainability: ShotSustainability;
+  creation_burden: ShotCreationBurden;
+  tags: ShotDiagnosisTag[];
+  sample_confidence: ShotSampleConfidence;
+  coverage_state: string;
+  total_shots: number;
+}
+
+// --- Sprint 67 (Stream B) — Scouting Brief --------------------------------
+
+export type ScoutingCardType =
+  | "role"
+  | "strengths"
+  | "usage_efficiency"
+  | "shot_profile"
+  | "trajectory";
+
+export type ScoutingCardConfidence = "high" | "medium" | "low";
+
+export interface ScoutingBriefCard {
+  card_type: ScoutingCardType;
+  title: string;
+  summary: string;
+  evidence: string[];
+  confidence: ScoutingCardConfidence;
+  deep_link: string;
+}
+
+export interface ScoutingBriefResponse {
+  player_id: number;
+  season: string;
+  methodology_version: string;
+  cards: ScoutingBriefCard[];
+  warnings: string[];
+}

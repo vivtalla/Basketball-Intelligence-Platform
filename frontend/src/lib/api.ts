@@ -1605,3 +1605,25 @@ export async function getSimilarPlayersWithArchetype(
     `/api/similarity/${playerId}?season=${encodeURIComponent(season)}&mode=${mode}&n=${n}`
   );
 }
+
+// Sprint 67 (Stream B) — Shot diagnosis + scouting brief
+
+export async function getPlayerShotDiagnosis(
+  playerId: number,
+  season: string,
+  seasonType: string = "Regular Season"
+): Promise<import("./types").ShotDiagnosisResponse> {
+  const params = new URLSearchParams({ season, season_type: seasonType });
+  return fetchApi<import("./types").ShotDiagnosisResponse>(
+    `/api/shotchart/${playerId}/diagnosis?${params.toString()}`
+  );
+}
+
+export async function getPlayerScoutingBrief(
+  playerId: number,
+  season: string
+): Promise<import("./types").ScoutingBriefResponse> {
+  return fetchApi<import("./types").ScoutingBriefResponse>(
+    `/api/players/${playerId}/scouting-brief?season=${encodeURIComponent(season)}`
+  );
+}
