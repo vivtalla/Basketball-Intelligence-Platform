@@ -1,6 +1,6 @@
 # Agent Coordination
 
-Last updated: 2026-04-24 by Claude (Sprint 68 kickoff)
+Last updated: 2026-04-25 by Claude (Sprint 68 closeout reset)
 
 > Both agents read this file before touching code at the start of every session.
 > The canonical source of truth is the clean `master` checkout at `/Users/viv/Documents/Basketball Intelligence Platform`.
@@ -14,13 +14,13 @@ Last updated: 2026-04-24 by Claude (Sprint 68 kickoff)
 
 | Field | Value |
 |-------|-------|
-| Sprint | 68 |
-| Goal | Decision Intelligence Follow-Ons — complete the five Sprint-67 deferrals (team-fit similarity, archetype evolution timeline, coaching copy polish, scouting-brief deep-link banners, Opportunity `usg_pct` display precision) |
-| Started | 2026-04-24 |
-| Target merge | 2026-04-24 (tight, same-session closeout; each item is scoped small) |
-| Sprint shape | Single-stream — Claude closes the Sprint-67 backlog on one branch in one session. |
-| Branch | `feature/sprint-68-decision-intelligence-followups` (Claude) |
-| Worker policy | None — all items small and integration-tight. |
+| Sprint | 69 |
+| Goal | TBD — awaiting Vivek's sprint kickoff |
+| Started | TBD |
+| Target merge | TBD |
+| Sprint shape | TBD |
+| Branch | `master` until Sprint 69 kickoff |
+| Worker policy | No active sprint; set at kickoff |
 
 ---
 
@@ -38,13 +38,14 @@ If repo state, sprint numbering, or shipped features appear to disagree across l
 ## Current Assignments
 
 ### Claude
-- Branch: `feature/sprint-68-decision-intelligence-followups`
-- Scope: All five Sprint-67 backlog follow-ons end-to-end.
-- Status: In progress — kickoff 2026-04-24
+- Branch: `feature/sprint-69-[slug]`
+- Scope: No active sprint assignment
+- Status: Not started
 
 ### Codex
-- Branch: n/a for Sprint 68 — Claude is executing on a single branch at Vivek's direction.
-- Status: Not engaged this sprint
+- Branch: `codex-sprint-69-[slug]`
+- Scope: No active sprint assignment
+- Status: Not started
 
 ---
 
@@ -83,19 +84,7 @@ TBD at kickoff. Next sprint branch/worktree is created at kickoff and merges bac
 
 ## Sprint Work Allocation
 
-Sprint 68 — Decision Intelligence Follow-Ons (all MUST, single-stream Claude)
-
-1. **Opportunity `usg_pct` display precision** — bump `round(x, 1)` in `opportunity_service` so distinct usage values stop collapsing into the same 0.3 display. Caught during Sprint 67 live smoke.
-2. **Team-Fit Similarity Mode (B10 from Sprint 67)** — implement the teammate-duplicate penalty per `specs/sprint-67-archetype-rules.md` §1.7. Swap service `NotImplementedError` for real comps; frontend tab's deferred-state card becomes live comps.
-3. **Scouting-Brief Deep-Link Banners** — mirror the Sprint 65 inbound-context banner pattern (`source=brief`) on Shot Lab and optionally Insights. Card deep-links carry the source chip so destination surfaces acknowledge where the user came from.
-4. **Coaching Copy Polish** — one pass on the 12 shot-diagnosis tag labels + evidence templates and the five scouting-brief card summaries for coach-readable phrasing. Methodology drawers stay factual.
-5. **Player Archetype Evolution Timeline** — port the team Style-X-Ray `MovementTimeline` pattern to players. New backend endpoint classifies every past season for a player; new frontend component renders the archetype sequence with transition markers and per-season confidence bands.
-
-Verification (shared):
-- Full backend `pytest` plus new tests for team-fit mode + archetype history endpoint.
-- `npm run build` + `npm run lint` clean; `tsc --noEmit` clean.
-- Live-DB smoke for team-fit similarity and archetype evolution against at least three real player seasons.
-- Sprint 68 closeout doc + CLAUDE.md Recent Sprints update + BACKLOG.md refresh.
+Sprint 69 allocation — TBD at kickoff.
 
 ---
 
@@ -167,6 +156,8 @@ Verification (shared):
 ## Notes
 
 *Free-form, dated, newest first. Use this for coordination and repo-state exceptions.*
+
+2026-04-25 (Claude): Sprint 68 closeout on `feature/sprint-68-decision-intelligence-followups`. Closed all five Sprint-67 deferrals on one branch in one session: Opportunity `usg_pct` precision, Team-Fit similarity mode (with teammate-duplicate penalty), Scouting Brief deep-link banners (`source=brief`), coaching copy polish across 12 diagnosis tags + 5 brief cards, and the Player Archetype Evolution Timeline (new `/api/archetype/{id}/history` endpoint + `<ArchetypeEvolutionTimeline>` component). 4 new backend tests; full suite 247 passing. Closeout: `specs/sprint-68-closeout.md`.
 
 2026-04-24 (Claude): Sprint 67 closeout on `feature/sprint-67-decision-intelligence`. Shipped the 15-archetype Player Archetype Engine, role-aware similarity (season + age modes), 12-tag Shot Profile Diagnosis, and the 5-card Scouting Brief. Three spec tune passes before code caught two routing bugs and one coverage gap; live-DB smoke caught two more bugs before merge. 47 new backend tests (243 passing). Closeout: `specs/sprint-67-closeout.md`. Cleaned up four untracked Sprint-65 leftover files that were silently breaking `npm run build`.
 
