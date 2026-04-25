@@ -1,8 +1,13 @@
 "use client";
 
 import useSWR from "swr";
-import { getPlayerArchetype, getSimilarPlayersWithArchetype } from "@/lib/api";
+import {
+  getPlayerArchetype,
+  getPlayerArchetypeHistory,
+  getSimilarPlayersWithArchetype,
+} from "@/lib/api";
 import type {
+  ArchetypeHistoryResponse,
   PlayerArchetype,
   SimilarityMode,
   SimilarityResponseWithArchetype,
@@ -26,5 +31,12 @@ export function usePlayerSimilarityWithArchetype(
       ? `player-similarity-${playerId}-${season}-${mode}-${n}`
       : null,
     () => getSimilarPlayersWithArchetype(playerId!, season, mode, n)
+  );
+}
+
+export function usePlayerArchetypeHistory(playerId: number | null) {
+  return useSWR<ArchetypeHistoryResponse>(
+    playerId !== null ? `player-archetype-history-${playerId}` : null,
+    () => getPlayerArchetypeHistory(playerId!)
   );
 }

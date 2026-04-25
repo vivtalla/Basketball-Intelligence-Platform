@@ -12,6 +12,7 @@ import PlayerTrendIntelligencePanel from "./PlayerTrendIntelligencePanel";
 import GameLogTable from "./GameLogTable";
 import PlayerSimilarity from "./PlayerSimilarity";
 import { PlayerArchetypeProfile } from "./archetype/PlayerArchetypeProfile";
+import { ArchetypeEvolutionTimeline } from "./archetype/ArchetypeEvolutionTimeline";
 import { ScoutingBrief } from "./scouting-brief/ScoutingBrief";
 import { BriefSourceBanner } from "./scouting-brief/BriefSourceBanner";
 import SeasonSplits from "./SeasonSplits";
@@ -262,6 +263,7 @@ export default function PlayerDashboard({ playerId }: PlayerDashboardProps) {
       <div id="archetype" className="space-y-3 scroll-mt-6">
         <BriefSourceBanner anchor="archetype" />
         <PlayerArchetypeProfile playerId={playerId} season={effectiveSeasonStr} />
+        <ArchetypeEvolutionTimeline playerId={playerId} />
       </div>
 
       <PlayerSimilarity playerId={playerId} season={effectiveSeasonStr} />

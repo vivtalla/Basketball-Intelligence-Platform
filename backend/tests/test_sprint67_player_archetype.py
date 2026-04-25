@@ -39,6 +39,29 @@ def make_session():
     return TS()
 
 
+def _stat_row(db, pid: int, season: str = SEASON, **stat_overrides):
+    """Add a SeasonStat row for a player that already exists in the DB.
+    Use this when a single Player spans multiple seasons — _add_player()
+    would re-insert the Player and violate UNIQUE(players.id).
+    """
+    defaults = dict(
+        player_id=pid, season=season, team_abbreviation="TOT", is_playoff=False,
+        gp=70, min_pg=32.0,
+        pts_pg=15.0, reb_pg=5.0, ast_pg=4.0, stl_pg=1.0, blk_pg=0.5, tov_pg=2.0,
+        fgm=5.6, fga=12.0, fg_pct=0.467,
+        fg3m=1.8, fg3a=4.8, fg3_pct=0.375,
+        ftm=2.8, fta=3.6, ft_pct=0.778,
+        oreb=1.0, dreb=4.0, pf=2.0,
+        usg_pct=20.0, ts_pct=0.560, efg_pct=0.540, per=15.0, bpm=0.0,
+        off_rating=112.0, def_rating=112.0, net_rating=0.0,
+        pace=100.0, pie=0.10, darko=0.0, epm=0.0, rapm=0.0,
+        obpm=0.0, dbpm=0.0,
+        ftr=0.30, par3=0.40, ast_tov=2.0, oreb_pct=4.0,
+    )
+    defaults.update(stat_overrides)
+    db.add(SeasonStat(**defaults))
+
+
 def _add_player(db, pid: int, name: str, height: str, **stat_overrides):
     """Add one Player + one SeasonStat with sensible rotation defaults, then override."""
     db.add(Player(id=pid, full_name=name, height=height))
@@ -305,5 +328,53 @@ def test_developmental_when_no_row_at_all():
         a = _classify(db, 99999)  # player that doesn't exist
         assert a.archetype_key == "developmental"
         assert "No regular-season row" in a.reason
+    finally:
+        db.close()
+
+
+# --- Sprint 68 — multi-season archetype history ----------------------------
+
+
+def test_archetype_history_returns_entries_oldest_to_newest():
+    from services.player_archetype_service import build_archetype_history
+
+    db = make_session()
+    try:
+        # Add the subject Player row ONCE (UNIQUE players.id)
+        db.add(Player(id=1, full_name="Subject", height="6-7"))
+        # Add a filler pool per season (each filler is a new Player + SeasonStat)
+        for season_idx, (season, usg) in enumerate(
+            (("2022-23", 28.0), ("2023-24", 31.0), ("2024-25", 33.0))
+        ):
+            for i in range(15):
+                filler_id = 2000 + season_idx * 100 + i
+                db.add(Player(id=filler_id, full_name=f"Filler {season}-{i}", height="6-6"))
+                _stat_row(db, filler_id, season, gp=65, min_pg=28.0,
+                          usg_pct=18.0 + i * 0.5, ast_pg=3.0 + i * 0.1)
+            # Subject's SeasonStat for this season (Player row already exists)
+            _stat_row(db, 1, season, gp=70, min_pg=34.0, usg_pct=usg,
+                      ast_pg=8.0, obpm=5.0, pts_pg=25.0)
+        db.commit()
+        clear_archetype_cache()
+
+        history = build_archetype_history(db, 1)
+        seasons = [h.season for h in history]
+        assert seasons == sorted(seasons)  # oldest → newest
+        assert len(history) == 3
+        # Every entry has a real archetype key (Literal) even when fallback fires
+        assert all(h.archetype_key for h in history)
+    finally:
+        db.close()
+
+
+def test_archetype_history_handles_player_with_no_rows():
+    from services.player_archetype_service import build_archetype_history
+
+    db = make_session()
+    try:
+        _seed_league(db)
+        db.commit()
+        history = build_archetype_history(db, 99999)
+        assert history == []
     finally:
         db.close()

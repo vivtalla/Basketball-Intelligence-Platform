@@ -1627,3 +1627,13 @@ export async function getPlayerScoutingBrief(
     `/api/players/${playerId}/scouting-brief?season=${encodeURIComponent(season)}`
   );
 }
+
+// Sprint 68 — archetype evolution history
+
+export async function getPlayerArchetypeHistory(
+  playerId: number
+): Promise<import("./types").ArchetypeHistoryResponse> {
+  return fetchApi<import("./types").ArchetypeHistoryResponse>(
+    `/api/archetype/${playerId}/history`
+  );
+}

@@ -59,3 +59,20 @@ class PlayerArchetype(BaseModel):
     contributors: List[ArchetypeContributor]
     sample: ArchetypeSample
     methodology_version: str
+
+
+class ArchetypeHistoryEntry(BaseModel):
+    """One row in a multi-season archetype timeline (Sprint 68)."""
+    season: str
+    archetype_key: ArchetypeKey
+    label: str
+    confidence: ConfidenceBand
+    reason: str
+    transitioned_from: Optional[ArchetypeKey] = None  # previous season's key, if different
+
+
+class ArchetypeHistoryResponse(BaseModel):
+    player_id: int
+    player_name: Optional[str] = None
+    entries: List[ArchetypeHistoryEntry]
+    methodology_version: str

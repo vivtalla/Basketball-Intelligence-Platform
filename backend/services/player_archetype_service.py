@@ -693,3 +693,26 @@ def classify_many(
     # Trigger cache warm up-front; individual lookups reuse the same frame.
     _get_season_frame(db, season)
     return {pid: classify_player_archetype(db, pid, season) for pid in player_ids}
+
+
+def build_archetype_history(
+    db: Session,
+    player_id: int,
+) -> List[PlayerArchetype]:
+    """Classify every regular-season year on file for a player, oldest → newest.
+
+    Returns a list of PlayerArchetype entries. Seasons where the player didn't
+    qualify for the peer pool are returned with the `developmental` fallback so
+    the timeline has a continuous row per season rather than a gap.
+    """
+    seasons = (
+        db.query(SeasonStat.season)
+        .filter(
+            SeasonStat.player_id == player_id,
+            SeasonStat.is_playoff == False,  # noqa: E712
+        )
+        .distinct()
+        .all()
+    )
+    season_strs = sorted({s[0] for s in seasons})  # NBA season strings sort lexicographically
+    return [classify_player_archetype(db, player_id, s) for s in season_strs]
