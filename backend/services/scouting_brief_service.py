@@ -74,7 +74,7 @@ def _role_card(archetype) -> Optional[ScoutingBriefCard]:
         summary=f"{archetype.label} — {archetype.confidence} confidence",
         evidence=evidence,
         confidence=confidence,
-        deep_link=f"/players/{archetype.player_id}#archetype",
+        deep_link=f"/players/{archetype.player_id}?source=brief&card=role#archetype",
     )
 
 
@@ -97,11 +97,12 @@ def _strengths_card(archetype) -> Optional[ScoutingBriefCard]:
     parts: List[str] = []
     if top_up is not None:
         prose = _FEATURE_PROSE.get(top_up.feature_key, top_up.label.lower())
-        parts.append(f"Leans into {prose} (z={top_up.z:+.2f})")
+        parts.append(f"Leans into {prose}")
     if top_down is not None:
         prose = _FEATURE_PROSE.get(top_down.feature_key, top_down.label.lower())
-        parts.append(f"{prose.capitalize()} lags (z={top_down.z:+.2f})")
+        parts.append(f"{prose.capitalize()} lags")
     summary = " · ".join(parts)
+    # Evidence keeps the z-scores — it's the audit trail, not the headline.
     evidence: List[str] = []
     for c in above[:2]:
         evidence.append(f"+ {c.label} (z={c.z:+.2f})")
@@ -114,7 +115,7 @@ def _strengths_card(archetype) -> Optional[ScoutingBriefCard]:
         summary=summary,
         evidence=evidence,
         confidence=archetype.confidence,
-        deep_link=f"/players/{archetype.player_id}#archetype",
+        deep_link=f"/players/{archetype.player_id}?source=brief&card=strengths#archetype",
     )
 
 
@@ -130,8 +131,8 @@ def _usage_efficiency_card(player_id: int, opportunity_response) -> Optional[Sco
     # season_stats stores both usg_pct and ts_pct as fractions (0.285, 0.663),
     # not percentages — confirmed against the live warehouse.
     summary = (
-        f"Usage {_fmt_pct(row.usg_pct)}, TS {_fmt_pct(row.ts_pct)} "
-        f"({_fmt_float(row.cohort_percentile, 0)} pct cohort)"
+        f"Usage {_fmt_pct(row.usg_pct)} · TS {_fmt_pct(row.ts_pct)} · "
+        f"{_fmt_float(row.cohort_percentile, 0)}th cohort percentile"
     )
     evidence: List[str] = []
     evidence.append(f"Opportunity score {row.opportunity_score:+.2f}")
@@ -148,7 +149,7 @@ def _usage_efficiency_card(player_id: int, opportunity_response) -> Optional[Sco
         summary=summary,
         evidence=evidence,
         confidence=confidence_raw,  # type: ignore[arg-type]
-        deep_link=f"/insights?tab=usage&player_id={player_id}",
+        deep_link=f"/insights?tab=usage&player_id={player_id}&source=brief",
     )
 
 
@@ -164,9 +165,9 @@ def _shot_profile_card(player_id: int, diagnosis) -> Optional[ScoutingBriefCard]
     summary = (
         f"{top_tags[0].label}"
         + (f" · {top_tags[1].label}" if len(top_tags) > 1 else "")
-        + f" — {diagnosis.sustainability}"
+        + f" · {diagnosis.sustainability}"
     )
-    evidence: List[str] = [f"Creation burden: {diagnosis.creation_burden}"]
+    evidence: List[str] = [f"Creation: {diagnosis.creation_burden}"]
     for tag in top_tags:
         if tag.evidence:
             ev = tag.evidence[0]
@@ -175,13 +176,17 @@ def _shot_profile_card(player_id: int, diagnosis) -> Optional[ScoutingBriefCard]
             elif ev.value is not None:
                 evidence.append(f"{tag.label}: {ev.value:.2f}")
     confidence: ScoutingCardConfidence = diagnosis.sample_confidence
+    top_tag_key = top_tags[0].key if top_tags else ""
     return ScoutingBriefCard(
         card_type="shot_profile",
         title="Shot profile",
         summary=summary,
         evidence=evidence,
         confidence=confidence,
-        deep_link=f"/players/{player_id}#shot-lab",
+        deep_link=(
+            f"/players/{player_id}?source=brief&card=shot_profile"
+            f"&diagnosis_tag={top_tag_key}#shot-lab"
+        ),
     )
 
 
@@ -209,7 +214,7 @@ def _trajectory_card(player_id: int, trajectory_response) -> Optional[ScoutingBr
         summary=summary,
         evidence=evidence,
         confidence=conf,
-        deep_link=f"/insights?tab=trajectory&player_id={player_id}",
+        deep_link=f"/insights?tab=trajectory&player_id={player_id}&source=brief",
     )
 
 

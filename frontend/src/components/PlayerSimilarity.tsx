@@ -140,7 +140,7 @@ const MODE_LABELS: Record<SimilarityMode, string> = {
 const MODE_DESCRIPTIONS: Record<SimilarityMode, string> = {
   season: "Most similar player-seasons across the league this season.",
   age: "Historical comps within ±1 year of age, pulled across every season.",
-  team_fit: "Comps reweighted to complement current teammates — coming in a follow-up sprint.",
+  team_fit: "Comps reweighted to complement current teammates — features already covered by a teammate contribute less to the match.",
 };
 
 export default function PlayerSimilarity({ playerId, season }: PlayerSimilarityProps) {
@@ -154,8 +154,6 @@ export default function PlayerSimilarity({ playerId, season }: PlayerSimilarityP
   );
 
   if (!season) return null;
-
-  const deferred = mode === "team_fit";
 
   return (
     <section className="space-y-3">
@@ -182,13 +180,7 @@ export default function PlayerSimilarity({ playerId, season }: PlayerSimilarityP
         </div>
       </div>
 
-      {deferred && (
-        <div className="bip-empty rounded-xl p-4 text-center text-sm">
-          Team Fit comps are deferred to a follow-up sprint. Season and Age modes are live today.
-        </div>
-      )}
-
-      {!deferred && isLoading && (
+      {isLoading && (
         <div className="space-y-2">
           {Array.from({ length: n }).map((_, i) => (
             <div
@@ -211,13 +203,13 @@ export default function PlayerSimilarity({ playerId, season }: PlayerSimilarityP
         </div>
       )}
 
-      {!deferred && error && (
+      {error && (
         <div className="bip-empty rounded-xl p-4 text-center text-sm">
           Not enough stat data to compute comps for this mode.
         </div>
       )}
 
-      {!deferred && !isLoading && !error && data && data.comps.length > 0 && (
+      {!isLoading && !error && data && data.comps.length > 0 && (
         <div className="space-y-2">
           {data.comps.map((comp, i) => (
             <CompCard key={`${i}-${comp.player_id}-${comp.season}`} comp={comp} />
@@ -225,13 +217,13 @@ export default function PlayerSimilarity({ playerId, season }: PlayerSimilarityP
         </div>
       )}
 
-      {!deferred && !isLoading && !error && data && data.comps.length === 0 && (
+      {!isLoading && !error && data && data.comps.length === 0 && (
         <div className="bip-empty rounded-xl p-4 text-center text-sm">
           No comps available for this player in {MODE_LABELS[mode]} mode.
         </div>
       )}
 
-      {!deferred && !isLoading && !error && data && data.comps.length > 0 && (
+      {!isLoading && !error && data && data.comps.length > 0 && (
         <p className="text-center text-xs text-[var(--muted)]">
           Distance across 13 z-scored role features (usage, assists/36, 3PA rate, FTr, TS%, steals/36,
           blocks/36, OReb%, OBPM, DBPM, points, rebounds, PER). Each comp carries its own archetype

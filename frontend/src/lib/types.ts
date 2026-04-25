@@ -3739,3 +3739,21 @@ export interface ScoutingBriefResponse {
   cards: ScoutingBriefCard[];
   warnings: string[];
 }
+
+// --- Sprint 68 — archetype evolution timeline -----------------------------
+
+export interface ArchetypeHistoryEntry {
+  season: string;
+  archetype_key: ArchetypeKey;
+  label: string;
+  confidence: ArchetypeConfidence;
+  reason: string;
+  transitioned_from: ArchetypeKey | null;
+}
+
+export interface ArchetypeHistoryResponse {
+  player_id: number;
+  player_name: string | null;
+  entries: ArchetypeHistoryEntry[];
+  methodology_version: string;
+}

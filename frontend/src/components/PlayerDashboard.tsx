@@ -12,7 +12,9 @@ import PlayerTrendIntelligencePanel from "./PlayerTrendIntelligencePanel";
 import GameLogTable from "./GameLogTable";
 import PlayerSimilarity from "./PlayerSimilarity";
 import { PlayerArchetypeProfile } from "./archetype/PlayerArchetypeProfile";
+import { ArchetypeEvolutionTimeline } from "./archetype/ArchetypeEvolutionTimeline";
 import { ScoutingBrief } from "./scouting-brief/ScoutingBrief";
+import { BriefSourceBanner } from "./scouting-brief/BriefSourceBanner";
 import SeasonSplits from "./SeasonSplits";
 import ExternalMetricsPanel from "./ExternalMetricsPanel";
 import ChartStatusBadge from "./ChartStatusBadge";
@@ -226,11 +228,14 @@ export default function PlayerDashboard({ playerId }: PlayerDashboardProps) {
 
       {/* Shot Chart has its own internal RS/Playoffs toggle */}
       {careerStats.seasons.length > 0 && (
-        <ShotChart
-          playerId={playerId}
-          seasons={shotLabSeasons}
-          defaultSeason={shotLabSeasons[shotLabSeasons.length - 1]}
-        />
+        <div id="shot-lab" className="space-y-3 scroll-mt-6">
+          <BriefSourceBanner anchor="shot-lab" />
+          <ShotChart
+            playerId={playerId}
+            seasons={shotLabSeasons}
+            defaultSeason={shotLabSeasons[shotLabSeasons.length - 1]}
+          />
+        </div>
       )}
 
       {/* Team Impact & Clutch are regular-season only */}
@@ -255,7 +260,11 @@ export default function PlayerDashboard({ playerId }: PlayerDashboardProps) {
       {/* Game Log has its own internal RS/Playoffs toggle */}
       <GameLogTable playerId={playerId} season={effectiveSeasonStr} />
 
-      <PlayerArchetypeProfile playerId={playerId} season={effectiveSeasonStr} />
+      <div id="archetype" className="space-y-3 scroll-mt-6">
+        <BriefSourceBanner anchor="archetype" />
+        <PlayerArchetypeProfile playerId={playerId} season={effectiveSeasonStr} />
+        <ArchetypeEvolutionTimeline playerId={playerId} />
+      </div>
 
       <PlayerSimilarity playerId={playerId} season={effectiveSeasonStr} />
 

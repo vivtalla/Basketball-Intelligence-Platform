@@ -98,7 +98,7 @@ def _tag_elite_corner_gravity(quality: ShotQualityResponse) -> Optional[ShotDiag
         sample_confidence=conf,
         evidence=[ShotDiagnosisEvidence(
             metric="zone.pps_delta", value=best.actual_pps, delta=best.pps_delta,
-            zone=best.zone_basic, note="Corner 3 overperformance vs league expected.",
+            zone=best.zone_basic, note="Corner 3s going down well above league expected.",
         )],
     )
 
@@ -121,7 +121,8 @@ def _tag_dead_corners(quality: ShotQualityResponse, size_inches: Optional[int]) 
         grade="red",
         sample_confidence="medium",
         evidence=[ShotDiagnosisEvidence(
-            metric="corner_frequency", value=corner_freq, note="Perimeter player barely attempts corner 3s.",
+            metric="corner_frequency", value=corner_freq,
+            note="Rarely attempts corner 3s despite being a perimeter player.",
         )],
     )
 
@@ -132,12 +133,13 @@ def _tag_midrange_dependency(quality: ShotQualityResponse) -> Optional[ShotDiagn
         return None
     return ShotDiagnosisTag(
         key="midrange_dependency",
-        label="Mid-range dependency",
+        label="Mid-range heavy",
         sentiment="risk",
         grade="yellow" if mid_freq < 0.35 else "red",
         sample_confidence="medium",
         evidence=[ShotDiagnosisEvidence(
-            metric="midrange_frequency", value=mid_freq, note="≥25% of diet is mid-range.",
+            metric="midrange_frequency", value=mid_freq,
+            note="Over a quarter of his attempts come from the mid-range.",
         )],
     )
 
@@ -168,7 +170,8 @@ def _tag_rim_pressure_elite(quality: ShotQualityResponse) -> Optional[ShotDiagno
         sample_confidence=conf,
         evidence=[ShotDiagnosisEvidence(
             metric="restricted_area.fg_pct_delta", value=total_freq, delta=avg_delta,
-            zone="Restricted Area", note="High-volume restricted-area diet with above-expected finishing.",
+            zone="Restricted Area",
+            note="Heavy rim diet, finishing above what the sample expects.",
         )],
     )
 
@@ -186,13 +189,14 @@ def _tag_rim_finishing_variance(quality: ShotQualityResponse) -> Optional[ShotDi
         return None
     return ShotDiagnosisTag(
         key="rim_finishing_variance",
-        label="Rim finishing variance",
+        label="Finishing below average at the rim",
         sentiment="risk",
         grade="red",
         sample_confidence="medium",
         evidence=[ShotDiagnosisEvidence(
             metric="restricted_area.fg_pct_delta", delta=avg_delta,
-            zone="Restricted Area", note="Underperforming expected finishing at the rim.",
+            zone="Restricted Area",
+            note="Finishing at the rim below what the sample expects.",
         )],
     )
 
@@ -205,13 +209,13 @@ def _tag_three_point_volume_low(quality: ShotQualityResponse, size_inches: Optio
         return None
     return ShotDiagnosisTag(
         key="three_point_volume_low",
-        label="Low 3-point volume",
+        label="Won't pull from 3",
         sentiment="risk",
         grade="yellow",
         sample_confidence="medium",
         evidence=[ShotDiagnosisEvidence(
             metric="three_point_frequency", value=three_freq,
-            note="Perimeter player taking fewer than 20% of shots from 3.",
+            note="Under 20% of his attempts come from 3 despite being a perimeter player.",
         )],
     )
 
@@ -231,13 +235,14 @@ def _tag_long_two_diet_problem(quality: ShotQualityResponse) -> Optional[ShotDia
         return None
     return ShotDiagnosisTag(
         key="long_two_diet_problem",
-        label="Long-two diet problem",
+        label="Long-two habit",
         sentiment="risk",
         grade="red",
         sample_confidence="medium",
         evidence=[ShotDiagnosisEvidence(
             metric="midrange.pps_delta", value=total_freq, delta=avg_delta,
-            zone="Mid-Range", note="Mid-range volume AND below-expected efficiency.",
+            zone="Mid-Range",
+            note="High mid-range volume with efficiency below what the sample expects.",
         )],
     )
 
@@ -247,12 +252,13 @@ def _tag_high_ftr_creator(ftr_z: Optional[float]) -> Optional[ShotDiagnosisTag]:
         return None
     return ShotDiagnosisTag(
         key="high_ftr_creator",
-        label="Foul-drawing creator",
+        label="Gets to the line",
         sentiment="strength",
         grade="green" if ftr_z >= 1.0 else "yellow",
         sample_confidence="high" if ftr_z >= 1.0 else "medium",
         evidence=[ShotDiagnosisEvidence(
-            metric="ftr_z", value=ftr_z, note="Free-throw rate in the league's top tier.",
+            metric="ftr_z", value=ftr_z,
+            note="FTA/FGA ranks in the league's top tier.",
         )],
     )
 
@@ -264,14 +270,14 @@ def _tag_low_ftr_floor_spacer(ftr_z: Optional[float], par3_z: Optional[float]) -
         return None
     return ShotDiagnosisTag(
         key="low_ftr_floor_spacer",
-        label="Floor-spacer (low FTR)",
+        label="Floor spacer",
         sentiment="neutral",
         grade="yellow",
         sample_confidence="medium",
         evidence=[
             ShotDiagnosisEvidence(metric="ftr_z", value=ftr_z),
             ShotDiagnosisEvidence(metric="par3_z", value=par3_z,
-                                  note="Shoots threes but rarely gets to the line."),
+                                  note="Shoots threes at volume but barely gets to the line."),
         ],
     )
 
@@ -293,7 +299,7 @@ def _tag_catch_and_shoot_specialist(creation: Optional[ShotCreationResponse]) ->
         sample_confidence="high",
         evidence=[ShotDiagnosisEvidence(
             metric="assisted.efg_pct", value=assisted.efg_pct,
-            note=f"Assisted frequency {assisted.frequency:.0%} at eFG {assisted.efg_pct:.0%}.",
+            note=f"{assisted.frequency:.0%} of shots are assisted, eFG {assisted.efg_pct:.0%}.",
         )],
     )
 
@@ -310,7 +316,7 @@ def _tag_off_dribble_heavy(creation: Optional[ShotCreationResponse]) -> Optional
         sample_confidence="medium",
         evidence=[ShotDiagnosisEvidence(
             metric="self_created.frequency", value=self_made.frequency,
-            note="Majority of shots are self-created off the dribble.",
+            note=f"{self_made.frequency:.0%} of shots are self-created off the dribble.",
         )],
     )
 
@@ -324,13 +330,13 @@ def _tag_heat_check_overperformance(quality: ShotQualityResponse) -> Optional[Sh
         return None
     return ShotDiagnosisTag(
         key="heat_check_overperformance",
-        label="Heat-check overperformance",
+        label="Running hot",
         sentiment="risk",
         grade="yellow",
         sample_confidence=conf,  # type: ignore[arg-type]
         evidence=[ShotDiagnosisEvidence(
             metric="summary.pps_delta", delta=pps_delta,
-            note="Overperforming expected PPS on a modest sample — likely reverts.",
+            note="Running ahead of expected PPS on a thin sample — likely to regress.",
         )],
     )
 
@@ -378,10 +384,10 @@ def _headline(
     creation_burden: CreationBurden,
 ) -> str:
     if sustainability == "Insufficient Sample":
-        return "Not enough tracked shots to diagnose."
+        return "Not enough tracked shots to diagnose yet."
     if top_tag is None:
-        return "Balanced shot profile with no red flags or breakout strengths."
-    return f"{top_tag.label} with a {sustainability} shot profile — {creation_burden.lower()}."
+        return "Balanced shot profile — nothing loud either way."
+    return f"{top_tag.label} · {sustainability} · {creation_burden.lower()}."
 
 
 # --- Tag ranking (spec §2.3) -----------------------------------------------

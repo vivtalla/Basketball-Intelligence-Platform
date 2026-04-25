@@ -542,7 +542,10 @@ def build_opportunity_report(
             position_bucket=bucket,
             minutes_pg=round(float(stat.min_pg or 0.0), 1) if stat.min_pg is not None else None,
             gp=int(stat.gp or 0) if stat.gp is not None else None,
-            usg_pct=round(float(stat.usg_pct), 1) if stat.usg_pct is not None else None,
+            # Sprint 68: bump to 3 decimal places. usg_pct is stored as a fraction
+            # (0.285), so rounding at 1 dp collapsed Jokic (0.285) / SGA (0.301) /
+            # Tatum (0.304) into an identical 0.3 display on the scouting brief.
+            usg_pct=round(float(stat.usg_pct), 3) if stat.usg_pct is not None else None,
             ts_pct=round(float(stat.ts_pct), 3) if stat.ts_pct is not None else None,
             off_rating=round(float(stat.off_rating), 1) if stat.off_rating is not None else None,
             def_rating=round(float(stat.def_rating), 1) if stat.def_rating is not None else None,
