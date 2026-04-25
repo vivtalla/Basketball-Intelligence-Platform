@@ -328,3 +328,54 @@ Likely shape:
 - evaluate storing shot-level `game_id`, game date, period/clock, and richer context fields when upstream data supports it
 - decide whether those enrichments should live in the existing JSON payload or a more structured summary table
 - keep the first follow-on targeted to real product use cases instead of collecting fields speculatively
+
+---
+
+## Platform Gaps (deliberate scope boundaries — candidates for future phases)
+
+### Tracking Data Integration
+Why it matters:
+Every CourtVue number today is derived from box scores, play-by-play, and shot-chart zone aggregates. Shot diagnosis tags like `elite_corner_gravity` and `rim_pressure_elite` are inferred from zone-level frequency + efficiency deltas, not from true defender-contest distance or positional tracking. Adding Second Spectrum or similar positional data would sharpen these signals materially and unlock new surfaces (off-ball movement, spacing maps, on-ball defense metrics).
+
+Likely shape:
+- define which tracking families matter most for existing surfaces (defender distance for shot quality, speed/distance for load monitoring, off-ball positioning for spacing)
+- evaluate data availability and licensing before committing to a schema
+- integrate incrementally: one tracking family per sprint, validate against existing zone-level proxies, keep proxies as fallback
+
+### Draft / Prospect Workspace
+Why it matters:
+The archetype engine and similarity service already produce the right primitives for prospect evaluation, but they run on NBA `season_stats` only. Draft research is a natural product expansion that would let front-office users apply the same Decision Intelligence surface to incoming talent.
+
+Likely shape:
+- add NCAA men’s data ingestion alongside the existing `nba_api` pipeline
+- run archetype classification and similarity against a mixed NBA + NCAA pool with era-normalization caveats
+- keep draft work in a separate route namespace so it doesn’t pollute NBA-season assumptions
+- see also the existing "NBA Draft Workspace" entry in the Later section
+
+### Live / In-Game Data
+Why it matters:
+The pipeline is daily-sync only. There is no WebSocket feed, no in-game lineup tracking, and no real-time shot chart updating during a game. Coaching staff use cases (rotation tracking, live lineup net rating) require sub-minute data freshness that the current batch model cannot support.
+
+Likely shape:
+- evaluate a streaming ingest path (WebSocket or polling) for live game state — at minimum current lineup and score
+- define which product surfaces benefit most from live data (lineup rotations, clutch situation flags, shot chart mid-game)
+- keep the existing daily-sync pipeline as authoritative historical record; live data supplements, doesn’t replace
+
+### User Accounts and Saved Workspaces
+Why it matters:
+Pre-read packets are assembled in-session and exported to markdown but not persisted server-side. There is no login, no saved player lists, no org-level sharing, and no persistent workspace beyond URL-backed filter state. Staff workflows at scale require at minimum named saved views and shared packet libraries.
+
+Likely shape:
+- define the minimum auth model (individual vs org-level, read-only sharing vs full edit)
+- persist Pre-Read packets server-side with a packet library accessible across sessions (extends the Sprint 66 packet history work)
+- add named saved views on top of the existing URL-backed Player Stats state
+- keep the no-login path working for anonymous / single-user deploys
+
+### Probabilistic / ML-Backed Models
+Why it matters:
+All CourtVue intelligence today is deterministic: z-score rules for archetypes, weighted Euclidean distance for similarity, arithmetic templates for scouting copy. This is the right discipline for an auditable coaching product, but some signals (injury risk, breakout probability, aging curve shape) are inherently probabilistic and would benefit from learned models.
+
+Likely shape:
+- identify 1–2 narrow, high-value prediction targets where a trained model meaningfully outperforms a heuristic (aging curve trajectory is the clearest candidate)
+- keep deterministic rule engines as the default for all classification and diagnosis work — ML is additive, not a replacement
+- gate any model output behind an explicit confidence + methodology disclosure so the product’s auditability brand is preserved
