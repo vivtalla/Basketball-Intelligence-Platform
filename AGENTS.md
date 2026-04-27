@@ -15,12 +15,12 @@ Last updated: 2026-04-27 by Codex (Sprint 69 closeout reset)
 | Field | Value |
 |-------|-------|
 | Sprint | 70 |
-| Goal | TBD — awaiting Vivek's sprint kickoff |
-| Started | TBD |
-| Target merge | TBD |
-| Sprint shape | TBD |
-| Branch | `master` until Sprint 70 kickoff |
-| Worker policy | No active sprint; set at kickoff |
+| Goal | Design System Integration — implement all missing UI elements from the CourtVue Labs design system across all 8 pages (Ask, MVP, Teams, Compare, Player, Metrics, Pre-Read, Home) |
+| Started | 2026-04-27 |
+| Target merge | 2026-04-27 |
+| Sprint shape | Single-stream (Claude); pure frontend, no backend changes |
+| Branch | `feature/sprint-70-design-system-integration` |
+| Worker policy | Parallel subagents per page group; Claude orchestrates and integrates |
 
 ---
 
@@ -38,9 +38,9 @@ If repo state, sprint numbering, or shipped features appear to disagree across l
 ## Current Assignments
 
 ### Claude
-- Branch: `feature/sprint-70-[slug]`
-- Scope: No active sprint assignment
-- Status: Not started
+- Branch: `feature/sprint-70-design-system-integration`
+- Scope: All frontend pages — Ask, MVP, Teams, Compare, Player, Metrics, Pre-Read, Home
+- Status: In progress
 
 ### Codex
 - Branch: `codex-sprint-70-[slug]`
@@ -84,7 +84,17 @@ TBD at kickoff. Next sprint branch/worktree is created at kickoff and merges bac
 
 ## Sprint Work Allocation
 
-Sprint 70 allocation — TBD at kickoff.
+| Area | Files | Owner |
+|------|-------|-------|
+| Ask page | `frontend/src/app/ask/` | Claude |
+| MVP page | `frontend/src/app/mvp/` | Claude |
+| Teams page | `frontend/src/app/teams/` | Claude |
+| Compare page | `frontend/src/app/compare/` | Claude |
+| Player page | `frontend/src/app/players/` | Claude |
+| Metrics page | `frontend/src/app/metrics/` | Claude |
+| Pre-Read page | `frontend/src/app/pre-read/` | Claude |
+| Home page | `frontend/src/app/page.tsx` | Claude |
+| New shared components | `frontend/src/components/` | Claude |
 
 ---
 
