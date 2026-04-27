@@ -546,6 +546,55 @@ function PreReadPageInner() {
         </section>
       ) : null}
 
+      {/* Focus levers — three things to win, in design's FocusLever card style */}
+      {data?.focus_levers && data.focus_levers.length > 0 ? (
+        <section>
+          <p className="bip-kicker">Focus levers</p>
+          <h2 className="bip-display mt-1 text-2xl font-semibold text-[var(--foreground)]">
+            Three things to win.
+          </h2>
+          <div className="mt-4 grid grid-cols-1 md:grid-cols-3 gap-3">
+            {data.focus_levers.slice(0, 3).map((lever, i) => {
+              const tone = i === 0 ? "accent" : i === 1 ? "signal" : "accent";
+              const dotColor = tone === "accent" ? "var(--accent)" : "var(--signal)";
+              return (
+                <div
+                  key={`${lever.factor_id}-${i}`}
+                  className="rounded-[1.4rem] border border-[var(--border)] p-5"
+                  style={{ background: "rgba(255,249,241,0.86)" }}
+                >
+                  <div className="flex items-center gap-2 mb-2">
+                    <span
+                      style={{
+                        width: 8,
+                        height: 8,
+                        borderRadius: "50%",
+                        background: dotColor,
+                        flexShrink: 0,
+                      }}
+                    />
+                    <p
+                      className="bip-kicker"
+                      style={{ color: dotColor, margin: 0 }}
+                    >
+                      {lever.title}
+                    </p>
+                  </div>
+                  <p className="text-sm leading-6 text-[var(--foreground)]">
+                    {lever.summary}
+                  </p>
+                  {lever.coaching_prompt ? (
+                    <p className="mt-3 text-xs italic text-[var(--muted)]">
+                      {lever.coaching_prompt}
+                    </p>
+                  ) : null}
+                </div>
+              );
+            })}
+          </div>
+        </section>
+      ) : null}
+
       {data?.prep_context ? (
         <section className="rounded-[1.5rem] border border-[var(--border)] bg-[rgba(255,255,255,0.72)] p-5 text-sm leading-6 text-[var(--muted-strong)]">
           <div className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--muted)]">Prep context</div>
