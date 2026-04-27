@@ -13,6 +13,7 @@ import {
   usePreReadDeck,
   usePreReadPacketLibrary,
   usePreReadSnapshot,
+  useTeamAnalytics,
   useTeamIntelligence,
   useTeamRotationReport,
   useTeams,
@@ -63,6 +64,8 @@ function PreReadPageInner() {
   const teamHistoryLibrary = usePreReadPacketLibrary(activeTeam, activeSeason, null, 10);
   const { data: teamIntelligence } = useTeamIntelligence(activeTeam, activeSeason);
   const { data: rotationReport } = useTeamRotationReport(activeTeam, activeSeason);
+  const { data: homeAnalytics } = useTeamAnalytics(activeTeam, activeSeason);
+  const { data: awayAnalytics } = useTeamAnalytics(activeOpponent, activeSeason);
   const nextGame = data?.team_availability.next_game ?? null;
   const activePacket = snapshot?.deck.scouting_packet ?? data?.scouting_packet ?? packetDraft;
   const metadataTitle = snapshot ? (packetTitle || snapshot.title || "") : packetTitle;
@@ -389,6 +392,74 @@ function PreReadPageInner() {
               </div>
             </div>
           </div>
+
+          {/* MatchupBar bilateral comparison bars (5 metrics) */}
+          {homeAnalytics && awayAnalytics ? (
+            <div className="mt-8 pt-6 border-t border-[var(--border)] grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-x-8 gap-y-5">
+              {[
+                { label: "OFFENSIVE RTG", home: homeAnalytics.off_rating, away: awayAnalytics.off_rating, max: 130, decimals: 1, higherBetter: true },
+                { label: "DEFENSIVE RTG", home: homeAnalytics.def_rating, away: awayAnalytics.def_rating, max: 130, decimals: 1, higherBetter: false },
+                { label: "PACE", home: homeAnalytics.pace, away: awayAnalytics.pace, max: 110, decimals: 1, higherBetter: true },
+                { label: "EFG%", home: (homeAnalytics.efg_pct ?? 0) * 100, away: (awayAnalytics.efg_pct ?? 0) * 100, max: 70, decimals: 1, higherBetter: true },
+                { label: "TS%", home: (homeAnalytics.ts_pct ?? 0) * 100, away: (awayAnalytics.ts_pct ?? 0) * 100, max: 70, decimals: 1, higherBetter: true },
+                { label: "NET RTG", home: homeAnalytics.net_rating, away: awayAnalytics.net_rating, max: 20, decimals: 1, higherBetter: true, signed: true },
+              ].map((row) => {
+                if (row.home == null || row.away == null) return null;
+                const homePct = (Math.abs(row.home) / row.max) * 100;
+                const awayPct = (Math.abs(row.away) / row.max) * 100;
+                const homeWins = row.higherBetter ? row.home > row.away : row.home < row.away;
+                const sign = row.signed && row.home > 0 ? "+" : "";
+                const signAway = row.signed && row.away > 0 ? "+" : "";
+                return (
+                  <div key={row.label}>
+                    <div className="flex justify-between items-baseline mb-1.5 text-xs">
+                      <span
+                        className="font-bold tabular-nums"
+                        style={{
+                          fontFamily: "var(--font-geist-mono)",
+                          fontVariantNumeric: "tabular-nums",
+                          color: homeWins ? "var(--accent)" : "var(--muted)",
+                        }}
+                      >
+                        {sign}{row.home.toFixed(row.decimals)}
+                      </span>
+                      <span className="font-mono text-[10px] tracking-[0.1em] text-[var(--muted)]">{row.label}</span>
+                      <span
+                        className="font-bold tabular-nums"
+                        style={{
+                          fontFamily: "var(--font-geist-mono)",
+                          fontVariantNumeric: "tabular-nums",
+                          color: !homeWins ? "var(--accent)" : "var(--muted)",
+                        }}
+                      >
+                        {signAway}{row.away.toFixed(row.decimals)}
+                      </span>
+                    </div>
+                    <div className="flex h-2 gap-0.5">
+                      <div className="flex-1 relative bg-[#f2e8d4] rounded-l-full overflow-hidden">
+                        <div
+                          className="absolute top-0 bottom-0 right-0 rounded-l-full transition-all duration-300"
+                          style={{
+                            width: `${Math.min(homePct, 100)}%`,
+                            background: homeWins ? "var(--accent)" : "rgba(53,41,33,0.35)",
+                          }}
+                        />
+                      </div>
+                      <div className="flex-1 relative bg-[#f2e8d4] rounded-r-full overflow-hidden">
+                        <div
+                          className="absolute top-0 bottom-0 left-0 rounded-r-full transition-all duration-300"
+                          style={{
+                            width: `${Math.min(awayPct, 100)}%`,
+                            background: !homeWins ? "var(--accent)" : "rgba(53,41,33,0.35)",
+                          }}
+                        />
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          ) : null}
         </section>
       ) : null}
 
