@@ -144,13 +144,14 @@ Sprint 70 allocation — TBD at kickoff.
 
 ## Sprint Closeout Checklist
 
-1. Confirm what actually landed in `master`
-2. Stop local dev/test servers started during the sprint and confirm relevant ports/resources are free (`lsof -iTCP:8000`, `lsof -iTCP:3000`, warehouse workers, import jobs, or other long-running processes)
-3. Create or update `specs/sprint-{NN}-closeout.md` with shipped work, deferred work, workflow lessons, and next-sprint seeds
-4. Refresh `specs/BACKLOG.md` so shipped items are removed or rewritten as follow-ons
-5. Reset `AGENTS.md` for the next sprint kickoff state
-6. Update `CLAUDE.md` "Recent Sprints" section (keep last 2 sprints inline; move the oldest out)
-7. Append the completed sprint summary to `specs/sprint-history.md`
+1. Stop local dev/test servers started during the sprint and confirm relevant ports/resources are free (`lsof -iTCP:8000`, `lsof -iTCP:3000`, warehouse workers, import jobs, or other long-running processes)
+2. Create or update `specs/sprint-{NN}-closeout.md` with shipped work, deferred work, workflow lessons, and next-sprint seeds
+3. Refresh `specs/BACKLOG.md` so shipped items are removed or rewritten as follow-ons
+4. Reset `AGENTS.md` for the next sprint kickoff state
+5. Update `CLAUDE.md` "Recent Sprints" section (keep last 2 sprints inline; move the oldest out)
+6. Append the completed sprint summary to `specs/sprint-history.md`
+7. Merge the sprint branch back into `master` locally and push `master` to `origin`
+8. Confirm `master` contains the sprint closeout commit(s) before declaring the sprint closed
 
 ---
 
