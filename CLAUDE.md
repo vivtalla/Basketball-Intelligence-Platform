@@ -261,6 +261,16 @@ CourtVue Labs uses a hybrid sprint model: major feature sprints typically run as
 
 > Full history → `specs/sprint-history.md`
 
+### Sprint 70 — Design System Integration
+
+- Pure-frontend sprint bringing the CourtVue Labs design system (cream/forest-green/gold palette, Source Serif 4 display, Source Sans 3 sans, JetBrains Mono mono) deeper into Teams, Metrics, Pre-Read, and Compare. Built from a gzipped tarball of HTML/JSX prototypes at `https://api.anthropic.com/v1/design/h/cs_JsS8pYIm1mYPQ8INqJQ`.
+- **Teams directory** (`/teams`) full redesign: replaced the simple grid of team cards with a two-column layout matching `TeamsScreen.jsx`. Conference filter pills (All/East/West) backed by a static `TEAM_META` map (conference + brand color keyed by abbreviation), sort dropdown (Name/Conference/Roster size), sticky left directory with colored abbreviation badges and selection borders, and a right `TeamDetailPreview` panel with color-tinted header and four quick-access tab links.
+- **Metrics page** (`/metrics`) hero leader card: `<HeroHardwood>` woodgrain texture above the leaderboard inside `CustomMetricBuilder.tsx`, only when `data.player_rankings.length > 0`. Renders the metric label kicker, #1 ranked player + team, and composite score in 72pt `bip-display` type — matching the design's `MetricsScreen.jsx` exactly.
+- **Pre-Read page** (`/pre-read`) three new sections: (1) visual matchup header card with home + vs + away team boxes, (2) six bilateral `MatchupBar` comparison bars (OFF RTG, DEF RTG, PACE, EFG%, TS%, NET RTG) fed by `useTeamAnalytics(home, season)` + `useTeamAnalytics(away, season)` with winning side highlighted in forest-green, (3) "Three things to win" focus levers section that surfaces `data.focus_levers` from the existing `/api/pre-read/{team}/{opponent}` API in the design's `FocusLever` card style. Focus levers were already returned by the API but never rendered on the page.
+- **Compare page** (`/compare`) two summary panels added inside `ComparisonView` for `mode !== "percentile" && mode !== "arc"`: (1) "The deltas" — 5-card grid of biggest stat differences (Scoring, True shooting, Playmaking, Rebounding, Impact BPM) with leader's last name + delta in display type, (2) "Key takeaways" — top 3 plain-language bullet differences ranked by absolute delta across PTS/TS%/AST/REB/BPM/STL/BLK.
+- Backend untouched; backend test count stays at **257 passing**. Frontend `npm run build` and `npm run lint` clean (7 pre-existing `usePlayerStats.ts` warnings).
+- Subagent rate-limit hit forced inline implementation — see closeout `specs/sprint-70-closeout.md` for the workflow lesson on when not to fan out.
+
 ### Sprint 69 — Team-Fit Intelligence and Injury-Aware Context
 
 - Shipped **Team-Fit Intelligence v2**: new `GET /api/team-fit/{player_id}` endpoint, deterministic current-team fit scoring, alternate-team ranking, component breakdowns (`skill_supply`, `roster_need`, `role_competition`, `confidence`), score deltas, warnings, methodology, and frontend `<TeamFitPanel>`.
@@ -269,17 +279,7 @@ CourtVue Labs uses a hybrid sprint model: major feature sprints typically run as
 - Made **Player Trend Intelligence injury-aware**: role drops inside injury/recovery/availability windows now surface `adjusted_role_status="injury_context"` and context-aware copy instead of blunt `losing_trust`, while raw deltas remain visible.
 - Verified with **257 backend tests**, frontend `npm run build`, frontend `npm run lint` (7 pre-existing warnings), `git diff --check`, local Alembic migration, and closeout cleanup of local backend/frontend servers plus ports 8000/3000.
 
-### Sprint 68 — Decision Intelligence Follow-Ons
-
-- Closed the five Sprint-67 deferrals on a single branch in one session: Opportunity `usg_pct` display precision, Team-Fit similarity mode, Scouting Brief deep-link banners, Coaching copy polish, and the Player Archetype Evolution Timeline.
-- **Team-Fit similarity mode** now live: `services/similarity_service.py` adds `_team_fit_weight_overrides()` which produces a per-feature distance-weight multiplier dict for the subject. When the subject's z-score on a feature is within 0.5 of any same-team teammate's z-score, that feature's weight is multiplied by 0.4 — features the team already covers contribute less to comp ranking and differentiators rise. The `NotImplementedError` and 501 are gone; frontend Team-Fit tab renders real comps. Live smoke on Tatum 2024-25 confirms season vs team_fit produce meaningfully different rankings.
-- **Player Archetype Evolution Timeline**: new `GET /api/archetype/{player_id}/history` endpoint and `<ArchetypeEvolutionTimeline>` component render every regular-season year on file for a player as a vertical timeline with confidence-coded dots and `Transition` pills on year-over-year archetype changes. `transitioned_from` is precomputed server-side. LeBron live smoke shows continuous 2020-21 → 2025-26 history with the 2020-21 → 2021-22 transition (developmental → heliocentric) flagged.
-- **Scouting Brief deep-link banners**: every brief card's `deep_link` now threads `source=brief&card={card_type}` (and `&diagnosis_tag={top_tag_key}` for Shot Profile). New `<BriefSourceBanner>` renders inline above `#archetype` and `#shot-lab` anchor wrappers when the URL carries `source=brief`. Mirrors the Sprint-65 `source=opportunity`/`source=scouting` pattern.
-- **Coaching copy polish**: surgical pass on diagnosis tag labels (`Mid-range dependency → Mid-range heavy`, `Foul-drawing creator → Gets to the line`, `Heat-check overperformance → Running hot`, etc.) plus brief card headlines (z-scores moved out of summary copy into evidence rows; usage/efficiency summary now reads "Usage 28.5% · TS 66.3% · 50th cohort percentile"; headline format changed to middot-separated phrasing).
-- **Opportunity `usg_pct` precision**: bumped `round(x, 1) → round(x, 3)` in `OpportunityPlayerRow`. Sprint-67 brief had been collapsing 0.285/0.301/0.336 (Jokić/Tatum/SGA) into an identical 0.3 display; now 28.5%/30.1%/33.6%.
-- Verified with 4 new backend tests (2 archetype-history, 1 team-fit unit, 1 team-fit integration; full suite **247 passing**, was 243 at Sprint-67 close), `npm run build` clean, `npm run lint` clean, `tsc --noEmit` clean, and live-DB smokes for all five items.
-
-*Sprint 67 and older moved to `specs/sprint-history.md`.*
+*Sprint 68 and older moved to `specs/sprint-history.md`.*
 
 ---
 
@@ -301,6 +301,7 @@ CourtVue Labs uses a hybrid sprint model: major feature sprints typically run as
 | `feature/sprint-67-decision-intelligence` | Claude | Merged to master |
 | `feature/sprint-68-decision-intelligence-followups` | Claude | Merged to master |
 | `codex-sprint-69-team-fit-intelligence` | Codex | Merged to master |
+| `feature/sprint-70-design-system-integration` | Claude | Merged to master |
 
 Sprint branches are created at kickoff and listed in `AGENTS.md`.
 
@@ -363,3 +364,13 @@ Sprint branches are created at kickoff and listed in `AGENTS.md`.
 | `ShotExamplesChips` | `components/` | Replay deep-link chips for quality/creation bins into Game Explorer with linkage-quality pills (Sprint 61) |
 | `ShotIdentityBadges` | `components/` | Compact shot-identity badges (tier + confidence + summary) for PlayerHeader and Compare (Sprint 61) |
 | `ShotIntelligenceOpsPanel` | `components/` | `/coverage` ops panel: baseline status, team readiness, stale players, missing-context histogram, refresh actions (Sprint 61) |
+| `LiveTicker` | `components/` | Sticky 36px dark scoreboard strip above nav with auto-scrolling demo scores and live-pulse dots (Sprint 70) |
+| `FloatingBall` | `components/` | Decorative SVG basketball with `cv-ball-float` keyframe animation for hero panels (Sprint 70) |
+| `Reveal` | `components/` | IntersectionObserver-driven fade-up wrapper for staggered scroll-triggered animations (Sprint 70) |
+| `Parallax` | `components/` | Mouse-tracking tilt wrapper that translates child by `strength` pixels based on cursor position (Sprint 70) |
+| `SpotlightCursor` | `components/` | Mouse-following radial-gradient overlay for hero panels (Sprint 70) |
+| `LiveShotPulse` | `components/` | Animated half-court SVG cycling through made/missed shots with ripple keyframes (Sprint 70) |
+| `StandingsLadder` | `components/` | Animated conference-race directory with team color bars, slide-in entries, playoff-cutoff coloring (Sprint 70) |
+| `WinProbabilityChart` | `components/` | SVG win-probability line chart with quarter dividers, draw-in animation, and event markers (Sprint 70) |
+| `HomeLiveCourt` | `components/` | Composed home-page demo section pairing LiveShotPulse + WinProbabilityChart + StandingsLadder (Sprint 70) |
+| `HeroHardwood` | `components/` | Procedural woodgrain texture for hero panels and metric cards (in use since Sprint 70 design integration) |

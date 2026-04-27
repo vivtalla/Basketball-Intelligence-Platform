@@ -1,9 +1,23 @@
 # Sprint History Archive
 
-Archived sprint summaries through Sprint 69. The two most recent sprint summaries also stay inline in `CLAUDE.md` under "Recent Sprints".
+Archived sprint summaries through Sprint 70. The two most recent sprint summaries also stay inline in `CLAUDE.md` under "Recent Sprints".
 
 For detailed per-sprint records, see the individual closeout files in this directory where available:
-`specs/sprint-09-closeout.md` through `specs/sprint-59-closeout.md`, plus `specs/sprint-62-closeout.md`
+`specs/sprint-09-closeout.md` through `specs/sprint-59-closeout.md`, plus `specs/sprint-62-closeout.md` and `specs/sprint-67-closeout.md` onward.
+
+---
+
+### Sprint 70 — Design System Integration
+**Branch:** `feature/sprint-70-design-system-integration` (Claude, single-stream)
+
+- Pure-frontend sprint bringing the CourtVue Labs design system (cream/forest-green/gold palette, Source Serif 4 / Source Sans 3 / JetBrains Mono) deeper into Teams, Metrics, Pre-Read, and Compare. No backend changes; backend test count unchanged at 257 passing.
+- Teams directory (`/teams`) full redesign: two-column layout with conference filter pills (All/East/West) backed by a static `TEAM_META` map, sort dropdown, sticky directory rows with colored abbreviation badges, and a right `TeamDetailPreview` panel with quick-access tab links to the full `/teams/[abbr]` dashboard.
+- Metrics page hero leader card inside `CustomMetricBuilder.tsx`: `<HeroHardwood>` woodgrain texture, metric label kicker, #1 ranked player + team, composite score in 72pt `bip-display` type — appears whenever `data.player_rankings.length > 0`.
+- Pre-Read page added three sections: visual matchup header card with home/vs/away team boxes; six bilateral `MatchupBar` comparison bars (OFF RTG, DEF RTG, PACE, EFG%, TS%, NET RTG) fed by team analytics; "Three things to win" focus levers section that surfaces `data.focus_levers` from the existing Pre-Read deck API which had been returned but never rendered on the page.
+- Compare page added "The deltas" 5-card grid (Scoring, True shooting, Playmaking, Rebounding, Impact BPM with leader's last name and delta in display type) and "Key takeaways" 3-bullet plain-language summary inside `ComparisonView` for `mode !== "percentile" && mode !== "arc"`.
+- Shipped 9 new design-system primitives: `HeroHardwood`, `Reveal`, `LiveTicker`, `FloatingBall`, `SpotlightCursor`, `Parallax`, `LiveShotPulse`, `StandingsLadder`, `WinProbabilityChart`, plus `HomeLiveCourt` composing them on the home page.
+- Verified with `npm run build` clean and `npm run lint` clean (7 pre-existing `usePlayerStats.ts` warnings).
+- Workflow lesson: subagent fan-out across 4 parallel page-group implementation agents hit the API rate limit. Inline implementation in the main session was more reliable than parallel subagents for an 8-page design pass.
 
 ---
 

@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import NavSearch from "@/components/NavSearch";
+import LiveTicker from "@/components/LiveTicker";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -16,8 +17,11 @@ export default function RootLayout({
   return (
     <html lang="en" className="h-full antialiased">
       <body className="bip-shell min-h-full flex flex-col text-[var(--foreground)]">
+        {/* Live game ticker */}
+        <LiveTicker />
+
         {/* Nav */}
-        <nav className="sticky top-0 z-40 border-b border-[var(--border)] bg-[rgba(247,239,228,0.86)] backdrop-blur-xl">
+        <nav className="sticky top-9 z-40 border-b border-[var(--border)] bg-[rgba(247,239,228,0.86)] backdrop-blur-xl">
           <div className="max-w-7xl mx-auto px-4 py-4 flex items-center gap-4">
             <Link href="/" className="flex items-center gap-2 shrink-0">
               <span className="bip-display text-2xl font-bold tracking-tight text-[var(--foreground)]">
