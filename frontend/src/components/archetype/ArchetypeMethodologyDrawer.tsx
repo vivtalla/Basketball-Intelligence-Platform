@@ -60,7 +60,11 @@ export function ArchetypeMethodologyDrawer() {
             <strong> Season mode</strong> compares within the same season.
             <strong> Age mode</strong> compares to players within ±1 year of age across all seasons
             (the subject player is excluded from his own comps).
-            <strong> Team-Fit mode</strong> is deferred to a follow-up sprint.
+            <strong> Team-Fit mode</strong> stays same-season but softens features already covered
+            by a teammate, using a 0.4× distance multiplier when the player and teammate are
+            within 0.5 z-score on a role feature. The Team-Fit v2 panel uses the same overlap rule
+            plus skill-supply, roster-need, role-competition, and confidence explainers to audit
+            current-team value and alternate team runway.
           </p>
         </div>
       </div>

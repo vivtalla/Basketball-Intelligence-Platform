@@ -9,7 +9,19 @@ from data.nba_client import _active_nba_season
 from db.database import get_db
 from db.models import Player
 from models.mvp import MvpGravityProfile
+from models.analysis_context import (
+    AnalysisContextCreate,
+    AnalysisContextListResponse,
+    AnalysisContextResponse,
+    AnalysisContextUpdate,
+)
 from models.player import PlayerProfile, PlayerSearchResult, PlayerTrendReport
+from services.analysis_context_service import (
+    create_analysis_context,
+    delete_analysis_context,
+    list_analysis_contexts,
+    update_analysis_context,
+)
 from services.gravity_service import build_gravity_profile
 from services.player_trend_service import build_player_trend_report
 from services.sync_service import canonical_player_name
@@ -159,6 +171,51 @@ def get_player_trend_report(
         raise HTTPException(status_code=404, detail=f"Player {player_id} not found in local warehouse.")
 
     return build_player_trend_report(db=db, player=player, season=season)
+
+
+@router.get("/{player_id}/analysis-contexts", response_model=AnalysisContextListResponse)
+def get_player_analysis_contexts(
+    player_id: int,
+    season: str = Query("2024-25"),
+    include_auto: bool = Query(True),
+    db: Session = Depends(get_db),
+):
+    if not db.query(Player).filter(Player.id == player_id).first():
+        raise HTTPException(status_code=404, detail=f"Player {player_id} not found in local warehouse.")
+    return AnalysisContextListResponse(
+        player_id=player_id,
+        season=season,
+        contexts=list_analysis_contexts(db, player_id, season, include_auto=include_auto),
+    )
+
+
+@router.post("/{player_id}/analysis-contexts", response_model=AnalysisContextResponse)
+def create_player_analysis_context(
+    player_id: int,
+    payload: AnalysisContextCreate,
+    db: Session = Depends(get_db),
+):
+    return create_analysis_context(db, player_id, payload)
+
+
+@router.patch("/{player_id}/analysis-contexts/{context_id}", response_model=AnalysisContextResponse)
+def update_player_analysis_context(
+    player_id: int,
+    context_id: int,
+    payload: AnalysisContextUpdate,
+    db: Session = Depends(get_db),
+):
+    return update_analysis_context(db, player_id, context_id, payload)
+
+
+@router.delete("/{player_id}/analysis-contexts/{context_id}")
+def delete_player_analysis_context(
+    player_id: int,
+    context_id: int,
+    db: Session = Depends(get_db),
+):
+    delete_analysis_context(db, player_id, context_id)
+    return {"status": "deleted", "context_id": context_id}
 
 
 @router.get("/{player_id}/scouting-brief")

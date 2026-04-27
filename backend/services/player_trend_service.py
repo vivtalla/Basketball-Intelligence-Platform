@@ -13,6 +13,7 @@ from models.player import (
     PlayerTrendReport,
     PlayerTrendSignals,
 )
+from services.analysis_context_service import contexts_for_window
 
 
 WINDOW_SIZE = 10
@@ -81,6 +82,50 @@ def _role_status(signals: PlayerTrendSignals) -> str:
     if (signals.minute_volatility or 0.0) >= 8.0:
         return "volatile_role"
     return "stable_rotation"
+
+
+def _role_status_reason(role_status: str, signals: PlayerTrendSignals) -> str:
+    if role_status == "entrenched_starter":
+        return "Starts are stable and recent minutes are holding near the season baseline."
+    if role_status == "rising_rotation":
+        return "Recent minutes or 30-plus-minute games are running above the season baseline."
+    if role_status == "losing_trust":
+        return "Recent minutes are down or too many recent games fell below 20 minutes."
+    if role_status == "volatile_role":
+        return "Recent minute volatility is high enough that the role read is noisy."
+    return "Recent starts and minutes are close to the season baseline."
+
+
+def _context_label(context_type: str, source: str) -> str:
+    if context_type == "injury":
+        return "Injury context" if source == "manual" else "Injury report context"
+    if context_type == "recovery":
+        return "Recovery window"
+    if context_type == "availability_management":
+        return "Availability management"
+    return "Manual analyst note"
+
+
+def _injury_context_summary(contexts) -> Optional[str]:
+    relevant = [
+        ctx for ctx in contexts
+        if ctx.context_type in {"injury", "recovery", "availability_management"}
+    ]
+    if not relevant:
+        return None
+    primary = sorted(
+        relevant,
+        key=lambda ctx: (ctx.context_type != "injury", ctx.start_date is None, ctx.start_date),
+    )[0]
+    pieces = [_context_label(primary.context_type, primary.source)]
+    if primary.start_date:
+        if primary.end_date:
+            pieces.append("{0} to {1}".format(primary.start_date.isoformat(), primary.end_date.isoformat()))
+        else:
+            pieces.append("since {0}".format(primary.start_date.isoformat()))
+    if primary.note:
+        pieces.append(primary.note)
+    return " · ".join(pieces)
 
 
 def _trust_signals(
@@ -238,6 +283,32 @@ def build_player_trend_report(db: Session, player: Player, season: str) -> Playe
         recent_form=recent_form,
         starter_map=starter_map,
     )
+    role_status = _role_status(signals)
+    recent_dates = [row.game_date for row in recent_rows if row.game_date is not None]
+    context_rows = contexts_for_window(
+        db=db,
+        player_id=player.id,
+        season=season,
+        start_date=min(recent_dates) if recent_dates else None,
+        end_date=max(recent_dates) if recent_dates else None,
+        facet="trend",
+    )
+    injury_context = _injury_context_summary(context_rows)
+    context_flags = []
+    seen_flags = set()
+    for ctx in context_rows:
+        label = _context_label(ctx.context_type, ctx.source)
+        if label not in seen_flags:
+            context_flags.append(label)
+            seen_flags.add(label)
+    adjusted_role_status = None
+    role_status_reason = _role_status_reason(role_status, signals)
+    if role_status == "losing_trust" and injury_context:
+        adjusted_role_status = "injury_context"
+        role_status_reason = (
+            "Recent minutes/production are down, but the recent window overlaps injury or recovery context; "
+            "treat this as availability-affected rather than a clean trust-loss signal."
+        )
 
     report = PlayerTrendReport(
         player_id=player.id,
@@ -246,12 +317,16 @@ def build_player_trend_report(db: Session, player: Player, season: str) -> Playe
         season=season,
         status="ready",
         window_games=len(recent_rows),
-        role_status=_role_status(signals),
+        role_status=role_status,
         recent_form=recent_form,
         season_baseline=season_form,
         trust_signals=signals,
         impact_snapshot=impact_snapshot,
         recommended_games=_recommended_games(recent_rows, season_form, starter_map),
+        context_flags=context_flags,
+        role_status_reason=role_status_reason,
+        injury_context=injury_context,
+        adjusted_role_status=adjusted_role_status,
     )
     return report
 

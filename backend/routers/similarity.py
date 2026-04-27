@@ -8,6 +8,7 @@ from sqlalchemy.orm import Session
 from db.database import get_db
 from db.models import SeasonStat
 from services.similarity_service import (
+    build_team_fit_similarity_context,
     find_similar_players,
     find_similar_players_with_archetype,
 )
@@ -75,9 +76,12 @@ def similar_players(
             status_code=404,
             detail="Not enough data to compute similarity. Player may lack required stats.",
         )
-    return {
+    response = {
         "player_id": player_id,
         "season": season,
         "mode": mode,
         "comps": results,
     }
+    if mode == "team_fit":
+        response["team_fit_context"] = build_team_fit_similarity_context(db, player_id, season)
+    return response

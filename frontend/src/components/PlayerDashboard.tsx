@@ -15,6 +15,8 @@ import { PlayerArchetypeProfile } from "./archetype/PlayerArchetypeProfile";
 import { ArchetypeEvolutionTimeline } from "./archetype/ArchetypeEvolutionTimeline";
 import { ScoutingBrief } from "./scouting-brief/ScoutingBrief";
 import { BriefSourceBanner } from "./scouting-brief/BriefSourceBanner";
+import { TeamFitPanel } from "./team-fit/TeamFitPanel";
+import { PlayerSettingsDrawer } from "./player-settings/PlayerSettingsDrawer";
 import SeasonSplits from "./SeasonSplits";
 import ExternalMetricsPanel from "./ExternalMetricsPanel";
 import ChartStatusBadge from "./ChartStatusBadge";
@@ -117,6 +119,8 @@ export default function PlayerDashboard({ playerId }: PlayerDashboardProps) {
   return (
     <div className="space-y-6">
       <PlayerHeader profile={profile} currentSeason={currentSeason} priorSeason={priorSeason} />
+
+      <PlayerSettingsDrawer playerId={playerId} season={effectiveSeasonStr} />
 
       <ScoutingBrief playerId={playerId} season={effectiveSeasonStr} />
 
@@ -265,6 +269,8 @@ export default function PlayerDashboard({ playerId }: PlayerDashboardProps) {
         <PlayerArchetypeProfile playerId={playerId} season={effectiveSeasonStr} />
         <ArchetypeEvolutionTimeline playerId={playerId} />
       </div>
+
+      <TeamFitPanel playerId={playerId} season={effectiveSeasonStr} />
 
       <PlayerSimilarity playerId={playerId} season={effectiveSeasonStr} />
 

@@ -1066,6 +1066,10 @@ export interface PlayerTrendReport {
   trust_signals: PlayerTrendSignals;
   impact_snapshot: PlayerTrendImpactSnapshot;
   recommended_games: PlayerTrendGame[];
+  context_flags: string[];
+  role_status_reason: string | null;
+  injury_context: string | null;
+  adjusted_role_status: string | null;
 }
 
 export interface CustomMetricComponent {
@@ -3756,4 +3760,129 @@ export interface ArchetypeHistoryResponse {
   player_name: string | null;
   entries: ArchetypeHistoryEntry[];
   methodology_version: string;
+}
+
+// --- Sprint 69 — Team-Fit Intelligence -----------------------------------
+
+export interface TeamFitDriver {
+  feature_key: string;
+  label: string;
+  player_z: number;
+  team_need_z: number;
+  contribution: number;
+  summary: string;
+}
+
+export interface TeamFitOverlapFlag {
+  feature_key: string;
+  label: string;
+  teammate_id: number;
+  teammate_name: string;
+  player_z: number;
+  teammate_z: number;
+  gap: number;
+  multiplier: number;
+}
+
+export interface TeamFitCurrentTeam {
+  team_abbreviation: string;
+  fit_score: number;
+  value_supplied_score: number;
+  teammate_overlap_score: number;
+  role_runway_score: number;
+  skill_supply_score: number | null;
+  roster_need_score: number | null;
+  role_competition_score: number | null;
+  confidence: string | null;
+  confidence_notes: string[];
+  summary: string;
+  value_drivers: TeamFitDriver[];
+  role_runway_drivers: TeamFitDriver[];
+  overlap_flags: TeamFitOverlapFlag[];
+}
+
+export type TeamFitAlternativeLabel = "better_fit" | "similar_fit" | "different_fit";
+
+export interface TeamFitAlternativeTeam {
+  team_abbreviation: string;
+  team_name: string | null;
+  fit_score: number;
+  score_delta_vs_current: number;
+  label: TeamFitAlternativeLabel;
+  skill_supply_score: number | null;
+  roster_need_score: number | null;
+  role_competition_score: number | null;
+  confidence: string | null;
+  confidence_notes: string[];
+  summary: string;
+  value_drivers: TeamFitDriver[];
+  role_runway_drivers: TeamFitDriver[];
+  overlap_flags: TeamFitOverlapFlag[];
+}
+
+export interface TeamFitMethodology {
+  version: string;
+  weights: Record<string, number>;
+  duplicate_threshold: number;
+  duplicate_penalty: number;
+  min_games: number;
+  min_team_players: number;
+  better_fit_delta_threshold: number;
+  notes: string[];
+}
+
+export interface TeamFitContext {
+  team_abbreviation: string | null;
+  overlap_flags: TeamFitOverlapFlag[];
+  summary: string | null;
+}
+
+export interface TeamFitResponse {
+  player_id: number;
+  player_name: string;
+  season: string;
+  current_team: TeamFitCurrentTeam | null;
+  alternative_teams: TeamFitAlternativeTeam[];
+  methodology: TeamFitMethodology;
+  warnings: string[];
+}
+
+export interface SimilarityResponseWithArchetype {
+  team_fit_context?: TeamFitContext | null;
+}
+
+export type AnalysisContextType = "injury" | "recovery" | "availability_management" | "manual_note";
+export type AnalysisContextSource = "injury_report_auto" | "manual";
+export type AnalysisContextSeverity = "low" | "medium" | "high";
+export type AnalysisContextFacet = "trend" | "team_fit" | "archetype" | "similarity" | "all";
+
+export interface AnalysisContext {
+  id: number | null;
+  player_id: number;
+  season: string;
+  context_type: AnalysisContextType;
+  start_date: string | null;
+  end_date: string | null;
+  severity: AnalysisContextSeverity | null;
+  source: AnalysisContextSource;
+  note: string | null;
+  applies_to: AnalysisContextFacet[];
+  created_at: string | null;
+  updated_at: string | null;
+}
+
+export interface AnalysisContextPayload {
+  season: string;
+  context_type: AnalysisContextType;
+  start_date?: string | null;
+  end_date?: string | null;
+  severity?: AnalysisContextSeverity | null;
+  note?: string | null;
+  applies_to?: AnalysisContextFacet[];
+}
+
+export interface AnalysisContextListResponse {
+  player_id: number;
+  season: string;
+  contexts: AnalysisContext[];
 }

@@ -18,7 +18,7 @@ from __future__ import annotations
 
 import math
 from collections import defaultdict
-from typing import Dict, List, Literal, Optional, Tuple
+from typing import Any, Dict, List, Literal, Optional, Tuple
 
 from sqlalchemy.orm import Session
 
@@ -204,6 +204,20 @@ SIMILARITY_STATS_V2: List[Tuple[str, float]] = [
 ]
 STAT_KEYS_V2 = [s for s, _ in SIMILARITY_STATS_V2]
 
+TEAM_FIT_FEATURE_LABELS: Dict[str, str] = {
+    "pts_pg": "Scoring",
+    "reb_pg": "Rebounding",
+    "ast_pg": "Playmaking",
+    "stl_pg": "Defensive activity",
+    "blk_pg": "Rim protection",
+    "tov_pg": "Ball security",
+    "ts_pct": "Efficiency",
+    "usg_pct": "Usage",
+    "per": "Overall production",
+    "par3": "Spacing",
+    "ftr": "Rim pressure",
+}
+
 # Age-mode window (season start year +/- this many years).
 AGE_WINDOW = 1
 
@@ -315,6 +329,22 @@ def _build_candidate_pool(
     raise ValueError(f"unknown similarity mode: {mode!r}")
 
 
+def _select_team_fit_subject_row(
+    all_rows: List[SeasonStat],
+    player_id: int,
+    season: str,
+) -> Optional[SeasonStat]:
+    player_rows = [
+        r for r in all_rows
+        if r.player_id == player_id and r.season == season
+    ]
+    non_tot = [r for r in player_rows if (r.team_abbreviation or "").upper() != "TOT"]
+    if non_tot:
+        non_tot.sort(key=lambda r: (float(r.min_pg or 0.0), int(r.gp or 0)), reverse=True)
+        return non_tot[0]
+    return player_rows[0] if player_rows else None
+
+
 # --- Team-fit teammate-duplicate penalty (spec §1.7) ------------------------
 
 # Z-gap threshold below which we consider the subject "already covered" on a
@@ -381,6 +411,91 @@ def _team_fit_weight_overrides(
     return overrides
 
 
+def _team_fit_overlap_context(
+    db: Session,
+    target_row: SeasonStat,
+    all_rows: List[SeasonStat],
+    norms: Dict[str, Dict[str, Dict[str, float]]],
+) -> List[Dict[str, Any]]:
+    """Return the visible explanation for Sprint 68's hidden Team-Fit penalty.
+
+    The ranking code only needs per-feature weight multipliers, but the UI needs
+    to know which teammate caused each multiplier. This mirrors
+    _team_fit_weight_overrides while preserving the closest covering teammate.
+    """
+    subject_z = _raw_z(target_row, norms) or {}
+    teammate_rows = [
+        r for r in all_rows
+        if r.season == target_row.season
+        and r.team_abbreviation == target_row.team_abbreviation
+        and r.player_id != target_row.player_id
+    ]
+    closest: Dict[str, Tuple[float, SeasonStat, float]] = {}
+    for row in teammate_rows:
+        teammate_z = _raw_z(row, norms)
+        if teammate_z is None:
+            continue
+        for key, _weight in SIMILARITY_STATS_V2:
+            subj = subject_z.get(key)
+            tm = teammate_z.get(key)
+            if subj is None or tm is None:
+                continue
+            gap = abs(subj - tm)
+            if gap >= _TEAM_FIT_DUPLICATE_THRESHOLD:
+                continue
+            current = closest.get(key)
+            if current is None or gap < current[0]:
+                closest[key] = (gap, row, tm)
+
+    teammate_ids = [row.player_id for _gap, row, _tm_z in closest.values()]
+    players = {
+        p.id: p for p in db.query(Player).filter(Player.id.in_(teammate_ids)).all()
+    } if teammate_ids else {}
+
+    flags: List[Dict[str, Any]] = []
+    for key, (gap, row, teammate_z) in closest.items():
+        player = players.get(row.player_id)
+        flags.append({
+            "feature_key": key,
+            "label": TEAM_FIT_FEATURE_LABELS.get(key, key),
+            "teammate_id": row.player_id,
+            "teammate_name": player.full_name if player else str(row.player_id),
+            "player_z": round(float(subject_z[key]), 3),
+            "teammate_z": round(float(teammate_z), 3),
+            "gap": round(float(gap), 3),
+            "multiplier": _TEAM_FIT_PENALTY,
+        })
+    flags.sort(key=lambda item: (item["gap"], item["label"]))
+    return flags
+
+
+def build_team_fit_similarity_context(
+    db: Session,
+    player_id: int,
+    season: str,
+) -> Optional[Dict[str, Any]]:
+    all_rows = _qualified_rows_v2(db)
+    norms = _season_norms_v2(all_rows)
+    target_row = _select_team_fit_subject_row(all_rows, player_id, season)
+    if target_row is None:
+        return None
+    flags = _team_fit_overlap_context(db, target_row, all_rows, norms)
+    team = target_row.team_abbreviation
+    if flags:
+        first = flags[0]
+        summary = "Team-Fit ranking softens {0} because {1} already covers it.".format(
+            first["label"].lower(),
+            first["teammate_name"],
+        )
+    else:
+        summary = "Team-Fit ranking found no same-team duplicate features to soften."
+    return {
+        "team_abbreviation": team,
+        "overlap_flags": flags,
+        "summary": summary,
+    }
+
+
 def _weighted_vec(
     raw: Dict[str, float],
     overrides: Optional[Dict[str, float]] = None,
@@ -411,10 +526,13 @@ def find_similar_players_with_archetype(
     all_rows = _qualified_rows_v2(db)
     norms = _season_norms_v2(all_rows)
 
-    target_row = next(
-        (r for r in all_rows if r.player_id == player_id and r.season == season),
-        None,
-    )
+    if mode == "team_fit":
+        target_row = _select_team_fit_subject_row(all_rows, player_id, season)
+    else:
+        target_row = next(
+            (r for r in all_rows if r.player_id == player_id and r.season == season),
+            None,
+        )
     if target_row is None:
         return []
 

@@ -100,7 +100,7 @@ Likely shape:
 
 ---
 
-## Now — Decision Intelligence (Sprint 68 follow-ons)
+## Now — Decision Intelligence
 
 ### Archetype Peer-Pool Composition Explainer
 Why it matters:
@@ -118,13 +118,23 @@ Likely shape:
 - Drop the same `<BriefSourceBanner>` pattern into the relevant Insights tab when `source=brief` is in the URL.
 - Echo the originating card type ("From Scouting Brief · Usage & efficiency") and optionally pre-pin the player.
 
-### Team-Fit Explanation Pill
+### Team-Fit Calibration and Context Expansion
 Why it matters:
-Sprint 68's team_fit similarity mode applies a teammate-duplicate penalty at the distance layer, which shifts the comp ranking but is invisible in the UI. Coaches see different comps in Team Fit vs Season but can't tell *why* — e.g. "Tatum's usage is teammate-covered by Jaylen Brown, so the model deprioritized usage when ranking comps".
+Sprint 69 turned Team-Fit into an auditable player-page surface with current-team value, teammate overlap, alternate-team ranking, and methodology v2 score components. The next gains are calibration and deeper context: analysts should trust that the score behaves sensibly for stars, specialists, traded players, thin rosters, and injury-affected seasons.
 
 Likely shape:
-- Surface the penalized features as a small chip cluster on each Team Fit comp ("Penalized: usage, scoring") OR as a one-line caveat above the comp list ("Team-Fit ranking deprioritizes usage and scoring because Jaylen Brown already provides them").
-- Backend already has the override dict in `_team_fit_weight_overrides`; just thread it into the response as an optional `team_fit_context` field.
+- build a small pressure-test gallery for Team-Fit examples such as Tatum/BOS overlap, specialist shooters, defensive anchors, traded/TOT seasons, and bad-fit obvious cases
+- tune component weighting and confidence notes against those examples without adding salary, trade-value, contract, or probability modeling
+- thread player analysis contexts into Team-Fit confidence/risk language when injury, recovery, or availability windows make recent role signals less reliable
+
+### Analysis Context Rollout
+Why it matters:
+Sprint 69 added persisted manual analysis contexts plus automatic injury/recovery windows from existing injury data, and Trend Intelligence now avoids blunt `losing_trust` conclusions during injury-affected windows. Other decision surfaces still need to understand those contexts so analysts get one coherent read across the platform.
+
+Likely shape:
+- apply context flags to archetype confidence, scouting brief copy, Team-Fit warnings, and similarity interpretation without hiding raw stats
+- add richer inline editing and review workflows for manual context windows on the player page
+- add fixture coverage for injured-star seasons, recovery windows, availability management, and true non-injury role drops
 
 ---
 

@@ -91,3 +91,7 @@ class PlayerTrendReport(BaseModel):
     trust_signals: PlayerTrendSignals
     impact_snapshot: PlayerTrendImpactSnapshot
     recommended_games: List[PlayerTrendGame]
+    context_flags: List[str] = []
+    role_status_reason: Optional[str] = None
+    injury_context: Optional[str] = None
+    adjusted_role_status: Optional[str] = None

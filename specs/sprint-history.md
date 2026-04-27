@@ -1,9 +1,45 @@
 # Sprint History Archive
 
-Archived sprint summaries through Sprint 66. The two most recent sprint summaries also stay inline in `CLAUDE.md` under "Recent Sprints".
+Archived sprint summaries through Sprint 69. The two most recent sprint summaries also stay inline in `CLAUDE.md` under "Recent Sprints".
 
 For detailed per-sprint records, see the individual closeout files in this directory where available:
 `specs/sprint-09-closeout.md` through `specs/sprint-59-closeout.md`, plus `specs/sprint-62-closeout.md`
+
+---
+
+### Sprint 69 — Team-Fit Intelligence and Injury-Aware Context
+**Branch:** `codex-sprint-69-team-fit-intelligence`
+
+- Added `team_fit_v2` with current-team value explanation, teammate overlap, alternate-team ranking, methodology, score deltas, component scores, confidence notes, and frontend `<TeamFitPanel>`.
+- Added `GET /api/team-fit/{player_id}` plus Team-Fit similarity response context so the UI can explain covered/penalized features and the teammate responsible.
+- Added latest-qualified-season fallback for incomplete current-season rows so strict feature requirements do not silently hide Team-Fit intelligence.
+- Added persisted `player_analysis_contexts` via Alembic `0011_player_analysis_contexts`, manual context CRUD routes, automatic injury/recovery windows from `player_injuries`, and a player-page settings drawer.
+- Made Player Trend Intelligence injury-aware: injury/recovery/availability-overlapped role drops now surface `adjusted_role_status="injury_context"` while keeping raw deltas visible.
+- Verified with 257 backend tests, frontend lint/build, local migration, `git diff --check`, and closeout cleanup of backend/frontend servers plus ports 8000/3000.
+
+---
+
+### Sprint 68 — Decision Intelligence Follow-Ons
+**Branch:** `feature/sprint-68-decision-intelligence-followups`
+
+- Closed the five Sprint-67 deferrals on a single branch: Opportunity `usg_pct` precision, Team-Fit similarity mode, Scouting Brief deep-link banners, coaching copy polish, and Player Archetype Evolution Timeline.
+- Added Team-Fit similarity mode with teammate-duplicate feature penalties: same-team features within 0.5 z-score get a `0.4x` weight multiplier so duplicate strengths contribute less to comp ranking.
+- Added `GET /api/archetype/{player_id}/history` and `<ArchetypeEvolutionTimeline>` with confidence-coded season dots and transition pills.
+- Added scouting brief deep-link banners for player-page archetype and shot-lab anchors when URLs carry `source=brief`.
+- Polished coaching copy across diagnosis tags and brief cards, including cleaner labels and evidence-row formatting.
+- Verified with 4 new backend tests, 247 backend tests passing, frontend lint/build/typecheck, and live-DB smokes.
+
+---
+
+### Sprint 67 — Decision Intelligence: Archetypes, Shot Diagnosis, Scouting Brief
+**Branch:** `feature/sprint-67-decision-intelligence`
+
+- Shipped a deterministic 15-archetype Player Archetype Engine with z-score feature extraction, parsed height, confidence bands, contributor fingerprints, cached peer-pool frames, and TOT-preferred subject-row selection for mid-season trades.
+- Upgraded similarity with `mode ∈ {season, age, team_fit}`, a 13-feature V2 distance, archetype labels on comps, and preserved legacy `find_similar_players(cross_era=...)` behavior.
+- Added `/api/archetype/{player_id}`, `/api/players/{player_id}/scouting-brief`, and `/api/shotchart/{player_id}/diagnosis`.
+- Added Shot Profile Diagnosis with 12 graded tags, sustainability labels, creation burden, and 50-shot minimum-sample fallback.
+- Added `<PlayerArchetypeProfile>`, `<ShotDiagnosisPanel>`, and `<ScoutingBrief>` to the player page.
+- Verified with 47 new backend tests (243 passing), frontend lint/build, and live-DB smokes against Jokić, SGA, and Tatum.
 
 ---
 

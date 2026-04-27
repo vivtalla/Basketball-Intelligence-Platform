@@ -261,6 +261,14 @@ CourtVue Labs uses a hybrid sprint model: major feature sprints typically run as
 
 > Full history → `specs/sprint-history.md`
 
+### Sprint 69 — Team-Fit Intelligence and Injury-Aware Context
+
+- Shipped **Team-Fit Intelligence v2**: new `GET /api/team-fit/{player_id}` endpoint, deterministic current-team fit scoring, alternate-team ranking, component breakdowns (`skill_supply`, `roster_need`, `role_competition`, `confidence`), score deltas, warnings, methodology, and frontend `<TeamFitPanel>`.
+- Upgraded Team-Fit explainability across similarity and player page: teammate-covered feature chips, overlap drivers, current-team value summaries, "team needs from him" drivers, better-fit rationale, and latest-qualified-season fallback for incomplete current-season rows.
+- Added the **analysis context platform**: Alembic `0011_player_analysis_contexts`, `PlayerAnalysisContext` ORM, manual context CRUD routes, automatic injury/recovery windows from `player_injuries`, and a player-page settings drawer for manual injury/recovery/availability notes.
+- Made **Player Trend Intelligence injury-aware**: role drops inside injury/recovery/availability windows now surface `adjusted_role_status="injury_context"` and context-aware copy instead of blunt `losing_trust`, while raw deltas remain visible.
+- Verified with **257 backend tests**, frontend `npm run build`, frontend `npm run lint` (7 pre-existing warnings), `git diff --check`, local Alembic migration, and closeout cleanup of local backend/frontend servers plus ports 8000/3000.
+
 ### Sprint 68 — Decision Intelligence Follow-Ons
 
 - Closed the five Sprint-67 deferrals on a single branch in one session: Opportunity `usg_pct` display precision, Team-Fit similarity mode, Scouting Brief deep-link banners, Coaching copy polish, and the Player Archetype Evolution Timeline.
@@ -271,17 +279,7 @@ CourtVue Labs uses a hybrid sprint model: major feature sprints typically run as
 - **Opportunity `usg_pct` precision**: bumped `round(x, 1) → round(x, 3)` in `OpportunityPlayerRow`. Sprint-67 brief had been collapsing 0.285/0.301/0.336 (Jokić/Tatum/SGA) into an identical 0.3 display; now 28.5%/30.1%/33.6%.
 - Verified with 4 new backend tests (2 archetype-history, 1 team-fit unit, 1 team-fit integration; full suite **247 passing**, was 243 at Sprint-67 close), `npm run build` clean, `npm run lint` clean, `tsc --noEmit` clean, and live-DB smokes for all five items.
 
-### Sprint 67 — Decision Intelligence: Archetypes, Shot Diagnosis, Scouting Brief
-
-- Shipped a deterministic 15-archetype Player Archetype Engine — z-score feature extraction over `season_stats` + parsed `players.height`, first-match-wins rule engine (Heliocentric Creator → Lead Ball-Handler → Iso Scorer → Secondary Playmaker → Movement Shooter → 3-and-D Wing → Rim Pressure Guard → Connective Forward → Defensive Anchor → Interior Finisher → Stretch Big → Switchable Stopper → Rotational Energy → Balanced Role → Developmental), confidence bands, top-4 contributor fingerprint, per-season TTL-cached peer-pool frame, TOT-preferred subject-row selection for mid-season trades. Three spec tune passes before code caught two routing bugs and the SGA-band coverage gap.
-- Upgraded `similarity_service` with a `mode ∈ {season, age, team_fit}` parameter and a 13-feature V2 distance (9 legacy box stats + `par3`, `ftr`, `stl_pg`, `blk_pg`). Every V2 comp carries the subject's archetype label via batch-classify. Legacy `find_similar_players(cross_era=...)` signature preserved untouched; `team_fit` reserved with `NotImplementedError` / 501 until the B10 follow-up (closed Sprint 68).
-- New `/api/archetype/{player_id}` and `/api/players/{player_id}/scouting-brief` routes, plus `/api/shotchart/{player_id}/diagnosis`. The scouting brief composes five cards (Role, Strengths/Weaknesses, Usage & Efficiency, Shot Profile, Trajectory) from archetype + opportunity + shot-diagnosis + trajectory services — each card best-effort, skipped silently on source failure.
-- Shot Profile Diagnosis: pure layer over the existing `shot_intelligence_service` outputs. 12 graded tags with sentiment/grade/confidence, plus sustainability label (`Sustainable | Hot Streak | Cold Streak | Insufficient Sample`) and creation burden. 50-shot minimum-sample gate with explicit insufficient-sample fallback.
-- Frontend: new `<PlayerArchetypeProfile>` (ported from team Style X-Ray patterns) above `<PlayerSimilarity>` — Season/Age/Team-Fit tabs and confidence-tinted archetype pills on each comp. `<ShotDiagnosisPanel>` beneath `<ShotIntelligencePanel>` in Shot Lab. `<ScoutingBrief>` 5-card strip inserted directly below `<PlayerHeader>` on the player page.
-- Cleaned up four untracked stale files from the Sprint 65 closeout that were silently blocking `npm run build` once type-check ran.
-- Verified with 47 new backend tests (full suite **243 passing**), `npm run build` clean, `npm run lint` clean (only 7 pre-existing warnings), and a live-DB scouting-brief smoke against Jokić / SGA / Tatum on 2024-25 that caught two real bugs before merge.
-
-*Sprint 66 and older moved to `specs/sprint-history.md`.*
+*Sprint 67 and older moved to `specs/sprint-history.md`.*
 
 ---
 
@@ -302,6 +300,7 @@ CourtVue Labs uses a hybrid sprint model: major feature sprints typically run as
 | `codex-sprint-66-staff-packet-handoff` | Codex | Merged to master |
 | `feature/sprint-67-decision-intelligence` | Claude | Merged to master |
 | `feature/sprint-68-decision-intelligence-followups` | Claude | Merged to master |
+| `codex-sprint-69-team-fit-intelligence` | Codex | Ready for merge |
 
 Sprint branches are created at kickoff and listed in `AGENTS.md`.
 

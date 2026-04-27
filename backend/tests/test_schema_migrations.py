@@ -119,7 +119,11 @@ def test_upgrade_database_stamps_legacy_sqlite_schema_and_applies_drift_columns(
             assert "tracking_family" in tracking_columns
             assert "touches" in tracking_columns
 
-            assert alembic_revision == "0010_pre_read_packet_metadata"
+            context_columns = {column["name"] for column in inspector.get_columns("player_analysis_contexts")}
+            assert "context_type" in context_columns
+            assert "applies_to" in context_columns
+
+            assert alembic_revision == "0011_player_analysis_contexts"
             assert snapshot_date == "2025-12-01"
         finally:
             engine.dispose()

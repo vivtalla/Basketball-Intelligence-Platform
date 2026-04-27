@@ -1,6 +1,6 @@
 # Agent Coordination
 
-Last updated: 2026-04-25 by Claude (Sprint 68 closeout reset)
+Last updated: 2026-04-27 by Codex (Sprint 69 closeout reset)
 
 > Both agents read this file before touching code at the start of every session.
 > The canonical source of truth is the clean `master` checkout at `/Users/viv/Documents/Basketball Intelligence Platform`.
@@ -14,12 +14,12 @@ Last updated: 2026-04-25 by Claude (Sprint 68 closeout reset)
 
 | Field | Value |
 |-------|-------|
-| Sprint | 69 |
+| Sprint | 70 |
 | Goal | TBD — awaiting Vivek's sprint kickoff |
 | Started | TBD |
 | Target merge | TBD |
 | Sprint shape | TBD |
-| Branch | `master` until Sprint 69 kickoff |
+| Branch | `master` until Sprint 70 kickoff |
 | Worker policy | No active sprint; set at kickoff |
 
 ---
@@ -38,12 +38,12 @@ If repo state, sprint numbering, or shipped features appear to disagree across l
 ## Current Assignments
 
 ### Claude
-- Branch: `feature/sprint-69-[slug]`
+- Branch: `feature/sprint-70-[slug]`
 - Scope: No active sprint assignment
 - Status: Not started
 
 ### Codex
-- Branch: `codex-sprint-69-[slug]`
+- Branch: `codex-sprint-70-[slug]`
 - Scope: No active sprint assignment
 - Status: Not started
 
@@ -84,7 +84,7 @@ TBD at kickoff. Next sprint branch/worktree is created at kickoff and merges bac
 
 ## Sprint Work Allocation
 
-Sprint 69 allocation — TBD at kickoff.
+Sprint 70 allocation — TBD at kickoff.
 
 ---
 
@@ -145,17 +145,20 @@ Sprint 69 allocation — TBD at kickoff.
 ## Sprint Closeout Checklist
 
 1. Confirm what actually landed in `master`
-2. Create or update `specs/sprint-{NN}-closeout.md` with shipped work, deferred work, workflow lessons, and next-sprint seeds
-3. Refresh `specs/BACKLOG.md` so shipped items are removed or rewritten as follow-ons
-4. Reset `AGENTS.md` for the next sprint kickoff state
-5. Update `CLAUDE.md` "Recent Sprints" section (keep last 2 sprints inline; move the oldest out)
-6. Append the completed sprint summary to `specs/sprint-history.md`
+2. Stop local dev/test servers started during the sprint and confirm relevant ports/resources are free (`lsof -iTCP:8000`, `lsof -iTCP:3000`, warehouse workers, import jobs, or other long-running processes)
+3. Create or update `specs/sprint-{NN}-closeout.md` with shipped work, deferred work, workflow lessons, and next-sprint seeds
+4. Refresh `specs/BACKLOG.md` so shipped items are removed or rewritten as follow-ons
+5. Reset `AGENTS.md` for the next sprint kickoff state
+6. Update `CLAUDE.md` "Recent Sprints" section (keep last 2 sprints inline; move the oldest out)
+7. Append the completed sprint summary to `specs/sprint-history.md`
 
 ---
 
 ## Notes
 
 *Free-form, dated, newest first. Use this for coordination and repo-state exceptions.*
+
+2026-04-27 (Codex): Sprint 69 implementation complete on `codex-sprint-69-team-fit-intelligence`. Shipped Team-Fit v2 explainability, `/api/team-fit/{player_id}`, Team-Fit similarity context pills, player analysis contexts with manual settings, automatic injury/recovery context from `player_injuries`, and injury-aware Trend Intelligence. Verification: 257 backend tests passing, `npm run build`, `npm run lint`, `git diff --check`, local Alembic migration `0011_player_analysis_contexts`; local backend/frontend servers killed and ports 8000/3000 confirmed clear. Closeout: `specs/sprint-69-closeout.md`.
 
 2026-04-25 (Claude): Sprint 68 closeout on `feature/sprint-68-decision-intelligence-followups`. Closed all five Sprint-67 deferrals on one branch in one session: Opportunity `usg_pct` precision, Team-Fit similarity mode (with teammate-duplicate penalty), Scouting Brief deep-link banners (`source=brief`), coaching copy polish across 12 diagnosis tags + 5 brief cards, and the Player Archetype Evolution Timeline (new `/api/archetype/{id}/history` endpoint + `<ArchetypeEvolutionTimeline>` component). 4 new backend tests; full suite 247 passing. Closeout: `specs/sprint-68-closeout.md`.
 

@@ -36,6 +36,9 @@ function titleizeRole(roleStatus: string) {
 }
 
 function roleTone(roleStatus: string) {
+  if (roleStatus === "injury_context") {
+    return "text-[var(--warning-ink)]";
+  }
   if (roleStatus === "rising_rotation" || roleStatus === "entrenched_starter") {
     return "text-[var(--success-ink)]";
   }
@@ -127,6 +130,7 @@ export default function PlayerTrendIntelligencePanel({
   }
 
   const bestGame = report.recommended_games[0] ?? null;
+  const displayRoleStatus = report.adjusted_role_status ?? report.role_status;
   const comparisonRows = [
     {
       label: "Minutes",
@@ -234,13 +238,28 @@ export default function PlayerTrendIntelligencePanel({
         </div>
       ) : (
         <div className="mt-6 space-y-6">
+          {(report.injury_context || report.context_flags.length > 0) && (
+            <div className="rounded-3xl border border-[rgba(180,137,61,0.28)] bg-[rgba(180,137,61,0.10)] p-4">
+              <div className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--warning-ink)]">
+                Context-aware interpretation
+              </div>
+              <p className="mt-2 text-sm leading-6 text-[var(--foreground)]">
+                {report.injury_context ?? report.context_flags.join(" · ")}
+              </p>
+              {report.role_status_reason && (
+                <p className="mt-1 text-xs leading-5 text-[var(--muted-strong)]">
+                  {report.role_status_reason}
+                </p>
+              )}
+            </div>
+          )}
           <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
             <div className="bip-metric rounded-3xl p-5">
               <div className="text-xs uppercase tracking-[0.18em] text-[var(--muted)]">
                 Role status
               </div>
-              <div className={`mt-3 text-3xl font-bold ${roleTone(report.role_status)}`}>
-                {titleizeRole(report.role_status)}
+              <div className={`mt-3 text-3xl font-bold ${roleTone(displayRoleStatus)}`}>
+                {titleizeRole(displayRoleStatus)}
               </div>
               <div className="mt-2 text-sm text-[var(--muted)]">
                 {report.team_abbreviation ?? "Team"} · {report.season}
@@ -379,11 +398,11 @@ export default function PlayerTrendIntelligencePanel({
                     <div className="text-xs uppercase tracking-[0.18em] text-[var(--muted)]">
                       Stability read
                     </div>
-                    <div className={`mt-3 text-3xl font-bold ${roleTone(report.role_status)}`}>
-                      {titleizeRole(report.role_status)}
+                    <div className={`mt-3 text-3xl font-bold ${roleTone(displayRoleStatus)}`}>
+                      {titleizeRole(displayRoleStatus)}
                     </div>
                     <div className="mt-2 text-sm leading-6 text-[var(--foreground)]">
-                      Label driven by starts, recent minute swing, and recent minute volatility.
+                      {report.role_status_reason ?? "Label driven by starts, recent minute swing, and recent minute volatility."}
                     </div>
                   </div>
                 </div>

@@ -27,6 +27,7 @@ from routers import (
     standings,
     stats,
     styles,
+    team_fit,
     teams,
     trends,
     warehouse,
@@ -63,6 +64,7 @@ app.include_router(scouting.router, prefix="/api/scouting", tags=["scouting"])
 app.include_router(decision.router, prefix="/api/decision", tags=["decision"])
 app.include_router(decision.follow_router, prefix="/api/follow-through", tags=["follow-through"])
 app.include_router(styles.router, prefix="/api/styles", tags=["styles"])
+app.include_router(team_fit.router, prefix="/api/team-fit", tags=["team-fit"])
 app.include_router(trends.router, prefix="/api/trends", tags=["trends"])
 app.include_router(trends.scenarios_router, prefix="/api/scenarios", tags=["scenarios"])
 app.include_router(warehouse.router, prefix="/api/warehouse", tags=["warehouse"])

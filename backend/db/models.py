@@ -537,6 +537,30 @@ class PlayerInjury(Base):
     player = relationship("Player")
 
 
+class PlayerAnalysisContext(Base):
+    """Manual analyst context that changes interpretation, not raw stat storage."""
+    __tablename__ = "player_analysis_contexts"
+    __table_args__ = (
+        Index("ix_player_analysis_contexts_player_season", "player_id", "season"),
+        Index("ix_player_analysis_contexts_dates", "start_date", "end_date"),
+    )
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    player_id = Column(Integer, ForeignKey("players.id"), nullable=False)
+    season = Column(String(10), nullable=False)
+    context_type = Column(String(40), nullable=False)
+    start_date = Column(Date, nullable=True)
+    end_date = Column(Date, nullable=True)
+    severity = Column(String(20), nullable=True)
+    source = Column(String(40), nullable=False, default="manual")
+    note = Column(Text)
+    applies_to = Column(JSON)
+    created_at = Column(DateTime, server_default=func.now())
+    updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
+
+    player = relationship("Player")
+
+
 class PlayerNameAlias(Base):
     __tablename__ = "player_name_aliases"
     __table_args__ = (

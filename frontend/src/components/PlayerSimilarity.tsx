@@ -8,6 +8,7 @@ import type {
   ArchetypeConfidence,
   SimilarityMode,
   SimilarPlayerCompWithArchetype,
+  TeamFitContext,
 } from "@/lib/types";
 
 interface PlayerSimilarityProps {
@@ -131,6 +132,40 @@ function CompCard({ comp }: { comp: SimilarPlayerCompWithArchetype }) {
   );
 }
 
+function TeamFitContextPills({ context }: { context: TeamFitContext | null | undefined }) {
+  if (!context || context.overlap_flags.length === 0) {
+    return (
+      <div className="rounded-xl border border-[var(--border)] bg-[rgba(255,255,255,0.62)] px-3 py-2 text-xs text-[var(--muted-strong)]">
+        Team-Fit mode found no same-team duplicate role features to soften.
+      </div>
+    );
+  }
+
+  const primary = context.overlap_flags[0];
+  const teammateFlags = context.overlap_flags.filter(
+    (flag) => flag.teammate_id === primary.teammate_id
+  );
+  const featureLabels = teammateFlags.slice(0, 3).map((flag) => flag.label.toLowerCase());
+
+  return (
+    <div className="rounded-xl border border-[rgba(180,137,61,0.28)] bg-[rgba(180,137,61,0.10)] px-3 py-2">
+      <p className="text-xs font-semibold text-[var(--warning-ink)]">
+        Covered by {primary.teammate_name}: {featureLabels.join(", ")}
+      </p>
+      <div className="mt-2 flex flex-wrap gap-1.5">
+        {context.overlap_flags.slice(0, 6).map((flag) => (
+          <span
+            key={`${flag.feature_key}-${flag.teammate_id}`}
+            className="rounded-full border border-[rgba(180,137,61,0.28)] bg-[rgba(255,255,255,0.55)] px-2 py-0.5 text-[10px] font-bold uppercase tracking-[0.12em] text-[var(--warning-ink)]"
+          >
+            Penalized: {flag.label}
+          </span>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 const MODE_LABELS: Record<SimilarityMode, string> = {
   season: "This Season",
   age: "Same Age",
@@ -140,7 +175,7 @@ const MODE_LABELS: Record<SimilarityMode, string> = {
 const MODE_DESCRIPTIONS: Record<SimilarityMode, string> = {
   season: "Most similar player-seasons across the league this season.",
   age: "Historical comps within ±1 year of age, pulled across every season.",
-  team_fit: "Comps reweighted to complement current teammates — features already covered by a teammate contribute less to the match.",
+  team_fit: "Comps reweighted around the current roster: teammate-covered strengths count less, open role lanes count more.",
 };
 
 export default function PlayerSimilarity({ playerId, season }: PlayerSimilarityProps) {
@@ -207,6 +242,10 @@ export default function PlayerSimilarity({ playerId, season }: PlayerSimilarityP
         <div className="bip-empty rounded-xl p-4 text-center text-sm">
           Not enough stat data to compute comps for this mode.
         </div>
+      )}
+
+      {!isLoading && !error && data && mode === "team_fit" && (
+        <TeamFitContextPills context={data.team_fit_context} />
       )}
 
       {!isLoading && !error && data && data.comps.length > 0 && (

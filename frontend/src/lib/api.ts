@@ -1637,3 +1637,64 @@ export async function getPlayerArchetypeHistory(
     `/api/archetype/${playerId}/history`
   );
 }
+
+// Sprint 69 — Team-Fit Intelligence
+
+export async function getPlayerTeamFit(
+  playerId: number,
+  season: string,
+  limit = 5
+): Promise<import("./types").TeamFitResponse> {
+  return fetchApi<import("./types").TeamFitResponse>(
+    `/api/team-fit/${playerId}?season=${encodeURIComponent(season)}&limit=${limit}`
+  );
+}
+
+export async function getPlayerAnalysisContexts(
+  playerId: number,
+  season: string,
+  includeAuto = true
+): Promise<import("./types").AnalysisContextListResponse> {
+  return fetchApi<import("./types").AnalysisContextListResponse>(
+    `/api/players/${playerId}/analysis-contexts?season=${encodeURIComponent(season)}&include_auto=${includeAuto}`
+  );
+}
+
+export async function createPlayerAnalysisContext(
+  playerId: number,
+  payload: import("./types").AnalysisContextPayload
+): Promise<import("./types").AnalysisContext> {
+  return fetchApi<import("./types").AnalysisContext>(
+    `/api/players/${playerId}/analysis-contexts`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    }
+  );
+}
+
+export async function updatePlayerAnalysisContext(
+  playerId: number,
+  contextId: number,
+  payload: Partial<import("./types").AnalysisContextPayload>
+): Promise<import("./types").AnalysisContext> {
+  return fetchApi<import("./types").AnalysisContext>(
+    `/api/players/${playerId}/analysis-contexts/${contextId}`,
+    {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    }
+  );
+}
+
+export async function deletePlayerAnalysisContext(
+  playerId: number,
+  contextId: number
+): Promise<{ status: string; context_id: number }> {
+  return fetchApi<{ status: string; context_id: number }>(
+    `/api/players/${playerId}/analysis-contexts/${contextId}`,
+    { method: "DELETE" }
+  );
+}
