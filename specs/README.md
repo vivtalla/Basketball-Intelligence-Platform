@@ -17,6 +17,7 @@ At sprint close, refresh `BACKLOG.md` as well so the best future-work ideas surv
 |------|------|------|----|--------|--------|
 | [SPRINT_COLLABORATION_GUIDE.md](SPRINT_COLLABORATION_GUIDE.md) | Process | Shared | Vivek | — | Active |
 | [BACKLOG.md](BACKLOG.md) | Planning | Shared | Shared | — | Active |
+| [platform-methodology.md](platform-methodology.md) | Methodology | Shared | Shared | — | Active |
 | [sprint-22-closeout.md](sprint-22-closeout.md) | Closeout | Shared | Shared | 22 | Final |
 | [sprint-22-team-a-courtvue-metrics.md](sprint-22-team-a-courtvue-metrics.md) | Spec | Team A Architect | Team A Engineer | 22 | Final |
 | [sprint-22-team-b-courtvue-trajectory.md](sprint-22-team-b-courtvue-trajectory.md) | Spec | Team B Architect | Team B Engineer | 22 | Final |
