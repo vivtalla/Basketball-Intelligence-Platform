@@ -447,6 +447,115 @@ export default function ComparisonView({ playerA, playerB, availabilityA, availa
       {/* Career / Current Season mode */}
       {mode !== "percentile" && mode !== "arc" && (
         <>
+          {/* The deltas — top 5 biggest stat differences */}
+          {statsA && statsB ? (
+            <div className="bip-panel rounded-2xl p-5">
+              <p className="bip-kicker">The deltas</p>
+              <h3 className="bip-display mt-1 text-xl font-semibold text-[var(--foreground)]">
+                Where they diverge.
+              </h3>
+              <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
+                {[
+                  { key: "pts_pg" as const, label: "Scoring", suffix: "" },
+                  { key: "ts_pct" as const, label: "True shooting", suffix: "%", pct: true },
+                  { key: "ast_pg" as const, label: "Playmaking", suffix: "" },
+                  { key: "reb_pg" as const, label: "Rebounding", suffix: "" },
+                  { key: "bpm" as const, label: "Impact (BPM)", suffix: "", signed: true },
+                ].map((row) => {
+                  const valA = statsA[row.key] as number | null;
+                  const valB = statsB[row.key] as number | null;
+                  if (valA == null || valB == null) {
+                    return (
+                      <div key={row.key} className="rounded-xl border border-[var(--border)] bg-[rgba(255,249,241,0.6)] p-3">
+                        <div className="text-[10px] font-mono uppercase tracking-[0.1em] text-[var(--muted)]">{row.label}</div>
+                        <div className="mt-1 text-sm text-[var(--muted)]">—</div>
+                      </div>
+                    );
+                  }
+                  const a = row.pct ? valA * 100 : valA;
+                  const b = row.pct ? valB * 100 : valB;
+                  const diff = a - b;
+                  const winner = diff > 0 ? "A" : diff < 0 ? "B" : null;
+                  const lastA = playerA.profile.full_name.split(" ").slice(-1)[0];
+                  const lastB = playerB.profile.full_name.split(" ").slice(-1)[0];
+                  const leaderName = winner === "A" ? lastA : winner === "B" ? lastB : "Even";
+                  const sign = row.signed && diff > 0 ? "+" : "";
+                  return (
+                    <div key={row.key} className="rounded-xl border border-[var(--border)] bg-[rgba(255,249,241,0.6)] p-3">
+                      <div className="text-[10px] font-mono uppercase tracking-[0.1em] text-[var(--muted)]">{row.label}</div>
+                      <div className="mt-1 text-xs text-[var(--foreground)]">
+                        {leaderName} {winner ? "leads" : ""}
+                      </div>
+                      <div
+                        className="mt-1 bip-display font-bold tabular-nums"
+                        style={{
+                          fontSize: 20,
+                          color: winner ? "var(--accent)" : "var(--muted)",
+                        }}
+                      >
+                        {sign}{Math.abs(diff).toFixed(1)}{row.suffix}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          ) : null}
+
+          {/* Takeaways — top 3 plain-language differences */}
+          {statsA && statsB ? (() => {
+            const candidates: Array<{ key: keyof SeasonStats; label: string; pct?: boolean; decimals?: number }> = [
+              { key: "pts_pg", label: "scoring volume", decimals: 1 },
+              { key: "ts_pct", label: "true shooting", pct: true, decimals: 1 },
+              { key: "ast_pg", label: "playmaking", decimals: 1 },
+              { key: "reb_pg", label: "rebounding", decimals: 1 },
+              { key: "bpm", label: "total impact (BPM)", decimals: 1 },
+              { key: "stl_pg", label: "steals", decimals: 1 },
+              { key: "blk_pg", label: "blocks", decimals: 1 },
+            ];
+            const deltas = candidates
+              .map((c) => {
+                const a = statsA[c.key] as number | null;
+                const b = statsB[c.key] as number | null;
+                if (a == null || b == null) return null;
+                const av = c.pct ? a * 100 : a;
+                const bv = c.pct ? b * 100 : b;
+                return { ...c, a: av, b: bv, abs: Math.abs(av - bv), diff: av - bv };
+              })
+              .filter((d): d is NonNullable<typeof d> => d != null)
+              .sort((x, y) => y.abs - x.abs)
+              .slice(0, 3);
+            const lastA = playerA.profile.full_name.split(" ").slice(-1)[0];
+            const lastB = playerB.profile.full_name.split(" ").slice(-1)[0];
+            return (
+              <div className="bip-panel rounded-2xl p-5">
+                <p className="bip-kicker">Key takeaways</p>
+                <h3 className="bip-display mt-1 text-xl font-semibold text-[var(--foreground)]">
+                  Where the gap lives.
+                </h3>
+                <ul className="mt-4 space-y-2.5">
+                  {deltas.map((d) => {
+                    const leader = d.diff > 0 ? lastA : lastB;
+                    const suffix = d.pct ? "pp" : "";
+                    return (
+                      <li key={d.key as string} className="flex items-baseline gap-3 border-t border-[var(--border)] pt-2.5 first:border-0 first:pt-0">
+                        <span className="font-mono text-[10px] uppercase tracking-[0.08em] text-[var(--muted)] min-w-[110px]">
+                          {d.label}
+                        </span>
+                        <span className="text-sm text-[var(--foreground)] leading-6">
+                          <span className="font-semibold text-[var(--accent)]">{leader}</span> leads by{" "}
+                          <span className="bip-display font-bold tabular-nums">
+                            {d.abs.toFixed(d.decimals ?? 1)}{suffix}
+                          </span>
+                        </span>
+                      </li>
+                    );
+                  })}
+                </ul>
+              </div>
+            );
+          })() : null}
+
           <div className="bip-panel rounded-2xl p-4">
             <h4 className="bip-kicker mb-3 text-xs">
               Traditional

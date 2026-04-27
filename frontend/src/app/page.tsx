@@ -4,6 +4,10 @@ import HomeMvpTeaser from "@/components/HomeMvpTeaser";
 import FavoritesList from "@/components/FavoritesList";
 import StatCounter from "@/components/StatCounter";
 import HeroHardwood from "@/components/HeroHardwood";
+import FloatingBall from "@/components/FloatingBall";
+import SpotlightCursor from "@/components/SpotlightCursor";
+import Reveal from "@/components/Reveal";
+import HomeLiveCourt from "@/components/HomeLiveCourt";
 import Link from "next/link";
 
 // Heroicons-style SVG icons for platform cards (24×24, 1.7px stroke, round caps/joins)
@@ -172,6 +176,13 @@ export default function HomePage() {
           <div className="absolute inset-x-0 top-0 h-48 bg-gradient-to-b from-[rgba(180,137,61,0.14)] via-[rgba(244,236,222,0)] to-transparent" />
         </div>
 
+        {/* ── Spotlight cursor ── */}
+        <SpotlightCursor />
+
+        {/* ── Floating basketball ── */}
+        <FloatingBall size={64} style={{ position: "absolute", top: 56, right: 56, zIndex: 1 }} />
+        <FloatingBall size={44} style={{ position: "absolute", bottom: 80, left: 64, zIndex: 1, animationDelay: "1.4s" }} />
+
         {/* ── Content ── */}
         <div className="relative text-center max-w-3xl py-20">
           <p
@@ -223,37 +234,49 @@ export default function HomePage() {
 
       {/* ── Platform areas ───────────────────────────────────────── */}
       <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
-        {platformAreas.map((area) => (
-          <Link
-            key={area.href}
-            href={area.href}
-            className="group bip-panel rounded-[1.85rem] p-6 hover:-translate-y-1 hover:border-[var(--accent)] hover:shadow-[0_24px_60px_rgba(33,72,59,0.16)] transition-all duration-200"
-          >
-            <div className="flex items-center gap-2 mb-1 text-[var(--accent)]">
-              <PlatformIcon name={area.icon} size={18} />
-              <p className="bip-kicker">{area.eyebrow}</p>
-            </div>
-            <h2 className="bip-display mt-3 text-2xl font-semibold text-[var(--foreground)]">
-              {area.title}
-            </h2>
-            <p className="mt-3 text-sm leading-6 text-[var(--muted)]">
-              {area.description}
-            </p>
-            <div className="mt-6 text-sm font-medium text-[var(--accent)] group-hover:text-[var(--accent-strong)] transition-colors">
-              Open workspace →
-            </div>
-          </Link>
+        {platformAreas.map((area, idx) => (
+          <Reveal key={area.href} delay={idx * 60}>
+            <Link
+              href={area.href}
+              className="group bip-panel rounded-[1.85rem] p-6 hover:-translate-y-1 hover:border-[var(--accent)] hover:shadow-[0_24px_60px_rgba(33,72,59,0.16)] transition-all duration-200 block h-full"
+            >
+              <div className="flex items-center gap-2 mb-1 text-[var(--accent)]">
+                <PlatformIcon name={area.icon} size={18} />
+                <p className="bip-kicker">{area.eyebrow}</p>
+              </div>
+              <h2 className="bip-display mt-3 text-2xl font-semibold text-[var(--foreground)]">
+                {area.title}
+              </h2>
+              <p className="mt-3 text-sm leading-6 text-[var(--muted)]">
+                {area.description}
+              </p>
+              <div className="mt-6 text-sm font-medium text-[var(--accent)] group-hover:text-[var(--accent-strong)] transition-colors">
+                Open workspace →
+              </div>
+            </Link>
+          </Reveal>
         ))}
       </div>
 
+      {/* ── Live court demos ─────────────────────────────────────── */}
+      <Reveal>
+        <HomeLiveCourt />
+      </Reveal>
+
       {/* ── Watchlist ────────────────────────────────────────────── */}
-      <FavoritesList />
+      <Reveal>
+        <FavoritesList />
+      </Reveal>
 
       {/* ── MVP race teaser ──────────────────────────────────────── */}
-      <HomeMvpTeaser />
+      <Reveal>
+        <HomeMvpTeaser />
+      </Reveal>
 
       {/* ── Live league leaders ──────────────────────────────────── */}
-      <HomeLeagueLeaders />
+      <Reveal>
+        <HomeLeagueLeaders />
+      </Reveal>
     </div>
   );
 }

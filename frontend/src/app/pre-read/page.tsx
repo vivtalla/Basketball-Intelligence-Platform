@@ -13,6 +13,7 @@ import {
   usePreReadDeck,
   usePreReadPacketLibrary,
   usePreReadSnapshot,
+  useTeamAnalytics,
   useTeamIntelligence,
   useTeamRotationReport,
   useTeams,
@@ -63,6 +64,8 @@ function PreReadPageInner() {
   const teamHistoryLibrary = usePreReadPacketLibrary(activeTeam, activeSeason, null, 10);
   const { data: teamIntelligence } = useTeamIntelligence(activeTeam, activeSeason);
   const { data: rotationReport } = useTeamRotationReport(activeTeam, activeSeason);
+  const { data: homeAnalytics } = useTeamAnalytics(activeTeam, activeSeason);
+  const { data: awayAnalytics } = useTeamAnalytics(activeOpponent, activeSeason);
   const nextGame = data?.team_availability.next_game ?? null;
   const activePacket = snapshot?.deck.scouting_packet ?? data?.scouting_packet ?? packetDraft;
   const metadataTitle = snapshot ? (packetTitle || snapshot.title || "") : packetTitle;
@@ -328,6 +331,138 @@ function PreReadPageInner() {
         {packetMessage ? <div className="mt-4 text-sm text-[var(--muted-strong)]">{packetMessage}</div> : null}
       </section>
 
+      {/* Matchup header card — visual preview of the selected matchup */}
+      {activeTeam && activeOpponent ? (
+        <section className="bip-panel-strong rounded-[1.8rem] p-8">
+          <div className="grid grid-cols-[1fr_auto_1fr] gap-6 items-center">
+            {/* Home team */}
+            <div className="text-right flex items-center justify-end gap-4">
+              <div>
+                <div className="bip-display text-3xl font-bold text-[var(--foreground)]">
+                  {teams?.find((t) => t.abbreviation === activeTeam)?.name ?? activeTeam}
+                </div>
+                <div className="mt-1 text-xs text-[var(--muted)]" style={{ fontFamily: "var(--font-geist-mono)", letterSpacing: "0.05em" }}>
+                  {activeTeam} · Home
+                </div>
+              </div>
+              <div
+                className="flex items-center justify-center rounded-[18px] text-white font-bold shrink-0"
+                style={{
+                  width: 64,
+                  height: 64,
+                  background: "var(--accent)",
+                  fontFamily: "var(--font-display)",
+                  fontSize: 20,
+                }}
+              >
+                {activeTeam}
+              </div>
+            </div>
+
+            {/* VS center */}
+            <div className="text-center px-2">
+              <div className="bip-kicker" style={{ color: "var(--signal)" }}>Tip-off</div>
+              <div className="bip-display text-5xl font-bold text-[var(--foreground)] my-1">vs</div>
+              <div className="text-xs text-[var(--muted)]">{activeSeason}</div>
+            </div>
+
+            {/* Away team */}
+            <div className="text-left flex items-center gap-4">
+              <div
+                className="flex items-center justify-center rounded-[18px] font-bold shrink-0"
+                style={{
+                  width: 64,
+                  height: 64,
+                  background: "var(--surface-alt)",
+                  border: "1px solid var(--border)",
+                  fontFamily: "var(--font-display)",
+                  fontSize: 20,
+                  color: "var(--foreground)",
+                }}
+              >
+                {activeOpponent}
+              </div>
+              <div>
+                <div className="bip-display text-3xl font-bold text-[var(--foreground)]">
+                  {teams?.find((t) => t.abbreviation === activeOpponent)?.name ?? activeOpponent}
+                </div>
+                <div className="mt-1 text-xs text-[var(--muted)]" style={{ fontFamily: "var(--font-geist-mono)", letterSpacing: "0.05em" }}>
+                  {activeOpponent} · Away
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* MatchupBar bilateral comparison bars (5 metrics) */}
+          {homeAnalytics && awayAnalytics ? (
+            <div className="mt-8 pt-6 border-t border-[var(--border)] grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-x-8 gap-y-5">
+              {[
+                { label: "OFFENSIVE RTG", home: homeAnalytics.off_rating, away: awayAnalytics.off_rating, max: 130, decimals: 1, higherBetter: true },
+                { label: "DEFENSIVE RTG", home: homeAnalytics.def_rating, away: awayAnalytics.def_rating, max: 130, decimals: 1, higherBetter: false },
+                { label: "PACE", home: homeAnalytics.pace, away: awayAnalytics.pace, max: 110, decimals: 1, higherBetter: true },
+                { label: "EFG%", home: (homeAnalytics.efg_pct ?? 0) * 100, away: (awayAnalytics.efg_pct ?? 0) * 100, max: 70, decimals: 1, higherBetter: true },
+                { label: "TS%", home: (homeAnalytics.ts_pct ?? 0) * 100, away: (awayAnalytics.ts_pct ?? 0) * 100, max: 70, decimals: 1, higherBetter: true },
+                { label: "NET RTG", home: homeAnalytics.net_rating, away: awayAnalytics.net_rating, max: 20, decimals: 1, higherBetter: true, signed: true },
+              ].map((row) => {
+                if (row.home == null || row.away == null) return null;
+                const homePct = (Math.abs(row.home) / row.max) * 100;
+                const awayPct = (Math.abs(row.away) / row.max) * 100;
+                const homeWins = row.higherBetter ? row.home > row.away : row.home < row.away;
+                const sign = row.signed && row.home > 0 ? "+" : "";
+                const signAway = row.signed && row.away > 0 ? "+" : "";
+                return (
+                  <div key={row.label}>
+                    <div className="flex justify-between items-baseline mb-1.5 text-xs">
+                      <span
+                        className="font-bold tabular-nums"
+                        style={{
+                          fontFamily: "var(--font-geist-mono)",
+                          fontVariantNumeric: "tabular-nums",
+                          color: homeWins ? "var(--accent)" : "var(--muted)",
+                        }}
+                      >
+                        {sign}{row.home.toFixed(row.decimals)}
+                      </span>
+                      <span className="font-mono text-[10px] tracking-[0.1em] text-[var(--muted)]">{row.label}</span>
+                      <span
+                        className="font-bold tabular-nums"
+                        style={{
+                          fontFamily: "var(--font-geist-mono)",
+                          fontVariantNumeric: "tabular-nums",
+                          color: !homeWins ? "var(--accent)" : "var(--muted)",
+                        }}
+                      >
+                        {signAway}{row.away.toFixed(row.decimals)}
+                      </span>
+                    </div>
+                    <div className="flex h-2 gap-0.5">
+                      <div className="flex-1 relative bg-[#f2e8d4] rounded-l-full overflow-hidden">
+                        <div
+                          className="absolute top-0 bottom-0 right-0 rounded-l-full transition-all duration-300"
+                          style={{
+                            width: `${Math.min(homePct, 100)}%`,
+                            background: homeWins ? "var(--accent)" : "rgba(53,41,33,0.35)",
+                          }}
+                        />
+                      </div>
+                      <div className="flex-1 relative bg-[#f2e8d4] rounded-r-full overflow-hidden">
+                        <div
+                          className="absolute top-0 bottom-0 left-0 rounded-r-full transition-all duration-300"
+                          style={{
+                            width: `${Math.min(awayPct, 100)}%`,
+                            background: !homeWins ? "var(--accent)" : "rgba(53,41,33,0.35)",
+                          }}
+                        />
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          ) : null}
+        </section>
+      ) : null}
+
       <section className="rounded-[1.8rem] border border-[var(--border)] bg-[var(--surface)] p-6 print:hidden">
         <div className="flex flex-wrap items-center justify-between gap-4">
           <div>
@@ -408,6 +543,55 @@ function PreReadPageInner() {
         <section className="grid gap-4 lg:grid-cols-2">
           <AvailabilitySummaryCard availability={data.team_availability} compact />
           <AvailabilitySummaryCard availability={data.opponent_availability} compact />
+        </section>
+      ) : null}
+
+      {/* Focus levers — three things to win, in design's FocusLever card style */}
+      {data?.focus_levers && data.focus_levers.length > 0 ? (
+        <section>
+          <p className="bip-kicker">Focus levers</p>
+          <h2 className="bip-display mt-1 text-2xl font-semibold text-[var(--foreground)]">
+            Three things to win.
+          </h2>
+          <div className="mt-4 grid grid-cols-1 md:grid-cols-3 gap-3">
+            {data.focus_levers.slice(0, 3).map((lever, i) => {
+              const tone = i === 0 ? "accent" : i === 1 ? "signal" : "accent";
+              const dotColor = tone === "accent" ? "var(--accent)" : "var(--signal)";
+              return (
+                <div
+                  key={`${lever.factor_id}-${i}`}
+                  className="rounded-[1.4rem] border border-[var(--border)] p-5"
+                  style={{ background: "rgba(255,249,241,0.86)" }}
+                >
+                  <div className="flex items-center gap-2 mb-2">
+                    <span
+                      style={{
+                        width: 8,
+                        height: 8,
+                        borderRadius: "50%",
+                        background: dotColor,
+                        flexShrink: 0,
+                      }}
+                    />
+                    <p
+                      className="bip-kicker"
+                      style={{ color: dotColor, margin: 0 }}
+                    >
+                      {lever.title}
+                    </p>
+                  </div>
+                  <p className="text-sm leading-6 text-[var(--foreground)]">
+                    {lever.summary}
+                  </p>
+                  {lever.coaching_prompt ? (
+                    <p className="mt-3 text-xs italic text-[var(--muted)]">
+                      {lever.coaching_prompt}
+                    </p>
+                  ) : null}
+                </div>
+              );
+            })}
+          </div>
         </section>
       ) : null}
 

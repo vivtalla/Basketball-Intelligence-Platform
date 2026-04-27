@@ -1,6 +1,6 @@
 # Agent Coordination
 
-Last updated: 2026-04-27 by Codex (Sprint 69 closeout reset)
+Last updated: 2026-04-27 by Claude (Sprint 70 closeout reset)
 
 > Both agents read this file before touching code at the start of every session.
 > The canonical source of truth is the clean `master` checkout at `/Users/viv/Documents/Basketball Intelligence Platform`.
@@ -14,13 +14,13 @@ Last updated: 2026-04-27 by Codex (Sprint 69 closeout reset)
 
 | Field | Value |
 |-------|-------|
-| Sprint | 70 |
-| Goal | TBD — awaiting Vivek's sprint kickoff |
-| Started | TBD |
-| Target merge | TBD |
-| Sprint shape | TBD |
-| Branch | `master` until Sprint 70 kickoff |
-| Worker policy | No active sprint; set at kickoff |
+| Sprint | 71 |
+| Goal | TBD at kickoff |
+| Started | — |
+| Target merge | — |
+| Sprint shape | TBD at kickoff |
+| Branch | TBD at kickoff |
+| Worker policy | TBD at kickoff |
 
 ---
 
@@ -38,12 +38,12 @@ If repo state, sprint numbering, or shipped features appear to disagree across l
 ## Current Assignments
 
 ### Claude
-- Branch: `feature/sprint-70-[slug]`
+- Branch: TBD at kickoff
 - Scope: No active sprint assignment
 - Status: Not started
 
 ### Codex
-- Branch: `codex-sprint-70-[slug]`
+- Branch: TBD at kickoff
 - Scope: No active sprint assignment
 - Status: Not started
 
@@ -84,7 +84,11 @@ TBD at kickoff. Next sprint branch/worktree is created at kickoff and merges bac
 
 ## Sprint Work Allocation
 
-Sprint 70 allocation — TBD at kickoff.
+TBD at kickoff. Define areas and owners when the next sprint is scoped.
+
+| Area | Files | Owner |
+|------|-------|-------|
+| — | — | — |
 
 ---
 
@@ -158,6 +162,8 @@ Sprint 70 allocation — TBD at kickoff.
 ## Notes
 
 *Free-form, dated, newest first. Use this for coordination and repo-state exceptions.*
+
+2026-04-27 (Claude): Sprint 70 closed on `feature/sprint-70-design-system-integration` and merged to `master`. Design System Integration sprint: shipped Teams directory two-column redesign with conference filter and team detail preview, Metrics hero leader card with HeroHardwood texture (#1 ranked player, 72pt composite score), Pre-Read visual matchup header card with 6 bilateral MatchupBar comparison bars and a "Three things to win" Focus Levers section that surfaces previously-unrendered `data.focus_levers` from the API, and Compare deltas/takeaways panels (5 stat-delta cards + 3 plain-language bullets). Pure-frontend sprint with no backend changes; backend test count unchanged at 257 passing. Frontend `npm run build` and `npm run lint` clean (7 pre-existing warnings). Subagent rate-limit hit forced inline implementation — see closeout for the workflow lesson. Closeout: `specs/sprint-70-closeout.md`.
 
 2026-04-27 (Codex): Sprint 69 implementation complete on `codex-sprint-69-team-fit-intelligence`. Shipped Team-Fit v2 explainability, `/api/team-fit/{player_id}`, Team-Fit similarity context pills, player analysis contexts with manual settings, automatic injury/recovery context from `player_injuries`, and injury-aware Trend Intelligence. Verification: 257 backend tests passing, `npm run build`, `npm run lint`, `git diff --check`, local Alembic migration `0011_player_analysis_contexts`; local backend/frontend servers killed and ports 8000/3000 confirmed clear. Closeout: `specs/sprint-69-closeout.md`.
 
