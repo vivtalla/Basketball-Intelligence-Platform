@@ -328,6 +328,70 @@ function PreReadPageInner() {
         {packetMessage ? <div className="mt-4 text-sm text-[var(--muted-strong)]">{packetMessage}</div> : null}
       </section>
 
+      {/* Matchup header card — visual preview of the selected matchup */}
+      {activeTeam && activeOpponent ? (
+        <section className="bip-panel-strong rounded-[1.8rem] p-8">
+          <div className="grid grid-cols-[1fr_auto_1fr] gap-6 items-center">
+            {/* Home team */}
+            <div className="text-right flex items-center justify-end gap-4">
+              <div>
+                <div className="bip-display text-3xl font-bold text-[var(--foreground)]">
+                  {teams?.find((t) => t.abbreviation === activeTeam)?.name ?? activeTeam}
+                </div>
+                <div className="mt-1 text-xs text-[var(--muted)]" style={{ fontFamily: "var(--font-geist-mono)", letterSpacing: "0.05em" }}>
+                  {activeTeam} · Home
+                </div>
+              </div>
+              <div
+                className="flex items-center justify-center rounded-[18px] text-white font-bold shrink-0"
+                style={{
+                  width: 64,
+                  height: 64,
+                  background: "var(--accent)",
+                  fontFamily: "var(--font-display)",
+                  fontSize: 20,
+                }}
+              >
+                {activeTeam}
+              </div>
+            </div>
+
+            {/* VS center */}
+            <div className="text-center px-2">
+              <div className="bip-kicker" style={{ color: "var(--signal)" }}>Tip-off</div>
+              <div className="bip-display text-5xl font-bold text-[var(--foreground)] my-1">vs</div>
+              <div className="text-xs text-[var(--muted)]">{activeSeason}</div>
+            </div>
+
+            {/* Away team */}
+            <div className="text-left flex items-center gap-4">
+              <div
+                className="flex items-center justify-center rounded-[18px] font-bold shrink-0"
+                style={{
+                  width: 64,
+                  height: 64,
+                  background: "var(--surface-alt)",
+                  border: "1px solid var(--border)",
+                  fontFamily: "var(--font-display)",
+                  fontSize: 20,
+                  color: "var(--foreground)",
+                }}
+              >
+                {activeOpponent}
+              </div>
+              <div>
+                <div className="bip-display text-3xl font-bold text-[var(--foreground)]">
+                  {teams?.find((t) => t.abbreviation === activeOpponent)?.name ?? activeOpponent}
+                </div>
+                <div className="mt-1 text-xs text-[var(--muted)]" style={{ fontFamily: "var(--font-geist-mono)", letterSpacing: "0.05em" }}>
+                  {activeOpponent} · Away
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+      ) : null}
+
       <section className="rounded-[1.8rem] border border-[var(--border)] bg-[var(--surface)] p-6 print:hidden">
         <div className="flex flex-wrap items-center justify-between gap-4">
           <div>

@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { type FormEvent, useEffect, useMemo, useState } from "react";
 import { getAvailableSeasons, getLeaderboardTeams } from "@/lib/api";
+import HeroHardwood from "./HeroHardwood";
 import {
   useCustomMetric,
   type CustomMetricComponentInput,
@@ -836,6 +837,43 @@ export function CustomMetricBuilder() {
             ) : null}
           </div>
         </div>
+
+        {/* Hero leader card — highlights #1 ranked player when results are ready */}
+        {data && data.player_rankings.length > 0 && (() => {
+          const top = data.player_rankings[0];
+          return (
+            <div className="mt-6 relative overflow-hidden rounded-[1.75rem] bip-panel-strong px-8 py-7">
+              <HeroHardwood opacity={0.14} tint="#b07a37" seed={3} />
+              <div className="relative flex items-end justify-between flex-wrap gap-4">
+                <div>
+                  <p className="bip-kicker">Leader · {data.metric_label}</p>
+                  <h3
+                    className="bip-display mt-2 text-2xl font-bold text-[var(--foreground)]"
+                    style={{ lineHeight: 1.15 }}
+                  >
+                    {top.player_name}
+                  </h3>
+                  <p className="mt-1 text-sm text-[var(--muted)]">{top.team}</p>
+                </div>
+                <div className="text-right">
+                  <div
+                    className="font-bold text-[var(--accent)] tabular-nums"
+                    style={{
+                      fontFamily: "var(--font-display)",
+                      fontSize: 72,
+                      lineHeight: 1,
+                      letterSpacing: "-0.02em",
+                      fontVariantNumeric: "tabular-nums",
+                    }}
+                  >
+                    {top.composite_score.toFixed(1)}
+                  </div>
+                  <p className="text-xs text-[var(--muted)] mt-1">composite score</p>
+                </div>
+              </div>
+            </div>
+          );
+        })()}
 
         <div className="mt-6 overflow-hidden rounded-[1.75rem] border border-[var(--border)] bg-[var(--surface)]">
           <div className="flex items-center justify-between gap-3 border-b border-[var(--border)] px-4 py-4 sm:px-5">
