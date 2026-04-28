@@ -161,6 +161,11 @@ finally:
     db.close()
 print("daily_sync_summary: series_refreshed=", series_refreshed, "games_refreshed=", games_refreshed)
 PYEOF
+  # Post-game also pulls box scores + Synergy/hustle for the game that just
+  # finished so the MVP composite + leaderboards reflect tonight's outcome.
+  # --fast skips the slow per-player tracking dashboard pass; that runs in
+  # the morning daily sync.
+  PYTHONPATH=. "$PYTHON_BIN" scripts/sync_playoff_full.py --fast "$SEASON" >> "$LOG" 2>&1 || true
   echo "[$(date -u +%Y-%m-%dT%H:%M:%SZ)] daily_sync post-game complete season=$SEASON" >> "$LOG"
   echo "daily_sync post-game complete: season=$SEASON"
   exit 0
@@ -238,30 +243,14 @@ finally:
 PYEOF
 
 # 6. Playoff slice — only when the season-phase service reports an active
-#    postseason. Mirrors block 5 with is_playoff=True, then refreshes the
-#    bracket so the new game results propagate to playoff_series rows.
+#    postseason. Delegates to scripts/sync_playoff_full.py which orchestrates:
+#      - season_stats / team general+shooting splits with is_playoff=True
+#      - GameLog backfill via LeagueGameFinder + bracket refresh
+#      - PlayerGameLog from CDN box scores for each playoff game
+#      - Synergy play-type, league hustle, per-player tracking dashboards
+#    The script is idempotent — safe to re-run on every cron tick.
 if [ "$IS_PLAYOFFS" = "1" ]; then
-  "$PYTHON_BIN" - <<'PYEOF' >> "$LOG" 2>&1
-import sys, os
-sys.path.insert(0, os.getcwd())
-from db.database import SessionLocal
-from services.playoff_bracket_service import build_or_refresh_bracket
-from services.sync_service import (
-    sync_official_season_stats,
-    sync_official_team_general_splits,
-    sync_official_team_shooting_splits,
-)
-
-season = os.environ.get("SEASON", "2024-25")
-db = SessionLocal()
-try:
-    print("sync_official_season_stats playoff:", sync_official_season_stats(db, season=season, is_playoff=True))
-    print("sync_official_team_general_splits playoff:", sync_official_team_general_splits(db, season=season, is_playoff=True))
-    print("sync_official_team_shooting_splits playoff:", sync_official_team_shooting_splits(db, season=season, is_playoff=True))
-    print("bracket refreshed:", build_or_refresh_bracket(db, season))
-finally:
-    db.close()
-PYEOF
+  PYTHONPATH=. "$PYTHON_BIN" scripts/sync_playoff_full.py "$SEASON" >> "$LOG" 2>&1 || true
 fi
 
 echo "[$(date -u +%Y-%m-%dT%H:%M:%SZ)] daily_sync complete season=$SEASON post_game=$POST_GAME_MODE is_playoffs=$IS_PLAYOFFS" >> "$LOG"
