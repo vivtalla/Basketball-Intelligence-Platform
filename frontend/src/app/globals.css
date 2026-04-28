@@ -415,3 +415,60 @@ select {
   opacity: 0;
   animation: fade-up 0.55s ease-out forwards;
 }
+
+/* ============================================================
+   Print stylesheet — coach handoff PDF rendering
+   ============================================================ */
+@media print {
+  @page {
+    margin: 14mm;
+    size: A4 portrait;
+  }
+
+  /* Reset surface backgrounds for clean print */
+  body,
+  .bip-shell {
+    background: #ffffff !important;
+    color: #1a1a1a !important;
+  }
+
+  /* Hide app chrome */
+  nav,
+  [data-print-hide],
+  .print\:hidden {
+    display: none !important;
+  }
+
+  /* Make panels print-friendly */
+  .bip-panel,
+  .bip-panel-strong {
+    background: #ffffff !important;
+    box-shadow: none !important;
+    border: 1px solid #cbd5e1 !important;
+    page-break-inside: avoid;
+    break-inside: avoid;
+  }
+
+  /* Force section breaks for major print blocks */
+  [data-print-break-before] {
+    page-break-before: always;
+    break-before: page;
+  }
+
+  /* Compact display fonts for print */
+  .bip-display {
+    color: #0f172a !important;
+  }
+
+  .bip-kicker {
+    color: #475569 !important;
+  }
+
+  /* Reduce decorative animations for print */
+  *,
+  *::before,
+  *::after {
+    animation: none !important;
+    transition: none !important;
+  }
+}
