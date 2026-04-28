@@ -27,6 +27,9 @@ def similar_players(
     cross_era: bool = True,
     mode: Optional[str] = None,
     season_type: SeasonType = Query("Regular Season"),
+    distance_method: Literal["weighted_euclidean", "shrunk_mahalanobis"] = Query(
+        "weighted_euclidean"
+    ),
     db: Session = Depends(get_db),
 ):
     """Return the top-N most statistically similar player-seasons.
@@ -43,6 +46,13 @@ def similar_players(
       features where the subject's z-score is within 0.5 of a same-team
       teammate's z-score carry a 0.4× distance weight, so comps that
       complement gaps rank ahead of comps that duplicate existing strengths).
+
+    `distance_method` (only honored on the role-aware path):
+      `weighted_euclidean` (default) or `shrunk_mahalanobis` — the
+      similarity_v3 upgrade that whitens correlated features against the
+      candidate pool's covariance. The resolved method is echoed on each
+      comp as `distance_method_used` so callers can detect the auto-fallback
+      that fires when the pool is too thin to invert.
     """
     # Verify the target player-season has enough data
     is_playoff = season_type == "Playoffs"
@@ -75,17 +85,23 @@ def similar_players(
 
     results = find_similar_players_with_archetype(
         db, player_id, season, mode=mode, n=n,
+        distance_method=distance_method,
     )
     if not results:
         raise HTTPException(
             status_code=404,
             detail="Not enough data to compute similarity. Player may lack required stats.",
         )
+    resolved_method = (
+        results[0].get("distance_method_used", "weighted_euclidean") if results else distance_method
+    )
     response = {
         "player_id": player_id,
         "season": season,
         "mode": mode,
         "comps": results,
+        "distance_method_requested": distance_method,
+        "distance_method_used": resolved_method,
     }
     if mode == "team_fit":
         response["team_fit_context"] = build_team_fit_similarity_context(db, player_id, season)

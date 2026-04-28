@@ -261,3 +261,122 @@ def collinearity_warnings(
                     )
                 )
     return warnings_out
+
+
+def covariance_matrix(vectors: Sequence[Sequence[float]]) -> List[List[float]]:
+    """Sample covariance matrix for a list of equal-length numeric vectors.
+
+    Uses the (n - 1) Bessel-corrected denominator. Caller is responsible for
+    ensuring inputs are finite and rectangular.
+    """
+    if not vectors:
+        raise ValueError("vectors must not be empty")
+    n_samples = len(vectors)
+    n_features = len(vectors[0])
+    if any(len(row) != n_features for row in vectors):
+        raise ValueError("all vectors must have equal length")
+    if n_samples < 2:
+        return [[0.0 for _ in range(n_features)] for _ in range(n_features)]
+    means = [
+        sum(row[col] for row in vectors) / float(n_samples)
+        for col in range(n_features)
+    ]
+    cov = [[0.0 for _ in range(n_features)] for _ in range(n_features)]
+    for row in vectors:
+        deltas = [row[i] - means[i] for i in range(n_features)]
+        for i in range(n_features):
+            di = deltas[i]
+            cov[i][i] += di * di
+            for j in range(i + 1, n_features):
+                value = di * deltas[j]
+                cov[i][j] += value
+                cov[j][i] += value
+    denom = float(n_samples - 1)
+    return [[cov[i][j] / denom for j in range(n_features)] for i in range(n_features)]
+
+
+def shrunk_covariance(
+    cov: Sequence[Sequence[float]],
+    shrinkage: float,
+) -> List[List[float]]:
+    """Shrink an empirical covariance matrix toward its diagonal.
+
+    `shrinkage` of 0 returns the empirical matrix unchanged; 1 returns the
+    diagonal-only matrix (i.e. assumes features are uncorrelated). Diagonal
+    values are preserved at every shrinkage level so individual feature
+    variances stay intact.
+    """
+    if not 0.0 <= float(shrinkage) <= 1.0:
+        raise ValueError("shrinkage must be in [0, 1]")
+    n = len(cov)
+    lam = float(shrinkage)
+    out: List[List[float]] = []
+    for i in range(n):
+        row: List[float] = []
+        for j in range(n):
+            if i == j:
+                row.append(float(cov[i][j]))
+            else:
+                row.append((1.0 - lam) * float(cov[i][j]))
+        out.append(row)
+    return out
+
+
+def invert_matrix(matrix: Sequence[Sequence[float]]) -> Optional[List[List[float]]]:
+    """Gauss-Jordan inverse for a square numeric matrix.
+
+    Returns None if the matrix is singular (or numerically too close to
+    singular). Pure Python so the services layer does not pull in numpy.
+    """
+    n = len(matrix)
+    if any(len(row) != n for row in matrix):
+        raise ValueError("matrix must be square")
+    augmented: List[List[float]] = [
+        [float(matrix[i][j]) for j in range(n)] + [1.0 if i == j else 0.0 for j in range(n)]
+        for i in range(n)
+    ]
+    for col in range(n):
+        pivot = max(range(col, n), key=lambda r: abs(augmented[r][col]))
+        if abs(augmented[pivot][col]) < 1e-12:
+            return None
+        if pivot != col:
+            augmented[col], augmented[pivot] = augmented[pivot], augmented[col]
+        pivot_value = augmented[col][col]
+        augmented[col] = [value / pivot_value for value in augmented[col]]
+        for row_idx in range(n):
+            if row_idx == col:
+                continue
+            factor = augmented[row_idx][col]
+            if factor == 0.0:
+                continue
+            augmented[row_idx] = [
+                augmented[row_idx][k] - factor * augmented[col][k]
+                for k in range(2 * n)
+            ]
+    return [row[n:] for row in augmented]
+
+
+def mahalanobis_distance(
+    a: Sequence[float],
+    b: Sequence[float],
+    inverse_covariance: Sequence[Sequence[float]],
+) -> float:
+    """Mahalanobis distance using a precomputed inverse-covariance matrix.
+
+    With the identity inverse-covariance this reduces to Euclidean distance.
+    Correlated-feature pairs receive a smaller contribution than they would
+    under Euclidean distance, which is the whole point of the upgrade.
+    """
+    if len(a) != len(b):
+        raise ValueError("a and b must have equal length")
+    if len(inverse_covariance) != len(a):
+        raise ValueError("inverse_covariance dimensions must match vector length")
+    delta = [float(a[i]) - float(b[i]) for i in range(len(a))]
+    intermediate = [
+        sum(inverse_covariance[i][j] * delta[j] for j in range(len(delta)))
+        for i in range(len(delta))
+    ]
+    quad = sum(delta[i] * intermediate[i] for i in range(len(delta)))
+    # Floating-point noise can drive the quadratic form slightly negative when
+    # Σ⁻¹ is positive semi-definite but rank-deficient; clip to zero.
+    return math.sqrt(max(quad, 0.0))

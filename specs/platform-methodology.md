@@ -159,6 +159,16 @@ pearson_r = covariance(a, b) / sqrt(var(a) * var(b))
 
 When user-built composites combine highly correlated stats (`|r| ≥ 0.85`), the methodology layer surfaces a plain-language warning so the composite does not silently double-count one signal. This powers the `custom_metrics_collinear_components` validation fixture.
 
+Shrunk Mahalanobis distance (similarity_v3):
+
+```text
+Σ_shrunk = (1 - λ) * Σ_empirical + λ * diag(Σ_empirical)
+
+mahalanobis(a, b) = sqrt((a - b)ᵀ · Σ_shrunk⁻¹ · (a - b))
+```
+
+The covariance is estimated from the candidate pool's weighted z-vectors; `λ` defaults to `0.2` for the player-similarity surface. Mahalanobis distance with the inverse-covariance whitens correlated features so highly-correlated pairs (e.g. `pts_pg` and `per`) no longer double-count against each other. When the pool has fewer than `3 × n_features` rows the service auto-falls back to weighted Euclidean and exposes the resolved choice as `distance_method_used` per comp.
+
 Robust normalization:
 
 ```text

@@ -16,11 +16,16 @@ from services.methodology_validation_service import methodology_validation_repor
 from services.reliability_service import (  # noqa: E402
     _z_for_level,
     collinearity_warnings,
+    covariance_matrix,
     empirical_bayes_rate,
+    invert_matrix,
+    mahalanobis_distance,
     normal_uncertainty_band,
     pearson_correlation,
+    shrunk_covariance,
     wilson_interval,
 )
+from services.similarity_service import find_similar_players_with_archetype  # noqa: E402
 
 
 # ---------- z-value level mapping ----------
@@ -220,3 +225,160 @@ def test_validation_fixtures_cover_every_registered_domain():
 def test_validation_fixture_keys_are_unique():
     keys = [fixture.fixture_key for fixture in methodology_validation_report().fixtures]
     assert len(keys) == len(set(keys))
+
+
+# ---------- Mahalanobis primitives (similarity_v3) ----------
+
+
+def test_covariance_matrix_recovers_known_relationship():
+    # a and b move together (correlation +1), c is independent and constant.
+    vectors = [
+        [1.0, 2.0, 5.0],
+        [2.0, 4.0, 5.0],
+        [3.0, 6.0, 5.0],
+        [4.0, 8.0, 5.0],
+    ]
+    cov = covariance_matrix(vectors)
+    # Off-diagonal cov(a, b) is positive and equal to cov(b, a); cov(c, *) = 0.
+    assert cov[0][1] > 0
+    assert cov[0][1] == pytest.approx(cov[1][0])
+    assert cov[0][2] == pytest.approx(0.0)
+    assert cov[2][2] == pytest.approx(0.0)
+
+
+def test_shrunk_covariance_blends_toward_diagonal():
+    cov = [[2.0, 1.5], [1.5, 3.0]]
+    full = shrunk_covariance(cov, 0.0)
+    diag_only = shrunk_covariance(cov, 1.0)
+    half = shrunk_covariance(cov, 0.5)
+
+    assert full == [[2.0, 1.5], [1.5, 3.0]]
+    assert diag_only == [[2.0, 0.0], [0.0, 3.0]]
+    assert half[0][1] == pytest.approx(0.75)
+    assert half[1][0] == pytest.approx(0.75)
+    # Diagonal is preserved at every shrinkage level.
+    assert half[0][0] == 2.0
+    assert half[1][1] == 3.0
+
+
+def test_shrunk_covariance_rejects_out_of_range_shrinkage():
+    with pytest.raises(ValueError):
+        shrunk_covariance([[1.0]], -0.1)
+    with pytest.raises(ValueError):
+        shrunk_covariance([[1.0]], 1.1)
+
+
+def test_invert_matrix_returns_none_on_singular_matrix():
+    # Two identical rows → rank-deficient.
+    assert invert_matrix([[1.0, 2.0], [1.0, 2.0]]) is None
+
+
+def test_invert_matrix_recovers_identity():
+    matrix = [[4.0, 7.0], [2.0, 6.0]]
+    inverse = invert_matrix(matrix)
+    assert inverse is not None
+    # M * M^-1 ≈ I for a 2x2.
+    product_00 = matrix[0][0] * inverse[0][0] + matrix[0][1] * inverse[1][0]
+    product_01 = matrix[0][0] * inverse[0][1] + matrix[0][1] * inverse[1][1]
+    assert product_00 == pytest.approx(1.0)
+    assert product_01 == pytest.approx(0.0)
+
+
+def test_mahalanobis_with_identity_inverse_equals_euclidean():
+    a = [1.0, 2.0, 3.0]
+    b = [4.0, 6.0, 3.0]
+    identity = [[1.0, 0.0, 0.0], [0.0, 1.0, 0.0], [0.0, 0.0, 1.0]]
+    euclid = ((a[0] - b[0]) ** 2 + (a[1] - b[1]) ** 2 + (a[2] - b[2]) ** 2) ** 0.5
+    assert mahalanobis_distance(a, b, identity) == pytest.approx(euclid)
+
+
+def test_mahalanobis_shrinks_distance_along_correlated_dimensions():
+    # Two strongly-correlated features. Inverse-covariance off-diagonals are
+    # negative, so a delta that moves both features together gets a SMALLER
+    # contribution under Mahalanobis than under Euclidean — exactly the
+    # double-counting fix the upgrade is meant to deliver.
+    cov = [[1.0, 0.9], [0.9, 1.0]]
+    inverse = invert_matrix(cov)
+    assert inverse is not None
+    a = [0.0, 0.0]
+    b = [1.0, 1.0]
+    euclidean = ((a[0] - b[0]) ** 2 + (a[1] - b[1]) ** 2) ** 0.5
+    mahal = mahalanobis_distance(a, b, inverse)
+    assert mahal < euclidean
+
+
+# ---------- similarity_v3 integration ----------
+
+
+def _add_similarity_row(db, *, pid, name, season, **stats):
+    from db.models import Player, SeasonStat
+    if db.query(Player).filter(Player.id == pid).first() is None:
+        db.add(Player(id=pid, full_name=name, height="6-6", birth_date="1998-01-01"))
+    defaults = dict(
+        player_id=pid, season=season, team_abbreviation="TOT", is_playoff=False,
+        gp=70, min_pg=32.0,
+        pts_pg=18.0, reb_pg=5.0, ast_pg=4.5, stl_pg=1.0, blk_pg=0.5, tov_pg=2.2,
+        fgm=6.5, fga=14.0, fg_pct=0.464,
+        fg3m=2.0, fg3a=5.5, fg3_pct=0.363,
+        ftm=3.0, fta=4.0, ft_pct=0.750,
+        oreb=1.0, dreb=4.0, pf=2.5,
+        usg_pct=22.0, ts_pct=0.570, efg_pct=0.540, per=16.0, bpm=0.0,
+        off_rating=112.0, def_rating=112.0, net_rating=0.0,
+        pace=100.0, pie=0.12, darko=0.0, epm=0.0, rapm=0.0, obpm=0.0, dbpm=0.0,
+        ftr=0.29, par3=0.40, ast_tov=2.0, oreb_pct=4.0,
+    )
+    defaults.update(stats)
+    db.add(SeasonStat(**defaults))
+
+
+def test_similarity_v3_uses_shrunk_mahalanobis_when_pool_is_large_enough():
+    from services.player_archetype_service import clear_archetype_cache
+    clear_archetype_cache()
+    db = _make_session()
+    try:
+        # Subject + 50 distinct same-season peers — enough rows for the 13-feature
+        # covariance to invert reliably (3 * 13 = 39).
+        _add_similarity_row(db, pid=1, name="Subject", season="2023-24",
+                            usg_pct=30.0, ast_pg=8.0, pts_pg=28.0, per=24.0)
+        for i in range(50):
+            _add_similarity_row(db, pid=100 + i, name="Peer {0}".format(i), season="2023-24",
+                                usg_pct=18.0 + i * 0.2,
+                                ast_pg=3.0 + i * 0.1,
+                                pts_pg=12.0 + i * 0.4,
+                                per=12.0 + i * 0.2,
+                                ts_pct=0.50 + i * 0.002,
+                                reb_pg=4.0 + i * 0.1)
+        db.commit()
+        comps = find_similar_players_with_archetype(
+            db, 1, "2023-24", mode="season", n=5,
+            distance_method="shrunk_mahalanobis",
+        )
+        assert comps, "expected at least one comp"
+        assert all(c["distance_method_used"] == "shrunk_mahalanobis" for c in comps)
+    finally:
+        db.close()
+
+
+def test_similarity_v3_falls_back_to_euclidean_on_thin_pool():
+    from services.player_archetype_service import clear_archetype_cache
+    clear_archetype_cache()
+    db = _make_session()
+    try:
+        # Subject + only 5 peers — well below the 39-row floor for a 13-feature
+        # covariance. The service must auto-fall back to weighted Euclidean.
+        _add_similarity_row(db, pid=1, name="Subject", season="2023-24",
+                            usg_pct=30.0, ast_pg=8.0, pts_pg=28.0)
+        for i in range(5):
+            _add_similarity_row(db, pid=100 + i, name="Peer {0}".format(i), season="2023-24",
+                                usg_pct=18.0 + i * 0.5,
+                                ast_pg=3.0 + i * 0.3,
+                                pts_pg=12.0 + i)
+        db.commit()
+        comps = find_similar_players_with_archetype(
+            db, 1, "2023-24", mode="season", n=5,
+            distance_method="shrunk_mahalanobis",
+        )
+        assert comps, "expected at least one comp"
+        assert all(c["distance_method_used"] == "weighted_euclidean" for c in comps)
+    finally:
+        db.close()

@@ -72,7 +72,7 @@ Planned calibration upgrade:
 
 - Team-Fit: `team_fit_tatum_bos_overlap`, `team_fit_traded_tot`, `team_fit_thin_playoff_sample`, `team_fit_role_player_clear_fit`
 - Shot Lab: `shot_lab_specialist_shooter`, `shot_lab_low_attempt_hot_streak`
-- Similarity: `similarity_role_pool_stability`
+- Similarity: `similarity_role_pool_stability`, `similarity_shrinkage_collinearity`
 - Trend: `trend_injured_star_window`
 - Opportunity: `opportunity_role_expansion_evidence`
 - Style X-Ray: `style_xray_drift_team`
@@ -89,15 +89,17 @@ Primary target:
 
 - Peer sets should be stable under small stat perturbations and explain which feature groups drive distance.
 
-Current validation:
+Current v3 validation:
 
 - Same-season z-score pool uses qualified rows only.
 - Team-Fit mode applies duplicate penalties without changing default similarity responses.
+- `distance_method` selects between `weighted_euclidean` (default) and `shrunk_mahalanobis` (similarity_v3). Mahalanobis distance is built on the candidate pool's shrunk inverse covariance (`λ = 0.2` by default) so correlated features no longer double-count against each other.
+- The service falls back to weighted Euclidean automatically below `3 × n_features` candidate rows or whenever the inverse cannot be computed; the resolved method is exposed as `distance_method_used` on every comp.
 
 Planned rigor upgrade:
 
-- Shrinkage Mahalanobis distance for correlated stats, with weighted Euclidean fallback when covariance support is thin.
 - Explicit role-only, production-quality, and age-development modes.
+- Calibrate the shrinkage parameter against held-out historical neighbor stability.
 
 ### Trend and Trajectory
 
