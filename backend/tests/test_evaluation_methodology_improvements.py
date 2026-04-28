@@ -22,6 +22,8 @@ from services.reliability_service import (  # noqa: E402
     mahalanobis_distance,
     normal_uncertainty_band,
     pearson_correlation,
+    principal_components,
+    project_to_components,
     shrunk_covariance,
     weight_sensitivity_analysis,
     wilson_interval,
@@ -596,3 +598,133 @@ def test_contradiction_detector_skips_developmental_archetype():
         diagnosis=None, trajectory_row=_StubTrajectoryRow("Collapsing"),
     )
     assert contradictions == []
+
+
+# ---------- PCA primitives (style_xray_v2) ----------
+
+
+def test_principal_components_recovers_dominant_axis_on_collinear_data():
+    # Six points on a 45-degree line in 2D — variance lives on one axis.
+    vectors = [
+        [1.0, 1.0],
+        [2.0, 2.0],
+        [3.0, 3.0],
+        [4.0, 4.0],
+        [5.0, 5.0],
+        [6.0, 6.0],
+    ]
+    components, eigenvalues, mean = principal_components(vectors, k=2)
+    # Mean is (3.5, 3.5).
+    assert mean[0] == pytest.approx(3.5)
+    assert mean[1] == pytest.approx(3.5)
+    # Top component points along (1, 1)/sqrt(2) (sign indeterminate).
+    pc1 = components[0]
+    assert abs(abs(pc1[0]) - abs(pc1[1])) < 1e-3
+    # All variance on PC1; PC2 captures negligible variance.
+    assert eigenvalues[0] > 0
+    assert eigenvalues[1] < 1e-4
+
+
+def test_principal_components_two_orthogonal_axes_for_independent_features():
+    # Spread along x with no y variance + spread along y with no x variance.
+    vectors = [
+        [1.0, 0.0],
+        [-1.0, 0.0],
+        [0.0, 2.0],
+        [0.0, -2.0],
+        [1.0, 2.0],
+        [-1.0, -2.0],
+    ]
+    components, eigenvalues, _ = principal_components(vectors, k=2)
+    # Two non-trivial eigenvalues.
+    assert eigenvalues[0] > 0
+    assert eigenvalues[1] > 0
+    # And the two components are orthogonal.
+    dot = sum(components[0][i] * components[1][i] for i in range(2))
+    assert abs(dot) < 1e-3
+
+
+def test_project_to_components_returns_zero_at_mean():
+    vectors = [[1.0, 2.0], [3.0, 4.0], [5.0, 6.0]]
+    components, _, mean = principal_components(vectors, k=2)
+    coords = project_to_components(mean, components, mean)
+    assert all(abs(c) < 1e-9 for c in coords)
+
+
+def test_project_to_components_validates_shapes():
+    components, _, mean = principal_components([[1.0, 2.0], [3.0, 4.0]], k=2)
+    with pytest.raises(ValueError):
+        project_to_components([1.0, 2.0, 3.0], components, mean)
+
+
+# ---------- style x-ray latent space wiring ----------
+
+
+def test_style_xray_latent_space_helper_returns_loadings_above_pool_threshold():
+    from routers.styles import _build_style_latent_space
+    feature_keys = ["pace", "ts_pct", "three_point_rate", "paint_pressure"]
+    feature_labels = {k: k for k in feature_keys}
+    # 12 teams (>= 2 * 4 features); pace and ts_pct co-move, three_point_rate
+    # opposes paint_pressure. PCA should recover those structures.
+    profiles = {
+        team_id: {
+            "pace": 95.0 + index,
+            "ts_pct": 0.55 + index * 0.005,
+            "three_point_rate": 0.40 - index * 0.01,
+            "paint_pressure": 50.0 + index * 1.5,
+        }
+        for index, team_id in enumerate(range(1, 13))
+    }
+    latent = _build_style_latent_space(
+        profiles=profiles,
+        feature_keys=feature_keys,
+        feature_labels=feature_labels,
+        subject_team_id=1,
+    )
+    assert latent is not None
+    assert latent.feature_count == 4
+    assert latent.sample_size == 12
+    assert latent.axes
+    pc1 = latent.axes[0]
+    assert pc1.axis == "PC1"
+    assert 0.0 <= pc1.explained_variance_ratio <= 1.0
+    assert pc1.top_positive or pc1.top_negative
+
+
+def test_style_xray_latent_space_helper_returns_none_for_thin_pool():
+    from routers.styles import _build_style_latent_space
+    feature_keys = ["pace", "ts_pct", "three_point_rate", "paint_pressure"]
+    profiles = {
+        1: {"pace": 95.0, "ts_pct": 0.55, "three_point_rate": 0.40, "paint_pressure": 50.0},
+        2: {"pace": 96.0, "ts_pct": 0.56, "three_point_rate": 0.41, "paint_pressure": 51.0},
+        3: {"pace": 97.0, "ts_pct": 0.57, "three_point_rate": 0.42, "paint_pressure": 52.0},
+    }
+    latent = _build_style_latent_space(
+        profiles=profiles,
+        feature_keys=feature_keys,
+        feature_labels={k: k for k in feature_keys},
+        subject_team_id=1,
+    )
+    # 3 rows < 2 * 4 features → helper falls back to None.
+    assert latent is None
+
+
+def test_style_xray_latent_space_helper_returns_none_when_subject_missing():
+    from routers.styles import _build_style_latent_space
+    feature_keys = ["pace", "ts_pct", "three_point_rate", "paint_pressure"]
+    profiles = {
+        team_id: {
+            "pace": 95.0 + team_id,
+            "ts_pct": 0.55 + team_id * 0.005,
+            "three_point_rate": 0.40,
+            "paint_pressure": 50.0 + team_id,
+        }
+        for team_id in range(1, 13)
+    }
+    latent = _build_style_latent_space(
+        profiles=profiles,
+        feature_keys=feature_keys,
+        feature_labels={k: k for k in feature_keys},
+        subject_team_id=999,  # not in pool
+    )
+    assert latent is None

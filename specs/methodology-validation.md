@@ -75,7 +75,7 @@ Planned calibration upgrade:
 - Similarity: `similarity_role_pool_stability`, `similarity_shrinkage_collinearity`
 - Trend: `trend_injured_star_window`
 - Opportunity: `opportunity_role_expansion_evidence`
-- Style X-Ray: `style_xray_drift_team`
+- Style X-Ray: `style_xray_drift_team`, `style_xray_latent_space`
 - MVP: `mvp_value_versus_award_split`, `mvp_basketball_value_weight_sensitivity`
 - Archetype: `archetype_borderline_role_label`
 - Custom Metrics: `custom_metrics_collinear_components`, `custom_metrics_weight_sensitivity`
@@ -141,15 +141,16 @@ Primary target:
 
 - Style labels should be season-relative, stable enough for staff communication, and sensitive enough to meaningful recent drift.
 
-Current validation:
+Current v2 validation:
 
 - Percentile vectors and nearest-centroid distances are reproducible.
 - Label stability uses the margin between top style matches.
+- Latent space via PCA: the response attaches a top-2 axis decomposition with subject coordinates, explained-variance ratios, and the strongest positive/negative feature loadings on each axis. League pools below `2 × n_features` complete rows fall back to None so coaches stay on the centroid view.
 
 Planned rigor upgrade:
 
-- Latent style space using PCA or factor analysis, mapped back to coach-readable style dimensions.
 - Opponent-specific style interaction showing which identities stress or neutralize each other.
+- Calibrated PCA shrinkage that adapts to league pool size.
 
 ### MVP, Gravity, and Awards
 

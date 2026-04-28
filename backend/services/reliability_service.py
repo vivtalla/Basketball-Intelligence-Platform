@@ -382,6 +382,105 @@ def mahalanobis_distance(
     return math.sqrt(max(quad, 0.0))
 
 
+def principal_components(
+    vectors: Sequence[Sequence[float]],
+    k: int = 2,
+    max_iter: int = 200,
+) -> Tuple[List[List[float]], List[float], List[float]]:
+    """Top-`k` principal components via power iteration with deflation.
+
+    Returns `(components, explained_variance, mean)` where:
+      - `components[i]` is the i-th principal axis as a unit vector in feature
+        space. Length == n_features.
+      - `explained_variance[i]` is the eigenvalue (variance captured along
+        that axis). Same units as the underlying covariance matrix.
+      - `mean` is the per-feature mean used to center the input.
+
+    Pure Python so the services layer stays numpy-free. Rank-deficient
+    matrices return any extracted components plus zero-variance entries; the
+    caller can skip components whose eigenvalue rounds to zero.
+    """
+    if not vectors:
+        raise ValueError("vectors must not be empty")
+    n_samples = len(vectors)
+    n_features = len(vectors[0])
+    if k <= 0:
+        raise ValueError("k must be positive")
+    if any(len(row) != n_features for row in vectors):
+        raise ValueError("all vectors must have equal length")
+
+    mean = [
+        sum(row[col] for row in vectors) / float(n_samples)
+        for col in range(n_features)
+    ]
+    centered = [[float(row[i]) - mean[i] for i in range(n_features)] for row in vectors]
+    matrix = covariance_matrix(centered)
+
+    components: List[List[float]] = []
+    eigenvalues: List[float] = []
+    for component_index in range(min(k, n_features)):
+        # Deterministic seed: a slightly tilted unit vector so successive
+        # components don't all start identically. The exact seed doesn't
+        # matter for convergence on a positive-definite covariance.
+        v = [1.0 / math.sqrt(n_features)] * n_features
+        v[component_index % n_features] += 0.1
+        norm = math.sqrt(sum(x * x for x in v))
+        v = [x / norm for x in v]
+
+        for _ in range(max_iter):
+            new_v = [
+                sum(matrix[i][j] * v[j] for j in range(n_features))
+                for i in range(n_features)
+            ]
+            # Re-orthogonalize against previously-found components so
+            # deflation drift doesn't reintroduce the dominant eigenvector.
+            for prior in components:
+                projection = sum(new_v[i] * prior[i] for i in range(n_features))
+                new_v = [new_v[i] - projection * prior[i] for i in range(n_features)]
+            norm = math.sqrt(sum(x * x for x in new_v))
+            if norm < 1e-12:
+                v = [0.0] * n_features
+                break
+            new_v = [x / norm for x in new_v]
+            # Convergence: stop when the iterate stops moving.
+            delta = sum(abs(new_v[i] - v[i]) for i in range(n_features))
+            v = new_v
+            if delta < 1e-9:
+                break
+
+        # Rayleigh quotient gives the eigenvalue for the converged vector.
+        eigenvalue = sum(
+            v[i] * sum(matrix[i][j] * v[j] for j in range(n_features))
+            for i in range(n_features)
+        )
+        components.append(v)
+        eigenvalues.append(max(eigenvalue, 0.0))
+        # Deflate so the next iteration finds the next-largest eigenvalue.
+        for i in range(n_features):
+            for j in range(n_features):
+                matrix[i][j] -= eigenvalue * v[i] * v[j]
+    return components, eigenvalues, mean
+
+
+def project_to_components(
+    vector: Sequence[float],
+    components: Sequence[Sequence[float]],
+    mean: Sequence[float],
+) -> List[float]:
+    """Project a single feature vector onto a list of principal-component
+    axes. The result is `vector - mean` dotted into each component vector.
+    """
+    if len(vector) != len(mean):
+        raise ValueError("vector and mean must have equal length")
+    centered = [float(vector[i]) - float(mean[i]) for i in range(len(vector))]
+    coords: List[float] = []
+    for component in components:
+        if len(component) != len(centered):
+            raise ValueError("each component must match the vector length")
+        coords.append(sum(centered[i] * component[i] for i in range(len(centered))))
+    return coords
+
+
 def weight_sensitivity_analysis(
     contributions_per_subject: Dict[int, List[float]],
     weights: List[float],

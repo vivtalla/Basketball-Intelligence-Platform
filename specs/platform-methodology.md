@@ -159,6 +159,20 @@ pearson_r = covariance(a, b) / sqrt(var(a) * var(b))
 
 When user-built composites combine highly correlated stats (`|r| ≥ 0.85`), the methodology layer surfaces a plain-language warning so the composite does not silently double-count one signal. This powers the `custom_metrics_collinear_components` validation fixture.
 
+Principal components (style_xray_v2):
+
+```text
+1. Center the league feature matrix: X_c = X - column_means
+2. Build the empirical covariance Σ from X_c.
+3. Power-iterate Σ to extract the top eigenvector v_1 with eigenvalue λ_1.
+4. Deflate Σ ← Σ - λ_1 · v_1 · v_1ᵀ and repeat for v_2, v_3, ...
+5. Project a feature vector x into the latent space:
+   coords_i = (x - column_means) · v_i
+   explained_variance_ratio_i = λ_i / Σ_j λ_j
+```
+
+Components are unit vectors so loadings (the entries of `v_i`) are directly comparable across features. The Style X-Ray surface attaches the top-2 axes plus the subject team's coordinates whenever the league pool has at least `2 × n_features` complete rows; thinner pools fall back to the centroid-based view alone.
+
 Shrunk Mahalanobis distance (similarity_v3):
 
 ```text

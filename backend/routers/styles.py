@@ -23,6 +23,9 @@ from models.styles import (
     StyleFeatureContributor,
     StyleHistoryPoint,
     StyleFeatureMovement,
+    StyleLatentAxis,
+    StyleLatentLoading,
+    StyleLatentSpace,
     StyleLaunchLinks,
     StyleMetricRow,
     StyleMovement,
@@ -34,6 +37,7 @@ from models.styles import (
     TeamStyleProfileResponse,
 )
 from models.trends import ReplayLaunchTarget
+from services.reliability_service import principal_components, project_to_components
 from services.team_shot_profile_service import (
     attempt_share_text,
     build_team_shot_profile_drivers,
@@ -1188,6 +1192,111 @@ def build_team_style_profile(
     return response
 
 
+_STYLE_LATENT_TOP_LOADINGS = 3
+
+
+def _build_style_latent_space(
+    profiles: Dict[int, Dict[str, Optional[float]]],
+    feature_keys: List[str],
+    feature_labels: Dict[str, str],
+    subject_team_id: int,
+    n_axes: int = 2,
+) -> Optional[StyleLatentSpace]:
+    """Run PCA over the league's current-season style vectors and project the
+    subject team into the resulting latent space.
+
+    Returns None when fewer than `2 * n_features` complete team rows are
+    available — the empirical covariance estimate is too noisy below that
+    threshold to be coach-readable. Features missing on any team default to
+    the league mean (0.0 after centering) so a sparse metric doesn't kill the
+    whole latent view.
+    """
+    complete_rows: List[Tuple[int, List[float]]] = []
+    column_means: Dict[str, float] = {}
+    for key in feature_keys:
+        values = [
+            profile.get(key)
+            for profile in profiles.values()
+            if profile.get(key) is not None
+        ]
+        column_means[key] = float(statistics.mean(values)) if values else 0.0
+
+    for team_id, profile in profiles.items():
+        row: List[float] = []
+        for key in feature_keys:
+            value = profile.get(key)
+            row.append(float(value) if value is not None else column_means[key])
+        complete_rows.append((team_id, row))
+
+    n_features = len(feature_keys)
+    if len(complete_rows) < max(2 * n_features, 4):
+        return None
+
+    vectors = [row for _team_id, row in complete_rows]
+    components, eigenvalues, mean_vec = principal_components(
+        vectors, k=min(n_axes, n_features)
+    )
+    total_variance = sum(eigenvalues) or 1.0
+
+    subject_row = next(
+        (row for team_id, row in complete_rows if team_id == subject_team_id),
+        None,
+    )
+    if subject_row is None:
+        return None
+    subject_coords = project_to_components(subject_row, components, mean_vec)
+
+    axes: List[StyleLatentAxis] = []
+    for index, component in enumerate(components):
+        if eigenvalues[index] <= 1e-9:
+            continue
+        signed_loadings = [
+            (feature_keys[i], component[i]) for i in range(n_features)
+        ]
+        signed_loadings.sort(key=lambda pair: pair[1], reverse=True)
+        top_positive = [
+            StyleLatentLoading(
+                feature_id=key,
+                label=feature_labels.get(key, key),
+                loading=round(float(loading), 3),
+            )
+            for key, loading in signed_loadings[:_STYLE_LATENT_TOP_LOADINGS]
+            if loading > 0
+        ]
+        top_negative = [
+            StyleLatentLoading(
+                feature_id=key,
+                label=feature_labels.get(key, key),
+                loading=round(float(loading), 3),
+            )
+            for key, loading in reversed(signed_loadings[-_STYLE_LATENT_TOP_LOADINGS:])
+            if loading < 0
+        ]
+        axes.append(
+            StyleLatentAxis(
+                axis="PC{0}".format(index + 1),
+                explained_variance_ratio=round(eigenvalues[index] / total_variance, 3),
+                subject_coordinate=round(float(subject_coords[index]), 3),
+                top_positive=top_positive,
+                top_negative=top_negative,
+            )
+        )
+
+    if not axes:
+        return None
+
+    captured_share = round(sum(axis.explained_variance_ratio for axis in axes) * 100.0, 1)
+    interpretation = (
+        "PC1 + PC2 capture {0}% of league stylistic variation; positive loadings push a team toward that axis, negative loadings pull it away."
+    ).format(captured_share)
+    return StyleLatentSpace(
+        sample_size=len(complete_rows),
+        feature_count=n_features,
+        axes=axes,
+        interpretation=interpretation,
+    )
+
+
 def build_style_xray_report(
     db: Session,
     abbr: str,
@@ -1456,6 +1565,13 @@ def build_style_xray_report(
         shot_profile_drivers=shot_profile_drivers,
     )
 
+    latent_space = _build_style_latent_space(
+        profiles=all_profiles,
+        feature_keys=[metric_id for metric_id, _, _, _ in _STYLE_METRICS if metric_id != "net_rating"],
+        feature_labels={metric_id: label for metric_id, label, _, _ in _STYLE_METRICS},
+        subject_team_id=team.id,
+    )
+
     response = StyleXRayResponse(
         data_status=data_status,  # type: ignore[arg-type]
         canonical_source="warehouse-style-engine",
@@ -1488,6 +1604,7 @@ def build_style_xray_report(
         },
         replay_target=replay_target,
         warnings=warnings,
+        latent_space=latent_space,
     )
     CacheManager.set(cache_key, response.model_dump(), 900)
     return response
