@@ -1,9 +1,21 @@
 # Sprint History Archive
 
-Archived sprint summaries through Sprint 74. The two most recent sprint summaries also stay inline in `CLAUDE.md` under "Recent Sprints".
+Archived sprint summaries through Sprint 75. The two most recent sprint summaries also stay inline in `CLAUDE.md` under "Recent Sprints".
 
 For detailed per-sprint records, see the individual closeout files in this directory where available:
 `specs/sprint-09-closeout.md` through `specs/sprint-59-closeout.md`, plus `specs/sprint-62-closeout.md` and `specs/sprint-67-closeout.md` onward.
+
+---
+
+### Sprint 75 — Playoff Command Center & Series Intelligence
+**Branch:** `codex-sprint-75-playoff-command-center` (Codex, single-stream)
+
+- Upgraded `/bracket` from static bracket view into a coach/analyst Playoff Command Center with selected-series rail, today's slate strip, Series Pulse, Four Factors Edge, Tactical Edges, Adjustment Signals, Star Burden, Shot Diet Pressure, Lineup Chess, simulator, and reliability card.
+- Added `playoff_series_intelligence_v1` via `GET /api/playoffs/series/{series_id}/intelligence`, composing existing playoff rows only: `playoff_series`, `game_logs`, playoff/regular `team_season_stats`, playoff `season_stats`, `lineup_stats`, and `team_shooting_split_stats`.
+- Added a new `playoffs` methodology registry domain and updated `specs/platform-methodology.md` with formulas, reliability scoring, confidence gates, assumptions, and limitations.
+- Extended the series simulator with non-mutating `override_top_wins` / `override_bottom_wins`, and wired `<SeriesWPSimulator>` what-if buttons to real hypothetical re-simulation plus reset.
+- Added backend tests for intelligence payload shape, thin-data warnings, star burden/position buckets, metadata, and simulator override non-mutation.
+- Verified with **293 backend tests**, targeted playoff tests, `npm run lint` (7 pre-existing warnings), `npm run build`, and `git diff --check`. Closeout: `specs/sprint-75-closeout.md`.
 
 ---
 

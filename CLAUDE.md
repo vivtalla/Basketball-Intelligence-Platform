@@ -262,6 +262,15 @@ CourtVue Labs uses a hybrid sprint model: major feature sprints typically run as
 
 > Full history → `specs/sprint-history.md`
 
+### Sprint 75 — Playoff Command Center & Series Intelligence
+
+- Single-stream Codex sprint upgrading `/bracket` from a static bracket into a coach/analyst Playoff Command Center.
+- Added `playoff_series_intelligence_v1` and `GET /api/playoffs/series/{series_id}/intelligence`, returning series pulse, data coverage, Four Factors plus regular-season deltas, star burden, shot-diet pressure, lineup chess, tactical edges, adjustment signals, warnings, and `analysis_metadata`.
+- Added a `playoffs` methodology registry domain and documented the new method in `specs/platform-methodology.md`.
+- Extended `GET /api/playoffs/series-simulation/{series_id}` with non-mutating `override_top_wins` / `override_bottom_wins` and wired `<SeriesWPSimulator>` what-if buttons to real re-simulation plus reset.
+- Added `<PlayoffCommandCenter>` with selected-series rail, today's slate strip, Series Pulse, Tactical Edges, Star Burden, Shot Diet, Lineup Chess, simulator, and reliability card.
+- Verified with **293 backend tests**, targeted playoff tests, `npm run lint` (7 pre-existing warnings), `npm run build`, and `git diff --check`. Closeout: `specs/sprint-75-closeout.md`.
+
 ### Sprint 74 — Methodology Reliability Rollout + Team-Fit/Shot Lab vNext
 
 - Single-stream Codex sprint promoting methodology reliability from backend-only metadata into a visible product-wide trust pattern while preserving response compatibility and raw descriptive values.
@@ -271,26 +280,7 @@ CourtVue Labs uses a hybrid sprint model: major feature sprints typically run as
 - Methodology evidence UI wired across Team-Fit, Shot Intelligence, Opportunity, Archetype/Similarity, Trend/Trajectory, Style X-Ray, MVP/Gravity, Scouting Brief, and Custom Metrics. Docs updated in `specs/platform-methodology.md` and `specs/methodology-validation.md`.
 - Verified with **290 backend tests**, `npm run lint` (7 pre-existing warnings), `npm run build`, and `git diff --check`. Closeout: `specs/sprint-74-closeout.md`.
 
-### Sprint 73 — Playoffs Platform
-
-- Two-team parallel sprint shifting the platform's center of gravity to the 2026 NBA first-round playoffs while keeping the regular-season scope intact. Every playoff surface gates via a new `useSeasonPhase()` hook that auto-detects the active phase from data + date window, so the platform reverts cleanly outside the playoff window — no manual flip needed.
-- **Stream A — data foundation (merged first):**
-  - Alembic `0012_playoffs_data_layer` adds the `playoff_series` table (round, seeds, wins, status, winner), `is_playoff` on `lineup_stats`, and `season_type`/`series_id`/`series_game_num`/`playoff_seed` on `game_logs` and warehouse games.
-  - `nba_client` adds `season_type` pass-through across all relevant nba_api wrappers; `_cache_ttl_for_season` returns the new `PLAYOFF_CACHE_TTL=2h` during the playoff window. `sync_service.sync_official_*_splits/season_stats` accept `is_playoff`. `services/playoff_bracket_service.build_or_refresh_bracket()` derives `PlayoffSeries` from playoff GameLogs and back-references series metadata. `daily_sync.sh` adds `--post-game` and `--dry-run` subcommands plus a playoff-phase block in the morning cron.
-  - New `services/season_phase_service.get_current_phase()` (5-minute LRU, lazy import to avoid circular deps) auto-detects via Apr–Jun date window AND `is_playoff=True` GameLogs in the last 7 days; round inferred from highest active/scheduled `PlayoffSeries.round`.
-  - New `services/playoff_simulator_service.simulate_series()` runs 1000 deterministic Monte-Carlo trials (seeded from `hash(series_id)`) using a sigmoid of weighted z-scores plus a 0.06 home-court bump.
-  - Removed hardcoded `is_playoff == False` filters from `player_archetype_service`, `team_fit_service`, `lineup_context_service`, `similarity_service`; all five accept `season_type` (default Regular Season). Routers `standings`, `advanced`, `similarity`, `teams`, `team_fit` accept `season_type` query param.
-  - New routes: `GET /api/season-phase`, `GET /api/playoffs/bracket`, `GET /api/playoffs/series/{id}`, `GET /api/playoffs/today`, `GET /api/playoffs/series-simulation/{id}`.
-- **Stream B — frontend playoff features (branched off A's merged tip):**
-  - New `/bracket` route + `<PlayoffBracketView>` East/West tree + `<SeriesCard>` reusable across surfaces. New `useSeasonPhase` SWR hook gates every playoff UI region. Bracket nav item rendered conditionally via a new `<NavLinks>` client component extracted from the server-component layout.
-  - Series-mode Pre-Read pivot: when `?series_id=...` AND `isPlayoffs`, the page additionally renders a series-state header, a `<SeriesWPChart>` cumulative win-probability curve, and a `<CoachingAdjustmentsTimeline>` that finally surfaces the `PreReadDeckResponse.adjustments` field deferred from Sprint 72.
-  - Home shift in playoffs: `<HomeMvpTeaser>` early-returns null, `<SeriesNarrative>` carousel rotates active series (3s, pause-on-hover, `prefers-reduced-motion` honored), `<DailyPlayoffSlate>` lists tonight's games. `<HomeLeagueLeaders>` gains a Regular/Playoffs pill toggle.
-  - `/leaderboards` converts to a client page wrapped in `<Suspense>`; in regular season it `router.replace`s to `/player-stats` preserving search params, in playoffs it surfaces the same Regular/Playoffs toggle at top.
-  - MVP page reframes header to `{round_label} MVP Race` and mounts `<SeriesWPSimulator>` (bracket-driven series picker, SWR-backed simulation fetch, memoized inline SVG projection). `/leaderboards` gets a `<PostseasonHeatmap>` (USG% × TS%-delta scatter, rotation-player filter, WCAG AA quadrant labels). `/teams/[abbr]` gets an `opponent_matchup` tab with `<OpponentLineupMatchupMatrix>` (5×5 net-rating delta matrix).
-- Architecture used `Architect → 8 parallel Engineers (4 per stream) → Reviewer → Optimizer`. Reviewer signed off with 4 non-blocking concerns; Optimizer addressed 2 (DST-aware Pacific timezone via `pytz`, memoized WP simulator chart geometry) and deferred 2 to backlog.
-- Verified with **286 backend tests** (was 266, +20 new), `npm run build` + `npm run lint` clean (7 pre-existing warnings), `git diff --check` clean. Closeout: `specs/sprint-73-closeout.md`.
-
-*Sprint 72 and older moved to `specs/sprint-history.md`.*
+*Sprint 73 and older moved to `specs/sprint-history.md`.*
 
 ---
 
@@ -398,7 +388,8 @@ Sprint branches are created at kickoff and listed in `AGENTS.md`.
 | `DailyPlayoffSlate` | `components/playoffs/` | Today's playoff slate with tipoff times, away @ home rows, optional WP percent (Sprint 73) |
 | `SeriesNarrative` | `components/playoffs/` | Auto-rotating series storyline carousel; honors prefers-reduced-motion by stacking (Sprint 73) |
 | `PlayoffsHomeSections` | `components/playoffs/` | Tiny client wrapper that gates DailyPlayoffSlate behind useSeasonPhase().isPlayoffs so the server-component home page stays a server component (Sprint 73) |
-| `SeriesWPSimulator` | `components/playoffs/` | Bracket-driven series picker + Monte-Carlo projection chart with memoized SVG geometry; mounts on MVP page during playoffs (Sprint 73) |
+| `SeriesWPSimulator` | `components/playoffs/` | Bracket-driven series picker + Monte-Carlo projection chart with memoized SVG geometry; Sprint 75 added real non-mutating hypothetical W/L overrides |
+| `PlayoffCommandCenter` | `components/playoffs/` | Coach/analyst `/bracket` command surface with selected-series rail, pulse, tactical edges, star burden, shot diet, lineup chess, simulator, and reliability card (Sprint 75) |
 | `PostseasonHeatmap` | `components/playoffs/` | USG% × TS%-delta scatter computed client-side from Regular vs Playoffs leaderboards; rotation-player filter with WCAG AA quadrant labels (Sprint 73) |
 | `OpponentLineupMatchupMatrix` | `components/playoffs/` | 5×5 net-rating delta matrix between a team's and opponent's top-5 playoff lineups; 100+ possessions per cell threshold (Sprint 73) |
 | `NavLinks` | `components/` | Client-only nav link group extracted from layout.tsx so the conditional Bracket nav item can read useSeasonPhase (Sprint 73) |

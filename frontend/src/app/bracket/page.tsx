@@ -4,7 +4,7 @@ import Link from "next/link";
 import useSWR from "swr";
 import HeroHardwood from "@/components/HeroHardwood";
 import Reveal from "@/components/Reveal";
-import PlayoffBracketView from "@/components/playoffs/PlayoffBracketView";
+import PlayoffCommandCenter from "@/components/playoffs/PlayoffCommandCenter";
 import { useSeasonPhase } from "@/hooks/useSeasonPhase";
 import { getBracket } from "@/lib/api";
 import type { PlayoffBracketResponse } from "@/lib/types";
@@ -59,13 +59,13 @@ export default function BracketPage() {
           <div>
             <p className="bip-kicker">Postseason</p>
             <h1 className="bip-display text-4xl font-semibold text-[var(--foreground)]">
-              Playoff Bracket
+              Playoff Command Center
             </h1>
             <p className="mt-2 max-w-2xl text-[var(--muted)]">
               {phase.roundLabel
-                ? `${phase.roundLabel} · ${season}`
+                ? `${phase.roundLabel} · ${season} · series intelligence, tactical edges, and reliability.`
                 : phase.isPlayoffs
-                ? `Live bracket for the ${season} postseason.`
+                ? `Live command center for the ${season} postseason.`
                 : "The bracket lights up when the playoffs tip off."}
             </p>
           </div>
@@ -116,7 +116,7 @@ export default function BracketPage() {
         {/* Live bracket */}
         {phase.isPlayoffs && data && (
           <Reveal>
-            <PlayoffBracketView bracket={data} />
+            <PlayoffCommandCenter bracket={data} />
           </Reveal>
         )}
       </div>
