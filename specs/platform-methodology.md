@@ -864,4 +864,3 @@ Known platform-wide limitations:
 - On/off, clutch, lineup, and signature-game metrics are high variance.
 - Current-season outputs can lag source updates until sync jobs run.
 - Some methodology is deterministic by design, which improves auditability but can miss nuance a trained analyst would add.
-
