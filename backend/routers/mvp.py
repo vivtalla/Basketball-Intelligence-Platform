@@ -24,6 +24,7 @@ from services.mvp_service import (
     build_mvp_context_map,
     build_mvp_gravity_leaderboard,
     build_mvp_race,
+    build_mvp_race_playoff,
     build_mvp_sensitivity,
     build_mvp_snapshot_freshness,
     build_mvp_voter_room,
@@ -41,15 +42,22 @@ _PROFILE_DESCRIPTION = (
 def get_mvp_race(
     season: str = Query(default=None, description="Season string, e.g. 2024-25"),
     top: int = Query(default=10, ge=1, le=25, description="Number of candidates to return"),
-    min_gp: int = Query(default=20, ge=1, le=82, description="Minimum games played"),
+    min_gp: Optional[int] = Query(default=None, ge=1, le=82, description="Minimum games played; defaults to 20 (Regular Season) / 1 (Playoffs)"),
     position: Optional[str] = Query(default=None, description="Optional position token, e.g. G, F, C"),
     profile: Optional[str] = Query(default=None, description=_PROFILE_DESCRIPTION),
+    season_type: str = Query(default="Regular Season", description='"Regular Season" or "Playoffs"'),
     db: Session = Depends(get_db),
 ) -> MvpRaceResponse:
     """Return the top-N MVP candidates with case data and pillar scoring."""
     resolved_season = season or _active_nba_season()
+    if season_type == "Playoffs":
+        # Playoff samples are tiny (3-4 games per team in round 1); use the
+        # playoff-specific composite that pulls from playoff SeasonStat rows.
+        gp_floor = min_gp if min_gp is not None else 1
+        return build_mvp_race_playoff(db, season=resolved_season, top=top, min_gp=gp_floor)
+    gp_floor = min_gp if min_gp is not None else 20
     return build_mvp_race(
-        db, season=resolved_season, top=top, min_gp=min_gp, position=position, profile=profile
+        db, season=resolved_season, top=top, min_gp=gp_floor, position=position, profile=profile
     )
 
 

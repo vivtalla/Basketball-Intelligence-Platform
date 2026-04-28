@@ -2218,6 +2218,124 @@ def build_mvp_race(
     )
 
 
+def build_mvp_race_playoff(
+    db: Session,
+    season: str,
+    top: int = 10,
+    min_gp: int = 1,
+) -> MvpRaceResponse:
+    """Build a Playoff MVP race from playoff SeasonStat rows.
+
+    Sprint 73 hotfix — the regular-season MVP race composite is gated on a
+    deep helper graph (clutch / on-off / signature games / lineup context)
+    that hardcodes Regular Season filters across many call sites. Rather
+    than refactor every helper, this function builds a lighter-weight
+    Playoff MVP composite from the playoff SeasonStat aggregates that the
+    daily playoff cron now keeps fresh. Composite weights:
+
+      40% production (pts_pg)
+      25% efficiency (ts_pct)
+      20% playmaking (ast_pg)
+      15% impact (bpm fall-back to plus_minus_pg)
+
+    Each component is z-scored across the qualified playoff pool and
+    rescaled so the rank-1 player lands at 99.9 (matching the regular-season
+    composite normalization). Returns the same MvpRaceResponse shape so the
+    frontend MvpRacePanel renders without changes.
+    """
+    rows = (
+        db.query(SeasonStat, Player)
+        .join(Player, SeasonStat.player_id == Player.id)
+        .filter(
+            SeasonStat.season == season,
+            SeasonStat.is_playoff == True,  # noqa: E712
+            SeasonStat.gp >= min_gp,
+            SeasonStat.pts_pg.isnot(None),
+        )
+        .all()
+    )
+    if not rows:
+        return MvpRaceResponse(
+            season=season,
+            as_of_date=date.today().isoformat(),
+            candidates=[],
+            weights=REFINED_VALUE_WEIGHTS,
+            scoring_profile=SCORING_PROFILE,
+            available_profiles=AVAILABLE_PROFILES,
+        )
+
+    def _z(values: List[float]) -> List[float]:
+        if not values:
+            return []
+        n = len(values)
+        mean = sum(values) / n
+        variance = sum((v - mean) ** 2 for v in values) / n if n > 0 else 0.0
+        std = variance ** 0.5
+        if std < 1e-6:
+            return [0.0] * n
+        return [(v - mean) / std for v in values]
+
+    pts = [float(r[0].pts_pg or 0.0) for r in rows]
+    ts = [float(r[0].ts_pct or 0.0) for r in rows]
+    ast = [float(r[0].ast_pg or 0.0) for r in rows]
+    impact_raw = [
+        float((r[0].bpm if r[0].bpm is not None else (r[0].plus_minus_pg or 0.0)))
+        for r in rows
+    ]
+
+    z_pts = _z(pts)
+    z_ts = _z(ts)
+    z_ast = _z(ast)
+    z_impact = _z(impact_raw)
+
+    composites = [
+        0.40 * z_pts[i] + 0.25 * z_ts[i] + 0.20 * z_ast[i] + 0.15 * z_impact[i]
+        for i in range(len(rows))
+    ]
+
+    indexed = sorted(range(len(rows)), key=lambda i: composites[i], reverse=True)
+    top_n = indexed[:top]
+    if not top_n:
+        max_comp = 1.0
+    else:
+        max_comp = composites[top_n[0]] if composites[top_n[0]] > 0 else 1.0
+
+    candidates: List[MvpCandidate] = []
+    for rank, idx in enumerate(top_n, start=1):
+        stat_row, player = rows[idx]
+        # Normalize so rank 1 = 99.9 and the spread shrinks linearly.
+        if max_comp > 0:
+            normalized = max(0.0, min(99.9, 99.9 * (composites[idx] / max_comp)))
+        else:
+            normalized = 50.0
+        candidates.append(
+            MvpCandidate(
+                rank=rank,
+                player_id=player.id,
+                player_name=player.full_name or "Unknown",
+                team_abbreviation=stat_row.team_abbreviation or "",
+                headshot_url=f"https://cdn.nba.com/headshots/nba/latest/1040x760/{player.id}.png",
+                gp=int(stat_row.gp or 0),
+                composite_score=round(normalized, 1),
+                pts_pg=float(stat_row.pts_pg or 0.0),
+                reb_pg=float(stat_row.reb_pg or 0.0),
+                ast_pg=float(stat_row.ast_pg or 0.0),
+                ts_pct=float(stat_row.ts_pct) if stat_row.ts_pct is not None else None,
+                bpm=float(stat_row.bpm) if stat_row.bpm is not None else None,
+                last_games=int(stat_row.gp or 0),
+            )
+        )
+
+    return MvpRaceResponse(
+        season=season,
+        as_of_date=date.today().isoformat(),
+        candidates=candidates,
+        weights=REFINED_VALUE_WEIGHTS,
+        scoring_profile=SCORING_PROFILE,
+        available_profiles=AVAILABLE_PROFILES,
+    )
+
+
 def build_mvp_candidate_case(
     db: Session,
     season: str,

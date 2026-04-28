@@ -1127,6 +1127,7 @@ export function useMvpRace(
         options?.minGp ?? 20,
         options?.position ?? "all",
         options?.profile ?? "balanced",
+        options?.seasonType ?? "Regular Season",
       ]
     : null;
   return useSWR<MvpRaceResponse>(

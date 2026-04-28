@@ -163,7 +163,7 @@ def leaderboard(
     stat: str = Query("pts_pg", description="Stat column to rank by"),
     season_type: str = Query("Regular Season"),
     limit: int = Query(25, ge=1, le=100),
-    min_gp: int = Query(15, ge=1),
+    min_gp: Optional[int] = Query(None, ge=1, description="Minimum games played; defaults to 15 for Regular Season and 1 for Playoffs"),
     team: Optional[str] = Query(None, description="Filter by team abbreviation"),
     db: Session = Depends(get_db),
 ):
@@ -174,6 +174,11 @@ def leaderboard(
         )
 
     is_playoff = season_type == "Playoffs"
+    # Playoff samples are tiny (3-4 games per team in round 1); the regular-
+    # season default of 15 GP would zero out the leaderboard. Auto-adjust to 1
+    # when the caller hasn't specified a threshold and we're in Playoffs.
+    if min_gp is None:
+        min_gp = 1 if is_playoff else 15
     stat_col = getattr(SeasonStat, stat, None)
 
     q = (

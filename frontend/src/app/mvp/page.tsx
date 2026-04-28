@@ -94,9 +94,14 @@ export default function MvpPage() {
   const { isPlayoffs, roundLabel } = useSeasonPhase();
   const raceQuery = useMvpRace(season, {
     top,
-    minGp: 20,
+    // Sprint 73 hotfix: playoff samples are tiny (3-4 games per team in
+    // round 1) — the regular-season default of 20 GP zeroes out the board.
+    // Auto-relax when phase is playoffs and pass season_type=Playoffs so the
+    // backend serves the playoff-specific composite.
+    minGp: isPlayoffs ? 1 : 20,
     position: position || null,
     profile: "balanced",
+    seasonType: isPlayoffs ? "Playoffs" : "Regular Season",
   });
 
   // Sprint 73B — reframe the page header during the playoffs. Falls back to
