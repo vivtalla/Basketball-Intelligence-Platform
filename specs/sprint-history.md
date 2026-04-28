@@ -1,9 +1,22 @@
 # Sprint History Archive
 
-Archived sprint summaries through Sprint 75. The two most recent sprint summaries also stay inline in `CLAUDE.md` under "Recent Sprints".
+Archived sprint summaries through Sprint 76. The two most recent sprint summaries also stay inline in `CLAUDE.md` under "Recent Sprints".
 
 For detailed per-sprint records, see the individual closeout files in this directory where available:
 `specs/sprint-09-closeout.md` through `specs/sprint-59-closeout.md`, plus `specs/sprint-62-closeout.md` and `specs/sprint-67-closeout.md` onward.
+
+---
+
+### Sprint 76 — Methodology Rigor Pass
+**Branch:** `claude/improve-evaluation-methods-ZAo94` (Claude, single-stream)
+
+- Promoted every previously-deferred methodology upgrade from "planned" in the registry to either a working end-to-end implementation or a focused design memo with explicit data prerequisites. Pure backend sprint by design.
+- Added eight new reliability primitives in `backend/services/reliability_service.py`: `_z_for_level` table (correctly-calibrated Wilson and normal intervals at 0.80 / 0.90 / 0.95 / 0.99), `pearson_correlation`, `collinearity_warnings`, `covariance_matrix`, `shrunk_covariance`, `invert_matrix`, `mahalanobis_distance`, `weight_sensitivity_analysis`, `principal_components`, `project_to_components`, `bayesian_change_score`, and `softmax`. Hardened `empirical_bayes_rate` with input validation and posterior clamping.
+- Bumped seven methodology versions end-to-end with structured response evidence: `similarity_v3` (shrunk Mahalanobis distance method on `find_similar_players_with_archetype` with auto-fallback to weighted Euclidean below `3 × n_features` candidate rows; resolved method per-comp), `custom_metric_v2` (collinearity warnings at `|r| ≥ 0.85` plus top-5 ranking sensitivity under ±10% weight perturbations), `scouting_brief_v2` (cross-card contradiction detection across role/trajectory, role/usage, and strengths/shot-profile rule families), `mvp_case_v4` (Basketball Value weight-perturbation sensitivity over `REFINED_VALUE_WEIGHTS`), `style_xray_v2` (top-2 PCA latent axes with explained-variance ratios + feature loadings; pool gate `2 × n_features`), `trend_intelligence_v2` (Bayesian two-sample change probability per metric with `MIN_BASELINE_GAMES = 4`), `archetype_rules_v2` (soft-membership distribution over the 13 archetype rules anchored to the hard label via a pre-softmax bonus).
+- Expanded the validation harness from 6 fixtures (team_fit + shot_lab) to 17 fixtures covering every registered methodology domain. A coverage assertion in the test suite blocks future registry additions from shipping without a fixture.
+- Authored `specs/methodology-future-modeling.md` (~200 lines) for the two remaining open items (`mvp_case_v5` Award Case voter calibration, `opportunity_v2` uplift modeling). Both are blocked on data prerequisites, not engineering — the memo captures full data shape, math sketch, service wiring, and acceptance criteria so the work can pick up cleanly when the data lands. Backlog entries call out the data prerequisite explicitly.
+- No frontend code changed; every new response field is `Optional` so existing consumers keep working unchanged. Frontend follow-on work (rendering the new methodology evidence in existing drawers) is captured in the closeout under "Frontend follow-ons".
+- Verified with **346 backend tests** (was 293 at Sprint 75 close; +53 net new), `npm run lint` clean (7 pre-existing warnings), `npm run build` clean. Closeout: `specs/sprint-76-closeout.md`.
 
 ---
 

@@ -1,6 +1,6 @@
 # Agent Coordination
 
-Last updated: 2026-04-28 by Codex (Sprint 75 closeout reset)
+Last updated: 2026-04-28 by Claude (Sprint 76 closeout reset)
 
 > Both agents read this file before touching code at the start of every session.
 > The canonical source of truth is the clean `master` checkout at `/Users/viv/Documents/Basketball Intelligence Platform`.
@@ -14,12 +14,12 @@ Last updated: 2026-04-28 by Codex (Sprint 75 closeout reset)
 
 | Field | Value |
 |-------|-------|
-| Sprint | 76 |
+| Sprint | 77 |
 | Goal | TBD — awaiting Vivek's sprint kickoff |
 | Started | TBD |
 | Target merge | TBD |
 | Sprint shape | TBD |
-| Branch | `master` until Sprint 76 kickoff |
+| Branch | `master` until Sprint 77 kickoff |
 | Worker policy | No active sprint; set at kickoff |
 
 ---
@@ -85,7 +85,7 @@ TBD at kickoff. Next sprint branch/worktree is created at kickoff and merges bac
 
 ## Sprint Work Allocation
 
-Sprint 76 allocation — TBD at kickoff.
+Sprint 77 allocation — TBD at kickoff.
 
 | Area | Files | Owner |
 |------|-------|-------|
@@ -163,6 +163,8 @@ Sprint 76 allocation — TBD at kickoff.
 ## Notes
 
 *Free-form, dated, newest first. Use this for coordination and repo-state exceptions.*
+
+2026-04-28 (Claude): Sprint 76 closed on `claude/improve-evaluation-methods-ZAo94` and merged to `master`. Pure backend methodology rigor pass: shipped 8 reliability primitives, bumped 7 methodology versions end-to-end with structured response evidence (similarity_v3 shrunk Mahalanobis, custom_metric_v2 collinearity + weight sensitivity, scouting_brief_v2 contradiction detection, mvp_case_v4 Basketball Value sensitivity, style_xray_v2 PCA latent space, trend_intelligence_v2 Bayesian change scores, archetype_rules_v2 soft memberships), expanded the validation harness from 6 to 17 fixtures covering every registered methodology domain, and authored a design memo (`specs/methodology-future-modeling.md`) for the two remaining items (mvp_case_v5 voter calibration, opportunity_v2 uplift modeling) — both blocked on data prerequisites, not engineering. No frontend code changed; every new response field is `Optional`. Verification: 346 backend tests (was 293 at Sprint 75 close; +53 new), `npm run lint` clean (7 pre-existing warnings), `npm run build` clean. Closeout: `specs/sprint-76-closeout.md`.
 
 2026-04-28 (Codex): Sprint 75 closed on `codex-sprint-75-playoff-command-center` and merged to `master`. Shipped Playoff Command Center on `/bracket`, `playoff_series_intelligence_v1`, `/api/playoffs/series/{series_id}/intelligence`, non-mutating simulator overrides, real SeriesWPSimulator what-if buttons, new `playoffs` methodology registry/docs, and targeted playoff tests. Verification: 293 backend tests, `npm run lint`, `npm run build`, `git diff --check`. Closeout: `specs/sprint-75-closeout.md`.
 
