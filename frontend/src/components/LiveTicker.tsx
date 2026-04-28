@@ -34,20 +34,19 @@ const DEMO_GAMES: TickerGame[] = [
 ];
 
 function formatStatus(g: PlayoffSeriesGameWithMatchup): { status: string; live: boolean } {
-  if (g.home_pts != null && g.away_pts != null) {
+  // Authoritative FINAL signal: backend marks winner_team_id only when both
+  // scores are present in the warehouse, which our seeder + bracket service
+  // gate behind the nba_api WL field (set only on completed games).
+  if (g.winner_team_id != null) {
     return { status: `FINAL · G${g.series_game_num} · R${g.round}`, live: false };
   }
-  // No score yet — game is scheduled.
-  const tipoff = g.game_date ? new Date(`${g.game_date}T19:30:00-07:00`) : null;
-  if (tipoff) {
-    const fmt = new Intl.DateTimeFormat("en-US", {
-      hour: "numeric",
-      minute: "2-digit",
-      timeZone: "America/Los_Angeles",
-    });
-    return { status: `${fmt.format(tipoff)} PT · G${g.series_game_num}`, live: false };
+  // Both scores present but no winner — defensive: treat as in-progress, hide
+  // scores via null in the caller.
+  if (g.home_pts != null && g.away_pts != null) {
+    return { status: `LIVE · G${g.series_game_num}`, live: true };
   }
-  return { status: `G${g.series_game_num} · TBD`, live: false };
+  // No scores yet — game is tonight's tipoff or scheduled.
+  return { status: `G${g.series_game_num} · TIPOFF TBD`, live: false };
 }
 
 function mapPlayoffGames(data: PlayoffTodayResponse | undefined): TickerGame[] {
