@@ -15,10 +15,15 @@ Notes
 - Players with fewer than 3 logged games are returned with an empty
   ``rolling_values`` array and ``sample_size=0`` so the frontend can render a
   placeholder.
+- Zero-attempts games on a percentage stat are dropped from
+  ``rolling_values`` when no season placeholder exists, which causes
+  ``sample_size`` to drift below ``window``. Callers should treat
+  ``sample_size`` as the count of usable games, not the requested window.
 """
 
 from __future__ import annotations
 
+from datetime import date
 from typing import Dict, List, Optional, Tuple
 
 from sqlalchemy.orm import Session
@@ -151,7 +156,7 @@ def _build_entry(
 
     sorted_logs = sorted(
         logs,
-        key=lambda r: (r.game_date is not None, r.game_date, r.game_id),
+        key=lambda r: (r.game_date or date.min, r.game_id),
     )
     window_logs = sorted_logs[-window:]
     pct_placeholder = (

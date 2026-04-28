@@ -416,6 +416,26 @@ select {
   animation: fade-up 0.55s ease-out forwards;
 }
 
+/* ─── Sprint 70/72 hero animations ─────────────────────────────── */
+@keyframes cv-ball-float {
+  0%, 100% { transform: translateY(0) rotate(-12deg); }
+  50%      { transform: translateY(-10px) rotate(8deg); }
+}
+
+/* Honor user accessibility preference for reduced motion across the app
+   (FloatingBall, LiveTicker, LiveShotPulse, fade-up, etc.). Pinning all
+   animation/transition durations to 0.001ms preserves end-state visuals
+   without the motion. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+  }
+}
+
 /* ============================================================
    Print stylesheet — coach handoff PDF rendering
    ============================================================ */

@@ -32,15 +32,6 @@ export default function FloatingBall({ size = 56, className, style }: FloatingBa
         ...style,
       }}
     >
-      <style>{`
-        @keyframes cv-ball-float {
-          0%, 100% { transform: translateY(0) rotate(-12deg); }
-          50%      { transform: translateY(-10px) rotate(8deg); }
-        }
-        @media (prefers-reduced-motion: reduce) {
-          svg[data-cv-ball="${ID}"] { animation: none !important; }
-        }
-      `}</style>
       <defs>
         <radialGradient id={fillId} cx="0.45" cy="0.40" r="0.65">
           <stop offset="0%" stopColor="#e89456" />
