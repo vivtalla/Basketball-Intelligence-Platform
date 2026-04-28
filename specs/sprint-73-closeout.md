@@ -1,8 +1,44 @@
 # Sprint 73 Closeout — Playoffs Platform
 
 **Date:** 2026-04-28
-**Branches:** `feature/sprint-73a-playoffs-data` (Stream A, merged to master), `feature/sprint-73b-playoffs-features` (Stream B, ready for merge)
-**Status:** Stream A merged + pushed; Stream B ready for merge
+**Branches:** `feature/sprint-73a-playoffs-data` (Stream A, merged), `feature/sprint-73b-playoffs-features` (Stream B, merged), `feature/sprint-73-playoff-hotfix` (post-merge data + UX hotfixes, merged)
+**Status:** All three branches merged + pushed to `origin/master`
+
+---
+
+## Post-merge hotfixes (2026-04-28 evening)
+
+Three fixes shipped after the formal Sprint 73 merge once the platform was running locally with real 2026 first-round playoff data flowing through:
+
+### LiveTicker wired to live game data
+The home-page ticker had been hardcoded with 8 fake matchups + synthetic clock bumps since Sprint 70. Rewired `frontend/src/components/LiveTicker.tsx` to read `useSeasonPhase()` and fetch today's slate via `getPlayoffsToday()` during playoffs, falling back to the original demo set otherwise. Status reads `FINAL · GN · RX` for completed games; SWR refresh every 60s so post-game scores roll in after the daily sync without a page reload. (Commit `46dcc2f`.)
+
+### FINAL signal hardened
+nba_api's `LeagueGameFinder` returns mid-game partial scores for live games with `WL=None`. The seeder was treating any non-null `PTS` as final, polluting the bracket with games like "MIN @ DEN 19-28" labeled FINAL. Two-layer fix:
+- **Seeder** (`backend/scripts/seed_playoff_games.py`) gates score persistence on `WL ∈ {"W", "L"}`. In-progress games persist with `null` scores.
+- **Ticker** (`LiveTicker.tsx:formatStatus`) uses `winner_team_id` as the authoritative FINAL signal — only set after the WL gate flows through the bracket service. Defensive fallback shows `LIVE · G{n}` if both scores exist but no winner is marked. (Commit `3063215`.)
+
+### Comprehensive playoff data backfill
+The Sprint 73 schema + season-stat sync was insufficient to drive the MVP composite top-5 leaderboard during playoffs. Inventory check showed `season_stats` Playoffs (220) and `game_logs` Playoffs (33) populated, but `player_game_logs`, `player_play_type`, `player_hustle`, and `player_tracking` Playoffs were all 0. Without per-game stats the composite score has nothing recent to weight on.
+
+New `backend/scripts/sync_playoff_full.py` orchestrates a comprehensive playoff backfill in 8 phases:
+1. `sync_official_season_stats(is_playoff=True)`
+2. `sync_official_team_general_splits(is_playoff=True)`
+3. `sync_official_team_shooting_splits(is_playoff=True)`
+4. `seed_playoff_games` — pulls GameLogs via `LeagueGameFinder` + builds the bracket
+5. `sync_playoff_player_game_logs` — iterates each playoff GameLog, pulls CDN box scores, persists `PlayerGameLog` rows with `season_type=Playoffs`
+6. `sync_player_play_type_stats(season_type=Playoffs)` for offensive + defensive groupings
+7a. `sync_player_hustle_stats(season_type=Playoffs)`
+7b. `sync_player_tracking_stats(season_type=Playoffs)` for every player with a playoff `SeasonStat` row (~220 players × 0.6s rate-limit ≈ 2.5 min)
+8. `build_or_refresh_bracket` (final pass after data lands)
+
+The script is idempotent — safe to re-run on every cron tick. Accepts a `--fast` flag that skips the slow per-player tracking pass (step 7b).
+
+`backend/data/daily_sync.sh` now calls the script in two places:
+- **Morning AM cron**: replaces the old playoff block with `scripts/sync_playoff_full.py "$SEASON"` (full pass) — runs once a day to hydrate everything.
+- **`--post-game` cron** (11pm PT after each playoff game): adds `scripts/sync_playoff_full.py --fast "$SEASON"` after the existing fast bracket/injuries/splits refresh — pulls tonight's box scores and play-type updates so the MVP composite and leaderboards reflect the just-finished game without waiting until morning.
+
+Verified locally: post-backfill, `player_game_logs` Playoffs went from 0 → ~825 rows; `season_stats` and `game_logs` already populated; bracket has all 8 first-round series with real W-L state.
 
 ---
 
