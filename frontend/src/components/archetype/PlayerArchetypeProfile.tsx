@@ -51,7 +51,20 @@ export function PlayerArchetypeProfile({ playerId, season }: Props) {
             <div className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--muted)]">
               Role archetype · {season}
             </div>
-            <h2 className="mt-1 text-2xl font-semibold text-[var(--foreground)]">{data.label}</h2>
+            <h2
+              className="mt-1 inline-flex items-center gap-1.5 text-2xl font-semibold text-[var(--foreground)]"
+              {...(data.reason ? { title: data.reason } : {})}
+            >
+              <span>{data.label}</span>
+              {data.reason ? (
+                <span
+                  aria-hidden="true"
+                  className="inline-flex h-4 w-4 items-center justify-center rounded-full border border-[var(--border)] text-[10px] font-semibold text-[var(--muted)]"
+                >
+                  i
+                </span>
+              ) : null}
+            </h2>
           </div>
           <span
             className={`inline-flex items-center rounded-full border px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.14em] ${confidenceClasses(
