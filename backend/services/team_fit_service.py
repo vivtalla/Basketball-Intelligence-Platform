@@ -7,6 +7,7 @@ from fastapi import HTTPException
 from sqlalchemy.orm import Session
 
 from db.models import Player, SeasonStat, Team
+from models.methodology import AnalysisMetadata, DriverBreakdown
 from models.team_fit import (
     AlternativeTeamFit,
     CurrentTeamFit,
@@ -16,6 +17,11 @@ from models.team_fit import (
     TeamFitResponse,
 )
 from services.intel_math import clamp
+from services.reliability_service import (
+    confidence_from_reliability,
+    reliability_score,
+    sample_context,
+)
 from services.similarity_service import (
     MIN_GP,
     SIMILARITY_STATS_V2,
@@ -382,6 +388,87 @@ def _alternative_summary(team: str, label: str, delta: float, drivers: List[FitD
     return "{0}, with no single dominant gap-driver.".format(prefix)
 
 
+def _team_fit_metadata(
+    *,
+    current_team: Optional[CurrentTeamFit],
+    current_roster_size: int,
+    alternatives: List[AlternativeTeamFit],
+    all_rows: List[SeasonStat],
+    warnings: List[str],
+) -> AnalysisMetadata:
+    reliability = reliability_score(current_roster_size, 8)
+    drivers: List[DriverBreakdown] = [
+        DriverBreakdown(
+            key="qualified_roster_rows",
+            label="Qualified roster rows",
+            value=float(current_roster_size),
+            explanation="Team-Fit is more stable when the same-season roster has enough qualified role rows.",
+        )
+    ]
+    if current_team is not None:
+        drivers.extend(
+            [
+                DriverBreakdown(
+                    key="skill_supply",
+                    label="Skill supply",
+                    value=current_team.skill_supply_score,
+                    weight=WEIGHTS["value_supplied"],
+                    contribution=current_team.skill_supply_score,
+                    explanation="How much above-cohort skill the player supplies in areas the roster does not already cover.",
+                ),
+                DriverBreakdown(
+                    key="roster_need",
+                    label="Roster need",
+                    value=current_team.roster_need_score,
+                    weight=WEIGHTS["role_runway"],
+                    contribution=current_team.roster_need_score,
+                    explanation="How much role runway exists for the player's high-leverage skills on this roster.",
+                ),
+                DriverBreakdown(
+                    key="role_competition",
+                    label="Role competition",
+                    value=current_team.role_competition_score,
+                    weight=WEIGHTS["teammate_overlap"],
+                    contribution=current_team.role_competition_score,
+                    explanation="Overlap-adjusted room to use the player's strengths without duplicating teammates.",
+                ),
+            ]
+        )
+    if alternatives:
+        best = alternatives[0]
+        drivers.append(
+            DriverBreakdown(
+                key="best_alternative_delta",
+                label="Best alternate delta",
+                value=best.score_delta_vs_current,
+                explanation="Positive values mean the alternate roster scores higher than the current-team fit read.",
+            )
+        )
+    notes = list(warnings)
+    if current_roster_size < MIN_TEAM_PLAYERS:
+        notes.append("Current-team roster sample is below the minimum team-fit gate.")
+    return AnalysisMetadata(
+        methodology_version=METHODOLOGY_VERSION,
+        reliability_score=reliability,
+        confidence=confidence_from_reliability(reliability),
+        sample_context=sample_context(
+            sample_size=current_roster_size,
+            minimum_recommended=8,
+            population_size=len(all_rows),
+            notes=notes,
+        ),
+        driver_breakdown=drivers,
+        limitations=[
+            "Team-Fit excludes salary, contracts, trade assets, injury forecasts, and transaction feasibility.",
+            "Scores are same-season roster-fit reads, not future projections or optimized lineup simulations.",
+            "Stars with strong teammates may show overlap; the interpretation should distinguish current fit from theoretical best usage.",
+        ],
+        validation_notes=[
+            "Golden fixtures should include Tatum/BOS overlap, traded-player TOT handling, thin rosters, and obvious specialist fits.",
+        ],
+    )
+
+
 def build_team_fit_report(
     db: Session,
     player_id: int,
@@ -428,11 +515,13 @@ def build_team_fit_report(
     current_abbr = (subject_row.team_abbreviation or "").upper()
     current_team: Optional[CurrentTeamFit] = None
     current_score: Optional[float] = None
+    current_roster_size = 0
 
     if not current_abbr or current_abbr == "TOT":
         warnings.append("Current team could not be resolved, so team-fit scoring was skipped.")
     else:
         current_roster = by_team.get(current_abbr, [])
+        current_roster_size = len(current_roster)
         if len(current_roster) < MIN_TEAM_PLAYERS:
             warnings.append(
                 "{0} has only {1} qualified roster rows, below the {2}-player team-fit minimum.".format(
@@ -517,4 +606,11 @@ def build_team_fit_report(
         alternative_teams=alternatives[:max(0, min(limit, 10))],
         methodology=_methodology(),
         warnings=warnings,
+        analysis_metadata=_team_fit_metadata(
+            current_team=current_team,
+            current_roster_size=current_roster_size,
+            alternatives=alternatives,
+            all_rows=all_rows,
+            warnings=warnings,
+        ),
     )

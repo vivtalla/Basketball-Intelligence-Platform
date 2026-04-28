@@ -1,6 +1,6 @@
 # Agent Coordination
 
-Last updated: 2026-04-27 by Claude (Sprint 70 closeout reset)
+Last updated: 2026-04-28 by Codex (Sprint 71 closeout reset)
 
 > Both agents read this file before touching code at the start of every session.
 > The canonical source of truth is the clean `master` checkout at `/Users/viv/Documents/Basketball Intelligence Platform`.
@@ -14,13 +14,13 @@ Last updated: 2026-04-27 by Claude (Sprint 70 closeout reset)
 
 | Field | Value |
 |-------|-------|
-| Sprint | 71 |
-| Goal | TBD at kickoff |
-| Started | — |
-| Target merge | — |
-| Sprint shape | TBD at kickoff |
-| Branch | TBD at kickoff |
-| Worker policy | TBD at kickoff |
+| Sprint | 72 |
+| Goal | TBD — awaiting Vivek's next kickoff |
+| Started | TBD |
+| Target merge | TBD |
+| Sprint shape | TBD |
+| Branch | `master` until Sprint 72 kickoff |
+| Worker policy | No active Codex sprint; set at kickoff |
 
 ---
 
@@ -38,14 +38,14 @@ If repo state, sprint numbering, or shipped features appear to disagree across l
 ## Current Assignments
 
 ### Claude
-- Branch: TBD at kickoff
-- Scope: No active sprint assignment
-- Status: Not started
+- Branch: Independent frontend sprint branch (not owned by Codex)
+- Scope: Frontend sprint work; Codex should avoid frontend shared files unless explicitly coordinated
+- Status: Active per Vivek
 
 ### Codex
-- Branch: TBD at kickoff
+- Branch: `master` until Sprint 72 kickoff
 - Scope: No active sprint assignment
-- Status: Not started
+- Status: Sprint 71 closed and merged
 
 ---
 
@@ -58,7 +58,7 @@ Claim a shared file here before editing. If a file is already claimed, read that
 
 | File | Claimed by | Purpose |
 |------|------------|---------|
-| — | — | No active claims; claim here at the next sprint kickoff before editing shared files |
+| — | — | No active Codex claims; Claude has independent frontend work in flight, so coordinate before touching frontend shared files |
 
 ---
 
@@ -73,18 +73,19 @@ Specs or review notes written by one stream for another. Check this before start
 | `specs/sprint-history.md` | Sprint 60 | Next sprint | Reference — Sprint 60 section for X-Ray promotion + explainability parity baseline |
 | `specs/sprint-63-closeout.md` | Sprint 63 | Next sprint | Reference — Team/Insights workflow expansion baseline |
 | `specs/sprint-65-closeout.md` | Sprint 65 | Next sprint | Reference — Opportunity caching/handoff + scouting inference confidence baseline |
+| `specs/methodology-validation.md` | Sprint 71 | Next sprint | Reference — methodology golden fixtures, calibration targets, and validation checks |
 
 ---
 
 ## Merge Order
 
-TBD at kickoff. Next sprint branch/worktree is created at kickoff and merges back to `master` at closeout.
+TBD at kickoff. Next Codex sprint branch/worktree is created at kickoff and merges back to `master` at closeout.
 
 ---
 
 ## Sprint Work Allocation
 
-TBD at kickoff. Define areas and owners when the next sprint is scoped.
+Sprint 72 allocation — TBD at kickoff.
 
 | Area | Files | Owner |
 |------|-------|-------|
@@ -162,6 +163,8 @@ TBD at kickoff. Define areas and owners when the next sprint is scoped.
 ## Notes
 
 *Free-form, dated, newest first. Use this for coordination and repo-state exceptions.*
+
+2026-04-28 (Codex): Sprint 71 closed on `codex-sprint-71-methodology-rigor` and merged to `master`. Shipped methodology registry endpoints, shared reliability primitives, optional `analysis_metadata` on Shot Lab/Team-Fit/Opportunity, platform methodology updates, and `specs/methodology-validation.md`. Backend-only/docs-only by design because Claude had independent frontend work in flight. Verification: 263 backend tests, `git diff --check`, methodology coverage checks, FastAPI import smoke. Closeout: `specs/sprint-71-closeout.md`.
 
 2026-04-27 (Claude): Sprint 70 closed on `feature/sprint-70-design-system-integration` and merged to `master`. Design System Integration sprint: shipped Teams directory two-column redesign with conference filter and team detail preview, Metrics hero leader card with HeroHardwood texture (#1 ranked player, 72pt composite score), Pre-Read visual matchup header card with 6 bilateral MatchupBar comparison bars and a "Three things to win" Focus Levers section that surfaces previously-unrendered `data.focus_levers` from the API, and Compare deltas/takeaways panels (5 stat-delta cards + 3 plain-language bullets). Pure-frontend sprint with no backend changes; backend test count unchanged at 257 passing. Frontend `npm run build` and `npm run lint` clean (7 pre-existing warnings). Subagent rate-limit hit forced inline implementation — see closeout for the workflow lesson. Closeout: `specs/sprint-70-closeout.md`.
 

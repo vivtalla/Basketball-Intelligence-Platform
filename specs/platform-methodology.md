@@ -1,6 +1,6 @@
 # CourtVue Labs Platform Methodology
 
-Last updated: 2026-04-27
+Last updated: 2026-04-28
 
 This document is the canonical methodology guide for CourtVue Labs. It explains what each major analytical surface is trying to answer, which data it trusts, how metrics and scores are derived, why the current method was chosen, and where the limitations are.
 
@@ -101,6 +101,82 @@ Implementation references:
 - `backend/services/intel_math.py`
 - `backend/services/custom_metric_service.py`
 - `backend/services/similarity_service.py`
+
+---
+
+## 2A. Methodology Registry, Reliability, and Validation
+
+The rigor layer answers: which methodology is active, how stable is this read, and what validation evidence or limitations should travel with the score?
+
+Public contract:
+
+- `GET /api/methodology` lists registered domains, methodology versions, input families, sample gates, confidence rules, limitations, validation notes, docs path, and implementation references.
+- `GET /api/methodology/{domain}` returns one domain with related domains and recommended next methodology steps.
+- Registry entries also expose `last_validation_date` so stale methodology reviews are visible.
+- Analytical responses may include optional `analysis_metadata` with:
+  - `methodology_version`
+  - `reliability_score`
+  - `uncertainty_band`
+  - `sample_context`
+  - `driver_breakdown`
+  - `limitations`
+  - `validation_notes`
+
+Reliability score:
+
+```text
+reliability_score = 100 * sample_size / (sample_size + target_sample)
+```
+
+Interpretation:
+
+- The score is `50` when the sample reaches the domain target.
+- It approaches `100` as the sample grows, but never means the model is perfect.
+- Confidence labels map from reliability: high at `70+`, medium at `40+`, low below `40`.
+
+Empirical Bayes shrinkage:
+
+```text
+posterior_rate = (successes + prior_rate * prior_weight) / (attempts + prior_weight)
+
+posterior_mean =
+  (observed_mean * sample_size + prior_mean * prior_weight)
+  / (sample_size + prior_weight)
+```
+
+Uncertainty bands:
+
+- Binary outcomes can use a Wilson score interval.
+- Continuous means can use a normal approximation interval.
+- The default documentation target is a 90% interval unless a surface says otherwise.
+
+Robust normalization:
+
+```text
+robust_z = (value - median(values)) / (1.4826 * MAD(values))
+```
+
+When outliers dominate a feature, services should prefer robust or winsorized z-scores before percentile ranking. Percentiles and ranks should be interpreted after reliability adjustment, not as raw precision.
+
+Why this design:
+
+- It standardizes audit language without forcing every model into the same math.
+- It separates score construction from score trustworthiness.
+- It gives coaches readable caveats while preserving engineering traceability.
+
+Limitations:
+
+- First-pass reliability metadata is descriptive for many surfaces; not every model has completed historical calibration.
+- Reliability is sample-aware but not automatically opponent-, schedule-, or role-adjusted.
+- Confidence labels are still domain-specific summaries and should not replace the detailed sample context.
+
+Implementation references:
+
+- `backend/models/methodology.py`
+- `backend/services/methodology_registry_service.py`
+- `backend/services/reliability_service.py`
+- `backend/routers/methodology.py`
+- `specs/methodology-validation.md`
 
 ---
 
@@ -222,6 +298,8 @@ Confidence:
 - Summary confidence: high at 300+ attempts, medium at 100+, low below 100.
 - Zone/bin confidence: high at 75+ attempts, medium at 25+, low below 25.
 - Coverage states distinguish ready, partial, legacy, missing, and stale data.
+- `analysis_metadata.reliability_score` uses a 300-shot target for summary reads.
+- The summary uncertainty band uses a Wilson interval around actual FG% as a shot-making stability cue.
 
 Shot creation:
 
@@ -257,6 +335,7 @@ Limitations:
 - Shot quality is not defender-distance or contest based unless those feeds are later persisted.
 - Creation labels are directional proxies, not official play-type or tracking truth.
 - Expected value is only as good as the baseline pool and available context fields.
+- Current `shot_quality_v1` is not yet a hierarchical expected-shot model; that is the recommended upgrade path.
 
 Implementation references:
 
@@ -391,6 +470,8 @@ Current implementation details:
 - Covered features receive the Sprint 68 duplicate multiplier: `0.4x`.
 - Alternate teams are labeled a better fit only when `score_delta_vs_current >= +5.0`.
 - Teams need at least 3 qualifying player rows.
+- `analysis_metadata.reliability_score` uses qualified current-roster rows against an 8-player target.
+- `driver_breakdown` exposes skill supply, roster need, role competition, and best alternate delta when available.
 
 Why this design:
 
@@ -403,6 +484,7 @@ Limitations:
 - No salary, contracts, trade assets, injuries, probability, or future projection.
 - Position buckets are coarse: guard, forward, center, other.
 - Fit is same-season roster fit, not lineup simulation.
+- The current `+5.0` better-fit threshold is deterministic; future versions should calibrate it against historical fit examples.
 
 Implementation references:
 
@@ -520,6 +602,8 @@ Confidence:
 - High if minutes per game at least 28 and on minutes at least 500.
 - Medium if minutes per game at least 18 and on minutes at least 200.
 - Low otherwise.
+- `analysis_metadata.reliability_score` uses the full filtered candidate pool against a 25-player target.
+- Driver metadata records the composite weights so users can audit why a board ranked as it did.
 
 Why this design:
 
@@ -531,6 +615,7 @@ Limitations:
 - It is directional, not a coaching guarantee.
 - Same-team lineup context can miss league-wide role fit.
 - On/off and lineup inputs are sample-sensitive.
+- The current model is not yet a true role-expansion uplift model; efficiency-survival risk is a planned rigor upgrade.
 
 Implementation references:
 

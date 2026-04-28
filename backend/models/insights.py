@@ -2,6 +2,8 @@ from typing import Dict, List, Optional
 
 from pydantic import BaseModel
 
+from models.methodology import AnalysisMetadata
+
 
 class TrajectoryDriverContribution(BaseModel):
     signal: str
@@ -203,3 +205,4 @@ class OpportunityResponse(BaseModel):
     team_rollup: Optional[OpportunityTeamRollup] = None
     methodology: OpportunityMethodology
     warnings: List[str] = []
+    analysis_metadata: Optional[AnalysisMetadata] = None

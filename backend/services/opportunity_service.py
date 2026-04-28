@@ -24,6 +24,7 @@ from typing import Any, Dict, List, Optional, Tuple
 from sqlalchemy.orm import Session
 
 from db.models import LineupStats, Player, PlayerOnOff, SeasonStat
+from models.methodology import AnalysisMetadata, DriverBreakdown
 from models.insights import (
     OpportunityCompareHandoff,
     OpportunityDriverContribution,
@@ -33,6 +34,11 @@ from models.insights import (
     OpportunityRoleFit,
     OpportunityTeammate,
     OpportunityTeamRollup,
+)
+from services.reliability_service import (
+    confidence_from_reliability,
+    reliability_score,
+    sample_context,
 )
 
 
@@ -171,6 +177,48 @@ def _confidence(minutes_pg: Optional[float], on_minutes: Optional[float]) -> str
     if mp >= thresh_m["medium"] and om >= thresh_o["medium"]:
         return "medium"
     return "low"
+
+
+def _opportunity_metadata(
+    *,
+    row_count: int,
+    visible_count: int,
+    methodology: OpportunityMethodology,
+    warnings: List[str],
+) -> AnalysisMetadata:
+    reliability = reliability_score(row_count, 25)
+    drivers = [
+        DriverBreakdown(
+            key=signal,
+            label=signal.replace("_", " ").title(),
+            weight=weight,
+            explanation="Opportunity signal weight in the capped z-score composite.",
+        )
+        for signal, weight in methodology.weights.items()
+    ]
+    notes = list(warnings)
+    if visible_count < row_count:
+        notes.append("Only the top visible rows are returned, but reliability is based on the full filtered pool.")
+    return AnalysisMetadata(
+        methodology_version=METHODOLOGY_VERSION,
+        reliability_score=reliability,
+        confidence=confidence_from_reliability(reliability),
+        sample_context=sample_context(
+            sample_size=row_count,
+            minimum_recommended=25,
+            population_size=row_count,
+            notes=notes,
+        ),
+        driver_breakdown=drivers,
+        limitations=[
+            "Opportunity is an interpretable descriptive composite, not a causal uplift estimate yet.",
+            "Lineup synergy and on/off signals remain sample-sensitive and should be read with possession context.",
+            "The current model does not yet estimate whether efficiency will survive a larger role.",
+        ],
+        validation_notes=[
+            "Rigor-layer follow-up should add comparable-player role-expansion backtests and downside-risk calibration.",
+        ],
+    )
 
 
 def _bulk_lineup_synergy(
@@ -339,6 +387,12 @@ def build_opportunity_report(
             team_rollup=None,
             methodology=methodology,
             warnings=["No qualifying players matched the current season/team/minutes filters."],
+            analysis_metadata=_opportunity_metadata(
+                row_count=0,
+                visible_count=0,
+                methodology=methodology,
+                warnings=["No qualifying players matched the current season/team/minutes filters."],
+            ),
         )
 
     # Pull on/off data and lineup synergy in bulk (scoped to the pool).
@@ -618,6 +672,12 @@ def build_opportunity_report(
         team_rollup=team_rollup,
         methodology=methodology,
         warnings=warnings,
+        analysis_metadata=_opportunity_metadata(
+            row_count=len(rows),
+            visible_count=len(top_rows),
+            methodology=methodology,
+            warnings=warnings,
+        ),
     )
     if use_cache:
         _OPPORTUNITY_CACHE[cache_key] = (

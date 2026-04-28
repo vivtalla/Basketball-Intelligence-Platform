@@ -262,6 +262,15 @@ CourtVue Labs uses a hybrid sprint model: major feature sprints typically run as
 
 > Full history → `specs/sprint-history.md`
 
+### Sprint 71 — Methodology Rigor Layer
+
+- Backend/docs-only sprint that added the shared methodology registry, methodology Pydantic contracts, `GET /api/methodology`, and `GET /api/methodology/{domain}`.
+- Added shared reliability primitives for empirical Bayes shrinkage, reliability scoring, confidence labels, Wilson/normal uncertainty bands, robust z-scores, winsorized z-scores, and sample context.
+- Added optional `analysis_metadata` to Shot Lab, Team-Fit, and Opportunity responses, preserving current frontend contracts while making reliability, drivers, limitations, and validation notes available to clients.
+- Updated `specs/platform-methodology.md`, added `specs/methodology-validation.md`, and refreshed backlog/coordination docs around calibration follow-ons.
+- Verified with **263 backend tests**, `git diff --check`, methodology doc coverage checks, and FastAPI `main` import smoke.
+- Frontend intentionally untouched because Claude had a parallel independent frontend sprint in flight.
+
 ### Sprint 70 — Design System Integration
 
 - Pure-frontend sprint bringing the CourtVue Labs design system (cream/forest-green/gold palette, Source Serif 4 display, Source Sans 3 sans, JetBrains Mono mono) deeper into Teams, Metrics, Pre-Read, and Compare. Built from a gzipped tarball of HTML/JSX prototypes at `https://api.anthropic.com/v1/design/h/cs_JsS8pYIm1mYPQ8INqJQ`.
@@ -272,15 +281,7 @@ CourtVue Labs uses a hybrid sprint model: major feature sprints typically run as
 - Backend untouched; backend test count stays at **257 passing**. Frontend `npm run build` and `npm run lint` clean (7 pre-existing `usePlayerStats.ts` warnings).
 - Subagent rate-limit hit forced inline implementation — see closeout `specs/sprint-70-closeout.md` for the workflow lesson on when not to fan out.
 
-### Sprint 69 — Team-Fit Intelligence and Injury-Aware Context
-
-- Shipped **Team-Fit Intelligence v2**: new `GET /api/team-fit/{player_id}` endpoint, deterministic current-team fit scoring, alternate-team ranking, component breakdowns (`skill_supply`, `roster_need`, `role_competition`, `confidence`), score deltas, warnings, methodology, and frontend `<TeamFitPanel>`.
-- Upgraded Team-Fit explainability across similarity and player page: teammate-covered feature chips, overlap drivers, current-team value summaries, "team needs from him" drivers, better-fit rationale, and latest-qualified-season fallback for incomplete current-season rows.
-- Added the **analysis context platform**: Alembic `0011_player_analysis_contexts`, `PlayerAnalysisContext` ORM, manual context CRUD routes, automatic injury/recovery windows from `player_injuries`, and a player-page settings drawer for manual injury/recovery/availability notes.
-- Made **Player Trend Intelligence injury-aware**: role drops inside injury/recovery/availability windows now surface `adjusted_role_status="injury_context"` and context-aware copy instead of blunt `losing_trust`, while raw deltas remain visible.
-- Verified with **257 backend tests**, frontend `npm run build`, frontend `npm run lint` (7 pre-existing warnings), `git diff --check`, local Alembic migration, and closeout cleanup of local backend/frontend servers plus ports 8000/3000.
-
-*Sprint 68 and older moved to `specs/sprint-history.md`.*
+*Sprint 69 and older moved to `specs/sprint-history.md`.*
 
 ---
 
@@ -303,6 +304,7 @@ CourtVue Labs uses a hybrid sprint model: major feature sprints typically run as
 | `feature/sprint-68-decision-intelligence-followups` | Claude | Merged to master |
 | `codex-sprint-69-team-fit-intelligence` | Codex | Merged to master |
 | `feature/sprint-70-design-system-integration` | Claude | Merged to master |
+| `codex-sprint-71-methodology-rigor` | Codex | Merged to master |
 
 Sprint branches are created at kickoff and listed in `AGENTS.md`.
 

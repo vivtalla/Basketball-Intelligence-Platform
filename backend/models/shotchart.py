@@ -4,6 +4,8 @@ from typing import Dict, List, Optional, Union
 
 from pydantic import BaseModel
 
+from models.methodology import AnalysisMetadata, UncertaintyBand
+
 
 class ShotChartShot(BaseModel):
     loc_x: int
@@ -85,6 +87,8 @@ class ShotQualitySummary(BaseModel):
     expected_pps: Optional[float] = None
     pps_delta: Optional[float] = None
     confidence: str = "low"
+    reliability_score: Optional[float] = None
+    uncertainty_band: Optional[UncertaintyBand] = None
 
 
 class ShotReplayExample(BaseModel):
@@ -153,6 +157,7 @@ class ShotQualityResponse(BaseModel):
     summary: ShotQualitySummary
     bins: List[ShotQualityBin]
     zones: List[ShotQualityZone]
+    analysis_metadata: Optional[AnalysisMetadata] = None
 
 
 class ShotCreationSplit(BaseModel):

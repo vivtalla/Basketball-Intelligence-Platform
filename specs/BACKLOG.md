@@ -102,6 +102,16 @@ Likely shape:
 
 ## Now — Decision Intelligence
 
+### Methodology Reliability and Calibration Follow-Ons
+Why it matters:
+Sprint 71 added the platform methodology registry, shared reliability primitives, response-level `analysis_metadata`, and validation docs. The next value is turning that foundation into calibrated model upgrades and visible analyst-facing trust language across the product.
+
+Likely shape:
+- render registry-backed methodology and response-level reliability metadata in the relevant methodology drawers once frontend ownership is clear
+- add service-level golden fixture harnesses for Shot Lab, Team-Fit, Similarity, Trend, Opportunity, Style X-Ray, MVP, and Custom Metrics
+- calibrate thresholds with historical examples where labels exist, while keeping raw descriptive metrics visible
+- require new methodology versions to update `specs/platform-methodology.md`, registry metadata, validation notes, and proxy limitation language
+
 ### Archetype Peer-Pool Composition Explainer
 Why it matters:
 Sprint 67 + 68 made the player archetype engine the reference point for role labels, similarity, and scouting-brief content. Borderline classifications (Lu Dort 2024-25 → `movement_shooter` rather than `switchable_stopper`) are honest but surprising. The methodology drawer documents the rules but not the *peer pool* — analysts can't tell why their player did or didn't qualify, or what features were sample-gated out.
@@ -120,12 +130,13 @@ Likely shape:
 
 ### Team-Fit Calibration and Context Expansion
 Why it matters:
-Sprint 69 turned Team-Fit into an auditable player-page surface with current-team value, teammate overlap, alternate-team ranking, and methodology v2 score components. The next gains are calibration and deeper context: analysts should trust that the score behaves sensibly for stars, specialists, traded players, thin rosters, and injury-affected seasons.
+Sprint 69 turned Team-Fit into an auditable player-page surface with current-team value, teammate overlap, alternate-team ranking, and methodology v2 score components. Sprint 71 added reliability metadata and validation framing. The next gains are calibration and deeper context: analysts should trust that the score behaves sensibly for stars, specialists, traded players, thin rosters, and injury-affected seasons.
 
 Likely shape:
 - build a small pressure-test gallery for Team-Fit examples such as Tatum/BOS overlap, specialist shooters, defensive anchors, traded/TOT seasons, and bad-fit obvious cases
 - tune component weighting and confidence notes against those examples without adding salary, trade-value, contract, or probability modeling
 - thread player analysis contexts into Team-Fit confidence/risk language when injury, recovery, or availability windows make recent role signals less reliable
+- calibrate the better-fit threshold beyond the current deterministic `+5` rule and distinguish current-team fit from theoretical best usage
 
 ### Analysis Context Rollout
 Why it matters:
@@ -237,11 +248,12 @@ Likely shape:
 
 ### Opportunity Workspace Follow-Ons
 Why it matters:
-Sprint 65 closed out the core Opportunity follow-ons (TTL cache, compare-handoff peers, role-fit AST/TOV depth, directional-hint gating calibration, and the long-standing `UsageEfficiencyDashboard.tsx` → `OpportunityDashboard.tsx` rename). The remaining gains are about expanding the peer model beyond same-team scope and continuing to tune against real roster cases.
+Sprint 65 closed out the core Opportunity follow-ons (TTL cache, compare-handoff peers, role-fit AST/TOV depth, directional-hint gating calibration, and the long-standing `UsageEfficiencyDashboard.tsx` → `OpportunityDashboard.tsx` rename). Sprint 71 added response-level reliability metadata for Opportunity. The remaining gains are about expanding the peer model beyond same-team scope and upgrading the composite into a more rigorous role-expansion read.
 
 Likely shape:
 - expand Compare handoff peer lookup to league-wide positional cohorts instead of only the currently-scoped team, so a same-team handoff on BOS can still surface league-wide G peers when that is the intent
 - keep tuning directional hints and confidence labels against real roster cases
+- add comparable-player role-expansion backtests, expected upside/downside bands, and evidence-strength notes
 - lift `_position_bucket` out of `opportunity_service.py` into a shared helper and switch `trajectory_service` plus any future callers, so bucket rules cannot drift between surfaces
 
 ### Pre-Read Deck Follow-Ons
@@ -403,9 +415,10 @@ Likely shape:
 
 ### Probabilistic / ML-Backed Models
 Why it matters:
-All CourtVue intelligence today is deterministic: z-score rules for archetypes, weighted Euclidean distance for similarity, arithmetic templates for scouting copy. This is the right discipline for an auditable coaching product, but some signals (injury risk, breakout probability, aging curve shape) are inherently probabilistic and would benefit from learned models.
+CourtVue intelligence is still primarily deterministic: z-score rules for archetypes, weighted Euclidean distance for similarity, arithmetic templates for scouting copy. Sprint 71 added the methodology registry, reliability primitives, and validation documentation needed to introduce more advanced models responsibly. Some signals (shot-making stabilization, role expansion, trend change detection, aging curve shape) are inherently probabilistic and would benefit from learned or Bayesian models.
 
 Likely shape:
 - identify 1–2 narrow, high-value prediction targets where a trained model meaningfully outperforms a heuristic (aging curve trajectory is the clearest candidate)
 - keep deterministic rule engines as the default for all classification and diagnosis work — ML is additive, not a replacement
 - gate any model output behind an explicit confidence + methodology disclosure so the product’s auditability brand is preserved
+- require model cards, calibration notes, uncertainty bands, and explainable driver breakdowns before any probabilistic output becomes product-facing

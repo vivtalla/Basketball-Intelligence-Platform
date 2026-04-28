@@ -8,6 +8,7 @@ from typing import Dict, Iterable, List, Optional, Sequence, Tuple
 from sqlalchemy.orm import Session
 
 from db.models import PlayerShotChart, ShotQualityBaseline
+from models.methodology import AnalysisMetadata, DriverBreakdown
 from models.shotchart import (
     ShotCreationResponse,
     ShotCreationSplit,
@@ -21,6 +22,12 @@ from models.shotchart import (
     ShotQualitySummary,
     ShotQualityZone,
     ShotReplayExample,
+)
+from services.reliability_service import (
+    confidence_from_reliability,
+    reliability_score,
+    sample_context,
+    wilson_interval,
 )
 from services.shot_lab_service import summarize_shot_completeness
 
@@ -452,7 +459,7 @@ def _filters_echo(
 
 def _quality_summary(attempts: int, made: int, points: int, expected_points: float, expected_makes: float) -> ShotQualitySummary:
     if attempts <= 0:
-        return ShotQualitySummary(shots=0, confidence="low")
+        return ShotQualitySummary(shots=0, confidence="low", reliability_score=0.0)
     actual_fg = made / attempts
     actual_pps = points / attempts
     actual_efg = points / (2.0 * attempts)
@@ -460,6 +467,7 @@ def _quality_summary(attempts: int, made: int, points: int, expected_points: flo
     expected_pps = expected_points / attempts
     expected_efg = expected_points / (2.0 * attempts)
     confidence = "high" if attempts >= 300 else "medium" if attempts >= 100 else "low"
+    reliability = reliability_score(attempts, 300)
     return ShotQualitySummary(
         shots=attempts,
         actual_fg_pct=_round(actual_fg),
@@ -472,6 +480,63 @@ def _quality_summary(attempts: int, made: int, points: int, expected_points: flo
         expected_pps=_round(expected_pps),
         pps_delta=_round(actual_pps - expected_pps),
         confidence=confidence,
+        reliability_score=reliability,
+        uncertainty_band=wilson_interval(made, attempts),
+    )
+
+
+def _shot_quality_metadata(
+    *,
+    attempts: int,
+    made: int,
+    summary: ShotQualitySummary,
+    coverage: ShotIntelligenceCoverage,
+    available_shots: Sequence[dict],
+) -> AnalysisMetadata:
+    reliability = reliability_score(attempts, 300)
+    notes = [coverage.note]
+    if attempts < 100:
+        notes.append("Shot-making deltas are sample-sensitive below 100 attempts.")
+    return AnalysisMetadata(
+        methodology_version=METHODOLOGY_VERSION,
+        reliability_score=reliability,
+        confidence=confidence_from_reliability(reliability),
+        uncertainty_band=wilson_interval(made, attempts),
+        sample_context=sample_context(
+            sample_size=attempts,
+            minimum_recommended=300,
+            population_size=len(available_shots),
+            notes=notes,
+        ),
+        driver_breakdown=[
+            DriverBreakdown(
+                key="coverage",
+                label="Context coverage",
+                value=coverage.completeness_pct,
+                explanation="Higher contextual coverage means expected-shot baselines can use more specific buckets.",
+            ),
+            DriverBreakdown(
+                key="attempts",
+                label="Shot sample",
+                value=float(attempts),
+                explanation="Reliability is scaled toward a 300-shot stabilization target for player/team shot reads.",
+            ),
+            DriverBreakdown(
+                key="pps_delta",
+                label="Points over expected",
+                value=summary.pps_delta,
+                contribution=summary.pps_delta,
+                explanation="Actual points per shot minus context-adjusted expected points per shot.",
+            ),
+        ],
+        limitations=[
+            "Shot quality is context/location based; it is not a defender-distance or tracking contest model.",
+            "Action family and creation context are proxy labels when play-by-play linkage is incomplete.",
+            "Small samples can show large make/miss swings, so shot-making reads should use the uncertainty band.",
+        ],
+        validation_notes=[
+            "V1 reliability metadata is descriptive; hierarchical held-out calibration is tracked in specs/methodology-validation.md.",
+        ],
     )
 
 
@@ -706,6 +771,7 @@ def build_shot_quality_response(
     zones.sort(key=lambda row: row.frequency, reverse=True)
 
     coverage = _coverage(data_status, available_shots, filtered_shots)
+    summary = _quality_summary(attempts, made, points, expected_points, expected_makes)
     return ShotQualityResponse(
         subject_type=subject_type,
         subject_id=subject_id,
@@ -716,9 +782,16 @@ def build_shot_quality_response(
         coverage_state=coverage.state,
         coverage=coverage,
         methodology=QUALITY_METHODOLOGY,
-        summary=_quality_summary(attempts, made, points, expected_points, expected_makes),
+        summary=summary,
         bins=bins[:18],
         zones=zones,
+        analysis_metadata=_shot_quality_metadata(
+            attempts=attempts,
+            made=made,
+            summary=summary,
+            coverage=coverage,
+            available_shots=available_shots,
+        ),
     )
 
 

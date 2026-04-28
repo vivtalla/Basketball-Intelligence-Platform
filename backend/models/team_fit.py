@@ -2,6 +2,8 @@ from typing import Dict, List, Optional
 
 from pydantic import BaseModel
 
+from models.methodology import AnalysisMetadata
+
 
 class FitDriver(BaseModel):
     feature_key: str
@@ -82,3 +84,4 @@ class TeamFitResponse(BaseModel):
     alternative_teams: List[AlternativeTeamFit] = []
     methodology: TeamFitMethodology
     warnings: List[str] = []
+    analysis_metadata: Optional[AnalysisMetadata] = None

@@ -813,3 +813,25 @@ Eliminated live NBA API calls on every player profile load:
 - Rebuilt `/pre-read` around a packet workflow: packet library tabs, inline packet metadata editing, scouting-packet rendering, and snapshot-level `Open` / `Copy share link` / `Export markdown` actions.
 - Added ScoutingReportView packet pinning so analysts can carry up to 3 claims with confidence pills and ranked clip anchors directly into the saved Pre-Read packet.
 - Verified with targeted Sprint 66 backend tests, full backend `pytest` (196 passing), frontend `npm run build`, frontend `npm run lint` with pre-existing warnings only, and a live manual smoke walkthrough after applying the local Postgres migration.
+
+---
+
+### Sprint 69 — Team-Fit Intelligence and Injury-Aware Context
+**Branch:** `codex-sprint-69-team-fit-intelligence` (Codex, single-stream)
+
+- Shipped Team-Fit Intelligence v2 with `GET /api/team-fit/{player_id}`, current-team fit scoring, alternate-team ranking, score components, warnings, methodology, and frontend `<TeamFitPanel>`.
+- Added Team-Fit overlap explanations in similarity/player-page surfaces, including teammate-covered feature chips and latest-qualified-season fallback for incomplete current-season rows.
+- Added persisted analysis contexts, manual context CRUD routes, automatic injury/recovery windows from `player_injuries`, and a player-page settings drawer.
+- Made Player Trend Intelligence injury-aware so injury/recovery/availability windows can adjust `losing_trust` reads without hiding raw deltas.
+- Verified with 257 backend tests, frontend build/lint, `git diff --check`, local Alembic migration, and server cleanup.
+
+---
+
+### Sprint 71 — Methodology Rigor Layer
+**Branch:** `codex-sprint-71-methodology-rigor` (Codex, backend/docs-only)
+
+- Added shared methodology contracts, registry service, and `GET /api/methodology` / `GET /api/methodology/{domain}`.
+- Added reliability primitives for empirical Bayes shrinkage, reliability scoring, confidence mapping, uncertainty bands, robust z-scores, winsorized z-scores, and sample context.
+- Added optional `analysis_metadata` to Shot Lab, Team-Fit, and Opportunity responses so clients can inspect reliability, drivers, limitations, and validation notes without breaking existing consumers.
+- Updated `specs/platform-methodology.md`, added `specs/methodology-validation.md`, refreshed backlog/coordination docs, and intentionally avoided frontend files during Claude's parallel frontend sprint.
+- Verified with 263 backend tests, `git diff --check`, methodology doc coverage checks, and FastAPI `main` import smoke.

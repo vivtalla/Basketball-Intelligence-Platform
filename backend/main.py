@@ -16,6 +16,7 @@ from routers import (
     insights,
     leaderboards,
     metrics,
+    methodology,
     mvp,
     players,
     pre_read,
@@ -69,6 +70,7 @@ app.include_router(trends.router, prefix="/api/trends", tags=["trends"])
 app.include_router(trends.scenarios_router, prefix="/api/scenarios", tags=["scenarios"])
 app.include_router(warehouse.router, prefix="/api/warehouse", tags=["warehouse"])
 app.include_router(metrics.router, prefix="/api/metrics", tags=["metrics"])
+app.include_router(methodology.router, prefix="/api/methodology", tags=["methodology"])
 app.include_router(injuries.router, prefix="/api/injuries", tags=["injuries"])
 app.include_router(query.router, prefix="/api/query", tags=["query"])
 app.include_router(mvp.router, prefix="/api/mvp", tags=["mvp"])
