@@ -5,6 +5,7 @@ import Image from "next/image";
 import type { PlayerProfile, CareerStatsResponse, SeasonStats, PlayerAvailabilitySlot } from "@/lib/types";
 import { usePlayerPercentiles, usePlayerShotIdentity } from "@/hooks/usePlayerStats";
 import DualCareerArcChart from "./DualCareerArcChart";
+import HeroHardwood from "./HeroHardwood";
 import InjuryStatusBadge from "./InjuryStatusBadge";
 import ShotIdentityBadges from "./ShotIdentityBadges";
 
@@ -96,10 +97,12 @@ function PlayerAvatar({
   profile,
   align,
   availability,
+  nameColor,
 }: {
   profile: PlayerProfile;
   align: "left" | "right";
   availability?: PlayerAvailabilitySlot | null;
+  nameColor?: string;
 }) {
   return (
     <div className={`flex items-center gap-3 ${align === "right" ? "flex-row-reverse text-right" : ""}`}>
@@ -115,7 +118,12 @@ function PlayerAvatar({
         ) : null}
       </div>
       <div>
-        <div className="leading-tight font-bold text-[var(--foreground)]">{profile.full_name}</div>
+        <div
+          className="leading-tight font-bold"
+          style={{ color: nameColor ?? "var(--foreground)" }}
+        >
+          {profile.full_name}
+        </div>
         <div className="mt-0.5 text-xs text-[var(--muted)]">
           {profile.team_name || "Free Agent"} · {profile.position || "—"}
         </div>
@@ -124,6 +132,57 @@ function PlayerAvatar({
             <InjuryStatusBadge availability={availability} />
           </div>
         ) : null}
+      </div>
+    </div>
+  );
+}
+
+function scrollToPlayerSlot(): void {
+  if (typeof document === "undefined") return;
+  const inputs = document.querySelectorAll<HTMLInputElement>('input.bip-input[placeholder^="Search Player"]');
+  const target = inputs[0];
+  if (target) {
+    target.scrollIntoView({ behavior: "smooth", block: "center" });
+    target.focus({ preventScroll: true });
+    return;
+  }
+  window.scrollTo({ top: 0, behavior: "smooth" });
+}
+
+function PlayerHeaderCard({
+  profile,
+  align,
+  availability,
+  tint,
+  seed,
+  nameColor,
+}: {
+  profile: PlayerProfile;
+  align: "left" | "right";
+  availability?: PlayerAvailabilitySlot | null;
+  tint: string;
+  seed: number;
+  nameColor: string;
+}) {
+  return (
+    <div className="bip-panel relative overflow-hidden rounded-[1.6rem] p-5">
+      <HeroHardwood opacity={0.05} tint={tint} seed={seed} />
+      <div className="relative">
+        <PlayerAvatar
+          profile={profile}
+          align={align}
+          availability={availability}
+          nameColor={nameColor}
+        />
+        <div className={`mt-3 flex ${align === "right" ? "justify-end" : "justify-start"}`}>
+          <button
+            type="button"
+            onClick={scrollToPlayerSlot}
+            className="rounded-full border border-[var(--border)] bg-[rgba(255,249,241,0.7)] px-3 py-1 text-[11px] font-medium text-[var(--muted)] transition-colors hover:border-[var(--accent)] hover:text-[var(--accent)]"
+          >
+            Change player ▾
+          </button>
+        </div>
       </div>
     </div>
   );
@@ -303,8 +362,22 @@ export default function ComparisonView({ playerA, playerB, availabilityA, availa
     <div className="space-y-6">
       {/* Player headers */}
       <div className="grid grid-cols-2 gap-4">
-        <PlayerAvatar profile={playerA.profile} align="left" availability={availabilityA} />
-        <PlayerAvatar profile={playerB.profile} align="right" availability={availabilityB} />
+        <PlayerHeaderCard
+          profile={playerA.profile}
+          align="left"
+          availability={availabilityA}
+          tint="#21483b"
+          seed={3}
+          nameColor="var(--accent)"
+        />
+        <PlayerHeaderCard
+          profile={playerB.profile}
+          align="right"
+          availability={availabilityB}
+          tint="#b4893d"
+          seed={9}
+          nameColor="var(--signal)"
+        />
       </div>
 
       {((identityA?.cards?.length ?? 0) > 0 || (identityB?.cards?.length ?? 0) > 0) && (

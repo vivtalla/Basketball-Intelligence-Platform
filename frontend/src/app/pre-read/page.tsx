@@ -167,7 +167,7 @@ function PreReadPageInner() {
             Make Pre-Read the canonical coaching packet: focus levers, tactical adjustments, packet-ready scouting claims, and the fastest path into compare or replay when the staff wants more detail.
           </p>
         </div>
-        <div className="flex flex-wrap justify-end gap-3">
+        <div className="flex flex-wrap justify-end gap-3 print:hidden">
           <button
             type="button"
             onClick={() => window.print()}
@@ -200,7 +200,7 @@ function PreReadPageInner() {
         </div>
       ) : null}
 
-      <section className="flex rounded-xl overflow-hidden border border-[var(--border)] w-fit text-sm">
+      <section className="flex rounded-xl overflow-hidden border border-[var(--border)] w-fit text-sm print:hidden">
         <button
           type="button"
           onClick={() => setMode("briefing")}
@@ -330,6 +330,39 @@ function PreReadPageInner() {
 
         {packetMessage ? <div className="mt-4 text-sm text-[var(--muted-strong)]">{packetMessage}</div> : null}
       </section>
+
+      {data?.prep_context?.urgency ? (
+        <div className="flex justify-center">
+          <span
+            className="inline-flex items-center gap-2 rounded-full border px-4 py-1.5 text-xs font-semibold uppercase tracking-[0.16em]"
+            style={(() => {
+              const u = data.prep_context.urgency.toLowerCase();
+              if (u.includes("urgent") || u.includes("critical") || u.includes("high")) {
+                return {
+                  color: "var(--danger-ink)",
+                  borderColor: "rgba(176,70,70,0.4)",
+                  background: "rgba(176,70,70,0.10)",
+                };
+              }
+              if (u.includes("monitor") || u.includes("watch") || u.includes("medium")) {
+                return {
+                  color: "var(--signal)",
+                  borderColor: "rgba(180,137,61,0.4)",
+                  background: "rgba(180,137,61,0.10)",
+                };
+              }
+              return {
+                color: "var(--accent)",
+                borderColor: "rgba(33,72,59,0.32)",
+                background: "rgba(33,72,59,0.08)",
+              };
+            })()}
+          >
+            <span className="h-2 w-2 rounded-full" style={{ background: "currentColor" }} />
+            {data.prep_context.urgency}
+          </span>
+        </div>
+      ) : null}
 
       {/* Matchup header card — visual preview of the selected matchup */}
       {activeTeam && activeOpponent ? (
@@ -548,7 +581,7 @@ function PreReadPageInner() {
 
       {/* Focus levers — three things to win, in design's FocusLever card style */}
       {data?.focus_levers && data.focus_levers.length > 0 ? (
-        <section>
+        <section data-print-break-before>
           <p className="bip-kicker">Focus levers</p>
           <h2 className="bip-display mt-1 text-2xl font-semibold text-[var(--foreground)]">
             Three things to win.
@@ -592,6 +625,13 @@ function PreReadPageInner() {
               );
             })}
           </div>
+        </section>
+      ) : null}
+
+      {data?.prep_context?.headline ? (
+        <section className="rounded-[1.5rem] border border-[var(--border)] bg-[rgba(255,249,241,0.86)] px-5 py-4">
+          <p className="bip-kicker mb-1" style={{ color: "var(--signal)" }}>Headline</p>
+          <p className="text-base leading-7 text-[var(--foreground)]">{data.prep_context.headline}</p>
         </section>
       ) : null}
 

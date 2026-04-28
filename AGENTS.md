@@ -1,6 +1,6 @@
 # Agent Coordination
 
-Last updated: 2026-04-28 by Codex (Sprint 71 closeout reset)
+Last updated: 2026-04-28 by Claude (Sprint 72 closeout reset)
 
 > Both agents read this file before touching code at the start of every session.
 > The canonical source of truth is the clean `master` checkout at `/Users/viv/Documents/Basketball Intelligence Platform`.
@@ -14,13 +14,13 @@ Last updated: 2026-04-28 by Codex (Sprint 71 closeout reset)
 
 | Field | Value |
 |-------|-------|
-| Sprint | 72 |
+| Sprint | 73 |
 | Goal | TBD — awaiting Vivek's next kickoff |
 | Started | TBD |
 | Target merge | TBD |
 | Sprint shape | TBD |
-| Branch | `master` until Sprint 72 kickoff |
-| Worker policy | No active Codex sprint; set at kickoff |
+| Branch | `master` until Sprint 73 kickoff |
+| Worker policy | TBD at kickoff |
 
 ---
 
@@ -38,12 +38,12 @@ If repo state, sprint numbering, or shipped features appear to disagree across l
 ## Current Assignments
 
 ### Claude
-- Branch: Independent frontend sprint branch (not owned by Codex)
-- Scope: Frontend sprint work; Codex should avoid frontend shared files unless explicitly coordinated
-- Status: Active per Vivek
+- Branch: TBD at kickoff
+- Scope: No active sprint assignment
+- Status: Sprint 72 closed and merged
 
 ### Codex
-- Branch: `master` until Sprint 72 kickoff
+- Branch: TBD at kickoff
 - Scope: No active sprint assignment
 - Status: Sprint 71 closed and merged
 
@@ -58,7 +58,7 @@ Claim a shared file here before editing. If a file is already claimed, read that
 
 | File | Claimed by | Purpose |
 |------|------------|---------|
-| — | — | No active Codex claims; Claude has independent frontend work in flight, so coordinate before touching frontend shared files |
+| — | — | No active claims; claim here at the next sprint kickoff before editing shared files |
 
 ---
 
@@ -79,13 +79,13 @@ Specs or review notes written by one stream for another. Check this before start
 
 ## Merge Order
 
-TBD at kickoff. Next Codex sprint branch/worktree is created at kickoff and merges back to `master` at closeout.
+TBD at kickoff. Next sprint branch/worktree is created at kickoff and merges back to `master` at closeout.
 
 ---
 
 ## Sprint Work Allocation
 
-Sprint 72 allocation — TBD at kickoff.
+TBD at kickoff. Define areas and owners when the next sprint is scoped.
 
 | Area | Files | Owner |
 |------|-------|-------|
@@ -163,6 +163,8 @@ Sprint 72 allocation — TBD at kickoff.
 ## Notes
 
 *Free-form, dated, newest first. Use this for coordination and repo-state exceptions.*
+
+2026-04-28 (Claude): Sprint 72 closed on `feature/sprint-72-design-system-closeout` and merged to `master`. Design System Closeout + Visual Polish sprint: shipped every Sprint 70 backlog item plus the API payload audit's top 5 free UI wins plus a basketball polish pass. Stream A (design follow-ons): home league-leaders TREND sparkline column with new `/api/leaderboards/{stat}/trends` endpoint + `<Sparkline>` SVG primitive, Compare PlayerCard hardwood headers with color-coded names, MVP candidate-card hardwood + ★#1 chrome (richness preserved per user decision), `/learn/design-system` showcase page consolidating all Sprint 70+72 primitives, Pre-Read print stylesheet for clean coach-handoff PDFs. Stream B (API audit): Pre-Read `prep_context.urgency` badge + `headline` callout, MVP `support_burden` "Teammate quality" sub-card, Player archetype `reason` tooltip, RoleFitCard `hint` discoverability icon. Stream C: FloatingBall polish (specular shine, varied seam weights, two-layer shadow, four-stop fill). Architecture used Architect → 4 parallel Engineers → Reviewer → Optimizer per CLAUDE.md sprint process. Verification: 266 backend tests (was 263, +3 sparkline), `npm run build` + `npm run lint` clean (7 pre-existing warnings). Closeout: `specs/sprint-72-closeout.md`.
 
 2026-04-28 (Codex): Sprint 71 closed on `codex-sprint-71-methodology-rigor` and merged to `master`. Shipped methodology registry endpoints, shared reliability primitives, optional `analysis_metadata` on Shot Lab/Team-Fit/Opportunity, platform methodology updates, and `specs/methodology-validation.md`. Backend-only/docs-only by design because Claude had independent frontend work in flight. Verification: 263 backend tests, `git diff --check`, methodology coverage checks, FastAPI import smoke. Closeout: `specs/sprint-71-closeout.md`.
 

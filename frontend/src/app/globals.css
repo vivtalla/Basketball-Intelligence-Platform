@@ -415,3 +415,80 @@ select {
   opacity: 0;
   animation: fade-up 0.55s ease-out forwards;
 }
+
+/* ─── Sprint 70/72 hero animations ─────────────────────────────── */
+@keyframes cv-ball-float {
+  0%, 100% { transform: translateY(0) rotate(-12deg); }
+  50%      { transform: translateY(-10px) rotate(8deg); }
+}
+
+/* Honor user accessibility preference for reduced motion across the app
+   (FloatingBall, LiveTicker, LiveShotPulse, fade-up, etc.). Pinning all
+   animation/transition durations to 0.001ms preserves end-state visuals
+   without the motion. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+  }
+}
+
+/* ============================================================
+   Print stylesheet — coach handoff PDF rendering
+   ============================================================ */
+@media print {
+  @page {
+    margin: 14mm;
+    size: A4 portrait;
+  }
+
+  /* Reset surface backgrounds for clean print */
+  body,
+  .bip-shell {
+    background: #ffffff !important;
+    color: #1a1a1a !important;
+  }
+
+  /* Hide app chrome */
+  nav,
+  [data-print-hide],
+  .print\:hidden {
+    display: none !important;
+  }
+
+  /* Make panels print-friendly */
+  .bip-panel,
+  .bip-panel-strong {
+    background: #ffffff !important;
+    box-shadow: none !important;
+    border: 1px solid #cbd5e1 !important;
+    page-break-inside: avoid;
+    break-inside: avoid;
+  }
+
+  /* Force section breaks for major print blocks */
+  [data-print-break-before] {
+    page-break-before: always;
+    break-before: page;
+  }
+
+  /* Compact display fonts for print */
+  .bip-display {
+    color: #0f172a !important;
+  }
+
+  .bip-kicker {
+    color: #475569 !important;
+  }
+
+  /* Reduce decorative animations for print */
+  *,
+  *::before,
+  *::after {
+    animation: none !important;
+    transition: none !important;
+  }
+}

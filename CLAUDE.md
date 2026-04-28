@@ -262,6 +262,24 @@ CourtVue Labs uses a hybrid sprint model: major feature sprints typically run as
 
 > Full history → `specs/sprint-history.md`
 
+### Sprint 72 — Design System Closeout + Visual Polish
+
+- Closed every Sprint 70 backlog item plus the API payload audit's top 5 "free UI wins" plus a basketball polish pass on the home-page hero. After this sprint the front-end design work from the design tarball is fully done.
+- **Stream A (design follow-ons):**
+  - Home league-leaders **TREND sparkline column** with new `GET /api/leaderboards/{stat}/trends` endpoint, `backend/services/leaderboard_trends.py`, and a new pure-SVG `<Sparkline>` primitive on the frontend. Tooltip surfaces latest value vs season baseline. Fetch is gated on `playerIds.length > 0` to avoid a waterfall.
+  - **Compare PlayerCard hardwood headers** in `ComparisonView` with low-opacity (0.05) `<HeroHardwood>` tinted forest-green left / gold right, color-coded player names, and a "Change player ▾" pill that scrolls back to the existing player slot search.
+  - **MVP candidate-card hardwood + ★#1 chrome** in `MvpRacePanel` with `<HeroHardwood>` tinted by team color (inline `TEAM_TINT` map). Per user decision the existing 6 value pillars + 5 award modifiers + radar + clutch + signature games were preserved — this is purely additive chrome.
+  - **`/learn/design-system` showcase page** consolidating Sprint 70+72 primitives (Hardwood, Typography, Buttons+Pills, Live FX, Data Viz, HomeLiveCourt) for future design-driven sprints to reference.
+  - **Pre-Read print stylesheet** — `@media print` rules in `globals.css` plus `print:hidden` on action bar / mode tabs and `data-print-break-before` on focus levers, so `Cmd+P` from `/pre-read` produces a clean coach-handoff PDF.
+- **Stream B (API payload audit free UI wins):**
+  - Pre-Read **urgency badge** above matchup card and **headline callout** under focus levers from `data.prep_context.urgency` and `data.prep_context.headline` (returned by API but previously unrendered).
+  - MVP **Teammate quality** sub-card surfacing `candidate.support_burden` via a heuristic score (USG-driven primary, teammate availability fallback) inside each candidate card.
+  - Player archetype `data.reason` tooltip with an info-icon visual cue on the archetype label.
+  - Opportunity RoleFitCard hint discoverability — info-icon next to each row label flagging the existing per-row hover tooltip. (Note: `notes` field was speculated in the audit but doesn't exist on `OpportunityRoleFit`; the existing `hint` was reused.)
+- **Stream C (basketball polish):** `FloatingBall.tsx` got a specular-shine radial overlay between body and seams (via `useId` for collision-safe per-instance gradient IDs), varied seam stroke widths/opacity (1.8/0.65 spine, 1.2/0.5 horizontals, 0.8/0.35 shoulders), two-layer drop-shadow for grounding, and a four-stop fill gradient with off-center origin (cx=0.45, cy=0.40) and deeper rim color `#5a2e10`. Optimizer pass moved the `prefers-reduced-motion` rule from per-instance `<style>` injection into a global `globals.css` block.
+- Architecture used the sequential `Architect → 4 parallel Engineers → Reviewer → Optimizer` pattern from CLAUDE.md. Reviewer signed off with no blocking issues; Optimizer addressed 3 of 6 non-blocking concerns in one defensive-fixes commit.
+- Verified with **266 backend tests** (was 263, +3 sparkline), `npm run build` clean, `npm run lint` clean (7 pre-existing `usePlayerStats.ts` warnings unchanged), `git diff --check` clean. Closeout: `specs/sprint-72-closeout.md`.
+
 ### Sprint 71 — Methodology Rigor Layer
 
 - Backend/docs-only sprint that added the shared methodology registry, methodology Pydantic contracts, `GET /api/methodology`, and `GET /api/methodology/{domain}`.
@@ -271,17 +289,7 @@ CourtVue Labs uses a hybrid sprint model: major feature sprints typically run as
 - Verified with **263 backend tests**, `git diff --check`, methodology doc coverage checks, and FastAPI `main` import smoke.
 - Frontend intentionally untouched because Claude had a parallel independent frontend sprint in flight.
 
-### Sprint 70 — Design System Integration
-
-- Pure-frontend sprint bringing the CourtVue Labs design system (cream/forest-green/gold palette, Source Serif 4 display, Source Sans 3 sans, JetBrains Mono mono) deeper into Teams, Metrics, Pre-Read, and Compare. Built from a gzipped tarball of HTML/JSX prototypes at `https://api.anthropic.com/v1/design/h/cs_JsS8pYIm1mYPQ8INqJQ`.
-- **Teams directory** (`/teams`) full redesign: replaced the simple grid of team cards with a two-column layout matching `TeamsScreen.jsx`. Conference filter pills (All/East/West) backed by a static `TEAM_META` map (conference + brand color keyed by abbreviation), sort dropdown (Name/Conference/Roster size), sticky left directory with colored abbreviation badges and selection borders, and a right `TeamDetailPreview` panel with color-tinted header and four quick-access tab links.
-- **Metrics page** (`/metrics`) hero leader card: `<HeroHardwood>` woodgrain texture above the leaderboard inside `CustomMetricBuilder.tsx`, only when `data.player_rankings.length > 0`. Renders the metric label kicker, #1 ranked player + team, and composite score in 72pt `bip-display` type — matching the design's `MetricsScreen.jsx` exactly.
-- **Pre-Read page** (`/pre-read`) three new sections: (1) visual matchup header card with home + vs + away team boxes, (2) six bilateral `MatchupBar` comparison bars (OFF RTG, DEF RTG, PACE, EFG%, TS%, NET RTG) fed by `useTeamAnalytics(home, season)` + `useTeamAnalytics(away, season)` with winning side highlighted in forest-green, (3) "Three things to win" focus levers section that surfaces `data.focus_levers` from the existing `/api/pre-read/{team}/{opponent}` API in the design's `FocusLever` card style. Focus levers were already returned by the API but never rendered on the page.
-- **Compare page** (`/compare`) two summary panels added inside `ComparisonView` for `mode !== "percentile" && mode !== "arc"`: (1) "The deltas" — 5-card grid of biggest stat differences (Scoring, True shooting, Playmaking, Rebounding, Impact BPM) with leader's last name + delta in display type, (2) "Key takeaways" — top 3 plain-language bullet differences ranked by absolute delta across PTS/TS%/AST/REB/BPM/STL/BLK.
-- Backend untouched; backend test count stays at **257 passing**. Frontend `npm run build` and `npm run lint` clean (7 pre-existing `usePlayerStats.ts` warnings).
-- Subagent rate-limit hit forced inline implementation — see closeout `specs/sprint-70-closeout.md` for the workflow lesson on when not to fan out.
-
-*Sprint 69 and older moved to `specs/sprint-history.md`.*
+*Sprint 70 and older moved to `specs/sprint-history.md`.*
 
 ---
 
@@ -305,6 +313,7 @@ CourtVue Labs uses a hybrid sprint model: major feature sprints typically run as
 | `codex-sprint-69-team-fit-intelligence` | Codex | Merged to master |
 | `feature/sprint-70-design-system-integration` | Claude | Merged to master |
 | `codex-sprint-71-methodology-rigor` | Codex | Merged to master |
+| `feature/sprint-72-design-system-closeout` | Claude | Merged to master |
 
 Sprint branches are created at kickoff and listed in `AGENTS.md`.
 
@@ -377,3 +386,4 @@ Sprint branches are created at kickoff and listed in `AGENTS.md`.
 | `WinProbabilityChart` | `components/` | SVG win-probability line chart with quarter dividers, draw-in animation, and event markers (Sprint 70) |
 | `HomeLiveCourt` | `components/` | Composed home-page demo section pairing LiveShotPulse + WinProbabilityChart + StandingsLadder (Sprint 70) |
 | `HeroHardwood` | `components/` | Procedural woodgrain texture for hero panels and metric cards (in use since Sprint 70 design integration) |
+| `Sparkline` | `components/` | Pure SVG polyline with min/max scaling, optional baseline reference, delta-driven stroke color, em-dash fallback for <2 values (Sprint 72) |

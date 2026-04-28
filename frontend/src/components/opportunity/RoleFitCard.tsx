@@ -109,8 +109,14 @@ export function RoleFitCard({ row }: Props) {
             className="grid grid-cols-4 items-center gap-2 px-3 py-2"
             title={r.hint}
           >
-            <span className="text-[11px] uppercase tracking-[0.14em] text-[var(--muted)]">
-              {r.label}
+            <span className="inline-flex items-center gap-1 text-[11px] uppercase tracking-[0.14em] text-[var(--muted)]">
+              <span>{r.label}</span>
+              <span
+                aria-hidden="true"
+                className="inline-flex h-3.5 w-3.5 items-center justify-center rounded-full border border-[var(--border)] text-[9px] font-semibold normal-case tracking-normal text-[var(--muted)]"
+              >
+                i
+              </span>
             </span>
             <span className="text-right font-semibold tabular-nums text-[var(--foreground)]">
               {r.format === "pct" ? pctText(r.player) : numText(r.player)}

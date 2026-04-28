@@ -1698,3 +1698,20 @@ export async function deletePlayerAnalysisContext(
     { method: "DELETE" }
   );
 }
+
+// ── Sprint 72: Leaderboard trend sparklines ──────────────────────────────────
+export async function getLeaderboardTrends(
+  stat: string,
+  playerIds: number[],
+  season: string,
+  window = 10
+): Promise<import("./types").LeaderboardTrendResponse> {
+  const params = new URLSearchParams({
+    player_ids: playerIds.join(","),
+    season,
+    window: String(window),
+  });
+  return fetchApi<import("./types").LeaderboardTrendResponse>(
+    `/api/leaderboards/${encodeURIComponent(stat)}/trends?${params.toString()}`
+  );
+}

@@ -293,25 +293,26 @@ Likely shape:
 - improve export or copy-ready sharing so filters and board context are easier to hand off in staff workflows
 - keep refining dense-table ergonomics only where real workflow friction remains, instead of reopening general visual polish
 
-### Design System Follow-Ons (deferred from Sprint 70)
+### Untapped API Payload — second-tier wins (carry-over from Sprint 72 audit)
 Why it matters:
-Sprint 70 brought the CourtVue Labs design system deeper into Teams, Metrics, Pre-Read, and Compare. Several design elements were deliberately deferred either because the existing component is already richer than the design or because the cost-benefit didn't warrant the change in a single sprint. These items remain candidates for future polish passes.
+Sprint 72 surfaced and shipped the top five free UI wins from the API payload audit (Pre-Read urgency badge + headline, MVP support_burden, archetype reason tooltip, opportunity hint discoverability). The audit also flagged a second tier of medium-priority untapped fields that have UI value but need a small design pass before they ship.
 
 Likely shape:
-- **Home league leaders TREND sparkline column** — add a per-leader rolling per-game series so the home leaderboard can show momentum at a glance. Requires a new lightweight backend endpoint (10-game rolling values per stat) and a small inline `<Sparkline>` component.
-- **Compare PlayerCard hardwood headers** — add `<HeroHardwood>` texture under each player's avatar+name block in `ComparisonView`, with the player's name color-coded (forest-green for left, gold for right) and a "Change player ▾" inline dropdown reusing `PlayerSlot`. Skipped in Sprint 70 because the texture would compete visually with the bilateral percentile bars below; revisit if the page is restructured.
-- **MVP candidate-card hardwood + 5-pillar bars** — restyle `MvpRacePanel` candidate cards with `<HeroHardwood>` backgrounds and a 5-row `<PillarBar>` component matching the design's `MvpScreen.jsx`. Today the panel renders 6 value pillars + 5 award modifiers as numeric chips; consolidating to a 5-row visual pillar bar would simplify the at-a-glance scan but lose modifier granularity. Decide tradeoff before implementing.
-- **Shared design-system showcase page** — a single `/learn/design-system` route consolidating all the new primitives shipped in Sprint 70 (`HeroHardwood`, `Reveal`, `LiveTicker`, `FloatingBall`, `SpotlightCursor`, `Parallax`, `LiveShotPulse`, `StandingsLadder`, `WinProbabilityChart`) with prop docs and usage examples. Speeds up future design-driven sprints.
-- **Pre-Read print stylesheet pass** — Pre-Read already has `print:hidden` utilities and a `window.print()` action. With the matchup header card + matchup bars + focus levers section now in place, a dedicated print stylesheet could turn the page into a coach-handoff PDF artifact.
+- **`PreReadDeckResponse.adjustments` (PreReadAdjustment[])** — render as a "Coaching adjustments" panel under the Pre-Read scouting packet. Today returned by the API but never read by the page. Needs design for layout (table vs. card vs. inline list). ~20 min once design is set.
+- **`PreReadDeckResponse.prep_context.best_edge_label` + `best_edge_rationale`** — currently rendered as part of the prep_context blob; promoting them to a dedicated "Biggest edge" card adjacent to focus levers would give them more visual weight. ~15 min.
+- **`MvpCandidate.impact_consensus`** — render as a metric-agreement pill on each candidate card showing how many of the multi-metric impact systems (EPM / LEBRON / RAPTOR / PIPM / DARKO) agree on this candidate's tier. Adds a "wisdom of metrics" overlay separate from the existing composite score.
+- **`MvpCandidate.signature_games` carousel** — currently rendered inline as a small list inside the case panel. Promoting this to a clickable carousel that deep-links into Game Explorer would pair well with the "Key moments" UX direction.
+- **`TrajectoryPlayerRow.key_stat_deltas` standalone view** — currently used only to drive the existing `DriverBar` decomposition. Surfacing the full delta dict as a "stat-by-stat YoY" mini chart could replace one of the current Trajectory cards.
 
-### API Payload Audit for Untapped UI Data
+### Frontend component-logic test infrastructure
 Why it matters:
-Sprint 70 surfaced that `/api/pre-read/{team}/{opponent}` was returning `focus_levers` that were never rendered on the Pre-Read page itself (only inside `TeamIntelligencePanel` and `TeamDecisionToolsPanel`). Other endpoints likely have similar untapped fields.
+Sprint 72 added a hand-tuned `supportBurdenScore` heuristic in `MvpRacePanel.tsx` that classifies candidates into Strong support / Balanced / Heavy lift bands. There's no test for it because the repo has no frontend Jest/Vitest setup at all. Future heuristics, formatters, and reducers will accumulate the same coverage gap.
 
 Likely shape:
-- audit the response payloads of `/api/pre-read`, `/api/mvp/*`, `/api/team-fit`, `/api/insights/*`, and `/api/archetype` against the consumer pages
-- inventory fields that are returned but never rendered, with a one-line note on why each was added
-- triage into "render now" (free UI win), "render later" (needs design), or "remove from payload" (dead field) buckets
+- pick Vitest (Vite-native, plays well with Next.js 16 + TypeScript strict)
+- target only logic-heavy modules first: `supportBurdenScore`, `pctileColor`, `winner`, `formatVal`, anything with branchy math
+- skip component-render tests for now — they're slower to maintain and the build/lint already catches structural issues
+- run via `npm test` from `frontend/`; wire into pre-commit if it becomes a friction point
 
 ---
 

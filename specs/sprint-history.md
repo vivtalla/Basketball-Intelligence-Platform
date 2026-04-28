@@ -1,9 +1,35 @@
 # Sprint History Archive
 
-Archived sprint summaries through Sprint 70. The two most recent sprint summaries also stay inline in `CLAUDE.md` under "Recent Sprints".
+Archived sprint summaries through Sprint 72. The two most recent sprint summaries also stay inline in `CLAUDE.md` under "Recent Sprints".
 
 For detailed per-sprint records, see the individual closeout files in this directory where available:
 `specs/sprint-09-closeout.md` through `specs/sprint-59-closeout.md`, plus `specs/sprint-62-closeout.md` and `specs/sprint-67-closeout.md` onward.
+
+---
+
+### Sprint 72 — Design System Closeout + Visual Polish
+**Branch:** `feature/sprint-72-design-system-closeout` (Claude, single-stream Architect → Engineers → Reviewer → Optimizer)
+
+- Closed every Sprint 70 backlog item (Design System Follow-Ons + API Payload Audit) plus polished the home-page basketballs. After this sprint the front-end design work from the design tarball is fully closed out.
+- New `GET /api/leaderboards/{stat}/trends` endpoint + `backend/services/leaderboard_trends.py` + `<Sparkline>` SVG primitive drives a TREND column on the home league-leaders.
+- Compare PlayerCard headers wrap with low-opacity `<HeroHardwood>` and color-coded names; MVP candidate cards wrap with team-tinted `<HeroHardwood>` plus a ★#1 chrome treatment while preserving all existing pillars/modifiers/radar/clutch/sig-games (per user decision).
+- New `/learn/design-system` showcase page consolidates Sprint 70+72 primitives. Pre-Read print stylesheet (`@media print` rules in `globals.css` + `print:hidden` + `data-print-break-before`) makes `Cmd+P` produce a clean coach-handoff PDF.
+- Pre-Read API audit wins: urgency badge above matchup card, headline callout under focus levers (both fields were returned by `/api/pre-read` but previously unrendered). MVP `support_burden` "Teammate quality" sub-card. Player archetype `reason` tooltip. RoleFitCard hint discoverability icon.
+- FloatingBall polish: specular shine, varied seam stroke widths/opacity, two-layer drop shadow, four-stop fill gradient with off-center origin. `useId` for collision-safe per-instance gradient IDs. Optimizer pass moved `prefers-reduced-motion` rule into a global `globals.css` block.
+- Architecture used the sequential `Architect → 4 parallel Engineers → Reviewer → Optimizer` pattern. Reviewer found no blocking issues; Optimizer addressed 3 of 6 non-blocking concerns in one defensive-fixes commit.
+- Verified with **266 backend tests** (was 263, +3 sparkline), `npm run build` + `npm run lint` clean, `git diff --check` clean.
+
+---
+
+### Sprint 71 — Methodology Rigor Layer
+**Branch:** `codex-sprint-71-methodology-rigor` (Codex, backend/docs-only)
+
+- Added shared methodology registry, methodology Pydantic contracts, `GET /api/methodology`, and `GET /api/methodology/{domain}`.
+- Added shared reliability primitives: empirical Bayes shrinkage, reliability scoring, confidence labels, Wilson/normal uncertainty bands, robust z-scores, winsorized z-scores, sample context.
+- Added optional `analysis_metadata` to Shot Lab, Team-Fit, and Opportunity responses, preserving current frontend contracts while making reliability, drivers, limitations, and validation notes available to clients.
+- Updated `specs/platform-methodology.md`, added `specs/methodology-validation.md`, and refreshed backlog/coordination docs around calibration follow-ons.
+- Verified with **263 backend tests**, `git diff --check`, methodology doc coverage checks, FastAPI `main` import smoke.
+- Frontend intentionally untouched because Claude had a parallel independent frontend sprint in flight.
 
 ---
 
