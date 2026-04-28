@@ -78,9 +78,9 @@ Planned calibration upgrade:
 - Style X-Ray: `style_xray_drift_team`
 - MVP: `mvp_value_versus_award_split`
 - Archetype: `archetype_borderline_role_label`
-- Custom Metrics: `custom_metrics_collinear_components`
+- Custom Metrics: `custom_metrics_collinear_components`, `custom_metrics_weight_sensitivity`
 - Gravity: `gravity_proxy_versus_official`
-- Scouting: `scouting_brief_evidence_linkage`
+- Scouting: `scouting_brief_evidence_linkage`, `scouting_brief_contradictions`
 - Playoffs: `playoffs_thin_series_sample`
 
 ### Similarity
@@ -174,32 +174,35 @@ Primary target:
 
 - Evidence confidence should reflect directness, opponent specificity, recency, and claim-driver strength.
 
-Current validation:
+Current v2 validation:
 
 - Packet snapshots stay frozen after save.
 - Claim links distinguish exact/derived event links from timeline-only evidence.
+- Cross-card contradiction detection covers three rule families (role/trajectory, role/usage, strengths/shot-profile) and skips low-confidence archetypes plus insufficient-sample diagnoses to avoid noise. Tensions surface as a structured `contradictions` list rather than blending into card copy.
 
 Planned rigor upgrade:
 
 - Calibrated evidence confidence model.
-- Claim contradiction detection when evidence supports both a strength and a risk.
+- Expanded contradiction rule set covering opportunity-vs-trajectory and shot-profile-vs-archetype tensions.
 
 ### Custom Metrics and Ask
 
 Primary target:
 
-- User-built composites should warn when they mix metric families, low-sample components, or highly collinear inputs.
+- User-built composites should warn when they mix metric families, low-sample components, highly collinear inputs, or fragile rankings under small weight perturbations.
 
-Current validation:
+Current v2 validation:
 
 - Weights are normalized.
 - Dominant single-component influence creates a warning.
 - Lower-is-better stats invert correctly.
+- Pearson correlation ≥ 0.85 between component pairs surfaces a collinearity warning.
+- Top-5 ranking sensitivity under ±10% weight perturbations is published as a structured `weight_sensitivity` field; ranking flips of more than one rank emit a plain-language warning.
 
 Planned rigor upgrade:
 
-- Reliability warnings at the component level.
 - Suggested default composites generated from validated methodology families.
+- Larger-perturbation sensitivity (±25%, ±50%) for power users who want to stress-test composites further.
 
 ## Drift and Documentation Checks
 
@@ -215,4 +218,6 @@ Current automated checks:
 - Reliability math unit tests cover empirical Bayes shrinkage, robust z-scores, Wilson intervals, confidence mapping, and the `_z_for_level` table for `0.80`, `0.90`, `0.95`, and `0.99` confidence intervals.
 - Methodology registry tests cover core domains and domain lookup.
 - Custom-metric service tests cover collinearity warnings (`pearson_correlation` ≥ 0.85) so composites that double-count the same signal warn the caller.
+- Custom-metric service tests cover weight-sensitivity reporting: stable composites surface zero rank changes and Jaccard 1.0; concentrated composites surface non-zero changes and trigger the plain-language warning.
+- Scouting-brief contradiction-detector tests cover the three v1 rule families (role/trajectory, role/usage, strengths/shot-profile) and confirm that low-confidence archetypes and developmental fallbacks short-circuit the detector.
 - Validation fixture coverage is asserted at the test level: every registered domain in `list_methodologies()` must have at least one fixture in `methodology_validation_report()`.

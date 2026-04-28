@@ -169,6 +169,18 @@ mahalanobis(a, b) = sqrt((a - b)ᵀ · Σ_shrunk⁻¹ · (a - b))
 
 The covariance is estimated from the candidate pool's weighted z-vectors; `λ` defaults to `0.2` for the player-similarity surface. Mahalanobis distance with the inverse-covariance whitens correlated features so highly-correlated pairs (e.g. `pts_pg` and `per`) no longer double-count against each other. When the pool has fewer than `3 × n_features` rows the service auto-falls back to weighted Euclidean and exposes the resolved choice as `distance_method_used` per comp.
 
+Weight-perturbation sensitivity (custom_metric_v2):
+
+```text
+For each component i, multiply weight_i by (1 ± perturbation), recompute the
+ranking, and report:
+
+  max_rank_change   = max over baseline-top-N subjects of |rank_perturbed - rank_baseline|
+  top_set_jaccard   = |top_N_baseline ∩ top_N_perturbed| / |top_N_baseline ∪ top_N_perturbed|
+```
+
+When the top-N ranking shifts by more than one rank under ±10% weight perturbations, the composite emits a plain-language warning so coaches can treat the order as one plausible read rather than the only one. The structured `weight_sensitivity` field travels alongside the warning for downstream auditing.
+
 Robust normalization:
 
 ```text

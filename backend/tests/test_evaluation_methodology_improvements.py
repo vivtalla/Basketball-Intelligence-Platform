@@ -23,8 +23,10 @@ from services.reliability_service import (  # noqa: E402
     normal_uncertainty_band,
     pearson_correlation,
     shrunk_covariance,
+    weight_sensitivity_analysis,
     wilson_interval,
 )
+from services.scouting_brief_service import _detect_contradictions  # noqa: E402
 from services.similarity_service import find_similar_players_with_archetype  # noqa: E402
 
 
@@ -382,3 +384,215 @@ def test_similarity_v3_falls_back_to_euclidean_on_thin_pool():
         assert all(c["distance_method_used"] == "weighted_euclidean" for c in comps)
     finally:
         db.close()
+
+
+# ---------- weight sensitivity primitive ----------
+
+
+def test_weight_sensitivity_zero_change_when_one_feature_dominates():
+    # Subject 1 dominates on every feature; perturbing weights cannot dethrone.
+    contributions = {
+        1: [3.0, 3.0, 3.0],
+        2: [1.0, 1.0, 1.0],
+        3: [0.5, 0.5, 0.5],
+        4: [0.0, 0.0, 0.0],
+        5: [-1.0, -1.0, -1.0],
+        6: [-2.0, -2.0, -2.0],
+    }
+    weights = [0.4, 0.3, 0.3]
+    max_change, jaccard = weight_sensitivity_analysis(
+        contributions, weights, perturbation=0.10, top_n=5,
+    )
+    assert max_change == 0
+    assert jaccard == pytest.approx(1.0)
+
+
+def test_weight_sensitivity_flags_unstable_top_set():
+    # Two players have nearly-tied composites that flip under tiny weight
+    # changes — sensitivity must report a non-zero rank change.
+    contributions = {
+        1: [1.0, -0.9],
+        2: [-0.9, 1.0],
+        3: [0.5, 0.5],
+        4: [0.0, 0.0],
+        5: [-0.5, -0.5],
+        6: [-1.0, -1.0],
+    }
+    weights = [0.5, 0.5]
+    max_change, jaccard = weight_sensitivity_analysis(
+        contributions, weights, perturbation=0.40, top_n=2,
+    )
+    assert max_change >= 1
+    assert jaccard <= 0.999  # something flipped
+
+
+def test_weight_sensitivity_validates_inputs():
+    with pytest.raises(ValueError):
+        weight_sensitivity_analysis({}, [1.0], perturbation=0.1, top_n=3)
+    with pytest.raises(ValueError):
+        weight_sensitivity_analysis({1: [1.0, 2.0]}, [1.0, 2.0], perturbation=-0.1, top_n=1)
+    with pytest.raises(ValueError):
+        weight_sensitivity_analysis({1: [1.0]}, [1.0, 2.0], perturbation=0.1, top_n=1)
+
+
+# ---------- custom metric sensitivity wiring ----------
+
+
+def test_custom_metric_attaches_weight_sensitivity_to_response():
+    from db.models import Player, SeasonStat, Team
+    from models.leaderboard import CustomMetricComponent, CustomMetricRequest
+    from services.custom_metric_service import build_custom_metric_report
+
+    session = _make_session()
+    try:
+        team = Team(id=1610612737, abbreviation="ATL", name="Atlanta Hawks")
+        session.add(team)
+        # Spread players widely so the top-5 ranking is stable under +/-10%.
+        rows = [
+            (1, "Alpha", 30.0, 8.0),
+            (2, "Bravo", 28.0, 7.0),
+            (3, "Charlie", 26.0, 6.0),
+            (4, "Delta", 24.0, 5.0),
+            (5, "Echo", 22.0, 4.0),
+            (6, "Foxtrot", 20.0, 3.0),
+            (7, "Golf", 18.0, 2.0),
+        ]
+        for player_id, name, pts_pg, ast_pg in rows:
+            session.add(Player(id=player_id, full_name=name, team=team, team_id=team.id, position="G"))
+            session.add(
+                SeasonStat(
+                    player_id=player_id,
+                    season="2024-25",
+                    team_abbreviation="ATL",
+                    is_playoff=False,
+                    gp=50,
+                    pts_pg=pts_pg,
+                    ast_pg=ast_pg,
+                )
+            )
+        session.commit()
+        report = build_custom_metric_report(
+            session,
+            CustomMetricRequest(
+                metric_name="Volume Composite",
+                player_pool="all",
+                season="2024-25",
+                components=[
+                    CustomMetricComponent(stat_id="pts_pg", label="Points", weight=0.6, inverse=False),
+                    CustomMetricComponent(stat_id="ast_pg", label="Assists", weight=0.4, inverse=False),
+                ],
+            ),
+        )
+        assert report.weight_sensitivity is not None
+        assert report.weight_sensitivity.top_n == 5
+        assert report.weight_sensitivity.perturbation == pytest.approx(0.10)
+        assert report.weight_sensitivity.max_rank_change == 0
+        assert report.weight_sensitivity.top_set_jaccard == pytest.approx(1.0)
+        assert "stable" in report.weight_sensitivity.interpretation.lower()
+    finally:
+        session.close()
+
+
+# ---------- scouting brief contradiction detector ----------
+
+
+class _StubContributor:
+    def __init__(self, feature_key, direction, z=1.0, label=""):
+        self.feature_key = feature_key
+        self.direction = direction
+        self.z = z
+        self.label = label or feature_key
+
+
+class _StubArchetype:
+    def __init__(self, key, label, confidence, contributors=None):
+        self.archetype_key = key
+        self.label = label
+        self.confidence = confidence
+        self.contributors = contributors or []
+
+
+class _StubOpportunityRow:
+    def __init__(self, usg_pct):
+        self.usg_pct = usg_pct
+
+
+class _StubDiagnosis:
+    def __init__(self, sustainability):
+        self.sustainability = sustainability
+
+
+class _StubTrajectoryRow:
+    def __init__(self, trajectory_label):
+        self.trajectory_label = trajectory_label
+
+
+def test_contradiction_detector_flags_high_usage_archetype_at_low_usage():
+    archetype = _StubArchetype(
+        key="lead_ball_handler",
+        label="Lead Ball-Handler",
+        confidence="high",
+        contributors=[_StubContributor("usg_z", "above")],
+    )
+    opportunity_row = _StubOpportunityRow(usg_pct=0.15)
+    contradictions = _detect_contradictions(
+        archetype=archetype, opportunity_row=opportunity_row,
+        diagnosis=None, trajectory_row=None,
+    )
+    assert any("Lead Ball-Handler" in c.summary for c in contradictions)
+    assert any(set(c.card_types) == {"role", "usage_efficiency"} for c in contradictions)
+
+
+def test_contradiction_detector_flags_role_versus_decline_trajectory():
+    archetype = _StubArchetype(
+        key="iso_scorer", label="Iso Scorer", confidence="high",
+        contributors=[_StubContributor("usg_z", "above")],
+    )
+    trajectory_row = _StubTrajectoryRow(trajectory_label="Slumping")
+    contradictions = _detect_contradictions(
+        archetype=archetype, opportunity_row=None,
+        diagnosis=None, trajectory_row=trajectory_row,
+    )
+    assert any(set(c.card_types) == {"role", "trajectory"} for c in contradictions)
+
+
+def test_contradiction_detector_flags_shooting_strength_versus_hot_streak():
+    archetype = _StubArchetype(
+        key="movement_shooter", label="Movement Shooter", confidence="high",
+        contributors=[
+            _StubContributor("par3_z", "above", z=1.4, label="3-point attempt rate"),
+        ],
+    )
+    diagnosis = _StubDiagnosis(sustainability="Hot Streak")
+    contradictions = _detect_contradictions(
+        archetype=archetype, opportunity_row=None,
+        diagnosis=diagnosis, trajectory_row=None,
+    )
+    assert any(set(c.card_types) == {"strengths", "shot_profile"} for c in contradictions)
+
+
+def test_contradiction_detector_skips_low_confidence_archetypes():
+    # Even with downward trajectory + low usage, low-confidence archetype
+    # shouldn't trigger contradictions — they'd just be noise.
+    archetype = _StubArchetype(
+        key="iso_scorer", label="Iso Scorer", confidence="low",
+        contributors=[_StubContributor("usg_z", "above")],
+    )
+    contradictions = _detect_contradictions(
+        archetype=archetype,
+        opportunity_row=_StubOpportunityRow(usg_pct=0.15),
+        diagnosis=_StubDiagnosis(sustainability="Hot Streak"),
+        trajectory_row=_StubTrajectoryRow(trajectory_label="Collapsing"),
+    )
+    assert contradictions == []
+
+
+def test_contradiction_detector_skips_developmental_archetype():
+    archetype = _StubArchetype(
+        key="developmental", label="Developmental", confidence="high",
+    )
+    contradictions = _detect_contradictions(
+        archetype=archetype, opportunity_row=_StubOpportunityRow(usg_pct=0.15),
+        diagnosis=None, trajectory_row=_StubTrajectoryRow("Collapsing"),
+    )
+    assert contradictions == []

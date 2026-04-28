@@ -29,9 +29,22 @@ class ScoutingBriefCard(BaseModel):
     deep_link: str
 
 
+class ScoutingBriefContradiction(BaseModel):
+    """Surface a tension between two cards or between a card and its
+    underlying evidence — e.g. trajectory says decline_watch while the
+    strengths card highlights only above-league contributors. The detector
+    is deliberately conservative: every flag carries the two card_types it
+    spans plus a short coach-readable explanation.
+    """
+
+    card_types: List[ScoutingCardType]
+    summary: str
+
+
 class ScoutingBriefResponse(BaseModel):
     player_id: int
     season: str
     methodology_version: str
     cards: List[ScoutingBriefCard]
     warnings: List[str] = []
+    contradictions: List[ScoutingBriefContradiction] = []

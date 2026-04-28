@@ -380,3 +380,77 @@ def mahalanobis_distance(
     # Floating-point noise can drive the quadratic form slightly negative when
     # Σ⁻¹ is positive semi-definite but rank-deficient; clip to zero.
     return math.sqrt(max(quad, 0.0))
+
+
+def weight_sensitivity_analysis(
+    contributions_per_subject: Dict[int, List[float]],
+    weights: List[float],
+    perturbation: float = 0.10,
+    top_n: int = 5,
+) -> Tuple[int, float]:
+    """Measure how a weighted-composite ranking responds to small weight changes.
+
+    `contributions_per_subject` maps a stable subject id to a list of per-
+    component scores (z-scores or any pre-normalized magnitude). `weights` is
+    the baseline weight vector. The analysis perturbs each weight up and down
+    by `perturbation` (multiplicative on a per-component basis), recomputes
+    the composite ranking, and returns:
+
+    - `max_rank_change` — the largest rank movement any baseline top-N
+      subject experienced across the 2N perturbations.
+    - `top_set_jaccard` — the average Jaccard overlap between the baseline
+      top-N set and each perturbed top-N set.
+
+    Bigger `max_rank_change` and smaller `top_set_jaccard` mean the ranking
+    is fragile to small weight changes; coaches should be told.
+    """
+    if not contributions_per_subject:
+        raise ValueError("contributions_per_subject must not be empty")
+    if perturbation < 0:
+        raise ValueError("perturbation must be non-negative")
+    n_components = len(weights)
+    if any(len(scores) != n_components for scores in contributions_per_subject.values()):
+        raise ValueError("every subject must have one score per component")
+
+    def _rank(weight_vec: List[float]) -> List[int]:
+        scored = [
+            (
+                subject_id,
+                sum(weight_vec[i] * scores[i] for i in range(n_components)),
+            )
+            for subject_id, scores in contributions_per_subject.items()
+        ]
+        scored.sort(key=lambda pair: pair[1], reverse=True)
+        return [subject_id for subject_id, _score in scored]
+
+    baseline = _rank(weights)
+    baseline_index = {sid: index for index, sid in enumerate(baseline)}
+    top_baseline = set(baseline[:top_n])
+
+    max_rank_change = 0
+    jaccard_sum = 0.0
+    perturbations = 0
+
+    for component_index in range(n_components):
+        for direction in (1.0, -1.0):
+            perturbed_weights = list(weights)
+            perturbed_weights[component_index] = weights[component_index] * (
+                1.0 + direction * perturbation
+            )
+            perturbed = _rank(perturbed_weights)
+            perturbed_index = {sid: index for index, sid in enumerate(perturbed)}
+            for sid in top_baseline:
+                rank_change = abs(baseline_index[sid] - perturbed_index[sid])
+                if rank_change > max_rank_change:
+                    max_rank_change = rank_change
+            top_perturbed = set(perturbed[:top_n])
+            union = top_baseline | top_perturbed
+            jaccard_sum += (
+                len(top_baseline & top_perturbed) / float(len(union))
+                if union
+                else 1.0
+            )
+            perturbations += 1
+
+    avg_jaccard = jaccard_sum / float(perturbations) if perturbations else 1.0
+    return max_rank_change, round(avg_jaccard, 3)
