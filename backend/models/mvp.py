@@ -375,6 +375,20 @@ class MvpCandidate(BaseModel):
     rank_by_profile: Dict[str, int] = Field(default_factory=dict)
 
 
+class MvpWeightSensitivity(BaseModel):
+    """Stability of the MVP top-N ranking under small perturbations of the
+    profile pillar weights. Mirrors the custom-metric sensitivity primitive
+    so the methodology layer reads consistently across surfaces.
+    """
+
+    profile: str
+    top_n: int
+    perturbation: float
+    max_rank_change: int
+    top_set_jaccard: float
+    interpretation: str
+
+
 class MvpRaceResponse(BaseModel):
     season: str
     as_of_date: str                     # ISO date of most-recent game log row used
@@ -384,6 +398,7 @@ class MvpRaceResponse(BaseModel):
     available_profiles: List[str] = Field(
         default_factory=lambda: ["box_first", "balanced", "impact_consensus"]
     )
+    weight_sensitivity: Optional[MvpWeightSensitivity] = None
 
 
 class MvpNearbyCandidate(BaseModel):

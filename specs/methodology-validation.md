@@ -76,7 +76,7 @@ Planned calibration upgrade:
 - Trend: `trend_injured_star_window`
 - Opportunity: `opportunity_role_expansion_evidence`
 - Style X-Ray: `style_xray_drift_team`
-- MVP: `mvp_value_versus_award_split`
+- MVP: `mvp_value_versus_award_split`, `mvp_basketball_value_weight_sensitivity`
 - Archetype: `archetype_borderline_role_label`
 - Custom Metrics: `custom_metrics_collinear_components`, `custom_metrics_weight_sensitivity`
 - Gravity: `gravity_proxy_versus_official`
@@ -157,15 +157,16 @@ Primary target:
 
 - Basketball Value and Award Case should remain separable, and proxy Gravity should not overclaim tracking-grade certainty.
 
-Current validation:
+Current v4 validation:
 
 - Basketball Value and Award Case ranks can diverge.
 - Gravity context adjustment is capped and confidence-scaled.
+- Profile-comparison sensitivity reports rank movement across the box-first / balanced / impact-consensus profiles.
+- Weight-perturbation sensitivity attaches a `MvpWeightSensitivity` object to every race response with `max_rank_change` and `top_set_jaccard` over ±10% perturbations of `REFINED_VALUE_WEIGHTS`; the `interpretation` copy escalates to a coach-readable warning when the top-5 ordering flips by more than one rank.
 
 Planned rigor upgrade:
 
 - Historical voter calibration for Award Case.
-- Sensitivity views for pillar weights.
 - Dated historical snapshots before using impact, clutch, Gravity, or opponent context in timeline reconstruction.
 
 ### Scouting, Prep, and Follow-Through

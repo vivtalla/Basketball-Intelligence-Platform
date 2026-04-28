@@ -730,5 +730,25 @@ def test_mvp_race_empty_season_response():
         response = build_mvp_race(session, season="1999-00", top=10)
         assert response.candidates == []
         assert response.weights["impact"] == 0.30
+        assert response.weight_sensitivity is None
+    finally:
+        session.close()
+
+
+def test_mvp_race_attaches_basketball_value_weight_sensitivity():
+    session = make_session()
+    try:
+        _seed_player_case(session)
+        response = build_mvp_race(session, season="2025-26", top=3)
+
+        sensitivity = response.weight_sensitivity
+        assert sensitivity is not None
+        assert sensitivity.profile == "basketball_value"
+        # _seed_player_case seeds 3 candidates; helper adapts top_n to pool size.
+        assert sensitivity.top_n == 3
+        assert sensitivity.perturbation == pytest.approx(0.10)
+        assert sensitivity.max_rank_change >= 0
+        assert 0.0 <= sensitivity.top_set_jaccard <= 1.0
+        assert sensitivity.interpretation
     finally:
         session.close()
