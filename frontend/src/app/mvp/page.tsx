@@ -10,6 +10,7 @@ import MvpTimelineStrip from "@/components/MvpTimelineStrip";
 import MvpVoterRoom from "@/components/MvpVoterRoom";
 import MvpSnapshotFreshnessBadge from "@/components/MvpSnapshotFreshnessBadge";
 import SeriesWPSimulator from "@/components/playoffs/SeriesWPSimulator";
+import { MethodologyEvidenceCard } from "@/components/methodology/MethodologyEvidenceCard";
 
 const POSITION_OPTIONS = [
   { label: "All positions", value: "" },
@@ -204,6 +205,9 @@ export default function MvpPage() {
               <p className="mt-1 text-xs leading-5 text-[var(--muted)]">Role difficulty, scalability, game control, two-way pressure, and playoff translation standardize the qualitative layer.</p>
             </div>
           </div>
+        </div>
+        <div className="mt-3">
+          <MethodologyEvidenceCard domain="mvp" title="MVP methodology reliability" compact />
         </div>
         <div className="mt-3">
           <MvpSnapshotFreshnessBadge season={season} />

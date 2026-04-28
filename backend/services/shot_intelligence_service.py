@@ -25,13 +25,18 @@ from models.shotchart import (
 )
 from services.reliability_service import (
     confidence_from_reliability,
+    empirical_bayes_delta,
     reliability_score,
+    normal_uncertainty_band,
     sample_context,
     wilson_interval,
 )
 from services.shot_lab_service import summarize_shot_completeness
 
-METHODOLOGY_VERSION = "shot_quality_v1"
+METHODOLOGY_VERSION = "shot_quality_v2"
+SUMMARY_STABILIZATION_PRIOR = 150
+ZONE_STABILIZATION_PRIOR = 50
+BIN_STABILIZATION_PRIOR = 35
 
 QUALITY_METHODOLOGY = [
     ShotMethodologyNote(
@@ -44,8 +49,15 @@ QUALITY_METHODOLOGY = [
     ShotMethodologyNote(
         title="Fallbacks",
         body=(
-            "Sparse samples fall back from exact context to zone, shot value, and season-level "
-            "baselines so every shot has a transparent expectation."
+            "Sparse samples blend from exact context toward zone-distance-value, zone-value, "
+            "shot-value, and league baselines so every shot has a transparent expectation."
+        ),
+    ),
+    ShotMethodologyNote(
+        title="Shot-making stabilization",
+        body=(
+            "Raw actual and expected values remain visible, while stabilized FG%, PPS, and "
+            "PPS delta shrink small samples toward the expected value for the same shot set."
         ),
     ),
 ]
@@ -395,17 +407,39 @@ def get_or_build_baseline(
 
 
 def _expected_baseline(shot: dict, season_type: str, store: _BaselineStore) -> Tuple[_Baseline, str]:
-    candidates = [
-        (store.exact.get(_exact_key(shot, season_type)), "exact_context", 25),
-        (store.zone_distance_value.get(_zone_distance_value_key(shot, season_type)), "zone_distance_value", 35),
-        (store.zone_value.get(_zone_value_key(shot, season_type)), "zone_value", 50),
-        (store.value.get(_value_key(shot, season_type)), "shot_value", 100),
-        (store.league, "league", 1),
-    ]
-    for baseline, label, minimum in candidates:
-        if baseline and baseline.attempts >= minimum:
-            return baseline, label
-    return store.league, "league"
+    def _blend(child: Optional[_Baseline], parent: _Baseline, prior_weight: float) -> Tuple[_Baseline, bool]:
+        if child is None or child.attempts <= 0:
+            return parent, False
+        if child.attempts >= prior_weight:
+            return child, False
+        blended_attempts = child.attempts + int(prior_weight)
+        return (
+            _Baseline(
+                attempts=blended_attempts,
+                made=int(round(child.made + parent.fg_pct * prior_weight)),
+                points=int(round(child.points + parent.pps * prior_weight)),
+            ),
+            True,
+        )
+
+    league = store.league if store.league.attempts > 0 else _Baseline(attempts=1, made=0, points=1)
+    shot_value, value_blended = _blend(store.value.get(_value_key(shot, season_type)), league, 100)
+    zone_value, zone_value_blended = _blend(store.zone_value.get(_zone_value_key(shot, season_type)), shot_value, 50)
+    zone_distance, zone_distance_blended = _blend(
+        store.zone_distance_value.get(_zone_distance_value_key(shot, season_type)),
+        zone_value,
+        35,
+    )
+    exact, exact_blended = _blend(store.exact.get(_exact_key(shot, season_type)), zone_distance, 25)
+    if store.exact.get(_exact_key(shot, season_type)):
+        return exact, "exact_context_blended" if exact_blended else "exact_context"
+    if store.zone_distance_value.get(_zone_distance_value_key(shot, season_type)):
+        return zone_distance, "zone_distance_value_blended" if zone_distance_blended else "zone_distance_value"
+    if store.zone_value.get(_zone_value_key(shot, season_type)):
+        return zone_value, "zone_value_blended" if zone_value_blended else "zone_value"
+    if store.value.get(_value_key(shot, season_type)):
+        return shot_value, "shot_value_blended" if value_blended else "shot_value"
+    return league, "league"
 
 
 def _coverage(data_status: str, available_shots: Sequence[dict], filtered_shots: Sequence[dict]) -> ShotIntelligenceCoverage:
@@ -457,7 +491,41 @@ def _filters_echo(
     )
 
 
-def _quality_summary(attempts: int, made: int, points: int, expected_points: float, expected_makes: float) -> ShotQualitySummary:
+def _point_std(shots: Sequence[dict], expected_pps: float) -> Optional[float]:
+    if len(shots) <= 1:
+        return None
+    values = [float(_points(shot)) - expected_pps for shot in shots]
+    mean = sum(values) / len(values)
+    variance = sum((value - mean) ** 2 for value in values) / (len(values) - 1)
+    return math.sqrt(variance)
+
+
+def _sustainability_label(attempts: int, stabilized_delta: Optional[float], band) -> str:
+    if attempts < 35 or stabilized_delta is None:
+        return "sample too thin"
+    lower = getattr(band, "lower", None)
+    upper = getattr(band, "upper", None)
+    if lower is not None and lower > 0.04 and stabilized_delta > 0:
+        return "repeatable edge"
+    if upper is not None and upper < -0.04 and stabilized_delta < 0:
+        return "likely cold streak"
+    if stabilized_delta > 0.08:
+        return "likely hot streak"
+    if stabilized_delta < -0.08:
+        return "likely cold streak"
+    return "sample too thin" if attempts < 75 else "within expectation"
+
+
+def _quality_summary(
+    attempts: int,
+    made: int,
+    points: int,
+    expected_points: float,
+    expected_makes: float,
+    *,
+    prior_weight: float = SUMMARY_STABILIZATION_PRIOR,
+    point_std: Optional[float] = None,
+) -> ShotQualitySummary:
     if attempts <= 0:
         return ShotQualitySummary(shots=0, confidence="low", reliability_score=0.0)
     actual_fg = made / attempts
@@ -468,6 +536,10 @@ def _quality_summary(attempts: int, made: int, points: int, expected_points: flo
     expected_efg = expected_points / (2.0 * attempts)
     confidence = "high" if attempts >= 300 else "medium" if attempts >= 100 else "low"
     reliability = reliability_score(attempts, 300)
+    stabilized_delta = empirical_bayes_delta(actual_pps, expected_pps, attempts, prior_weight)
+    stabilized_pps = expected_pps + stabilized_delta
+    stabilized_fg_delta = empirical_bayes_delta(actual_fg, expected_fg, attempts, prior_weight)
+    pps_band = normal_uncertainty_band(actual_pps - expected_pps, attempts, point_std) if attempts >= 35 else None
     return ShotQualitySummary(
         shots=attempts,
         actual_fg_pct=_round(actual_fg),
@@ -481,7 +553,13 @@ def _quality_summary(attempts: int, made: int, points: int, expected_points: flo
         pps_delta=_round(actual_pps - expected_pps),
         confidence=confidence,
         reliability_score=reliability,
-        uncertainty_band=wilson_interval(made, attempts),
+        uncertainty_band=pps_band or wilson_interval(made, attempts),
+        fg_uncertainty_band=wilson_interval(made, attempts),
+        pps_delta_uncertainty_band=pps_band,
+        stabilized_fg_pct=_round(expected_fg + stabilized_fg_delta),
+        stabilized_pps=_round(stabilized_pps),
+        stabilized_pps_delta=_round(stabilized_delta),
+        sustainability_label=_sustainability_label(attempts, stabilized_delta, pps_band),
     )
 
 
@@ -528,6 +606,13 @@ def _shot_quality_metadata(
                 contribution=summary.pps_delta,
                 explanation="Actual points per shot minus context-adjusted expected points per shot.",
             ),
+            DriverBreakdown(
+                key="stabilized_making",
+                label="Stabilized shot making",
+                value=summary.stabilized_pps_delta,
+                contribution=summary.stabilized_pps_delta,
+                explanation="Empirical Bayes stabilized points per shot delta after shrinking thin samples toward expected value.",
+            ),
         ],
         limitations=[
             "Shot quality is context/location based; it is not a defender-distance or tracking contest model.",
@@ -535,7 +620,7 @@ def _shot_quality_metadata(
             "Small samples can show large make/miss swings, so shot-making reads should use the uncertainty band.",
         ],
         validation_notes=[
-            "V1 reliability metadata is descriptive; hierarchical held-out calibration is tracked in specs/methodology-validation.md.",
+            "V2 adds hierarchical baselines and stabilized shot-making; held-out calibration is tracked in specs/methodology-validation.md.",
         ],
     )
 
@@ -638,7 +723,15 @@ def _quality_group(
             loc_x_values.append(loc_x)
         if loc_y is not None:
             loc_y_values.append(loc_y)
-    summary = _quality_summary(attempts, made, points, expected_points, expected_makes)
+    summary = _quality_summary(
+        attempts,
+        made,
+        points,
+        expected_points,
+        expected_makes,
+        prior_weight=BIN_STABILIZATION_PRIOR,
+        point_std=_point_std(shots, expected_points / attempts if attempts else 0.0),
+    )
     confidence = "high" if attempts >= 75 else "medium" if attempts >= 25 else "low"
     dominant_fallback = max(set(fallback_labels), key=fallback_labels.count) if fallback_labels else "league"
     return ShotQualityBin(
@@ -656,6 +749,10 @@ def _quality_group(
         actual_pps=summary.actual_pps,
         expected_pps=summary.expected_pps,
         pps_delta=summary.pps_delta,
+        stabilized_fg_pct=summary.stabilized_fg_pct,
+        stabilized_pps=summary.stabilized_pps,
+        stabilized_pps_delta=summary.stabilized_pps_delta,
+        sustainability_label=summary.sustainability_label,
         average_loc_x=_round(sum(loc_x_values) / len(loc_x_values), 2) if loc_x_values else None,
         average_loc_y=_round(sum(loc_y_values) / len(loc_y_values), 2) if loc_y_values else None,
         sample_confidence=confidence,
@@ -682,7 +779,15 @@ def _zone_group(
         baseline, _ = _expected_baseline(shot, season_type, store)
         expected_points += baseline.pps
         expected_makes += baseline.fg_pct
-    summary = _quality_summary(attempts, made, points, expected_points, expected_makes)
+    summary = _quality_summary(
+        attempts,
+        made,
+        points,
+        expected_points,
+        expected_makes,
+        prior_weight=ZONE_STABILIZATION_PRIOR,
+        point_std=_point_std(shots, expected_points / attempts if attempts else 0.0),
+    )
     confidence = "high" if attempts >= 75 else "medium" if attempts >= 25 else "low"
     return ShotQualityZone(
         zone_basic=zone_basic,
@@ -696,6 +801,10 @@ def _zone_group(
         actual_pps=summary.actual_pps,
         expected_pps=summary.expected_pps,
         pps_delta=summary.pps_delta,
+        stabilized_fg_pct=summary.stabilized_fg_pct,
+        stabilized_pps=summary.stabilized_pps,
+        stabilized_pps_delta=summary.stabilized_pps_delta,
+        sustainability_label=summary.sustainability_label,
         sample_confidence=confidence,
     )
 
@@ -771,7 +880,15 @@ def build_shot_quality_response(
     zones.sort(key=lambda row: row.frequency, reverse=True)
 
     coverage = _coverage(data_status, available_shots, filtered_shots)
-    summary = _quality_summary(attempts, made, points, expected_points, expected_makes)
+    summary = _quality_summary(
+        attempts,
+        made,
+        points,
+        expected_points,
+        expected_makes,
+        prior_weight=SUMMARY_STABILIZATION_PRIOR,
+        point_std=_point_std(filtered_shots, expected_points / attempts if attempts else 0.0),
+    )
     return ShotQualityResponse(
         subject_type=subject_type,
         subject_id=subject_id,

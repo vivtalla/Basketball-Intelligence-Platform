@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { type FormEvent, useEffect, useMemo, useState } from "react";
 import { getAvailableSeasons, getLeaderboardTeams } from "@/lib/api";
 import HeroHardwood from "./HeroHardwood";
+import { MethodologyEvidenceCard } from "@/components/methodology/MethodologyEvidenceCard";
 import {
   useCustomMetric,
   type CustomMetricComponentInput,
@@ -421,6 +422,7 @@ export function CustomMetricBuilder() {
 
   return (
     <section className="space-y-6">
+      <MethodologyEvidenceCard domain="custom_metrics" title="Custom metric methodology reliability" compact />
       <div className="rounded-[2rem] border border-[var(--border-strong)] bg-[linear-gradient(135deg,rgba(248,244,232,0.98),rgba(239,232,214,0.96))] p-6 shadow-[0_24px_80px_rgba(47,43,36,0.08)] sm:p-7">
         <div className="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
           <div className="max-w-3xl">

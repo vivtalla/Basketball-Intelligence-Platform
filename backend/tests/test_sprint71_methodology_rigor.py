@@ -10,6 +10,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from services.methodology_registry_service import get_methodology_detail, list_methodologies
 from services.reliability_service import (
     confidence_from_reliability,
+    empirical_bayes_delta,
     empirical_bayes_rate,
     normal_uncertainty_band,
     reliability_score,
@@ -29,6 +30,17 @@ def test_empirical_bayes_rate_shrinks_small_samples_toward_prior():
 
     assert posterior == pytest.approx(0.375)
     assert 0.35 < posterior < 0.50
+
+
+def test_empirical_bayes_delta_shrinks_small_samples():
+    posterior_delta = empirical_bayes_delta(
+        observed_value=1.4,
+        expected_value=1.0,
+        sample_size=10,
+        prior_weight=90,
+    )
+
+    assert posterior_delta == pytest.approx(0.04)
 
 
 def test_reliability_score_and_confidence_labels():
@@ -65,12 +77,13 @@ def test_methodology_registry_exposes_core_domains_and_normalizes_lookup():
     registry = list_methodologies()
     domains = {domain.domain for domain in registry.domains}
 
-    assert registry.version == "methodology_registry_v1"
+    assert registry.version == "methodology_registry_v2"
     assert {"shot_lab", "team_fit", "similarity", "opportunity", "mvp"}.issubset(domains)
 
     team_fit = get_methodology_detail("team-fit")
     assert team_fit.domain == "team_fit"
-    assert team_fit.methodology_version == "team_fit_v2"
+    assert team_fit.methodology_version == "team_fit_v3"
+    assert "Playoffs" in team_fit.season_type_support
     assert team_fit.last_validation_date == "2026-04-28"
     assert "specs/platform-methodology.md" == team_fit.docs_path
 

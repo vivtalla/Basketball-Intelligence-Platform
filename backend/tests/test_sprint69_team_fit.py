@@ -191,12 +191,15 @@ def test_team_fit_report_scores_current_and_alternate_teams():
     try:
         _seed_fit_case(db)
         report = build_team_fit_report(db, 1, SEASON, limit=5)
-        assert report.methodology.version == "team_fit_v2"
+        assert report.methodology.version == "team_fit_v3"
         assert report.current_team is not None
         assert report.current_team.team_abbreviation == "BOS"
         assert report.current_team.skill_supply_score is not None
         assert report.current_team.roster_need_score is not None
         assert report.current_team.role_competition_score is not None
+        assert report.current_team.theoretical_usage_score is not None
+        assert report.current_team.fit_gap_vs_theoretical is not None
+        assert report.current_team.fit_interpretation
         assert report.current_team.confidence in {"high", "medium", "low"}
         assert report.current_team.confidence_notes
         assert report.current_team.overlap_flags

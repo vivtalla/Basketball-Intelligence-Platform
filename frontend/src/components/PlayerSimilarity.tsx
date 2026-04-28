@@ -4,6 +4,7 @@ import { useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { usePlayerSimilarityWithArchetype } from "@/hooks/usePlayerArchetype";
+import { MethodologyEvidenceCard } from "@/components/methodology/MethodologyEvidenceCard";
 import type {
   ArchetypeConfidence,
   SimilarityMode,
@@ -247,6 +248,10 @@ export default function PlayerSimilarity({ playerId, season }: PlayerSimilarityP
       {!isLoading && !error && data && mode === "team_fit" && (
         <TeamFitContextPills context={data.team_fit_context} />
       )}
+
+      {!isLoading && !error && data ? (
+        <MethodologyEvidenceCard domain="similarity" title="Similarity methodology reliability" compact />
+      ) : null}
 
       {!isLoading && !error && data && data.comps.length > 0 && (
         <div className="space-y-2">

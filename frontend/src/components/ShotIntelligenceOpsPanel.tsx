@@ -92,7 +92,7 @@ export default function ShotIntelligenceOpsPanel({ season, seasonType = "Regular
             Shot Intelligence Ops · {season}
           </h2>
           <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
-            Roster-wide shot lab readiness · methodology {data?.methodology_version ?? "shot_quality_v1"}
+            Roster-wide shot lab readiness · methodology {data?.methodology_version ?? "shot_quality_v2"}
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">

@@ -67,6 +67,22 @@ def empirical_bayes_mean(
     ) / denominator
 
 
+def empirical_bayes_delta(
+    observed_value: Optional[float],
+    expected_value: Optional[float],
+    sample_size: float,
+    prior_weight: float,
+) -> float:
+    """Shrink observed-minus-expected deltas toward zero for thin samples."""
+    if observed_value is None or expected_value is None:
+        return 0.0
+    denominator = float(sample_size) + float(prior_weight)
+    if denominator <= 0:
+        return 0.0
+    raw_delta = float(observed_value) - float(expected_value)
+    return raw_delta * (float(sample_size) / denominator)
+
+
 def normal_uncertainty_band(
     mean: Optional[float],
     sample_size: Optional[int],

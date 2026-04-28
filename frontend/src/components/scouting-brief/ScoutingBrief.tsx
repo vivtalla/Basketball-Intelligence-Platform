@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { usePlayerScoutingBrief } from "@/hooks/usePlayerShotDiagnosis";
+import { MethodologyEvidenceCard } from "@/components/methodology/MethodologyEvidenceCard";
 import type {
   ScoutingBriefCard,
   ScoutingCardConfidence,
@@ -95,7 +96,7 @@ export function ScoutingBrief({ playerId, season }: Props) {
   );
 
   return (
-    <section>
+    <section className="space-y-3">
       <div className="mb-2 flex items-baseline justify-between">
         <h2 className="bip-display text-sm font-semibold uppercase tracking-[0.14em] text-[var(--muted)]">
           Scouting Brief
@@ -109,6 +110,7 @@ export function ScoutingBrief({ playerId, season }: Props) {
           <Card key={card.card_type} card={card} />
         ))}
       </div>
+      <MethodologyEvidenceCard domain="scouting" title="Scouting evidence reliability" compact />
     </section>
   );
 }

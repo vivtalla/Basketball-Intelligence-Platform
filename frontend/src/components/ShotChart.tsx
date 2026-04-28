@@ -547,7 +547,7 @@ export default function ShotChart({
               metadata: {
                 intelligence_view: chartView,
                 coverage_state: shotQuality?.coverage_state ?? activeShotChart?.completeness_status ?? dataStatus,
-                methodology_version: shotQuality?.methodology_version ?? "shot_quality_v1",
+                methodology_version: shotQuality?.methodology_version ?? "shot_quality_v2",
                 advanced_split_mode: chartView === "creation" ? "proxy-labeled" : "default",
               },
             }}

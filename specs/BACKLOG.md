@@ -102,15 +102,15 @@ Likely shape:
 
 ## Now — Decision Intelligence
 
-### Methodology Reliability and Calibration Follow-Ons
+### Methodology Calibration and Second-Wave Model Upgrades
 Why it matters:
-Sprint 71 added the platform methodology registry, shared reliability primitives, response-level `analysis_metadata`, and validation docs. The next value is turning that foundation into calibrated model upgrades and visible analyst-facing trust language across the product.
+Sprint 71 added the platform methodology registry, shared reliability primitives, response-level `analysis_metadata`, and validation docs. Sprint 74 made that pattern visible across major product surfaces and upgraded Shot Lab (`shot_quality_v2`) and Team-Fit (`team_fit_v3`). The next value is calibration: proving thresholds, priors, and labels against historical examples rather than leaving them as deterministic expert settings.
 
 Likely shape:
-- render registry-backed methodology and response-level reliability metadata in the relevant methodology drawers once frontend ownership is clear
-- add service-level golden fixture harnesses for Shot Lab, Team-Fit, Similarity, Trend, Opportunity, Style X-Ray, MVP, and Custom Metrics
-- calibrate thresholds with historical examples where labels exist, while keeping raw descriptive metrics visible
-- require new methodology versions to update `specs/platform-methodology.md`, registry metadata, validation notes, and proxy limitation language
+- expand the Sprint 74 validation harness from qualitative golden fixtures into historical calibration reports, drift alerts, and expected false-positive/false-negative notes
+- calibrate Shot Lab stabilization priors and sustainability labels by shot family, role, and season type while keeping raw actual/expected values visible
+- upgrade Similarity, Trend/Trajectory, Opportunity, Style X-Ray, MVP/Award Case, Gravity, and Custom Metrics with the same reliability/uncertainty pattern now used by Shot Lab and Team-Fit
+- require every new methodology version to update `specs/platform-methodology.md`, registry metadata, validation notes, and proxy limitation language
 
 ### Archetype Peer-Pool Composition Explainer
 Why it matters:
@@ -130,20 +130,20 @@ Likely shape:
 
 ### Team-Fit Calibration and Context Expansion
 Why it matters:
-Sprint 69 turned Team-Fit into an auditable player-page surface with current-team value, teammate overlap, alternate-team ranking, and methodology v2 score components. Sprint 71 added reliability metadata and validation framing. The next gains are calibration and deeper context: analysts should trust that the score behaves sensibly for stars, specialists, traded players, thin rosters, and injury-affected seasons.
+Sprint 69 turned Team-Fit into an auditable player-page surface with current-team value, teammate overlap, alternate-team ranking, and methodology v2 score components. Sprint 74 upgraded it to `team_fit_v3` with theoretical-usage separation, reliability-gated better-fit labels, context warnings, and golden fixtures. The next gains are calibration and deeper lineup context: analysts should trust that score movement behaves sensibly for stars, specialists, traded players, thin rosters, injury-affected seasons, and playoff samples.
 
 Likely shape:
-- build a small pressure-test gallery for Team-Fit examples such as Tatum/BOS overlap, specialist shooters, defensive anchors, traded/TOT seasons, and bad-fit obvious cases
+- turn the Sprint 74 golden fixtures into a visible pressure-test gallery for Tatum/BOS overlap, specialist shooters, defensive anchors, traded/TOT seasons, playoff samples, and bad-fit obvious cases
 - tune component weighting and confidence notes against those examples without adding salary, trade-value, contract, or probability modeling
-- thread player analysis contexts into Team-Fit confidence/risk language when injury, recovery, or availability windows make recent role signals less reliable
-- calibrate the better-fit threshold beyond the current deterministic `+5` rule and distinguish current-team fit from theoretical best usage
+- calibrate reliability-gated better-fit thresholds with historical same-season roster examples rather than fixed expert tiers
+- add lineup-role compatibility once adjusted lineup context is reliable enough to support fit interpretation
 
 ### Analysis Context Rollout
 Why it matters:
-Sprint 69 added persisted manual analysis contexts plus automatic injury/recovery windows from existing injury data, and Trend Intelligence now avoids blunt `losing_trust` conclusions during injury-affected windows. Other decision surfaces still need to understand those contexts so analysts get one coherent read across the platform.
+Sprint 69 added persisted manual analysis contexts plus automatic injury/recovery windows from existing injury data, and Trend Intelligence now avoids blunt `losing_trust` conclusions during injury-affected windows. Sprint 74 threads injury/recovery/availability context into Team-Fit confidence notes. Other decision surfaces still need to understand those contexts so analysts get one coherent read across the platform.
 
 Likely shape:
-- apply context flags to archetype confidence, scouting brief copy, Team-Fit warnings, and similarity interpretation without hiding raw stats
+- apply context flags to archetype confidence, scouting brief copy, similarity interpretation, and MVP/opportunity notes without hiding raw stats
 - add richer inline editing and review workflows for manual context windows on the player page
 - add fixture coverage for injured-star seasons, recovery windows, availability management, and true non-injury role drops
 

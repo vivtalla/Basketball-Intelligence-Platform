@@ -1,7 +1,11 @@
 "use client";
 
+import { MethodologyEvidenceCard } from "@/components/methodology/MethodologyEvidenceCard";
+
 export function XRayMethodologyDrawer() {
   return (
+    <div className="space-y-3">
+    <MethodologyEvidenceCard domain="style_xray" title="Style X-Ray methodology reliability" compact />
     <details className="rounded-[1.25rem] border border-[var(--border)] bg-[var(--surface)] p-4 text-sm text-[var(--muted-strong)]">
       <summary className="cursor-pointer list-none font-semibold text-[var(--foreground)]">
         How the Style X-Ray is built
@@ -68,5 +72,6 @@ export function XRayMethodologyDrawer() {
         </div>
       </div>
     </details>
+    </div>
   );
 }

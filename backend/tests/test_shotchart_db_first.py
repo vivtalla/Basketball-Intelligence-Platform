@@ -272,7 +272,9 @@ def test_player_shot_intelligence_returns_quality_creation_and_identity():
         creation = player_shot_creation(player.id, season="2024-25", season_type="Regular Season", db=session)
         identity = player_shot_identity(player.id, season="2024-25", season_type="Regular Season", db=session)
 
-        assert quality.methodology_version == "shot_quality_v1"
+        assert quality.methodology_version == "shot_quality_v2"
+        assert quality.summary.stabilized_pps is not None
+        assert quality.summary.sustainability_label is not None
         assert quality.summary.shots == 2
         assert quality.summary.actual_pps == 1.5
         assert quality.bins

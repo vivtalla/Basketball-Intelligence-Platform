@@ -1,6 +1,6 @@
 # Agent Coordination
 
-Last updated: 2026-04-28 by Claude (Sprint 73 closeout reset)
+Last updated: 2026-04-28 by Codex (Sprint 74 closeout reset)
 
 > Both agents read this file before touching code at the start of every session.
 > The canonical source of truth is the clean `master` checkout at `/Users/viv/Documents/Basketball Intelligence Platform`.
@@ -14,13 +14,13 @@ Last updated: 2026-04-28 by Claude (Sprint 73 closeout reset)
 
 | Field | Value |
 |-------|-------|
-| Sprint | 74 |
-| Goal | TBD — awaiting Vivek's next kickoff |
+| Sprint | 75 |
+| Goal | TBD — awaiting Vivek's sprint kickoff |
 | Started | TBD |
 | Target merge | TBD |
 | Sprint shape | TBD |
-| Branch | `master` until Sprint 74 kickoff |
-| Worker policy | TBD at kickoff |
+| Branch | `master` until Sprint 75 kickoff |
+| Worker policy | No active sprint; set at kickoff |
 
 ---
 
@@ -40,12 +40,12 @@ If repo state, sprint numbering, or shipped features appear to disagree across l
 ### Claude
 - Branch: TBD at kickoff
 - Scope: No active sprint assignment
-- Status: Sprint 73 closed and merged
+- Status: Not started
 
 ### Codex
 - Branch: TBD at kickoff
 - Scope: No active sprint assignment
-- Status: Sprint 71 closed and merged
+- Status: Not started
 
 ---
 
@@ -85,7 +85,7 @@ TBD at kickoff. Next sprint branch/worktree is created at kickoff and merges bac
 
 ## Sprint Work Allocation
 
-TBD at kickoff. Define areas and owners when the next sprint is scoped.
+Sprint 75 allocation — TBD at kickoff.
 
 | Area | Files | Owner |
 |------|-------|-------|
@@ -163,6 +163,8 @@ TBD at kickoff. Define areas and owners when the next sprint is scoped.
 ## Notes
 
 *Free-form, dated, newest first. Use this for coordination and repo-state exceptions.*
+
+2026-04-28 (Codex): Sprint 74 closed on `codex-sprint-74-methodology-upgrades` and merged to `master`. Shipped `methodology_registry_v2`, methodology validation fixtures + `/api/methodology/validation`, shared frontend methodology metadata/types/API/hooks + `<MethodologyEvidenceCard>`, Shot Lab `shot_quality_v2` with hierarchical baselines + empirical Bayes stabilized shot-making + uncertainty/sustainability labels, and Team-Fit `team_fit_v3` with theoretical usage, fit-gap interpretation, reliability-gated better-fit labels, analysis-context warnings, and playoff low-sample notes. Wired methodology evidence across Team-Fit, Shot Intelligence, Opportunity, Archetype/Similarity, Trend/Trajectory, Style X-Ray, MVP/Gravity, Scouting Brief, and Custom Metrics. Verification: 290 backend tests, `npm run lint`, `npm run build`, `git diff --check`. Closeout: `specs/sprint-74-closeout.md`.
 
 2026-04-28 (Claude): Sprint 73 closed on `feature/sprint-73a-playoffs-data` + `feature/sprint-73b-playoffs-features` and merged to `master`. Playoffs Platform sprint: two-team parallel (Stream A data foundation, Stream B frontend playoff features). Stream A: Alembic 0012_playoffs_data_layer adds `playoff_series` table + `is_playoff` on `lineup_stats` + `season_type`/`series_id`/`series_game_num`/`playoff_seed` on `game_logs`/warehouse games; `nba_client` + `sync_service` + `daily_sync.sh` get `season_type` pass-through, a 2h `PLAYOFF_CACHE_TTL` during the playoff window, and a new `--post-game` cron path; `services/season_phase_service.get_current_phase()` auto-detects from date+data; `services/playoff_bracket_service` + `playoff_simulator_service`; new routes `/api/season-phase`, `/api/playoffs/bracket|series/{id}|today|series-simulation/{id}`; existing `archetype/team_fit/lineup_context/similarity` services accept `season_type`. Stream B: new `/bracket` route + `<PlayoffBracketView>` + `<SeriesCard>` + `useSeasonPhase` SWR hook; series-mode Pre-Read pivot with `<CoachingAdjustmentsTimeline>` (finally surfaces `data.adjustments` deferred from Sprint 72) + `<SeriesWPChart>`; home shift with `<DailyPlayoffSlate>` + `<SeriesNarrative>` carousel; leaderboards Regular/Playoffs toggle; `<SeriesWPSimulator>` on MVP; `<PostseasonHeatmap>` on leaderboards; `<OpponentLineupMatchupMatrix>` tab on team detail. Every playoff surface gates via `useSeasonPhase()` so the platform reverts cleanly outside the playoff window. Verification: 286 backend tests (was 266, +20 new), `npm run build` + `npm run lint` clean (7 pre-existing warnings). Architect → 8 parallel Engineers → Reviewer → Optimizer. Closeout: `specs/sprint-73-closeout.md`.
 

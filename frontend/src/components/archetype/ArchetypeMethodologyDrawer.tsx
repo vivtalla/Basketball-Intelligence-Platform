@@ -1,7 +1,11 @@
 "use client";
 
+import { MethodologyEvidenceCard } from "@/components/methodology/MethodologyEvidenceCard";
+
 export function ArchetypeMethodologyDrawer() {
   return (
+    <div className="space-y-3">
+    <MethodologyEvidenceCard domain="archetype" title="Archetype methodology reliability" compact />
     <details className="rounded-[1.25rem] border border-[var(--border)] bg-[var(--surface)] p-4 text-sm text-[var(--muted-strong)]">
       <summary className="cursor-pointer list-none font-semibold text-[var(--foreground)]">
         How the player archetype is built
@@ -62,12 +66,13 @@ export function ArchetypeMethodologyDrawer() {
             (the subject player is excluded from his own comps).
             <strong> Team-Fit mode</strong> stays same-season but softens features already covered
             by a teammate, using a 0.4× distance multiplier when the player and teammate are
-            within 0.5 z-score on a role feature. The Team-Fit v2 panel uses the same overlap rule
+            within 0.5 z-score on a role feature. The Team-Fit v3 panel uses the same overlap rule
             plus skill-supply, roster-need, role-competition, and confidence explainers to audit
             current-team value and alternate team runway.
           </p>
         </div>
       </div>
     </details>
+    </div>
   );
 }

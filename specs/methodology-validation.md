@@ -32,16 +32,15 @@ Primary target:
 
 - Expected-shot models should beat a naive zone-only baseline on held-out Brier-style error or log loss.
 
-Current v1 validation:
+Current v2 validation:
 
-- Verify baseline fallback order is stable: exact context, zone-distance-value, zone-value, shot-value, league.
+- Verify hierarchical baseline blending is stable: exact context, zone-distance-value, zone-value, shot-value, league.
 - Verify low-attempt bins show low confidence and uncertainty instead of strong sustainability claims.
-- Verify `analysis_metadata.reliability_score` rises with attempts and a Wilson interval is present for actual FG%.
+- Verify `analysis_metadata.reliability_score` rises with attempts, a Wilson interval is present for actual FG%, and stabilized PPS delta shrinks thin samples toward expected value.
 
-Planned rigor upgrade:
+Current rigor upgrade:
 
-- Hierarchical expected-shot model using location, distance, zone, shot value, clock, score margin, action family, season type, and assisted/self-created proxy.
-- Empirical Bayes stabilization for shot-making deltas to distinguish repeatable finishing from hot streaks.
+- `shot_quality_v2` uses hierarchical baseline blending and empirical Bayes stabilization for shot-making deltas to distinguish repeatable finishing from hot streaks.
 
 ### Team-Fit
 
@@ -49,19 +48,32 @@ Primary target:
 
 - Better-fit labels should clear calibrated delta and reliability gates, not just a raw score edge.
 
-Current v2 validation:
+Current v3 validation:
 
 - Current team is excluded from alternates.
 - `TOT` rows produce clear warnings or latest-qualified-season fallback when appropriate.
 - Duplicate features include covering teammate, player z, teammate z, feature label, and `0.4x` multiplier.
 - Thin rosters reduce confidence and produce sample notes.
 - `analysis_metadata.driver_breakdown` exposes skill supply, roster need, role competition, and alternate delta.
+- Current fit is separated from theoretical best usage so stars are not punished solely for teammate overlap.
+- Better-fit labels are reliability-gated: +5 at high reliability, +7 at medium, never better-fit at low reliability.
+- Injury/recovery/availability contexts change confidence language, not raw component math.
 
-Planned rigor upgrade:
+Planned calibration upgrade:
 
 - Calibrate better-fit thresholds from historical roster examples.
-- Split current-team fit from theoretical best usage so stars are not punished for having strong teammates.
 - Add lineup role compatibility and injury/context flags without introducing salary or trade-feasibility logic.
+
+## Sprint 74 Validation Endpoint
+
+`GET /api/methodology/validation` returns the first structured fixture set:
+
+- `team_fit_tatum_bos_overlap`
+- `team_fit_traded_tot`
+- `team_fit_thin_playoff_sample`
+- `shot_lab_specialist_shooter`
+- `shot_lab_low_attempt_hot_streak`
+- `team_fit_role_player_clear_fit`
 
 ### Similarity
 
@@ -192,4 +204,3 @@ Current automated checks:
 
 - Reliability math unit tests cover empirical Bayes shrinkage, robust z-scores, Wilson intervals, and confidence mapping.
 - Methodology registry tests cover core domains and domain lookup.
-

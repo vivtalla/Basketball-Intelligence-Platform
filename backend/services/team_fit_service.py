@@ -17,6 +17,7 @@ from models.team_fit import (
     TeamFitResponse,
 )
 from services.intel_math import clamp
+from services.analysis_context_service import list_analysis_contexts
 from services.reliability_service import (
     confidence_from_reliability,
     reliability_score,
@@ -36,8 +37,9 @@ from services.similarity_service import (
 
 SeasonType = Literal["Regular Season", "Playoffs"]
 
-METHODOLOGY_VERSION = "team_fit_v2"
+METHODOLOGY_VERSION = "team_fit_v3"
 BETTER_FIT_DELTA_THRESHOLD = 5.0
+CALIBRATED_BETTER_FIT_THRESHOLDS = {"high": 5.0, "medium": 7.0, "low": 999.0}
 MIN_TEAM_PLAYERS = 3
 PLAYOFF_LOW_SAMPLE_THRESHOLD = 8
 
@@ -81,11 +83,13 @@ def _methodology() -> TeamFitMethodology:
         min_games=MIN_GP,
         min_team_players=MIN_TEAM_PLAYERS,
         better_fit_delta_threshold=BETTER_FIT_DELTA_THRESHOLD,
+        calibrated_better_fit_thresholds=CALIBRATED_BETTER_FIT_THRESHOLDS,
         notes=[
             "Team fit is deterministic roster fit only; salary, contracts, trade assets, injuries, and projections are excluded.",
             "Player and roster features use the same 13 z-scored role features as Team-Fit similarity mode.",
             "A feature is teammate-covered when the player and a teammate are within 0.5 z-score on that feature; covered features receive the Sprint 68 0.4x duplicate penalty.",
-            "V2 exposes skill supply, roster need, role competition, and confidence so the score can be audited instead of treated as a black box.",
+            "V3 exposes skill supply, roster need, role competition, confidence, and current-fit-vs-theoretical-usage so the score can be audited instead of treated as a black box.",
+            "Alternative teams need reliability-gated score deltas: +5 at high confidence, +7 at medium confidence, and no better-fit label at low confidence.",
             "Alternative teams are ranked by roster gaps filled, lower role competition, and position-bucket runway against same-season rosters.",
         ],
     )
@@ -372,12 +376,51 @@ def _current_summary(team: str, score: float, drivers: List[FitDriver], overlaps
     return "{0} fit is {1:.1f}: no single role feature dominates the fit read.".format(team, score)
 
 
-def _alternative_label(delta: float) -> str:
-    if delta >= BETTER_FIT_DELTA_THRESHOLD:
+def _better_fit_threshold(confidence: Optional[str]) -> float:
+    return CALIBRATED_BETTER_FIT_THRESHOLDS.get((confidence or "low").lower(), 999.0)
+
+
+def _alternative_label(delta: float, confidence: Optional[str] = "high") -> str:
+    threshold = _better_fit_threshold(confidence)
+    if delta >= threshold:
         return "better_fit"
-    if abs(delta) < BETTER_FIT_DELTA_THRESHOLD:
+    if abs(delta) < threshold:
         return "similar_fit"
     return "different_fit"
+
+
+def _theoretical_usage_score(value_score: float, role_score: float, subject_row: SeasonStat) -> float:
+    usage_bonus = clamp(float(subject_row.usg_pct or 0.0) * 2.0, 0.0, 20.0)
+    return round(clamp((0.55 * value_score) + (0.45 * role_score) + usage_bonus, 0.0, 100.0), 1)
+
+
+def _fit_interpretation(fit_score: float, theoretical_score: float) -> str:
+    gap = theoretical_score - fit_score
+    if gap >= 12:
+        return "Current roster fit trails the player's theoretical best-usage profile; overlap may cap role expression."
+    if gap >= 5:
+        return "Current roster fit is solid, but theoretical usage suggests some untapped role expression."
+    return "Current roster fit is close to the player's theoretical best-usage profile."
+
+
+def _context_reliability_notes(contexts: List[object], is_playoff: bool, games_played: int) -> List[str]:
+    notes: List[str] = []
+    if contexts:
+        labels = sorted({str(getattr(ctx, "context_type", "context")).replace("_", " ") for ctx in contexts})
+        notes.append("Analysis context active: {0}; confidence language is softened, raw component math is unchanged.".format(", ".join(labels)))
+    if is_playoff and games_played < PLAYOFF_LOW_SAMPLE_THRESHOLD:
+        notes.append("Playoff Team-Fit is available, but the sample is below the regular rotation-stability target.")
+    return notes
+
+
+def _downgrade_confidence(confidence: str, notes: List[str]) -> str:
+    if not notes:
+        return confidence
+    if confidence == "high":
+        return "medium"
+    if confidence == "medium" and any("Playoff" in note for note in notes):
+        return "low"
+    return confidence
 
 
 def _alternative_summary(team: str, label: str, delta: float, drivers: List[FitDriver]) -> str:
@@ -489,6 +532,9 @@ def build_team_fit_report(
     norms = _season_norms_v2(all_rows)
     effective_season = season
     warnings: List[str] = []
+    contexts = list_analysis_contexts(db, player_id, season, include_auto=True)
+    if contexts:
+        warnings.append("Analysis context is active for this player-season; Team-Fit confidence notes are context-aware.")
     if not any(r.player_id == player_id and r.season == season for r in all_rows):
         fallback = _latest_qualified_player_season(all_rows, player_id, season)
         if fallback is not None:
@@ -560,6 +606,10 @@ def build_team_fit_report(
                 overlaps,
             ) = _score_team_fit(db, player, subject_row, current_roster, norms, player_lookup)
             confidence, confidence_notes = _confidence_for_team(current_roster, value_drivers or role_drivers, warnings)
+            reliability_notes = _context_reliability_notes(contexts, is_playoff, int(subject_row.gp or 0))
+            confidence = _downgrade_confidence(confidence, reliability_notes)
+            confidence_notes.extend(reliability_notes)
+            theoretical_score = _theoretical_usage_score(value_score, role_score, subject_row)
             current_score = score
             current_team = CurrentTeamFit(
                 team_abbreviation=current_abbr,
@@ -570,6 +620,10 @@ def build_team_fit_report(
                 skill_supply_score=value_score,
                 roster_need_score=role_score,
                 role_competition_score=overlap_score,
+                theoretical_usage_score=theoretical_score,
+                fit_gap_vs_theoretical=round(theoretical_score - score, 1),
+                fit_interpretation=_fit_interpretation(score, theoretical_score),
+                reliability_notes=reliability_notes,
                 confidence=confidence,
                 confidence_notes=confidence_notes,
                 summary=_current_summary(current_abbr, score, value_drivers, overlaps),
@@ -594,9 +648,12 @@ def build_team_fit_report(
                 role_drivers,
                 overlaps,
             ) = _score_team_fit(db, player, subject_row, roster, norms, player_lookup)
-            delta = round(score - current_score, 1)
-            label = _alternative_label(delta)
             confidence, confidence_notes = _confidence_for_team(roster, value_drivers or role_drivers, warnings)
+            reliability_notes = _context_reliability_notes(contexts, is_playoff, int(subject_row.gp or 0))
+            confidence = _downgrade_confidence(confidence, reliability_notes)
+            confidence_notes.extend(reliability_notes)
+            delta = round(score - current_score, 1)
+            label = _alternative_label(delta, confidence)
             alternatives.append(
                 AlternativeTeamFit(
                     team_abbreviation=team_abbr,

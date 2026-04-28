@@ -1,9 +1,22 @@
 # Sprint History Archive
 
-Archived sprint summaries through Sprint 73. The two most recent sprint summaries also stay inline in `CLAUDE.md` under "Recent Sprints".
+Archived sprint summaries through Sprint 74. The two most recent sprint summaries also stay inline in `CLAUDE.md` under "Recent Sprints".
 
 For detailed per-sprint records, see the individual closeout files in this directory where available:
 `specs/sprint-09-closeout.md` through `specs/sprint-59-closeout.md`, plus `specs/sprint-62-closeout.md` and `specs/sprint-67-closeout.md` onward.
+
+---
+
+### Sprint 74 — Methodology Reliability Rollout + Team-Fit/Shot Lab vNext
+**Branch:** `codex-sprint-74-methodology-upgrades` (Codex, single-stream)
+
+- Promoted methodology reliability from backend-only metadata into a product-wide trust pattern. Registry upgraded to `methodology_registry_v2` with model stage, season-type support, validation notes, and implementation references.
+- Added `GET /api/methodology/validation` plus golden fixtures for Team-Fit and Shot Lab cases including Tatum/BOS overlap, traded/TOT handling, thin playoff samples, specialist shooters, low-attempt hot streaks, and role-player fit.
+- Added shared frontend methodology types, API helpers, SWR hooks, and `<MethodologyEvidenceCard>`; wired it into Team-Fit, Shot Intelligence, Opportunity, Archetype/Similarity, Trend/Trajectory, Style X-Ray, MVP/Gravity, Scouting Brief, and Custom Metrics.
+- Upgraded Shot Lab to `shot_quality_v2`: hierarchical baseline blending, empirical Bayes stabilized FG%/PPS/PPS delta, Wilson FG% intervals, PPS-delta uncertainty bands, and sustainability labels.
+- Upgraded Team-Fit to `team_fit_v3`: current fit vs theoretical best usage, fit-gap interpretation, reliability notes, reliability-gated better-fit thresholds, analysis-context confidence warnings, and playoff low-sample notes.
+- Updated `specs/platform-methodology.md`, `specs/methodology-validation.md`, and backlog follow-ons for the next calibration/model-upgrade layer.
+- Verified with **290 backend tests**, `npm run lint`, `npm run build`, and `git diff --check`. Closeout: `specs/sprint-74-closeout.md`.
 
 ---
 

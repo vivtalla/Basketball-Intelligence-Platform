@@ -89,6 +89,12 @@ class ShotQualitySummary(BaseModel):
     confidence: str = "low"
     reliability_score: Optional[float] = None
     uncertainty_band: Optional[UncertaintyBand] = None
+    fg_uncertainty_band: Optional[UncertaintyBand] = None
+    pps_delta_uncertainty_band: Optional[UncertaintyBand] = None
+    stabilized_fg_pct: Optional[float] = None
+    stabilized_pps: Optional[float] = None
+    stabilized_pps_delta: Optional[float] = None
+    sustainability_label: Optional[str] = None
 
 
 class ShotReplayExample(BaseModel):
@@ -122,6 +128,10 @@ class ShotQualityBin(BaseModel):
     actual_pps: Optional[float] = None
     expected_pps: Optional[float] = None
     pps_delta: Optional[float] = None
+    stabilized_fg_pct: Optional[float] = None
+    stabilized_pps: Optional[float] = None
+    stabilized_pps_delta: Optional[float] = None
+    sustainability_label: Optional[str] = None
     average_loc_x: Optional[float] = None
     average_loc_y: Optional[float] = None
     sample_confidence: str = "low"
@@ -141,6 +151,10 @@ class ShotQualityZone(BaseModel):
     actual_pps: Optional[float] = None
     expected_pps: Optional[float] = None
     pps_delta: Optional[float] = None
+    stabilized_fg_pct: Optional[float] = None
+    stabilized_pps: Optional[float] = None
+    stabilized_pps_delta: Optional[float] = None
+    sustainability_label: Optional[str] = None
     sample_confidence: str = "low"
 
 

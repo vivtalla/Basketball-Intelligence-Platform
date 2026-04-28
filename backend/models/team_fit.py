@@ -34,6 +34,10 @@ class CurrentTeamFit(BaseModel):
     skill_supply_score: Optional[float] = None
     roster_need_score: Optional[float] = None
     role_competition_score: Optional[float] = None
+    theoretical_usage_score: Optional[float] = None
+    fit_gap_vs_theoretical: Optional[float] = None
+    fit_interpretation: Optional[str] = None
+    reliability_notes: List[str] = []
     confidence: Optional[str] = None
     confidence_notes: List[str] = []
     summary: str
@@ -67,6 +71,7 @@ class TeamFitMethodology(BaseModel):
     min_games: int
     min_team_players: int
     better_fit_delta_threshold: float
+    calibrated_better_fit_thresholds: Dict[str, float] = {}
     notes: List[str]
 
 

@@ -8,6 +8,7 @@ import type {
   ShotQualityResponse,
 } from "@/lib/types";
 import ShotExamplesChips from "./ShotExamplesChips";
+import { MethodologyEvidenceCard } from "@/components/methodology/MethodologyEvidenceCard";
 
 type ShotIntelligenceMode = "quality" | "making" | "creation" | "summary";
 
@@ -88,9 +89,11 @@ function SummaryCards({ quality }: { quality?: ShotQualityResponse | null }) {
     { label: "Expected eFG", value: pct(summary?.expected_efg_pct) },
     { label: "eFG delta", value: signed(summary?.efg_pct_delta) },
     { label: "PPS delta", value: signed(summary?.pps_delta) },
+    { label: "Stabilized PPS", value: num(summary?.stabilized_pps) },
+    { label: "Stabilized delta", value: signed(summary?.stabilized_pps_delta) },
   ];
   return (
-    <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+    <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-6">
       {items.map((item) => (
         <div key={item.label} className="rounded-[1rem] border border-[rgba(25,52,42,0.1)] bg-[rgba(255,255,255,0.68)] px-4 py-3">
           <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-[var(--muted)]">{item.label}</p>
@@ -122,6 +125,7 @@ function BinRows({ bins, mode }: { bins: ShotQualityBin[]; mode: "quality" | "ma
                 <p className="text-sm font-semibold text-[var(--foreground)]">{bin.label}</p>
                 <p className="text-xs text-[var(--muted)]">
                   {bin.attempts} attempts · actual {num(bin.actual_pps)} PPS · expected {num(bin.expected_pps)} PPS
+                  {bin.stabilized_pps_delta != null ? ` · stabilized ${signed(bin.stabilized_pps_delta)} PPS` : ""}
                 </p>
               </div>
               <span className={`rounded-full border px-3 py-1 text-xs font-semibold ${
@@ -137,6 +141,11 @@ function BinRows({ bins, mode }: { bins: ShotQualityBin[]; mode: "quality" | "ma
               />
             </div>
             <p className="mt-2 text-[11px] text-[var(--muted)]">{bin.coverage_note}</p>
+            {bin.sustainability_label ? (
+              <p className="mt-1 text-[11px] font-semibold uppercase tracking-[0.12em] text-[var(--muted)]">
+                {bin.sustainability_label}
+              </p>
+            ) : null}
             {bin.replay_examples && bin.replay_examples.length > 0 ? (
               <div className="mt-3">
                 <ShotExamplesChips examples={bin.replay_examples} />
@@ -273,6 +282,10 @@ export default function ShotIntelligencePanel({
 
       {mode === "creation" ? <CreationSplits creation={creation} /> : null}
       {mode === "summary" ? <IdentityCards identity={identity} /> : null}
+
+      {(mode === "quality" || mode === "making") && quality ? (
+        <MethodologyEvidenceCard domain="shot_lab" metadata={quality.analysis_metadata} title="Shot Lab reliability" />
+      ) : null}
 
       <Methodology notes={methodology} />
     </div>

@@ -262,6 +262,15 @@ CourtVue Labs uses a hybrid sprint model: major feature sprints typically run as
 
 > Full history → `specs/sprint-history.md`
 
+### Sprint 74 — Methodology Reliability Rollout + Team-Fit/Shot Lab vNext
+
+- Single-stream Codex sprint promoting methodology reliability from backend-only metadata into a visible product-wide trust pattern while preserving response compatibility and raw descriptive values.
+- Shared methodology layer: registry upgraded to `methodology_registry_v2` with model stage, season-type support, validation notes, and implementation references; new `GET /api/methodology/validation`; shared frontend types/API hooks plus `<MethodologyEvidenceCard>` for version, reliability, sample context, uncertainty, drivers, limitations, and validation notes.
+- Shot Lab upgraded to `shot_quality_v2`: hierarchical baseline blending from exact context toward broader buckets/league priors; empirical Bayes stabilized FG%, PPS, and PPS delta; Wilson FG% intervals; PPS-delta uncertainty; sustainability labels that distinguish repeatable edge from hot/cold streak and thin samples.
+- Team-Fit upgraded to `team_fit_v3`: current fit vs theoretical best usage, fit-gap interpretation, reliability notes, reliability-gated better-fit thresholds, analysis-context confidence warnings, and playoff low-sample confidence notes.
+- Methodology evidence UI wired across Team-Fit, Shot Intelligence, Opportunity, Archetype/Similarity, Trend/Trajectory, Style X-Ray, MVP/Gravity, Scouting Brief, and Custom Metrics. Docs updated in `specs/platform-methodology.md` and `specs/methodology-validation.md`.
+- Verified with **290 backend tests**, `npm run lint` (7 pre-existing warnings), `npm run build`, and `git diff --check`. Closeout: `specs/sprint-74-closeout.md`.
+
 ### Sprint 73 — Playoffs Platform
 
 - Two-team parallel sprint shifting the platform's center of gravity to the 2026 NBA first-round playoffs while keeping the regular-season scope intact. Every playoff surface gates via a new `useSeasonPhase()` hook that auto-detects the active phase from data + date window, so the platform reverts cleanly outside the playoff window — no manual flip needed.
@@ -281,24 +290,7 @@ CourtVue Labs uses a hybrid sprint model: major feature sprints typically run as
 - Architecture used `Architect → 8 parallel Engineers (4 per stream) → Reviewer → Optimizer`. Reviewer signed off with 4 non-blocking concerns; Optimizer addressed 2 (DST-aware Pacific timezone via `pytz`, memoized WP simulator chart geometry) and deferred 2 to backlog.
 - Verified with **286 backend tests** (was 266, +20 new), `npm run build` + `npm run lint` clean (7 pre-existing warnings), `git diff --check` clean. Closeout: `specs/sprint-73-closeout.md`.
 
-### Sprint 72 — Design System Closeout + Visual Polish
-
-- Closed every Sprint 70 backlog item plus the API payload audit's top 5 "free UI wins" plus a basketball polish pass on the home-page hero. After this sprint the front-end design work from the design tarball is fully done.
-- **Stream A (design follow-ons):**
-  - Home league-leaders **TREND sparkline column** with new `GET /api/leaderboards/{stat}/trends` endpoint, `backend/services/leaderboard_trends.py`, and a new pure-SVG `<Sparkline>` primitive on the frontend. Tooltip surfaces latest value vs season baseline. Fetch is gated on `playerIds.length > 0` to avoid a waterfall.
-  - **Compare PlayerCard hardwood headers** in `ComparisonView` with low-opacity (0.05) `<HeroHardwood>` tinted forest-green left / gold right, color-coded player names, and a "Change player ▾" pill that scrolls back to the existing player slot search.
-  - **MVP candidate-card hardwood + ★#1 chrome** in `MvpRacePanel` with `<HeroHardwood>` tinted by team color (inline `TEAM_TINT` map). Per user decision the existing 6 value pillars + 5 award modifiers + radar + clutch + signature games were preserved — this is purely additive chrome.
-  - **`/learn/design-system` showcase page** consolidating Sprint 70+72 primitives (Hardwood, Typography, Buttons+Pills, Live FX, Data Viz, HomeLiveCourt) for future design-driven sprints to reference.
-  - **Pre-Read print stylesheet** — `@media print` rules in `globals.css` plus `print:hidden` on action bar / mode tabs and `data-print-break-before` on focus levers, so `Cmd+P` from `/pre-read` produces a clean coach-handoff PDF.
-- **Stream B (API payload audit free UI wins):**
-  - Pre-Read **urgency badge** above matchup card and **headline callout** under focus levers from `data.prep_context.urgency` and `data.prep_context.headline` (returned by API but previously unrendered).
-  - MVP **Teammate quality** sub-card surfacing `candidate.support_burden` via a heuristic score (USG-driven primary, teammate availability fallback) inside each candidate card.
-  - Player archetype `data.reason` tooltip with an info-icon visual cue on the archetype label.
-  - Opportunity RoleFitCard hint discoverability — info-icon next to each row label flagging the existing per-row hover tooltip.
-- **Stream C (basketball polish):** `FloatingBall.tsx` got a specular-shine radial overlay between body and seams (via `useId` for collision-safe per-instance gradient IDs), varied seam stroke widths/opacity (1.8/0.65 spine, 1.2/0.5 horizontals, 0.8/0.35 shoulders), two-layer drop-shadow for grounding, and a four-stop fill gradient with off-center origin and deeper rim color `#5a2e10`.
-- Verified with **266 backend tests** (was 263, +3 sparkline), `npm run build` clean, `npm run lint` clean (7 pre-existing `usePlayerStats.ts` warnings unchanged). Closeout: `specs/sprint-72-closeout.md`.
-
-*Sprint 71 and older moved to `specs/sprint-history.md`.*
+*Sprint 72 and older moved to `specs/sprint-history.md`.*
 
 ---
 
@@ -325,6 +317,7 @@ CourtVue Labs uses a hybrid sprint model: major feature sprints typically run as
 | `feature/sprint-72-design-system-closeout` | Claude | Merged to master |
 | `feature/sprint-73a-playoffs-data` | Claude | Merged to master |
 | `feature/sprint-73b-playoffs-features` | Claude | Merged to master |
+| `codex-sprint-74-methodology-upgrades` | Codex | Merged to master |
 
 Sprint branches are created at kickoff and listed in `AGENTS.md`.
 

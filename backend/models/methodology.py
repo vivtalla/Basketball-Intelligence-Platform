@@ -46,8 +46,10 @@ class MethodologyDomain(BaseModel):
     label: str
     methodology_version: str
     status: str
+    model_stage: str = "production"
     question_answered: str
     input_families: List[str]
+    season_type_support: List[str] = Field(default_factory=lambda: ["Regular Season"])
     sample_gates: List[str] = Field(default_factory=list)
     confidence_rules: List[str] = Field(default_factory=list)
     reliability_policy: str
@@ -67,3 +69,18 @@ class MethodologyRegistryResponse(BaseModel):
 class MethodologyDetailResponse(MethodologyDomain):
     related_domains: List[str] = Field(default_factory=list)
     recommended_next_steps: List[str] = Field(default_factory=list)
+
+
+class MethodologyValidationFixture(BaseModel):
+    fixture_key: str
+    domain: str
+    label: str
+    expected_result: str
+    current_result: str
+    passed: bool
+    notes: List[str] = Field(default_factory=list)
+
+
+class MethodologyValidationResponse(BaseModel):
+    version: str
+    fixtures: List[MethodologyValidationFixture]

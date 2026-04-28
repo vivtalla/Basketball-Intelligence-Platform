@@ -268,12 +268,13 @@ Implementation references:
 
 Shot Lab answers: where a player shoots, how favorable those shots are, and whether actual making beats expectation.
 
-Shot quality v1:
+Shot quality v2:
 
-- Methodology version: `shot_quality_v1`
+- Methodology version: `shot_quality_v2`
 - Baselines are materialized by season and season type in `shot_quality_baselines`.
-- Each shot is matched to the most specific available baseline with enough attempts.
-- Baseline fallback order moves from exact context toward broader zone/value buckets.
+- Each shot uses hierarchical baseline blending instead of hard fallback only.
+- Exact context blends toward zone-distance-value, then zone-value, shot-value, and league priors as bucket samples thin.
+- Raw actual and expected values remain visible; stabilized shot-making is additive.
 
 Expected and actual formulas:
 
@@ -291,6 +292,11 @@ expected_PPS = sum(baseline_PPS for shots) / attempts
 expected_eFG% = expected_points / (2 * attempts)
 
 delta = actual - expected
+
+stabilized_delta =
+  (actual_PPS - expected_PPS) * attempts / (attempts + prior_weight)
+
+stabilized_PPS = expected_PPS + stabilized_delta
 ```
 
 Confidence:
@@ -299,7 +305,9 @@ Confidence:
 - Zone/bin confidence: high at 75+ attempts, medium at 25+, low below 25.
 - Coverage states distinguish ready, partial, legacy, missing, and stale data.
 - `analysis_metadata.reliability_score` uses a 300-shot target for summary reads.
-- The summary uncertainty band uses a Wilson interval around actual FG% as a shot-making stability cue.
+- Summary stabilized priors default to 150 attempts; zone priors default to 50 attempts; bin priors default to 35 attempts.
+- Raw FG% uses a Wilson interval. PPS delta uses a normal uncertainty band when sample support is sufficient.
+- Sustainability labels separate repeatable edge, likely hot streak, likely cold streak, and sample too thin.
 
 Shot creation:
 
@@ -335,7 +343,7 @@ Limitations:
 - Shot quality is not defender-distance or contest based unless those feeds are later persisted.
 - Creation labels are directional proxies, not official play-type or tracking truth.
 - Expected value is only as good as the baseline pool and available context fields.
-- Current `shot_quality_v1` is not yet a hierarchical expected-shot model; that is the recommended upgrade path.
+- V2 still does not use defender distance, contest quality, or optical tracking unless those feeds are later persisted.
 
 Implementation references:
 
@@ -444,7 +452,7 @@ Implementation references:
 
 Team-Fit answers: how clearly does this player supply value his current roster needs, and where else might he fit better?
 
-Methodology version: `team_fit_v2`
+Methodology version: `team_fit_v3`
 
 Inputs:
 
@@ -469,6 +477,27 @@ Current implementation details:
 - A covered feature is one where `abs(player_z - teammate_z) < 0.5`.
 - Covered features receive the Sprint 68 duplicate multiplier: `0.4x`.
 - Alternate teams are labeled a better fit only when `score_delta_vs_current >= +5.0`.
+- V3 adds reliability-gated better-fit labels:
+
+```text
+high reliability: better fit requires +5
+medium reliability: better fit requires +7
+low reliability: never label as better fit
+```
+
+- V3 separates current roster fit from theoretical best usage:
+
+```text
+theoretical_usage_score =
+  0.55 * skill_supply_score
+  + 0.45 * roster_need_score
+  + usage_bonus
+
+fit_gap_vs_theoretical = theoretical_usage_score - current_fit_score
+```
+
+- Injury, recovery, and availability contexts soften confidence notes without changing raw component math.
+- Playoff Team-Fit can run, but low game samples must visibly reduce confidence.
 - Teams need at least 3 qualifying player rows.
 - `analysis_metadata.reliability_score` uses qualified current-roster rows against an 8-player target.
 - `driver_breakdown` exposes skill supply, roster need, role competition, and best alternate delta when available.
