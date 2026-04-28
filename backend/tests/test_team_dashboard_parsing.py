@@ -93,7 +93,7 @@ def test_get_team_stats_recovers_abbreviation_when_dashboard_omits_it(monkeypatc
     ]
 
     class FakeDash:
-        def __init__(self, season: str, measure_type_detailed_defense: str, timeout: int):
+        def __init__(self, season: str, measure_type_detailed_defense: str, timeout: int, **_kwargs):
             self.measure_type_detailed_defense = measure_type_detailed_defense
 
         def get_normalized_dict(self):

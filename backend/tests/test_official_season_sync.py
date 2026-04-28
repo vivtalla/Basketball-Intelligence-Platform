@@ -83,7 +83,7 @@ def test_sync_official_season_stats_replaces_stale_current_season_rows(monkeypat
             }
         ]
 
-        def fake_league_dash(season: str, measure_type: str = "Advanced"):
+        def fake_league_dash(season: str, measure_type: str = "Advanced", **_kwargs):
             assert season == "2025-26"
             return base_rows if measure_type == "Base" else advanced_rows
 

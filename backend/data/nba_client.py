@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import functools
 import json
 import re
 import time
@@ -39,7 +40,7 @@ from nba_api.live.nba.endpoints import boxscore as live_boxscore
 from nba_api.stats.static import players as static_players
 from nba_api.stats.static import teams as static_teams
 
-from config import NBA_API_DELAY, NBA_API_TIMEOUT
+from config import NBA_API_DELAY, NBA_API_TIMEOUT, PLAYOFF_CACHE_TTL
 from data.cache import CacheManager
 from db.database import SessionLocal
 from db.models import ApiRequestState
@@ -195,8 +196,59 @@ def _active_nba_season() -> str:
     return f"{start_year}-{str((start_year + 1) % 100).zfill(2)}"
 
 
+# Cache the playoff-phase signal for ~5 minutes so cache TTL lookups don't
+# pay an import + DB round trip on every hit. The bucket key changes every
+# 300 seconds via integer division on the wall clock.
+_PHASE_CACHE_BUCKET_SECONDS = 300
+
+
+def _phase_cache_bucket() -> int:
+    return int(time.time()) // _PHASE_CACHE_BUCKET_SECONDS
+
+
+def _active_phase_is_playoffs_uncached(bucket: int) -> bool:
+    """Lazy import to avoid circular dependency with the season_phase_service.
+
+    Falls back to a wall-clock April–June window when the phase service is not
+    importable (e.g. before EA4 lands the module, or in test environments
+    that monkey-patch the module out).
+    """
+    del bucket  # cache key only — value is computed from current time
+    try:
+        from services.season_phase_service import get_current_phase  # type: ignore
+        phase = getattr(get_current_phase(), "phase", None) or ""
+        # Match all playoff phases including conference_finals and finals so the
+        # 2h cache TTL applies through the entire postseason, not just rounds 1-2.
+        return isinstance(phase, str) and phase in (
+            "playoff_play_in",
+            "playoff_round_1",
+            "playoff_round_2",
+            "conference_finals",
+            "finals",
+        )
+    except Exception:
+        # Spring window heuristic: NBA postseason runs mid-April through mid-June.
+        now = time.localtime()
+        return now.tm_mon in (4, 5, 6)
+
+
+# Wrap with a small LRU keyed by the 5-minute bucket. lru_cache evicts old
+# entries automatically when the bucket key advances.
+_active_phase_is_playoffs_cached = functools.lru_cache(maxsize=4)(
+    _active_phase_is_playoffs_uncached
+)
+
+
+def _active_phase_is_playoffs() -> bool:
+    return _active_phase_is_playoffs_cached(_phase_cache_bucket())
+
+
 def _cache_ttl_for_season(season: str) -> int:
-    return CURRENT_SEASON_CACHE_TTL if season == _active_nba_season() else HISTORICAL_SEASON_CACHE_TTL
+    if season == _active_nba_season():
+        if _active_phase_is_playoffs():
+            return PLAYOFF_CACHE_TTL
+        return CURRENT_SEASON_CACHE_TTL
+    return HISTORICAL_SEASON_CACHE_TTL
 
 
 def _fetch_nba_json(base_url: str, path: str, timeout: int = NBA_API_TIMEOUT) -> dict:
@@ -957,16 +1009,21 @@ def get_career_stats(player_id: int) -> dict:
 
 
 def get_league_dash_player_stats(
-    season: str, measure_type: str = "Advanced", timeout: int = NBA_API_TIMEOUT
+    season: str,
+    measure_type: str = "Advanced",
+    timeout: int = NBA_API_TIMEOUT,
+    season_type: str = "Regular Season",
 ) -> list[dict]:
     """Fetch league-wide player stats for a given season.
 
     measure_type: 'Base' for traditional, 'Advanced' for advanced metrics.
+    season_type: 'Regular Season' or 'Playoffs' (NBA Stats convention).
     """
     _rate_limit()
     dash = leaguedashplayerstats.LeagueDashPlayerStats(
         season=season,
         measure_type_detailed_defense=measure_type,
+        season_type_all_star=season_type,
         timeout=timeout,
     )
     data = dash.get_normalized_dict()
@@ -1083,9 +1140,13 @@ def get_player_game_ids(
     candidate_game_ids: list[str] | None = None,
     prefer_candidate_scan: bool = False,
     timeout: int = NBA_API_TIMEOUT,
+    season_type: str = "Regular Season",
 ) -> list[str]:
-    """Return regular-season game IDs for a player in a given season."""
-    cache_key = f"player_game_ids:{player_id}:{season}"
+    """Return game IDs for a player in a given season.
+
+    season_type: 'Regular Season' or 'Playoffs'.
+    """
+    cache_key = f"player_game_ids:{player_id}:{season}:{season_type}"
     cached = CacheManager.get(cache_key)
     if cached and isinstance(cached.get("ids"), list):
         return [str(game_id) for game_id in cached["ids"]]
@@ -1112,7 +1173,7 @@ def get_player_game_ids(
         log = playergamelog.PlayerGameLog(
             player_id=player_id,
             season=season,
-            season_type_all_star="Regular Season",
+            season_type_all_star=season_type,
             timeout=timeout,
         )
         data = log.get_normalized_dict()
@@ -1305,16 +1366,18 @@ def get_game_box_score(game_id: str, timeout: int = NBA_API_TIMEOUT) -> dict:
     return _normalize_live_box_score(live_data)
 
 
-def get_team_stats(season: str) -> dict[str, dict]:
+def get_team_stats(season: str, season_type: str = "Regular Season") -> dict[str, dict]:
     """Fetch league-wide team stats for a season (both Base and Advanced measures).
 
     Returns a dict keyed by team abbreviation with merged Base + Advanced fields.
+    season_type: 'Regular Season' or 'Playoffs'.
     """
     def _fetch(measure_type: str) -> list[dict]:
         _rate_limit()
         dash = leaguedashteamstats.LeagueDashTeamStats(
             season=season,
             measure_type_detailed_defense=measure_type,
+            season_type_all_star=season_type,
             timeout=NBA_API_TIMEOUT,
         )
         return dash.get_normalized_dict().get("LeagueDashTeamStats", [])
@@ -1451,22 +1514,33 @@ def _team_general_split_row(dataset_name: str, row: dict, season: str, team_id: 
     }
 
 
-def get_team_general_splits(season: str, team_id: int) -> list[dict]:
-    """Fetch official team general splits for one team and season."""
+def get_team_general_splits(
+    season: str,
+    team_id: int,
+    season_type: str = "Regular Season",
+) -> list[dict]:
+    """Fetch official team general splits for one team and season.
+
+    season_type: 'Regular Season' or 'Playoffs'. When 'Playoffs', returned
+    rows are tagged ``is_playoff=True`` so callers can persist them under
+    the playoff slice of TeamSplitStat without further branching.
+    """
     _rate_limit()
     dash = teamdashboardbygeneralsplits.TeamDashboardByGeneralSplits(
         team_id=team_id,
         season=season,
         per_mode_detailed="Totals",
-        season_type_all_star="Regular Season",
+        season_type_all_star=season_type,
         timeout=NBA_API_TIMEOUT,
     )
     data = dash.get_normalized_dict()
+    is_playoff = season_type == "Playoffs"
     splits: list[dict] = []
     for dataset_name in TEAM_GENERAL_SPLIT_DATASETS:
         for row in data.get(dataset_name, []):
             normalized = _team_general_split_row(dataset_name, row, season, team_id)
             if normalized:
+                normalized["is_playoff"] = is_playoff
                 splits.append(normalized)
     return splits
 
@@ -1501,37 +1575,57 @@ def _team_shooting_split_row(dataset_name: str, row: dict, season: str, team_id:
     }
 
 
-def get_team_shooting_splits(season: str, team_id: int) -> list[dict]:
-    """Fetch official team shooting splits for one team and season."""
+def get_team_shooting_splits(
+    season: str,
+    team_id: int,
+    season_type: str = "Regular Season",
+) -> list[dict]:
+    """Fetch official team shooting splits for one team and season.
+
+    season_type: 'Regular Season' or 'Playoffs'. When 'Playoffs', rows are
+    tagged ``is_playoff=True`` so the sync layer persists them into the
+    playoff slice of TeamShootingSplitStat.
+    """
     _rate_limit()
     dash = teamdashboardbyshootingsplits.TeamDashboardByShootingSplits(
         team_id=team_id,
         season=season,
         per_mode_detailed="Totals",
-        season_type_all_star="Regular Season",
+        season_type_all_star=season_type,
         timeout=NBA_API_TIMEOUT,
     )
     data = dash.get_normalized_dict()
+    is_playoff = season_type == "Playoffs"
     splits: list[dict] = []
     for dataset_name in TEAM_SHOOTING_SPLIT_DATASETS:
         for row in data.get(dataset_name, []):
             normalized = _team_shooting_split_row(dataset_name, row, season, team_id)
             if normalized:
+                normalized["is_playoff"] = is_playoff
                 splits.append(normalized)
     return splits
 
 
-def get_standings_data(season: str) -> list[dict]:
+def get_standings_data(
+    season: str,
+    season_type: str = "Regular Season",
+) -> list[dict]:
     """Fetch league standings for a season.
 
     Returns one dict per team with keys: team_id, team_city, team_name,
     conference, division, playoff_rank, wins, losses, win_pct, games_back,
     l10, home_record, road_record, pts_pg, opp_pts_pg, diff_pts_pg,
     current_streak, clinch_indicator.
+
+    season_type: kept for parity with the rest of the API surface — the NBA
+    leaguestandings endpoint only supports a regular-season standings view,
+    so the parameter is accepted (and forwarded when supported) but most
+    callers should leave the default.
     """
     _rate_limit()
     standings = leaguestandings.LeagueStandings(
         season=season,
+        season_type=season_type,
         timeout=NBA_API_TIMEOUT,
     )
     data = standings.get_normalized_dict()
@@ -1888,9 +1982,13 @@ def get_team_clutch_stats(
 def get_team_game_log(
     team_id: int,
     season: str,
+    season_type: str = "Regular Season",
 ) -> List[Dict[str, Any]]:
-    """Fetch game-by-game log for a team (pts, opp pts, matchup, wl, date)."""
-    cache_key = f"team_game_log_{team_id}_{season}"
+    """Fetch game-by-game log for a team (pts, opp pts, matchup, wl, date).
+
+    season_type: 'Regular Season' or 'Playoffs'.
+    """
+    cache_key = f"team_game_log_{team_id}_{season}_{season_type}"
     cached = CacheManager.get(cache_key)
     if cached and isinstance(cached.get("rows"), list):
         return cached["rows"]
@@ -1899,7 +1997,7 @@ def get_team_game_log(
     response = teamgamelog.TeamGameLog(
         team_id=team_id,
         season=season,
-        season_type_all_star="Regular Season",
+        season_type_all_star=season_type,
         timeout=NBA_API_TIMEOUT,
     )
     frames = response.get_data_frames()

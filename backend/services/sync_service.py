@@ -333,10 +333,16 @@ def sync_official_season_stats(
     db: Session,
     season: str,
     player_ids: Optional[Sequence[int]] = None,
+    is_playoff: bool = False,
 ) -> dict:
-    logger.info("Syncing official season stats for %s", season)
-    official_base_rows = get_league_dash_player_stats(season, measure_type="Base")
-    official_advanced_rows = get_league_dash_player_stats(season, measure_type="Advanced")
+    season_type = "Playoffs" if is_playoff else "Regular Season"
+    logger.info("Syncing official season stats for %s (%s)", season, season_type)
+    official_base_rows = get_league_dash_player_stats(
+        season, measure_type="Base", season_type=season_type
+    )
+    official_advanced_rows = get_league_dash_player_stats(
+        season, measure_type="Advanced", season_type=season_type
+    )
 
     player_filter = {int(player_id) for player_id in player_ids} if player_ids else None
     advanced_by_player = {
@@ -351,7 +357,7 @@ def sync_official_season_stats(
 
     existing_rows = db.query(SeasonStat).filter(
         SeasonStat.season == season,
-        SeasonStat.is_playoff == False,  # noqa: E712
+        SeasonStat.is_playoff == is_playoff,
     ).all()
     existing_by_key = {(row.player_id, row.team_abbreviation): row for row in existing_rows}
 
@@ -424,7 +430,7 @@ def sync_official_season_stats(
                 player_id=player_id,
                 season=season,
                 team_abbreviation=team_abbreviation,
-                is_playoff=False,
+                is_playoff=is_playoff,
             )
             db.add(stat_row)
             existing_by_key[(player_id, team_abbreviation)] = stat_row
@@ -436,8 +442,9 @@ def sync_official_season_stats(
 
     db.commit()
     logger.info(
-        "Official season stat sync complete for %s: updated=%s deleted=%s players=%s teams=%s",
+        "Official season stat sync complete for %s (%s): updated=%s deleted=%s players=%s teams=%s",
         season,
+        season_type,
         updated,
         deleted,
         created_players,
@@ -446,6 +453,7 @@ def sync_official_season_stats(
     return {
         "status": "ok",
         "season": season,
+        "is_playoff": is_playoff,
         "players_synced": updated,
         "stale_rows_deleted": deleted,
         "players_created": created_players,
@@ -529,8 +537,10 @@ def sync_official_team_general_splits(
     db: Session,
     season: str,
     team_ids: Optional[Sequence[int]] = None,
+    is_playoff: bool = False,
 ) -> dict:
-    logger.info("Syncing official team general splits for %s", season)
+    season_type = "Playoffs" if is_playoff else "Regular Season"
+    logger.info("Syncing official team general splits for %s (%s)", season, season_type)
 
     query = db.query(Team)
     if team_ids:
@@ -540,7 +550,7 @@ def sync_official_team_general_splits(
 
     existing_rows = db.query(TeamSplitStat).filter(
         TeamSplitStat.season == season,
-        TeamSplitStat.is_playoff == False,  # noqa: E712
+        TeamSplitStat.is_playoff == is_playoff,
     )
     if team_ids:
         existing_rows = existing_rows.filter(TeamSplitStat.team_id.in_([team.id for team in teams]))
@@ -559,13 +569,14 @@ def sync_official_team_general_splits(
 
     for team in teams:
         team_id = int(team.id)
-        split_rows = get_team_general_splits(season, int(team.id))
+        split_rows = get_team_general_splits(season, int(team.id), season_type=season_type)
         if not split_rows:
             continue
         teams_synced += 1
         refreshed_team_ids.add(team_id)
         for split_stats in split_rows:
             payload = _official_team_split_to_row_payload(split_stats, season)
+            payload["is_playoff"] = is_playoff
             if not payload["split_family"] or not payload["split_value"]:
                 continue
             key = (team_id, payload["split_family"], payload["split_value"])
@@ -574,7 +585,7 @@ def sync_official_team_general_splits(
                 row = TeamSplitStat(
                     team_id=team_id,
                     season=season,
-                    is_playoff=False,
+                    is_playoff=is_playoff,
                     split_family=payload["split_family"],
                     split_value=payload["split_value"],
                     label=payload["label"] or payload["split_value"],
@@ -595,8 +606,9 @@ def sync_official_team_general_splits(
 
     db.commit()
     logger.info(
-        "Official team general split sync complete for %s: teams=%s rows=%s created=%s deleted=%s",
+        "Official team general split sync complete for %s (%s): teams=%s rows=%s created=%s deleted=%s",
         season,
+        season_type,
         teams_synced,
         updated_rows,
         created_rows,
@@ -605,6 +617,7 @@ def sync_official_team_general_splits(
     return {
         "status": "ok",
         "season": season,
+        "is_playoff": is_playoff,
         "teams_synced": teams_synced,
         "split_rows_synced": updated_rows,
         "split_rows_created": created_rows,
@@ -616,8 +629,10 @@ def sync_official_team_shooting_splits(
     db: Session,
     season: str,
     team_ids: Optional[Sequence[int]] = None,
+    is_playoff: bool = False,
 ) -> dict:
-    logger.info("Syncing official team shooting splits for %s", season)
+    season_type = "Playoffs" if is_playoff else "Regular Season"
+    logger.info("Syncing official team shooting splits for %s (%s)", season, season_type)
 
     query = db.query(Team)
     if team_ids:
@@ -627,7 +642,7 @@ def sync_official_team_shooting_splits(
 
     existing_rows = db.query(TeamShootingSplitStat).filter(
         TeamShootingSplitStat.season == season,
-        TeamShootingSplitStat.is_playoff == False,  # noqa: E712
+        TeamShootingSplitStat.is_playoff == is_playoff,
     )
     if team_ids:
         existing_rows = existing_rows.filter(TeamShootingSplitStat.team_id.in_([team.id for team in teams]))
@@ -646,13 +661,14 @@ def sync_official_team_shooting_splits(
 
     for team in teams:
         team_id = int(team.id)
-        split_rows = get_team_shooting_splits(season, team_id)
+        split_rows = get_team_shooting_splits(season, team_id, season_type=season_type)
         if not split_rows:
             continue
         teams_synced += 1
         refreshed_team_ids.add(team_id)
         for split_stats in split_rows:
             payload = _official_team_shooting_split_to_row_payload(split_stats, season)
+            payload["is_playoff"] = is_playoff
             if not payload["split_family"] or not payload["split_value"]:
                 continue
             key = (team_id, payload["split_family"], payload["split_value"])
@@ -661,7 +677,7 @@ def sync_official_team_shooting_splits(
                 row = TeamShootingSplitStat(
                     team_id=team_id,
                     season=season,
-                    is_playoff=False,
+                    is_playoff=is_playoff,
                     split_family=payload["split_family"],
                     split_value=payload["split_value"],
                     label=payload["label"] or payload["split_value"],
@@ -682,8 +698,9 @@ def sync_official_team_shooting_splits(
 
     db.commit()
     logger.info(
-        "Official team shooting split sync complete for %s: teams=%s rows=%s created=%s deleted=%s",
+        "Official team shooting split sync complete for %s (%s): teams=%s rows=%s created=%s deleted=%s",
         season,
+        season_type,
         teams_synced,
         updated_rows,
         created_rows,
@@ -692,6 +709,7 @@ def sync_official_team_shooting_splits(
     return {
         "status": "ok",
         "season": season,
+        "is_playoff": is_playoff,
         "teams_synced": teams_synced,
         "split_rows_synced": updated_rows,
         "split_rows_created": created_rows,
