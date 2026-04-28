@@ -178,6 +178,7 @@ POST /api/advanced/sync-season   body: {"season": "2024-25"}
 - **SQLite `cache.db` is for NBA API response caching only** — PostgreSQL is the primary datastore.
 - **Schema changes are migration-driven.** Use Alembic revisions and `python -m db.migrations`; do not rely on app-startup DDL.
 - **Python 3.8.** No union type syntax (`X | Y`), no `list[X]` subscripting at runtime in type hints.
+- **Platform methodology lives in `specs/platform-methodology.md`.** Update it when adding or materially changing analytical formulas, scoring models, confidence thresholds, proxy labels, or methodology versions.
 - **Do not add a `Co-Authored-By: Claude` trailer to git commits.** Commits must not credit Claude. Omit the `🤖 Generated with Claude Code` footer on PRs as well.
 
 ---
