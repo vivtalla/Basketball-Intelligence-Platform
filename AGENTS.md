@@ -1,6 +1,6 @@
 # Agent Coordination
 
-Last updated: 2026-04-28 by Codex (Sprint 74 closeout reset)
+Last updated: 2026-04-28 by Codex (Sprint 75 closeout reset)
 
 > Both agents read this file before touching code at the start of every session.
 > The canonical source of truth is the clean `master` checkout at `/Users/viv/Documents/Basketball Intelligence Platform`.
@@ -14,12 +14,12 @@ Last updated: 2026-04-28 by Codex (Sprint 74 closeout reset)
 
 | Field | Value |
 |-------|-------|
-| Sprint | 75 |
+| Sprint | 76 |
 | Goal | TBD — awaiting Vivek's sprint kickoff |
 | Started | TBD |
 | Target merge | TBD |
 | Sprint shape | TBD |
-| Branch | `master` until Sprint 75 kickoff |
+| Branch | `master` until Sprint 76 kickoff |
 | Worker policy | No active sprint; set at kickoff |
 
 ---
@@ -85,7 +85,7 @@ TBD at kickoff. Next sprint branch/worktree is created at kickoff and merges bac
 
 ## Sprint Work Allocation
 
-Sprint 75 allocation — TBD at kickoff.
+Sprint 76 allocation — TBD at kickoff.
 
 | Area | Files | Owner |
 |------|-------|-------|
@@ -163,6 +163,8 @@ Sprint 75 allocation — TBD at kickoff.
 ## Notes
 
 *Free-form, dated, newest first. Use this for coordination and repo-state exceptions.*
+
+2026-04-28 (Codex): Sprint 75 closed on `codex-sprint-75-playoff-command-center` and merged to `master`. Shipped Playoff Command Center on `/bracket`, `playoff_series_intelligence_v1`, `/api/playoffs/series/{series_id}/intelligence`, non-mutating simulator overrides, real SeriesWPSimulator what-if buttons, new `playoffs` methodology registry/docs, and targeted playoff tests. Verification: 293 backend tests, `npm run lint`, `npm run build`, `git diff --check`. Closeout: `specs/sprint-75-closeout.md`.
 
 2026-04-28 (Codex): Sprint 74 closed on `codex-sprint-74-methodology-upgrades` and merged to `master`. Shipped `methodology_registry_v2`, methodology validation fixtures + `/api/methodology/validation`, shared frontend methodology metadata/types/API/hooks + `<MethodologyEvidenceCard>`, Shot Lab `shot_quality_v2` with hierarchical baselines + empirical Bayes stabilized shot-making + uncertainty/sustainability labels, and Team-Fit `team_fit_v3` with theoretical usage, fit-gap interpretation, reliability-gated better-fit labels, analysis-context warnings, and playoff low-sample notes. Wired methodology evidence across Team-Fit, Shot Intelligence, Opportunity, Archetype/Similarity, Trend/Trajectory, Style X-Ray, MVP/Gravity, Scouting Brief, and Custom Metrics. Verification: 290 backend tests, `npm run lint`, `npm run build`, `git diff --check`. Closeout: `specs/sprint-74-closeout.md`.
 

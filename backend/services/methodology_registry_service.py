@@ -12,6 +12,24 @@ REGISTRY_VERSION = "methodology_registry_v2"
 
 _DOMAINS: List[MethodologyDomain] = [
     MethodologyDomain(
+        domain="playoffs",
+        label="Playoff Command Center",
+        methodology_version="playoff_series_intelligence_v1",
+        status="active_descriptive",
+        model_stage="production_v1",
+        question_answered="What is happening in a playoff series, what tactical edges matter next, and how reliable is the read?",
+        input_families=["playoff_series", "game_logs", "team_season_stats", "season_stats", "lineup_stats", "team_shooting_split_stats"],
+        season_type_support=["Playoffs"],
+        sample_gates=["Directional before four completed games.", "Lineup notes are low confidence below 25 possessions."],
+        confidence_rules=["Completed games, team stat coverage, player rows, lineup rows, and shot-split coverage determine reliability."],
+        reliability_policy="Use deterministic coverage scoring with explicit sample and missing-data warnings.",
+        explainability_policy="Show raw playoff values first, regular-season deltas second, and separate descriptive reads from adjusted claims.",
+        known_limitations=["No live in-game websocket.", "No betting, salary, trade, or adjusted plus-minus model.", "Early-series samples are volatile."],
+        validation_notes=["Smoke active, closed, scheduled, and thin-data series; confirm simulator overrides do not mutate bracket state."],
+        last_validation_date="2026-04-28",
+        implementation_refs=["backend/services/playoff_series_intelligence_service.py", "backend/services/playoff_simulator_service.py"],
+    ),
+    MethodologyDomain(
         domain="shot_lab",
         label="Shot Lab and Shot Diagnosis",
         methodology_version="shot_quality_v2",

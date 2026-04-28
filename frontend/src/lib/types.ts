@@ -4137,3 +4137,131 @@ export interface TeamFitResponse {
   analysis_metadata?: AnalysisMetadata | null;
   low_sample_warning?: string | null;
 }
+
+// ── Sprint 75: Playoff Command Center ───────────────────────────────────────
+export interface PlayoffSeriesTeamRef {
+  team_id: number | null;
+  abbreviation: string | null;
+  seed: number | null;
+  wins: number;
+}
+
+export interface PlayoffGameMargin {
+  game_num: number | null;
+  winner_team_abbr: string | null;
+  margin: number | null;
+}
+
+export interface PlayoffSeriesPulse {
+  summary: string;
+  next_game_number: number | null;
+  leader_team_abbr: string | null;
+  trailing_team_abbr: string | null;
+  is_elimination_game: boolean;
+  is_swing_game: boolean;
+  completed_games: number;
+  margin_by_game: PlayoffGameMargin[];
+  last_game_note: string | null;
+}
+
+export interface PlayoffSeriesDataCoverage {
+  completed_games: number;
+  playoff_team_stats: boolean;
+  regular_team_baselines: boolean;
+  playoff_player_stats: boolean;
+  playoff_lineups: boolean;
+  shot_profile_splits: boolean;
+  warnings: string[];
+}
+
+export interface PlayoffMetricEdge {
+  key: string;
+  label: string;
+  unit: string;
+  higher_is_better: boolean | null;
+  top_value: number | null;
+  bottom_value: number | null;
+  top_regular_value: number | null;
+  bottom_regular_value: number | null;
+  top_delta_vs_regular: number | null;
+  bottom_delta_vs_regular: number | null;
+  edge_team_abbr: string | null;
+  edge_amount: number | null;
+}
+
+export interface PlayoffStarBurdenEntry {
+  player_id: number;
+  player_name: string;
+  team_abbreviation: string;
+  position: string | null;
+  position_bucket: string | null;
+  gp: number;
+  min_pg: number | null;
+  usg_pct: number | null;
+  pts_pg: number | null;
+  ts_pct: number | null;
+  bpm: number | null;
+  share_team_points: number | null;
+  share_team_usage: number | null;
+}
+
+export interface PlayoffShotDietEntry {
+  team_abbreviation: string;
+  rim_frequency: number | null;
+  paint_frequency: number | null;
+  three_point_frequency: number | null;
+  corner_three_frequency: number | null;
+  above_break_three_frequency: number | null;
+  ftr: number | null;
+  par3: number | null;
+  assisted_fg_rate: number | null;
+  notes: string[];
+}
+
+export interface PlayoffLineupEntry {
+  team_abbreviation: string | null;
+  lineup_key: string;
+  player_names: string[];
+  minutes: number | null;
+  possessions: number | null;
+  net_rating: number | null;
+  ortg: number | null;
+  drtg: number | null;
+  label: string;
+}
+
+export interface PlayoffTacticalEdge {
+  edge_type: string;
+  title: string;
+  team_abbreviation: string | null;
+  summary: string;
+  metric_key: string | null;
+  impact_score: number | null;
+}
+
+export interface PlayoffAdjustmentSignal {
+  title: string;
+  summary: string;
+  team_abbreviation: string | null;
+  confidence: MethodologyConfidence;
+}
+
+export interface PlayoffSeriesIntelligenceResponse {
+  methodology_version: string;
+  series_id: string;
+  season: string;
+  round: number;
+  top_team: PlayoffSeriesTeamRef;
+  bottom_team: PlayoffSeriesTeamRef;
+  pulse: PlayoffSeriesPulse;
+  data_coverage: PlayoffSeriesDataCoverage;
+  four_factors: PlayoffMetricEdge[];
+  star_burden: PlayoffStarBurdenEntry[];
+  shot_diet: PlayoffShotDietEntry[];
+  best_lineups: PlayoffLineupEntry[];
+  worst_lineups: PlayoffLineupEntry[];
+  tactical_edges: PlayoffTacticalEdge[];
+  adjustment_signals: PlayoffAdjustmentSignal[];
+  warnings: string[];
+  analysis_metadata?: AnalysisMetadata | null;
+}

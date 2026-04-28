@@ -678,6 +678,68 @@ Implementation references:
 - `backend/services/matchup_flag_service.py`
 - `backend/services/follow_through_service.py`
 
+### Playoff Command Center
+
+Playoff Command Center answers: what is happening in a playoff series, why it is happening, which tactical edges matter next, and how reliable the read is.
+
+Methodology version: `playoff_series_intelligence_v1`
+
+Inputs:
+
+- `playoff_series` for series state, seeds, wins, round, and status.
+- Playoff `game_logs` for completed games, margins, next-game context, and elimination/swing state.
+- Playoff and regular-season `team_season_stats` for Four Factors and baseline deltas.
+- Playoff `season_stats` for star burden, usage, scoring share, FTr, and 3PAr roster-derived rates.
+- Playoff `lineup_stats` and `team_shooting_split_stats` when available.
+
+Core formulas:
+
+```text
+FTr_team_proxy = sum(FTA_player) / sum(FGA_player)
+3PAr_team_proxy = sum(3PA_player) / sum(FGA_player)
+star_scoring_share = player_playoff_points / team_playoff_player_points
+star_usage_share = player_USG% / sum(team_player_USG%)
+regular_season_delta = playoff_value - regular_season_value
+```
+
+Reliability score:
+
+```text
+reliability =
+  min(completed_games / 4, 1) * 40
+  + 20 if both playoff team stat rows exist
+  + 10 if both regular-season baselines exist
+  + 15 if both playoff player stat pools exist
+  + 10 if playoff lineup rows exist
+  + 5  if playoff team shooting splits exist
+```
+
+Confidence:
+
+- High: reliability at least `75`.
+- Medium: reliability at least `50`.
+- Low: below `50`.
+- Directional warning appears before four completed games.
+- Lineup notes are explicitly low-confidence below 25 possessions.
+
+Why this design:
+
+- Playoff series analysis must be fast, coach-readable, and honest about sample size.
+- Raw playoff values lead the read; regular-season values provide context but do not overwrite the series sample.
+- The model stays descriptive and deterministic so analysts can audit every edge from stored rows.
+
+Limitations:
+
+- It is not a betting, salary, trade, or adjusted plus-minus model.
+- Early-series lineup and shot-diet reads are volatile.
+- Shared-possession lineup matchup deltas and live in-game feeds are future upgrades.
+
+Implementation references:
+
+- `backend/services/playoff_series_intelligence_service.py`
+- `backend/services/playoff_simulator_service.py`
+- `frontend/src/components/playoffs/PlayoffCommandCenter.tsx`
+
 ---
 
 ## 8. Style X-Ray and Team Identity

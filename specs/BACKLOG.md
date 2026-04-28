@@ -307,15 +307,15 @@ Likely shape:
 
 ### Sprint 73 follow-ons (Playoffs Platform)
 Why it matters:
-Sprint 73 shipped the Playoffs Platform with a season-phase auto-detect, full bracket page, series Pre-Read pivot, home shift, MVP simulator, Postseason heatmap, and opponent lineup matchup tab. A post-merge hotfix wired LiveTicker to live game data, hardened the FINAL signal against partial mid-game scores, and added a comprehensive playoff backfill script (`scripts/sync_playoff_full.py`) wired into `daily_sync.sh` for both morning AM and `--post-game` paths. A few v1 limitations remain documented inline; closing them turns the playoff platform from "good" to "complete."
+Sprint 73 shipped the Playoffs Platform with a season-phase auto-detect, bracket page, series Pre-Read pivot, home shift, MVP simulator, Postseason heatmap, and opponent lineup matchup tab. Sprint 75 upgraded `/bracket` into a Playoff Command Center with series intelligence and real simulator overrides. Remaining gains are now about deeper data fidelity, archiving, and live freshness.
 
 Likely shape:
-- **WP Simulator hypothetical state overrides** — backend `/api/playoffs/series-simulation/{id}` accepts `?override_top_wins=&override_bottom_wins=` so the W/L stub buttons in `<SeriesWPSimulator>` can drive real hypothetical re-simulation. Currently a no-op v1 that just re-fetches the current projection.
-- **PostseasonHeatmap position-bucket coloring** — needs `position` field on `LeaderboardEntry` Pydantic schema (one-line backend addition); frontend then colors heatmap dots by G/F/C bucket instead of TS-delta sign.
+- **PostseasonHeatmap position-bucket coloring** — Sprint 75 added position buckets to Playoff Command Center star burden, but the standalone heatmap still needs `position` on `LeaderboardEntry`; frontend can then color dots by G/F/C bucket instead of TS-delta sign.
+- **Playoff Command Center v2 calibration** — compare `playoff_series_intelligence_v1` tactical edges against historical series outcomes and staff review notes; tune sample gates, edge thresholds, and warnings without hiding raw playoff values.
 - **Opponent lineup head-to-head net delta** — replace the standalone net rating delta in `<OpponentLineupMatchupMatrix>` with a true shared-possession net delta once a `lineup-matchups` endpoint exists. Currently the matrix shows each cell's standalone value, not the head-to-head edge between the two specific lineups.
 - **Series snapshot system** mirroring Sprint 66's `pre_read_snapshots` for full series archives — staff packets that capture the full series state at a moment in time.
 - **Live in-game playoff updates** — sub-minute freshness via WebSocket ingest. Out of scope this sprint; would unlock real-time bracket/WP movement during games.
-- **Mobile vertical bracket layout** — desktop-first this sprint; bracket page in particular could use a mobile vertical layout when viewport < 768px.
+- **Full visual bracket tree on mobile** — Sprint 75 made the Command Center mobile-first, but the old pure bracket-tree view still needs a dedicated compact mobile visualization if it returns as a secondary view.
 - **`nba_client.py` lowercase-generic typing cleanup** — file uses `from __future__ import annotations` so `list[dict]` runtime subscripts are safe (stringified), but worth normalizing to `typing.Dict[]`/`List[]` in a sweep for consistency with the rest of the backend.
 - **Print stylesheet for `/insights/trajectory` and `/insights/x-ray`** — Sprint 72 added Pre-Read print rules; carry the pattern across so coaches can print other surfaces too.
 - **Playoff PBP-derived tables** — `player_on_off`, `lineup_stats` with `is_playoff=True`, and `player_clutch_stats` with `season_type=Playoffs` are not yet refreshed in the daily playoff cron. The `bulk_sync_service` PBP path is hardcoded to "Regular Season"; needs a parallel playoff-aware ingest. These power the OpponentLineupMatchupMatrix and the clutch modifier of the MVP composite.

@@ -302,7 +302,18 @@ def _monte_carlo(
 # ---------------------------------------------------------------------------
 
 
-def simulate_series(db: Session, series_id: str) -> SeriesSimulationResponse:
+def _clamp_wins(value: Optional[int]) -> Optional[int]:
+    if value is None:
+        return None
+    return max(0, min(4, int(value)))
+
+
+def simulate_series(
+    db: Session,
+    series_id: str,
+    override_top_wins: Optional[int] = None,
+    override_bottom_wins: Optional[int] = None,
+) -> SeriesSimulationResponse:
     """Project remaining games + series win probability for `series_id`.
 
     The output is deterministic for a given series_id (we seed from a hash
@@ -341,6 +352,31 @@ def simulate_series(db: Session, series_id: str) -> SeriesSimulationResponse:
     games_played = _games_played(db, series_id)
     top_wins = int(series.top_wins or 0)
     bottom_wins = int(series.bottom_wins or 0)
+    top_override = _clamp_wins(override_top_wins)
+    bottom_override = _clamp_wins(override_bottom_wins)
+    using_override = top_override is not None or bottom_override is not None
+    if top_override is not None:
+        top_wins = top_override
+    if bottom_override is not None:
+        bottom_wins = bottom_override
+    if top_wins + bottom_wins > SERIES_LENGTH:
+        # Keep hypothetical states possible but never impossible.
+        overflow = top_wins + bottom_wins - SERIES_LENGTH
+        if bottom_override is not None and top_override is None:
+            bottom_wins = max(0, bottom_wins - overflow)
+        else:
+            top_wins = max(0, top_wins - overflow)
+    if using_override:
+        games_played = min(SERIES_LENGTH, top_wins + bottom_wins)
+
+    state_status = series.status
+    if using_override:
+        if top_wins >= 4 or bottom_wins >= 4:
+            state_status = "closed"
+        elif top_wins == 0 and bottom_wins == 0 and series.status == "scheduled":
+            state_status = "scheduled"
+        else:
+            state_status = "active"
 
     current_state = SeriesSimulationCurrentState(
         top_seed_team_abbr=top_abbr,
@@ -348,11 +384,11 @@ def simulate_series(db: Session, series_id: str) -> SeriesSimulationResponse:
         top_wins=top_wins,
         bottom_wins=bottom_wins,
         games_played=games_played,
-        status=series.status,
+        status=state_status,
     )
 
     # Series already over — short circuit.
-    if top_wins >= 4 or bottom_wins >= 4 or series.status == "closed":
+    if top_wins >= 4 or bottom_wins >= 4 or (series.status == "closed" and not using_override):
         return SeriesSimulationResponse(
             series_id=series_id,
             current_state=current_state,

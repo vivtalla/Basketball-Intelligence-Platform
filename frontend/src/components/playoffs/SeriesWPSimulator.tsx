@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import useSWR from "swr";
-import { getBracket, getSeriesSimulation } from "@/lib/api";
+import { getBracket, getSeriesSimulationWithOverrides } from "@/lib/api";
 import { useSeasonPhase } from "@/hooks/useSeasonPhase";
 import type {
   PlayoffBracketResponse,
@@ -178,30 +178,37 @@ export default function SeriesWPSimulator({ defaultSeriesId }: Props) {
   }, [defaultSeriesId, bracket]);
 
   const [selectedSeriesId, setSelectedSeriesId] = useState<string | null>(null);
+  const [overrideState, setOverrideState] = useState<{
+    topWins: number;
+    bottomWins: number;
+  } | null>(null);
 
   const effectiveSeriesId = selectedSeriesId ?? initialSeriesId;
 
   const { data: simulation, error: simError } = useSWR<SeriesSimulationResponse>(
-    effectiveSeriesId ? ["series-sim", effectiveSeriesId] : null,
-    () => getSeriesSimulation(effectiveSeriesId as string)
+    effectiveSeriesId
+      ? [
+          "series-sim",
+          effectiveSeriesId,
+          overrideState?.topWins ?? null,
+          overrideState?.bottomWins ?? null,
+        ]
+      : null,
+    () =>
+      getSeriesSimulationWithOverrides(effectiveSeriesId as string, {
+        overrideTopWins: overrideState?.topWins ?? null,
+        overrideBottomWins: overrideState?.bottomWins ?? null,
+      })
   );
 
-  // NOTE: Backend `/api/playoffs/series-simulation/{id}` (Stream A) does not
-  // currently accept hypothetical state overrides, so the W/L "what-if" buttons
-  // below are visual-only stubs that re-fetch the current projection. A future
-  // Stream A iteration could expose `?override_top_wins=&override_bottom_wins=`
-  // to power true hypothetical re-simulation. For v1 this is documented as a
-  // known limitation rather than a bug. The `winner` arg is reserved for that
-  // future call signature.
   const handleHypothetical = (winner: "top" | "bottom") => {
-    // No-op for v1 — re-fetch the same projection. Log the intent so it's
-    // visible in dev tools while we wait for the Stream A endpoint.
-    if (effectiveSeriesId) {
-      if (typeof window !== "undefined" && window.console) {
-        console.debug(`[SeriesWPSimulator] hypothetical winner=${winner} (no-op v1)`);
-      }
-      setSelectedSeriesId(effectiveSeriesId);
-    }
+    if (!effectiveSeriesId || !simulation) return;
+    const current = simulation.current_state;
+    setOverrideState({
+      topWins: Math.min(4, current.top_wins + (winner === "top" ? 1 : 0)),
+      bottomWins: Math.min(4, current.bottom_wins + (winner === "bottom" ? 1 : 0)),
+    });
+    setSelectedSeriesId(effectiveSeriesId);
   };
 
   if (!isPlayoffs) return null;
@@ -224,7 +231,10 @@ export default function SeriesWPSimulator({ defaultSeriesId }: Props) {
           Series
           <select
             value={effectiveSeriesId ?? ""}
-            onChange={(event) => setSelectedSeriesId(event.target.value || null)}
+            onChange={(event) => {
+              setSelectedSeriesId(event.target.value || null);
+              setOverrideState(null);
+            }}
             className="ml-2 rounded-lg border border-[var(--border)] bg-[var(--surface)] px-3 py-2 text-sm text-[var(--foreground)]"
           >
             {options.length === 0 && <option value="">No series available</option>}
@@ -253,6 +263,11 @@ export default function SeriesWPSimulator({ defaultSeriesId }: Props) {
               <div className="font-semibold tabular-nums text-[var(--foreground)]">
                 {topAbbr} {currentState?.top_wins ?? 0} – {currentState?.bottom_wins ?? 0} {bottomAbbr}
               </div>
+              {overrideState && (
+                <div className="mt-1 text-[10px] font-semibold uppercase tracking-[0.12em] text-[var(--signal)]">
+                  Hypothetical
+                </div>
+              )}
             </div>
             <div className="rounded-lg border border-[var(--border)] bg-[var(--surface-alt)] px-3 py-2">
               <span className="text-[10px] font-semibold uppercase tracking-[0.14em] text-[var(--muted)]">
@@ -296,7 +311,7 @@ export default function SeriesWPSimulator({ defaultSeriesId }: Props) {
                 type="button"
                 onClick={() => handleHypothetical("top")}
                 className="rounded-full border border-[var(--border)] bg-[var(--surface-alt)] px-3 py-1 text-xs font-semibold text-[var(--foreground)] hover:bg-[var(--surface)]"
-                title="Hypothetical re-simulation is a Stream A follow-on; v1 re-fetches current projection."
+                title="Re-simulate the series as if the top seed wins the next game."
               >
                 {topAbbr} wins next
               </button>
@@ -304,10 +319,19 @@ export default function SeriesWPSimulator({ defaultSeriesId }: Props) {
                 type="button"
                 onClick={() => handleHypothetical("bottom")}
                 className="rounded-full border border-[var(--border)] bg-[var(--surface-alt)] px-3 py-1 text-xs font-semibold text-[var(--foreground)] hover:bg-[var(--surface)]"
-                title="Hypothetical re-simulation is a Stream A follow-on; v1 re-fetches current projection."
+                title="Re-simulate the series as if the bottom seed wins the next game."
               >
                 {bottomAbbr} wins next
               </button>
+              {overrideState ? (
+                <button
+                  type="button"
+                  onClick={() => setOverrideState(null)}
+                  className="rounded-full border border-[var(--border)] bg-[var(--surface)] px-3 py-1 text-xs font-semibold text-[var(--muted)] hover:text-[var(--foreground)]"
+                >
+                  Reset
+                </button>
+              ) : null}
             </div>
           ) : null}
         </>

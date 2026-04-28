@@ -22,10 +22,20 @@ from sqlalchemy.pool import StaticPool
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from db.database import Base  # noqa: E402
-from db.models import GameLog, PlayoffSeries, Team  # noqa: E402
+from db.models import (  # noqa: E402
+    GameLog,
+    LineupStats,
+    Player,
+    PlayoffSeries,
+    SeasonStat,
+    Team,
+    TeamSeasonStat,
+    TeamShootingSplitStat,
+)
 from routers.playoffs import (  # noqa: E402
     get_bracket,
     get_series,
+    get_series_intelligence,
     get_series_simulation,
 )
 from services.playoff_simulator_service import simulate_series  # noqa: E402
@@ -240,3 +250,267 @@ def test_series_simulation_deterministic():
     finally:
         session_c.close()
     assert route_resp.series_id == series_id
+
+
+def _seed_series_intelligence_data(session, season="2024-25"):
+    series_id = _seed_series_with_games(session, season=season)
+    session.add_all(
+        [
+            TeamSeasonStat(
+                team_id=1610612760,
+                season=season,
+                is_playoff=True,
+                gp=4,
+                net_rating=12.5,
+                efg_pct=0.575,
+                tov_pct=0.105,
+                oreb_pct=0.305,
+                pace=98.7,
+                ts_pct=0.612,
+            ),
+            TeamSeasonStat(
+                team_id=1610612745,
+                season=season,
+                is_playoff=True,
+                gp=4,
+                net_rating=-8.1,
+                efg_pct=0.511,
+                tov_pct=0.142,
+                oreb_pct=0.248,
+                pace=98.1,
+                ts_pct=0.548,
+            ),
+            TeamSeasonStat(
+                team_id=1610612760,
+                season=season,
+                is_playoff=False,
+                gp=82,
+                net_rating=8.7,
+                efg_pct=0.56,
+                tov_pct=0.118,
+                oreb_pct=0.285,
+                pace=99.0,
+                ts_pct=0.596,
+            ),
+            TeamSeasonStat(
+                team_id=1610612745,
+                season=season,
+                is_playoff=False,
+                gp=82,
+                net_rating=1.4,
+                efg_pct=0.543,
+                tov_pct=0.126,
+                oreb_pct=0.271,
+                pace=99.4,
+                ts_pct=0.575,
+            ),
+        ]
+    )
+    session.add_all(
+        [
+            Player(id=1, full_name="Shai Gilgeous-Alexander", position="G"),
+            Player(id=2, full_name="Jalen Williams", position="F"),
+            Player(id=11, full_name="Alperen Sengun", position="C"),
+            Player(id=12, full_name="Fred VanVleet", position="G"),
+        ]
+    )
+    session.add_all(
+        [
+            SeasonStat(
+                player_id=1,
+                season=season,
+                team_abbreviation="OKC",
+                is_playoff=True,
+                gp=4,
+                min_total=152,
+                min_pg=38.0,
+                pts=130,
+                pts_pg=32.5,
+                usg_pct=34.0,
+                ts_pct=0.63,
+                bpm=9.2,
+                fga=82,
+                fta=38,
+                fg3a=24,
+            ),
+            SeasonStat(
+                player_id=2,
+                season=season,
+                team_abbreviation="OKC",
+                is_playoff=True,
+                gp=4,
+                min_total=140,
+                min_pg=35.0,
+                pts=76,
+                pts_pg=19.0,
+                usg_pct=23.0,
+                ts_pct=0.59,
+                bpm=4.5,
+                fga=56,
+                fta=14,
+                fg3a=18,
+            ),
+            SeasonStat(
+                player_id=11,
+                season=season,
+                team_abbreviation="HOU",
+                is_playoff=True,
+                gp=4,
+                min_total=144,
+                min_pg=36.0,
+                pts=96,
+                pts_pg=24.0,
+                usg_pct=29.0,
+                ts_pct=0.56,
+                bpm=3.6,
+                fga=72,
+                fta=25,
+                fg3a=8,
+            ),
+            SeasonStat(
+                player_id=12,
+                season=season,
+                team_abbreviation="HOU",
+                is_playoff=True,
+                gp=4,
+                min_total=132,
+                min_pg=33.0,
+                pts=52,
+                pts_pg=13.0,
+                usg_pct=21.0,
+                ts_pct=0.51,
+                bpm=0.4,
+                fga=48,
+                fta=8,
+                fg3a=26,
+            ),
+            SeasonStat(player_id=1, season=season, team_abbreviation="OKC", is_playoff=False, gp=75, fga=1500, fta=620, fg3a=420),
+            SeasonStat(player_id=11, season=season, team_abbreviation="HOU", is_playoff=False, gp=70, fga=1200, fta=410, fg3a=120),
+        ]
+    )
+    session.add_all(
+        [
+            TeamShootingSplitStat(
+                team_id=1610612760,
+                season=season,
+                is_playoff=True,
+                split_family="ShotTypeTeamDashboard",
+                split_value="Restricted Area",
+                label="Restricted Area",
+                fgm=92,
+                fga=140,
+                efg_pct=0.657,
+            ),
+            TeamShootingSplitStat(
+                team_id=1610612760,
+                season=season,
+                is_playoff=True,
+                split_family="ShotTypeTeamDashboard",
+                split_value="Above the Break 3",
+                label="Above the Break 3",
+                fgm=42,
+                fga=118,
+                efg_pct=0.534,
+                pct_ast_fgm=0.72,
+            ),
+            TeamShootingSplitStat(
+                team_id=1610612745,
+                season=season,
+                is_playoff=True,
+                split_family="ShotTypeTeamDashboard",
+                split_value="Restricted Area",
+                label="Restricted Area",
+                fgm=64,
+                fga=118,
+                efg_pct=0.542,
+            ),
+            TeamShootingSplitStat(
+                team_id=1610612745,
+                season=season,
+                is_playoff=True,
+                split_family="ShotTypeTeamDashboard",
+                split_value="Above the Break 3",
+                label="Above the Break 3",
+                fgm=30,
+                fga=110,
+                efg_pct=0.409,
+                pct_ast_fgm=0.65,
+            ),
+        ]
+    )
+    session.add(
+        LineupStats(
+            lineup_key="1-2-3-4-5",
+            season=season,
+            team_id=1610612760,
+            is_playoff=True,
+            minutes=42.0,
+            possessions=86,
+            net_rating=18.4,
+            ortg=124.2,
+            drtg=105.8,
+        )
+    )
+    session.commit()
+    return series_id
+
+
+def test_series_simulation_accepts_hypothetical_overrides_without_mutating_state():
+    SessionLocal = _make_session_factory()
+    session = SessionLocal()
+    try:
+        series_id = _seed_series_with_games(session, season="2024-25")
+        sim = get_series_simulation(
+            series_id=series_id,
+            override_top_wins=3,
+            override_bottom_wins=2,
+            db=session,
+        )
+        stored = get_series(series_id=series_id, db=session)
+    finally:
+        session.close()
+
+    assert sim.current_state.top_wins == 3
+    assert sim.current_state.bottom_wins == 2
+    assert sim.current_state.games_played == 5
+    assert sim.current_state.status == "active"
+    assert stored.top_wins == 3
+    assert stored.bottom_wins == 1
+
+
+def test_series_intelligence_returns_edges_star_burden_and_metadata():
+    SessionLocal = _make_session_factory()
+    session = SessionLocal()
+    try:
+        series_id = _seed_series_intelligence_data(session, season="2024-25")
+        response = get_series_intelligence(series_id=series_id, db=session)
+    finally:
+        session.close()
+
+    assert response.methodology_version == "playoff_series_intelligence_v1"
+    assert response.pulse.completed_games == 4
+    assert response.data_coverage.playoff_team_stats is True
+    assert response.data_coverage.regular_team_baselines is True
+    assert response.data_coverage.playoff_player_stats is True
+    assert response.analysis_metadata is not None
+    assert response.analysis_metadata.confidence in {"medium", "high"}
+    assert any(metric.key == "net_rating" and metric.edge_team_abbr == "OKC" for metric in response.four_factors)
+    assert response.star_burden[0].player_name == "Shai Gilgeous-Alexander"
+    assert response.star_burden[0].position_bucket == "G"
+    assert response.best_lineups
+    assert response.tactical_edges
+
+
+def test_series_intelligence_surfaces_thin_data_warnings():
+    SessionLocal = _make_session_factory()
+    session = SessionLocal()
+    try:
+        series_id = _seed_series_with_games(session, season="2024-25")
+        response = get_series_intelligence(series_id=series_id, db=session)
+    finally:
+        session.close()
+
+    assert response.warnings
+    assert response.data_coverage.playoff_team_stats is False
+    assert response.analysis_metadata is not None
+    assert response.analysis_metadata.confidence == "low"

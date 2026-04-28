@@ -23,12 +23,14 @@ from db.database import get_db
 from db.models import GameLog, Team
 from models.playoffs import (
     PlayoffBracketResponse,
+    PlayoffSeriesIntelligenceResponse,
     PlayoffSeriesGame,
     PlayoffSeriesGameWithMatchup,
     PlayoffSeriesResponse,
     PlayoffTodayResponse,
     SeriesSimulationResponse,
 )
+from services.playoff_series_intelligence_service import build_playoff_series_intelligence
 from services.playoff_simulator_service import simulate_series
 
 router = APIRouter()
@@ -244,6 +246,18 @@ def get_series(
     return _series_to_response(series, team_lookup, games)
 
 
+@router.get("/series/{series_id}/intelligence", response_model=PlayoffSeriesIntelligenceResponse)
+def get_series_intelligence(
+    series_id: str,
+    db: Session = Depends(get_db),
+) -> PlayoffSeriesIntelligenceResponse:
+    """Return deterministic coach/analyst intelligence for one playoff series."""
+    response = build_playoff_series_intelligence(db, series_id)
+    if response is None:
+        raise HTTPException(status_code=404, detail=f"Playoff series '{series_id}' not found")
+    return response
+
+
 @router.get("/today", response_model=PlayoffTodayResponse)
 def get_today(
     date_param: Optional[str] = Query(None, alias="date", description="YYYY-MM-DD; defaults to today (US/Pacific)."),
@@ -332,7 +346,14 @@ def get_today(
 @router.get("/series-simulation/{series_id}", response_model=SeriesSimulationResponse)
 def get_series_simulation(
     series_id: str,
+    override_top_wins: Optional[int] = None,
+    override_bottom_wins: Optional[int] = None,
     db: Session = Depends(get_db),
 ) -> SeriesSimulationResponse:
     """Return the Monte-Carlo projection for the requested series."""
-    return simulate_series(db, series_id)
+    return simulate_series(
+        db,
+        series_id,
+        override_top_wins=override_top_wins,
+        override_bottom_wins=override_bottom_wins,
+    )

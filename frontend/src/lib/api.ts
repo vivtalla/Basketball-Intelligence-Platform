@@ -1798,3 +1798,33 @@ export async function getPlayoffsToday(
     : "/api/playoffs/today";
   return fetchApi<import("./types").PlayoffTodayResponse>(path);
 }
+
+// Sprint 75 — Playoff Command Center intelligence payload.
+export async function getPlayoffSeriesIntelligence(
+  seriesId: string
+): Promise<import("./types").PlayoffSeriesIntelligenceResponse> {
+  return fetchApi<import("./types").PlayoffSeriesIntelligenceResponse>(
+    `/api/playoffs/series/${encodeURIComponent(seriesId)}/intelligence`
+  );
+}
+
+// Sprint 75 — non-mutating hypothetical simulator state.
+export async function getSeriesSimulationWithOverrides(
+  seriesId: string,
+  overrides?: {
+    overrideTopWins?: number | null;
+    overrideBottomWins?: number | null;
+  }
+): Promise<import("./types").SeriesSimulationResponse> {
+  const params = new URLSearchParams();
+  if (overrides?.overrideTopWins != null) {
+    params.set("override_top_wins", String(overrides.overrideTopWins));
+  }
+  if (overrides?.overrideBottomWins != null) {
+    params.set("override_bottom_wins", String(overrides.overrideBottomWins));
+  }
+  const suffix = params.toString() ? `?${params.toString()}` : "";
+  return fetchApi<import("./types").SeriesSimulationResponse>(
+    `/api/playoffs/series-simulation/${encodeURIComponent(seriesId)}${suffix}`
+  );
+}
