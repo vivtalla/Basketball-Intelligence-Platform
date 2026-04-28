@@ -3,6 +3,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { useMvpRace } from "@/hooks/usePlayerStats";
+import { useSeasonPhase } from "@/hooks/useSeasonPhase";
 import type { MvpCandidate } from "@/lib/types";
 
 const SEASON = "2025-26";
@@ -209,8 +210,17 @@ function SkeletonCard() {
 }
 
 export default function HomeMvpTeaser() {
-  const { data, isLoading } = useMvpRace(SEASON, { top: 3, minGp: 20 });
+  // Sprint 73: hide the regular-season MVP teaser during the playoffs so the
+  // home page leads with playoff context instead. Hook order is stable; we
+  // pass a null season into `useMvpRace` to suppress the fetch in playoffs.
+  const { isPlayoffs } = useSeasonPhase();
+  const { data, isLoading } = useMvpRace(isPlayoffs ? null : SEASON, {
+    top: 3,
+    minGp: 20,
+  });
   const candidates = data?.candidates ?? [];
+
+  if (isPlayoffs) return null;
 
   return (
     <section>

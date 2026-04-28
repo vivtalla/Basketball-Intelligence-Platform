@@ -8,6 +8,8 @@ import FloatingBall from "@/components/FloatingBall";
 import SpotlightCursor from "@/components/SpotlightCursor";
 import Reveal from "@/components/Reveal";
 import HomeLiveCourt from "@/components/HomeLiveCourt";
+import SeriesNarrative from "@/components/playoffs/SeriesNarrative";
+import PlayoffsHomeSections from "@/components/playoffs/PlayoffsHomeSections";
 import Link from "next/link";
 
 // Heroicons-style SVG icons for platform cards (24×24, 1.7px stroke, round caps/joins)
@@ -232,6 +234,11 @@ export default function HomePage() {
         </div>
       </div>
 
+      {/* ── Playoff series narrative (playoffs only — self-gates) ─ */}
+      <Reveal>
+        <SeriesNarrative />
+      </Reveal>
+
       {/* ── Platform areas ───────────────────────────────────────── */}
       <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
         {platformAreas.map((area, idx) => (
@@ -268,9 +275,14 @@ export default function HomePage() {
         <FavoritesList />
       </Reveal>
 
-      {/* ── MVP race teaser ──────────────────────────────────────── */}
+      {/* ── MVP race teaser (regular season only — self-gates) ──── */}
       <Reveal>
         <HomeMvpTeaser />
+      </Reveal>
+
+      {/* ── Today's playoff slate (playoffs only — self-gates) ──── */}
+      <Reveal>
+        <PlayoffsHomeSections />
       </Reveal>
 
       {/* ── Live league leaders ──────────────────────────────────── */}
