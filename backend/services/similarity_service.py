@@ -222,13 +222,22 @@ TEAM_FIT_FEATURE_LABELS: Dict[str, str] = {
 AGE_WINDOW = 1
 
 
-def _qualified_rows_v2(db: Session) -> List[SeasonStat]:
-    """Same MIN_GP + regular-season filter as the legacy path but against the V2 feature list."""
+PLAYOFF_MIN_GP = 4  # Lower gate for playoff series — best-of-7 floor.
+
+
+def _qualified_rows_v2(db: Session, is_playoff: bool = False) -> List[SeasonStat]:
+    """Same MIN_GP + season-type filter as the legacy path but against the V2 feature list.
+
+    Playoff series cap at ~28 games per player even for finalists, so the
+    MIN_GP=20 regular-season gate is loosened to PLAYOFF_MIN_GP for playoff
+    pools.
+    """
+    min_gp = PLAYOFF_MIN_GP if is_playoff else MIN_GP
     rows = (
         db.query(SeasonStat)
         .filter(
-            SeasonStat.gp >= MIN_GP,
-            SeasonStat.is_playoff == False,  # noqa: E712
+            SeasonStat.gp >= min_gp,
+            SeasonStat.is_playoff == is_playoff,
         )
         .all()
     )

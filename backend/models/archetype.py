@@ -59,6 +59,7 @@ class PlayerArchetype(BaseModel):
     contributors: List[ArchetypeContributor]
     sample: ArchetypeSample
     methodology_version: str
+    confidence_note: Optional[str] = None
 
 
 class ArchetypeHistoryEntry(BaseModel):

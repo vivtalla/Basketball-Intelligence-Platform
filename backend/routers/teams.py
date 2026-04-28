@@ -1,9 +1,12 @@
 from __future__ import annotations
 
-from typing import List, Optional
+from typing import List, Literal, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
+
+
+SeasonType = Literal["Regular Season", "Playoffs"]
 
 from db.database import get_db
 from db.models import Player, SeasonStat, Team, TeamSeasonStat, TeamShootingSplitStat, TeamSplitStat
@@ -62,12 +65,17 @@ def list_teams(db: Session = Depends(get_db)):
 
 
 @router.get("/{abbr}", response_model=TeamRosterResponse)
-def team_roster(abbr: str, db: Session = Depends(get_db)):
+def team_roster(
+    abbr: str,
+    season_type: SeasonType = Query("Regular Season"),
+    db: Session = Depends(get_db),
+):
     """Return team info and the roster of synced players with their latest season stats."""
     team = db.query(Team).filter(Team.abbreviation == abbr.upper()).first()
     if not team:
         raise HTTPException(status_code=404, detail=f"Team '{abbr}' not found in database. View a player on that team first to load it.")
 
+    is_playoff = season_type == "Playoffs"
     players = (
         db.query(Player)
         .filter(Player.team_id == team.id, Player.is_active == True)  # noqa: E712
@@ -80,7 +88,7 @@ def team_roster(abbr: str, db: Session = Depends(get_db)):
     for player in players:
         stat = (
             db.query(SeasonStat)
-            .filter(SeasonStat.player_id == player.id, SeasonStat.is_playoff == False)  # noqa: E712
+            .filter(SeasonStat.player_id == player.id, SeasonStat.is_playoff == is_playoff)
             .order_by(SeasonStat.season.desc())
             .first()
         )
@@ -125,6 +133,7 @@ def team_availability(
 def team_analytics(
     abbr: str,
     season: str = Query("2024-25"),
+    season_type: SeasonType = Query("Regular Season"),
     db: Session = Depends(get_db),
 ):
     """Return persisted official team analytics for a season."""
@@ -136,12 +145,13 @@ def team_analytics(
             detail=f"Team '{abbr}' not found.",
         )
 
+    is_playoff = season_type == "Playoffs"
     team_row = (
         db.query(TeamSeasonStat)
         .filter(
             TeamSeasonStat.team_id == team.id,
             TeamSeasonStat.season == season,
-            TeamSeasonStat.is_playoff == False,  # noqa: E712
+            TeamSeasonStat.is_playoff == is_playoff,
         )
         .first()
     )
@@ -199,6 +209,7 @@ def team_analytics(
 def team_splits(
     abbr: str,
     season: str = Query("2025-26"),
+    season_type: SeasonType = Query("Regular Season"),
     db: Session = Depends(get_db),
 ):
     """Return persisted official team general splits for a season."""
@@ -207,12 +218,13 @@ def team_splits(
     if not team:
         raise HTTPException(status_code=404, detail=f"Team '{abbr}' not found.")
 
+    is_playoff = season_type == "Playoffs"
     rows = (
         db.query(TeamSplitStat)
         .filter(
             TeamSplitStat.team_id == team.id,
             TeamSplitStat.season == season,
-            TeamSplitStat.is_playoff == False,  # noqa: E712
+            TeamSplitStat.is_playoff == is_playoff,
         )
         .order_by(TeamSplitStat.split_family, TeamSplitStat.split_value)
         .all()
@@ -260,6 +272,7 @@ def team_splits(
 def team_shooting_splits(
     abbr: str,
     season: str = Query("2025-26"),
+    season_type: SeasonType = Query("Regular Season"),
     db: Session = Depends(get_db),
 ):
     """Return persisted official team shooting splits for a season."""
@@ -268,12 +281,13 @@ def team_shooting_splits(
     if not team:
         raise HTTPException(status_code=404, detail=f"Team '{abbr}' not found.")
 
+    is_playoff = season_type == "Playoffs"
     rows = (
         db.query(TeamShootingSplitStat)
         .filter(
             TeamShootingSplitStat.team_id == team.id,
             TeamShootingSplitStat.season == season,
-            TeamShootingSplitStat.is_playoff == False,  # noqa: E712
+            TeamShootingSplitStat.is_playoff == is_playoff,
         )
         .order_by(TeamShootingSplitStat.split_family, TeamShootingSplitStat.split_value)
         .all()

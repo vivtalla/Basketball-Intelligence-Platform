@@ -85,3 +85,4 @@ class TeamFitResponse(BaseModel):
     methodology: TeamFitMethodology
     warnings: List[str] = []
     analysis_metadata: Optional[AnalysisMetadata] = None
+    low_sample_warning: Optional[str] = None
