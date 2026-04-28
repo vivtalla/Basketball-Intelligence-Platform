@@ -262,6 +262,16 @@ CourtVue Labs uses a hybrid sprint model: major feature sprints typically run as
 
 > Full history → `specs/sprint-history.md`
 
+### Sprint 76 — Methodology Rigor Pass
+
+- Single-stream Claude sprint promoting every previously-deferred methodology upgrade from "planned" in the registry to either a working end-to-end implementation or a focused design memo with explicit data prerequisites.
+- Eight new reliability primitives in `backend/services/reliability_service.py`: `_z_for_level` table (correctly-calibrated Wilson and normal intervals at 0.80 / 0.90 / 0.95 / 0.99), `pearson_correlation`, `collinearity_warnings`, `covariance_matrix`, `shrunk_covariance`, `invert_matrix`, `mahalanobis_distance`, `weight_sensitivity_analysis`, `principal_components`, `project_to_components`, `bayesian_change_score`, and `softmax`. `empirical_bayes_rate` hardened with input validation and posterior clamping.
+- Seven methodology versions ticked end-to-end with structured response evidence: `similarity_v3` (shrunk Mahalanobis distance method with auto-fallback), `custom_metric_v2` (collinearity warnings + top-5 ranking sensitivity under ±10% weight perturbations), `scouting_brief_v2` (cross-card contradiction detection across role/trajectory, role/usage, strengths/shot-profile), `mvp_case_v4` (Basketball Value weight-perturbation sensitivity), `style_xray_v2` (top-2 PCA latent axes with explained-variance ratios + feature loadings), `trend_intelligence_v2` (Bayesian two-sample change probability per metric), `archetype_rules_v2` (soft-membership distribution over the 13 archetype rules anchored to the hard label).
+- Validation harness expanded from 6 fixtures (team_fit + shot_lab) to 17 fixtures covering every registered methodology domain; a coverage assertion in the test suite blocks future registry additions from shipping without a fixture.
+- New design memo `specs/methodology-future-modeling.md` for the two remaining items (`mvp_case_v5` Award Case voter calibration, `opportunity_v2` uplift modeling). Both blocked on data prerequisites, not engineering — full data shape, math sketch, service wiring, and acceptance criteria captured. Backlog entries call out the data prerequisite explicitly.
+- Pure backend sprint by design: every new response field is `Optional` so existing frontend consumers keep working unchanged. Frontend follow-on work (rendering the new methodology evidence in existing drawers) is captured in the closeout under "Frontend follow-ons".
+- Verified with **346 backend tests** (was 293 at Sprint 75 close; +53 net new), `npm run lint` (7 pre-existing warnings), `npm run build` clean. Closeout: `specs/sprint-76-closeout.md`.
+
 ### Sprint 75 — Playoff Command Center & Series Intelligence
 
 - Single-stream Codex sprint upgrading `/bracket` from a static bracket into a coach/analyst Playoff Command Center.
@@ -271,16 +281,7 @@ CourtVue Labs uses a hybrid sprint model: major feature sprints typically run as
 - Added `<PlayoffCommandCenter>` with selected-series rail, today's slate strip, Series Pulse, Tactical Edges, Star Burden, Shot Diet, Lineup Chess, simulator, and reliability card.
 - Verified with **293 backend tests**, targeted playoff tests, `npm run lint` (7 pre-existing warnings), `npm run build`, and `git diff --check`. Closeout: `specs/sprint-75-closeout.md`.
 
-### Sprint 74 — Methodology Reliability Rollout + Team-Fit/Shot Lab vNext
-
-- Single-stream Codex sprint promoting methodology reliability from backend-only metadata into a visible product-wide trust pattern while preserving response compatibility and raw descriptive values.
-- Shared methodology layer: registry upgraded to `methodology_registry_v2` with model stage, season-type support, validation notes, and implementation references; new `GET /api/methodology/validation`; shared frontend types/API hooks plus `<MethodologyEvidenceCard>` for version, reliability, sample context, uncertainty, drivers, limitations, and validation notes.
-- Shot Lab upgraded to `shot_quality_v2`: hierarchical baseline blending from exact context toward broader buckets/league priors; empirical Bayes stabilized FG%, PPS, and PPS delta; Wilson FG% intervals; PPS-delta uncertainty; sustainability labels that distinguish repeatable edge from hot/cold streak and thin samples.
-- Team-Fit upgraded to `team_fit_v3`: current fit vs theoretical best usage, fit-gap interpretation, reliability notes, reliability-gated better-fit thresholds, analysis-context confidence warnings, and playoff low-sample confidence notes.
-- Methodology evidence UI wired across Team-Fit, Shot Intelligence, Opportunity, Archetype/Similarity, Trend/Trajectory, Style X-Ray, MVP/Gravity, Scouting Brief, and Custom Metrics. Docs updated in `specs/platform-methodology.md` and `specs/methodology-validation.md`.
-- Verified with **290 backend tests**, `npm run lint` (7 pre-existing warnings), `npm run build`, and `git diff --check`. Closeout: `specs/sprint-74-closeout.md`.
-
-*Sprint 73 and older moved to `specs/sprint-history.md`.*
+*Sprint 74 and older moved to `specs/sprint-history.md`.*
 
 ---
 
@@ -308,6 +309,8 @@ CourtVue Labs uses a hybrid sprint model: major feature sprints typically run as
 | `feature/sprint-73a-playoffs-data` | Claude | Merged to master |
 | `feature/sprint-73b-playoffs-features` | Claude | Merged to master |
 | `codex-sprint-74-methodology-upgrades` | Codex | Merged to master |
+| `codex-sprint-75-playoff-command-center` | Codex | Merged to master |
+| `claude/improve-evaluation-methods-ZAo94` | Claude | Merged to master |
 
 Sprint branches are created at kickoff and listed in `AGENTS.md`.
 

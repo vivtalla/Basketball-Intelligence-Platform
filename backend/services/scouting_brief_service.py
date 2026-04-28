@@ -19,13 +19,30 @@ from sqlalchemy.orm import Session
 from db.models import Player as PlayerOrm
 from models.scouting_brief import (
     ScoutingBriefCard,
+    ScoutingBriefContradiction,
     ScoutingBriefResponse,
     ScoutingCardConfidence,
 )
 
 logger = logging.getLogger(__name__)
 
-METHODOLOGY_VERSION = "scouting_brief_v1"
+METHODOLOGY_VERSION = "scouting_brief_v2"
+
+# Archetype keys that imply meaningful on-ball usage. If a player is labeled
+# one of these but shows up at low usage in the opportunity card, the brief
+# is internally inconsistent and we say so.
+_HIGH_USAGE_ARCHETYPES = frozenset({
+    "heliocentric_creator",
+    "lead_ball_handler",
+    "iso_scorer",
+})
+
+# Trajectory labels that signal a downward read.
+_DOWNWARD_TRAJECTORY = frozenset({"Slumping", "Collapsing"})
+
+# Archetype contributor feature keys that the strengths card surfaces as
+# "leans into shooting".
+_SHOOTING_CONTRIBUTOR_KEYS = frozenset({"par3_z", "fg3_pct_z"})
 
 # Human-readable feature labels for the Strengths/Weaknesses card.
 _FEATURE_PROSE: dict = {
@@ -218,6 +235,90 @@ def _trajectory_card(player_id: int, trajectory_response) -> Optional[ScoutingBr
     )
 
 
+# --- Contradiction detection ----------------------------------------------
+
+
+def _detect_contradictions(
+    archetype,
+    opportunity_row,
+    diagnosis,
+    trajectory_row,
+) -> List[ScoutingBriefContradiction]:
+    """Cross-card consistency checks. v1 surfaces three conservative tensions.
+
+    The detector deliberately ignores low-confidence archetypes and
+    insufficient-sample diagnoses — flagging tensions on shaky inputs would
+    just add noise. Each rule fires at most once and the output is capped at
+    three entries so the brief footer stays readable.
+    """
+    contradictions: List[ScoutingBriefContradiction] = []
+
+    archetype_confident = (
+        archetype is not None
+        and getattr(archetype, "archetype_key", None) not in (None, "developmental")
+        and getattr(archetype, "confidence", "low") in {"high", "medium"}
+    )
+    contributors = list(getattr(archetype, "contributors", []) or [])
+
+    # Rule 1: archetype is decisive AND trajectory points down. The brief is
+    # claiming both "this is what the player IS" and "the recent reads are
+    # bad" — coaches should see those side by side rather than blended.
+    if archetype_confident and trajectory_row is not None:
+        traj_label = getattr(trajectory_row, "trajectory_label", None)
+        if traj_label in _DOWNWARD_TRAJECTORY:
+            contradictions.append(
+                ScoutingBriefContradiction(
+                    card_types=["role", "trajectory"],
+                    summary=(
+                        "Role card confidently labels this player a {0}, but trajectory reads {1} — "
+                        "treat the role label as the season identity, not the current form."
+                    ).format(archetype.label, traj_label.lower()),
+                )
+            )
+
+    # Rule 2: high-usage archetype meets low-usage cohort signal. If the
+    # opportunity card has the player below 20% USG, the high-usage label is
+    # stale or coaching has changed — either way it's worth flagging.
+    if (
+        archetype_confident
+        and getattr(archetype, "archetype_key", None) in _HIGH_USAGE_ARCHETYPES
+        and opportunity_row is not None
+    ):
+        usg = getattr(opportunity_row, "usg_pct", None)
+        if usg is not None and float(usg) < 0.20:
+            contradictions.append(
+                ScoutingBriefContradiction(
+                    card_types=["role", "usage_efficiency"],
+                    summary=(
+                        "{0} archetype expects high on-ball usage, but the usage card shows {1:.1%} — "
+                        "the role label may be stale or the player has moved off the ball."
+                    ).format(archetype.label, float(usg)),
+                )
+            )
+
+    # Rule 3: shooting strength claim collides with a hot-streak diagnosis.
+    if (
+        archetype_confident
+        and diagnosis is not None
+        and getattr(diagnosis, "sustainability", None) == "Hot Streak"
+        and any(
+            (c.feature_key in _SHOOTING_CONTRIBUTOR_KEYS and c.direction == "above")
+            for c in contributors
+        )
+    ):
+        contradictions.append(
+            ScoutingBriefContradiction(
+                card_types=["strengths", "shot_profile"],
+                summary=(
+                    "Strengths card highlights shooting, but the shot profile reads as a Hot Streak — "
+                    "the shooting edge may not survive regression."
+                ),
+            )
+        )
+
+    return contradictions[:3]
+
+
 # --- Entry point -----------------------------------------------------------
 
 
@@ -388,10 +489,31 @@ def build_scouting_brief(
         if not any(w.startswith("trajectory:") for w in warnings):
             warnings.append("trajectory: player not in breakout/decline lists")
 
+    # Pull the per-player rows the contradiction detector needs. These were
+    # already resolved while the cards were composed; we just look them up
+    # again so the detector receives concrete row objects (or None).
+    opportunity_row = None
+    if opportunity_response is not None:
+        opportunity_row = next(
+            (r for r in opportunity_response.rows if r.player_id == player_id), None
+        )
+    trajectory_row = None
+    if trajectory_response is not None:
+        rows = list(trajectory_response.breakout_leaders) + list(trajectory_response.decline_watch)
+        trajectory_row = next((r for r in rows if r.player_id == player_id), None)
+
+    contradictions = _detect_contradictions(
+        archetype=archetype,
+        opportunity_row=opportunity_row,
+        diagnosis=diagnosis,
+        trajectory_row=trajectory_row,
+    )
+
     return ScoutingBriefResponse(
         player_id=player_id,
         season=season,
         methodology_version=METHODOLOGY_VERSION,
         cards=cards,
         warnings=warnings,
+        contradictions=contradictions,
     )

@@ -21,14 +21,33 @@ from sqlalchemy.orm import Session
 from db.models import Player, SeasonStat
 from models.archetype import (
     ArchetypeContributor,
+    ArchetypeMembership,
     ArchetypeSample,
     PlayerArchetype,
 )
+from services.reliability_service import softmax
 
 
 SeasonType = Literal["Regular Season", "Playoffs"]
 
-METHODOLOGY_VERSION = "player_archetype_v1"
+METHODOLOGY_VERSION = "player_archetype_v2"
+
+# Soft-membership shape parameters. `_RULE_SHARPNESS` controls how quickly a
+# satisfied condition saturates toward p=1; `_MEMBERSHIP_TEMPERATURE` softens
+# the softmax so adjacent archetypes still register membership rather than
+# collapsing to argmax. Both tuned so the legacy hard label still leads the
+# soft distribution on clear-fit fixtures while borderline players spread
+# membership across two or three nearby archetypes.
+_RULE_SHARPNESS = 2.5
+_MEMBERSHIP_TEMPERATURE = 0.6
+# Top-N memberships surfaced on the response. Five covers the dominant label
+# plus two-to-three adjacent style families without overwhelming the UI.
+_MEMBERSHIP_TOP_N = 5
+# Pre-softmax score bonus added to the hard label so it always leads the soft
+# distribution. With temperature 0.6 this multiplies the softmax weight by
+# exp(1.0 / 0.6) ≈ 5.3, enough to overcome a one-condition sigmoid-product
+# gap between a stricter rule and its looser superset.
+_HARD_LABEL_BONUS = 1.0
 
 # --- Peer pool gates --------------------------------------------------------
 
@@ -555,6 +574,175 @@ def _classify(
     return ("balanced_role", "", [])
 
 
+# --- Soft-membership scoring (archetype_v2) -------------------------------
+
+
+def _condition_satisfaction(value: Optional[float], threshold: float, direction: str) -> float:
+    """Sigmoid satisfaction score for a single threshold condition.
+
+    `direction == "ge"` returns p ≈ 1 when value >> threshold and p ≈ 0 when
+    value << threshold. `direction == "le"` is the mirror image. Missing
+    values default to 0 — a missing feature can't satisfy a hard rule, so it
+    shouldn't satisfy the soft version either.
+    """
+    if value is None:
+        return 0.0
+    delta = float(value) - float(threshold)
+    if direction == "le":
+        delta = -delta
+    return 1.0 / (1.0 + math.exp(-_RULE_SHARPNESS * delta))
+
+
+def _size_band_satisfaction(size_inches: int, low: float, high: float) -> float:
+    """Triangular satisfaction for a `low <= size <= high` band.
+
+    Returns 1.0 strictly inside the band and falls off via sigmoid toward
+    each edge so a 6'8" player still partly satisfies the 6'5"-6'10" wing
+    band even if they're an inch tall.
+    """
+    if size_inches is None:
+        return 0.0
+    inside = float(min(size_inches - low, high - size_inches))
+    return 1.0 / (1.0 + math.exp(-_RULE_SHARPNESS * inside))
+
+
+def _soft_archetype_scores(zs: Dict[str, float], size_inches: int) -> Dict[str, float]:
+    """Score every archetype rule (not just the first that fires) and return
+    a key → fit-score map. Each rule's fit score is the product of its per-
+    condition sigmoid satisfactions; multiplicative aggregation means a
+    badly-missed condition pulls the rule's score toward zero even if other
+    conditions are satisfied.
+
+    Mirrors the `_classify` rule structure so the soft scores are directly
+    comparable to the hard label. The fallback archetypes (balanced_role
+    and developmental) are not included — they're decided downstream from
+    sample size, not from feature thresholds.
+    """
+    usg = _z(zs, "usg_z")
+    ast_rate = _z(zs, "ast_rate_z")
+    ast_tov = _z(zs, "ast_tov_z")
+    par3 = _z(zs, "par3_z")
+    ftr = _z(zs, "ftr_z")
+    ts = _z(zs, "ts_z")
+    stl_rate = _z(zs, "stl_rate_z")
+    blk_rate = _z(zs, "blk_rate_z")
+    oreb = _z(zs, "oreb_z")
+    dbpm = _z(zs, "dbpm_z")
+    obpm = _z(zs, "obpm_z")
+    fg3_pct = _z(zs, "fg3_pct_z")
+
+    scores: Dict[str, float] = {
+        "heliocentric_creator": (
+            _condition_satisfaction(usg, 1.0, "ge")
+            * _condition_satisfaction(ast_rate, 1.0, "ge")
+            * _condition_satisfaction(obpm, 1.0, "ge")
+        ),
+        "lead_ball_handler": (
+            _condition_satisfaction(usg, 0.7, "ge")
+            * _condition_satisfaction(ast_rate, 0.8, "ge")
+        ),
+        "iso_scorer": (
+            _condition_satisfaction(usg, 0.7, "ge")
+            * _condition_satisfaction(ast_rate, 0.8, "le")
+            * _condition_satisfaction(par3, 0.0, "le")
+            * _condition_satisfaction(ftr, 0.2, "ge")
+        ),
+        "secondary_playmaker": (
+            _condition_satisfaction(ast_rate, 0.6, "ge")
+            * _condition_satisfaction(usg, 0.5, "le")
+            * _condition_satisfaction(ast_tov, 0.3, "ge")
+        ),
+        "movement_shooter": (
+            _condition_satisfaction(par3, 0.8, "ge")
+            * _condition_satisfaction(fg3_pct, 0.3, "ge")
+            * _condition_satisfaction(usg, 0.5, "le")
+        ),
+        "three_and_d_wing": (
+            _condition_satisfaction(par3, 0.5, "ge")
+            * _condition_satisfaction(fg3_pct, 0.3, "ge")
+            * _condition_satisfaction(dbpm, 0.5, "ge")
+            * _size_band_satisfaction(size_inches, 77, 82)
+        ),
+        "rim_pressure_guard": (
+            _condition_satisfaction(ftr, 0.6, "ge")
+            * _condition_satisfaction(par3, 0.0, "le")
+            * _condition_satisfaction(usg, 0.0, "ge")
+            * _condition_satisfaction(float(size_inches), 77, "le")
+        ),
+        "connective_forward": (
+            _condition_satisfaction(ast_rate, 0.4, "ge")
+            * _condition_satisfaction(usg, 0.5, "le")
+            * _condition_satisfaction(float(size_inches), 78, "ge")
+        ),
+        "defensive_anchor": (
+            _condition_satisfaction(blk_rate, 1.0, "ge")
+            * _condition_satisfaction(dbpm, 0.8, "ge")
+            * _condition_satisfaction(float(size_inches), 80, "ge")
+        ),
+        "interior_finisher": (
+            _condition_satisfaction(ts, 0.7, "ge")
+            * _condition_satisfaction(par3, -0.4, "le")
+            * _condition_satisfaction(oreb, 0.4, "ge")
+        ),
+        "stretch_big": (
+            _condition_satisfaction(par3, 0.5, "ge")
+            * _condition_satisfaction(float(size_inches), 80, "ge")
+        ),
+        "switchable_stopper": (
+            _condition_satisfaction(stl_rate, 0.7, "ge")
+            * _condition_satisfaction(dbpm, 0.6, "ge")
+            * _size_band_satisfaction(size_inches, 75, 82)
+        ),
+        "rotational_energy": (
+            _condition_satisfaction(oreb, 0.5, "ge")
+            * _condition_satisfaction(ftr, 0.3, "ge")
+            * _condition_satisfaction(usg, 0.0, "le")
+        ),
+    }
+    return scores
+
+
+def _soft_archetype_memberships(
+    zs: Dict[str, float],
+    size_inches: int,
+    label_map: Dict[str, str],
+    hard_archetype_key: Optional[str] = None,
+) -> List[ArchetypeMembership]:
+    """Convert the per-archetype fit scores into a sorted top-N membership
+    distribution. Uses softmax with a sub-1.0 temperature so the dominant
+    archetype clearly leads while adjacent styles still register.
+
+    The hard classifier resolves ambiguity between nested rules (e.g. an
+    elite playmaker satisfies both lead_ball_handler and the stricter
+    heliocentric_creator) by checking specific rules first. The soft scorer
+    using sigmoid products doesn't see that order and would otherwise prefer
+    looser rules with fewer conditions. To keep the soft distribution
+    consistent with the hard label we add a fixed pre-softmax bonus to the
+    hard archetype's raw score; the bonus is large enough to outweigh the
+    sigmoid-product gap a deeper-condition rule incurs but small enough
+    that adjacent archetypes still register meaningful membership.
+    """
+    scores = _soft_archetype_scores(zs, size_inches)
+    keys = list(scores.keys())
+    raw_scores = [scores[key] for key in keys]
+    if hard_archetype_key and hard_archetype_key in scores:
+        anchor_index = keys.index(hard_archetype_key)
+        # exp(_HARD_LABEL_BONUS / _MEMBERSHIP_TEMPERATURE) ≈ 5x boost on the
+        # softmax weight, enough to overcome the typical sigmoid-product
+        # penalty a deeper-condition rule incurs against a looser superset.
+        raw_scores[anchor_index] += _HARD_LABEL_BONUS
+    weights = softmax(raw_scores, temperature=_MEMBERSHIP_TEMPERATURE)
+    ranked = sorted(zip(keys, weights), key=lambda pair: pair[1], reverse=True)
+    return [
+        ArchetypeMembership(
+            archetype_key=key,  # type: ignore[arg-type]
+            label=label_map.get(key, key),
+            membership=round(float(weight), 3),
+        )
+        for key, weight in ranked[:_MEMBERSHIP_TOP_N]
+    ]
+
+
 def _confidence(trigger_magnitudes: List[float]) -> str:
     if not trigger_magnitudes:
         return "low"
@@ -687,6 +875,8 @@ def classify_player_archetype(
         confidence = _reduce_confidence_one_tier(confidence)
         confidence_note = "Playoff sample — confidence reduced one tier"
 
+    memberships = _soft_archetype_memberships(zs, size, label_map, hard_archetype_key=archetype_key)
+
     return PlayerArchetype(
         player_id=player_id,
         season=season,
@@ -698,6 +888,7 @@ def classify_player_archetype(
         sample=ArchetypeSample(gp=gp, min_pg=min_pg, peer_pool_size=frame.peer_pool_size),
         methodology_version=METHODOLOGY_VERSION,
         confidence_note=confidence_note,
+        memberships=memberships,
     )
 
 

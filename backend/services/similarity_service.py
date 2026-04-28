@@ -10,6 +10,14 @@ Sprint 67 (B2) adds:
 - role-aware V2 distance with 4 extra features (par3, ftr, stl/36, blk/36)
 - `mode` parameter selecting the candidate pool: season|age|team_fit
 - archetype label attached to every comp via batch classify
+
+`similarity_v3` adds shrunk Mahalanobis as an opt-in distance method. The
+empirical covariance of the candidate pool's weighted z-vectors is shrunk
+toward its diagonal, then inverted, so correlated features (e.g. pts_pg/per
+or ts_pct/efg-like signals) stop double-counting against each other. When the
+pool is too thin to invert reliably the implementation falls back to weighted
+Euclidean automatically and surfaces the resolved method in the response.
+
 The legacy `find_similar_players(cross_era=...)` signature is preserved for
 existing callers (the /api/similarity/{player_id} default response).
 """
@@ -23,6 +31,12 @@ from typing import Any, Dict, List, Literal, Optional, Tuple
 from sqlalchemy.orm import Session
 
 from db.models import Player, SeasonStat
+from services.reliability_service import (
+    covariance_matrix,
+    invert_matrix,
+    mahalanobis_distance,
+    shrunk_covariance,
+)
 
 # Stats used for similarity matching. All must be non-null to include a row.
 # Weights let us emphasize role-defining stats over noisy ones.
@@ -519,18 +533,122 @@ def _weighted_vec(
     return out
 
 
+# ---------------------------------------------------------------------------
+# similarity_v3 — shrunk Mahalanobis distance
+# ---------------------------------------------------------------------------
+
+DistanceMethod = Literal["weighted_euclidean", "shrunk_mahalanobis"]
+
+# How many candidate vectors per feature we want before trusting the empirical
+# covariance enough to invert it. Below this, fall back to weighted Euclidean.
+# 3× n_features is a conservative lower bound; with the 11 unique V2 features
+# that means 33 same-season qualified rows, which any modern season clears.
+_MAHALANOBIS_MIN_SAMPLES_PER_FEATURE = 3
+# Default shrinkage toward diag(Σ). 0.2 keeps most of the empirical covariance
+# while pulling in enough of the diagonal to keep the matrix well-conditioned
+# on smaller pools (early-season, position-filtered, age-window, etc.).
+_DEFAULT_MAHALANOBIS_SHRINKAGE = 0.2
+
+
+def _unique_feature_weights() -> List[Tuple[str, float]]:
+    """Collapse SIMILARITY_STATS_V2's duplicate-feature design into a unique
+    (key, combined_weight) list for the Mahalanobis path.
+
+    SIMILARITY_STATS_V2 deliberately lists `stl_pg` and `blk_pg` twice with
+    different weights so the legacy weighted Euclidean distance up-weights
+    those features. For Mahalanobis we need full-rank vectors, so we dedupe
+    by summing in quadrature: combined_weight = sqrt(sum(w_i^2)). The squared
+    Euclidean distance is identical before and after this transform, so the
+    weighted-Euclidean ranking is unchanged and the only consumer of this
+    helper is the Mahalanobis distance computation.
+    """
+    seen: Dict[str, float] = {}
+    order: List[str] = []
+    for key, weight in SIMILARITY_STATS_V2:
+        if key not in seen:
+            seen[key] = 0.0
+            order.append(key)
+        seen[key] += float(weight) ** 2
+    return [(key, math.sqrt(seen[key])) for key in order]
+
+
+def _unique_weighted_vec(
+    raw: Dict[str, float],
+    overrides: Optional[Dict[str, float]] = None,
+) -> List[float]:
+    """Build a unique-feature weighted z-vector for Mahalanobis distance."""
+    out: List[float] = []
+    for key, combined_weight in _unique_feature_weights():
+        mult = (overrides or {}).get(key, 1.0)
+        out.append(raw[key] * combined_weight * mult)
+    return out
+
+
+def _build_inverse_covariance(
+    candidate_vectors: List[List[float]],
+    shrinkage: float,
+) -> Tuple[Optional[List[List[float]]], Optional[str]]:
+    """Compute the shrunk inverse covariance for a pool of weighted z-vectors.
+
+    Returns (inverse_covariance, fallback_reason). If `inverse_covariance` is
+    None, the caller should fall back to weighted Euclidean and surface the
+    fallback reason. The reason string is intentionally short so it can be
+    appended to a methodology note without translation.
+    """
+    if not candidate_vectors:
+        return None, "empty candidate pool"
+    n_features = len(candidate_vectors[0])
+    minimum = _MAHALANOBIS_MIN_SAMPLES_PER_FEATURE * n_features
+    if len(candidate_vectors) < minimum:
+        return None, "candidate pool below {0} rows for {1}-feature covariance".format(
+            minimum, n_features,
+        )
+    cov = covariance_matrix(candidate_vectors)
+    shrunk = shrunk_covariance(cov, shrinkage)
+    # Tikhonov ridge: add a small fraction of the mean diagonal magnitude to
+    # every diagonal entry. This stabilizes the inverse when one or more
+    # features have near-zero variance in the candidate pool (which happens
+    # for thin slices: position filter + early-season + qualified pool can
+    # bottom out a feature). Without this, a single zero-variance feature
+    # makes the entire matrix singular and silently kills the upgrade.
+    diagonal_magnitudes = [abs(shrunk[i][i]) for i in range(n_features)]
+    mean_diag = sum(diagonal_magnitudes) / float(n_features) if diagonal_magnitudes else 0.0
+    ridge = max(mean_diag * 1e-3, 1e-9)
+    regularized = [
+        [shrunk[i][j] + (ridge if i == j else 0.0) for j in range(n_features)]
+        for i in range(n_features)
+    ]
+    inverse = invert_matrix(regularized)
+    if inverse is None:
+        return None, "covariance matrix not invertible at shrinkage={0:.2f}".format(shrinkage)
+    return inverse, None
+
+
 def find_similar_players_with_archetype(
     db: Session,
     player_id: int,
     season: str,
     mode: SimilarityMode = "season",
     n: int = 8,
+    distance_method: DistanceMethod = "weighted_euclidean",
+    shrinkage: float = _DEFAULT_MAHALANOBIS_SHRINKAGE,
 ) -> List[dict]:
     """Sprint 67 (B2) role-aware similarity.
 
     Extends the legacy 9-feature Euclidean distance with 4 archetype-defining
     dimensions and attaches an archetype label to every returned comp. See
     specs/sprint-67-archetype-rules.md §1.7 for contract details.
+
+    `distance_method`:
+        - `weighted_euclidean` (default): legacy weighted Euclidean distance.
+        - `shrunk_mahalanobis`: similarity_v3 — shrinks the candidate pool's
+          empirical covariance toward its diagonal, inverts it, and uses
+          Mahalanobis distance so highly-correlated features (pts/per/usg)
+          stop double-counting. Falls back to weighted Euclidean when the pool
+          is too thin to invert reliably; the resolved method is attached to
+          every returned comp as `distance_method_used`.
+
+    `shrinkage` is only used by `shrunk_mahalanobis` and must be in `[0, 1]`.
     """
     all_rows = _qualified_rows_v2(db)
     norms = _season_norms_v2(all_rows)
@@ -558,13 +676,43 @@ def find_similar_players_with_archetype(
     target_vec = _weighted_vec(target_raw, weight_overrides)
 
     candidates = _build_candidate_pool(all_rows, target_row, mode, db)
-    scored: List[Tuple[float, SeasonStat]] = []
+    # `candidate_pairs` carries (euclidean_vec, mahalanobis_vec, row) so the
+    # two distance methods see the same candidate ordering but different
+    # feature-space representations: the legacy 13-element vector for
+    # Euclidean (preserves Sprint 67 stl_pg/blk_pg double-weighting), and the
+    # unique-feature 11-element vector for Mahalanobis (full-rank covariance).
+    candidate_pairs: List[Tuple[List[float], List[float], SeasonStat]] = []
     for row in candidates:
         cand_raw = _raw_z(row, norms)
         if cand_raw is None:
             continue
-        cand_vec = _weighted_vec(cand_raw, weight_overrides)
-        scored.append((_euclidean(target_vec, cand_vec), row))
+        candidate_pairs.append((
+            _weighted_vec(cand_raw, weight_overrides),
+            _unique_weighted_vec(cand_raw, weight_overrides),
+            row,
+        ))
+
+    inverse_cov: Optional[List[List[float]]] = None
+    method_used: DistanceMethod = "weighted_euclidean"
+    target_unique_vec: Optional[List[float]] = None
+    if distance_method == "shrunk_mahalanobis":
+        target_unique_vec = _unique_weighted_vec(target_raw, weight_overrides)
+        inverse_cov, _fallback_reason = _build_inverse_covariance(
+            [unique_vec for _euc_vec, unique_vec, _row in candidate_pairs],
+            shrinkage,
+        )
+        if inverse_cov is not None:
+            method_used = "shrunk_mahalanobis"
+        # else: silently fall back; method_used stays weighted_euclidean and
+        # the caller can detect the fallback via the response field.
+
+    scored: List[Tuple[float, SeasonStat]] = []
+    for euc_vec, unique_vec, row in candidate_pairs:
+        if method_used == "shrunk_mahalanobis" and inverse_cov is not None and target_unique_vec is not None:
+            dist = mahalanobis_distance(target_unique_vec, unique_vec, inverse_cov)
+        else:
+            dist = _euclidean(target_vec, euc_vec)
+        scored.append((dist, row))
     scored.sort(key=lambda pair: pair[0])
     top = scored[:n]
 
@@ -606,5 +754,7 @@ def find_similar_players_with_archetype(
             "archetype_key": getattr(arch, "archetype_key", None),
             "archetype_label": getattr(arch, "label", None),
             "archetype_confidence": getattr(arch, "confidence", None),
+            # similarity_v3 additions
+            "distance_method_used": method_used,
         })
     return results

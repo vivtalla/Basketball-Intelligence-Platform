@@ -149,6 +149,89 @@ Uncertainty bands:
 - Binary outcomes can use a Wilson score interval.
 - Continuous means can use a normal approximation interval.
 - The default documentation target is a 90% interval unless a surface says otherwise.
+- Supported confidence levels are `0.80` (z ≈ 1.282), `0.90` (z ≈ 1.645), `0.95` (z ≈ 1.960), and `0.99` (z ≈ 2.576). Requests outside this table snap to the nearest supported level and the returned `UncertaintyBand.level` reflects what was actually used.
+
+Component collinearity:
+
+```text
+pearson_r = covariance(a, b) / sqrt(var(a) * var(b))
+```
+
+When user-built composites combine highly correlated stats (`|r| ≥ 0.85`), the methodology layer surfaces a plain-language warning so the composite does not silently double-count one signal. This powers the `custom_metrics_collinear_components` validation fixture.
+
+Soft archetype memberships (archetype_rules_v2):
+
+```text
+For each archetype rule, score every condition with a sigmoid:
+
+  satisfaction(value, threshold, "ge") = sigmoid(k · (value - threshold))
+  satisfaction(value, threshold, "le") = sigmoid(k · (threshold - value))
+
+The rule's fit score is the product of its per-condition satisfactions
+so a missed condition pulls the rule toward zero. Membership shares come
+from a sub-1.0 temperature softmax over the 13 rule families:
+
+  membership_i = exp(score_i / τ) / Σ_j exp(score_j / τ)
+```
+
+The hard `archetype_key` is preserved verbatim; soft memberships travel alongside as a top-5 list. The membership distribution sums to ~1; clear-fit profiles are dominated by the hard label, while hybrid players spread across two-to-three adjacent archetypes. Default `k = 2.5` and `τ = 0.6`.
+
+Bayesian change score (trend_intelligence_v2):
+
+```text
+Standard error of the difference:
+  SE = sqrt(var_recent / n_recent + var_baseline / n_baseline)
+
+Standardized z-score:
+  z = (mean_recent - mean_baseline) / SE
+
+Bayes factor for "means differ" (H1) vs "means match" (H0), with a
+N(0, τ²) prior on the change:
+
+  BF_10 = (1 / sqrt(1 + τ²)) * exp(z² · τ² / (2 · (1 + τ²)))
+
+Posterior change probability with equal prior weights:
+
+  P(change | data) = BF_10 / (1 + BF_10)
+```
+
+The trend service compares each metric's recent 10-game window against the older baseline window in the same season and surfaces the resulting `(z_score, posterior_change_probability)` per metric on the report. Probabilities ≥ 0.7 indicate a meaningful shift; ≤ 0.3 indicate within-noise drift. Default `τ²` is `1.0`.
+
+Principal components (style_xray_v2):
+
+```text
+1. Center the league feature matrix: X_c = X - column_means
+2. Build the empirical covariance Σ from X_c.
+3. Power-iterate Σ to extract the top eigenvector v_1 with eigenvalue λ_1.
+4. Deflate Σ ← Σ - λ_1 · v_1 · v_1ᵀ and repeat for v_2, v_3, ...
+5. Project a feature vector x into the latent space:
+   coords_i = (x - column_means) · v_i
+   explained_variance_ratio_i = λ_i / Σ_j λ_j
+```
+
+Components are unit vectors so loadings (the entries of `v_i`) are directly comparable across features. The Style X-Ray surface attaches the top-2 axes plus the subject team's coordinates whenever the league pool has at least `2 × n_features` complete rows; thinner pools fall back to the centroid-based view alone.
+
+Shrunk Mahalanobis distance (similarity_v3):
+
+```text
+Σ_shrunk = (1 - λ) * Σ_empirical + λ * diag(Σ_empirical)
+
+mahalanobis(a, b) = sqrt((a - b)ᵀ · Σ_shrunk⁻¹ · (a - b))
+```
+
+The covariance is estimated from the candidate pool's weighted z-vectors; `λ` defaults to `0.2` for the player-similarity surface. Mahalanobis distance with the inverse-covariance whitens correlated features so highly-correlated pairs (e.g. `pts_pg` and `per`) no longer double-count against each other. When the pool has fewer than `3 × n_features` rows the service auto-falls back to weighted Euclidean and exposes the resolved choice as `distance_method_used` per comp.
+
+Weight-perturbation sensitivity (custom_metric_v2 and mvp_case_v4):
+
+```text
+For each component i, multiply weight_i by (1 ± perturbation), recompute the
+ranking, and report:
+
+  max_rank_change   = max over baseline-top-N subjects of |rank_perturbed - rank_baseline|
+  top_set_jaccard   = |top_N_baseline ∩ top_N_perturbed| / |top_N_baseline ∪ top_N_perturbed|
+```
+
+When the top-N ranking shifts by more than one rank under ±10% weight perturbations, the composite emits a plain-language warning so coaches can treat the order as one plausible read rather than the only one. The MVP race response attaches the analysis to the Basketball Value composite (`REFINED_VALUE_WEIGHTS`), keeping it separate from the Award Case modifiers so the basketball-first ranking has its own trust signal. The structured `weight_sensitivity` field travels alongside the warning for downstream auditing.
 
 Robust normalization:
 

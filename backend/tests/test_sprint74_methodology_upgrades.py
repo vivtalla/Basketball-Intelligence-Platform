@@ -78,7 +78,7 @@ def test_stabilized_pps_delta_shrinks_low_attempt_extremes():
 
 def test_validation_report_and_reliability_gated_team_fit_labels():
     report = methodology_validation_report()
-    assert report.version == "methodology_validation_v1"
+    assert report.version == "methodology_validation_v2"
     assert {fixture.domain for fixture in report.fixtures} >= {"team_fit", "shot_lab"}
     assert _alternative_label(6.0, "high") == "better_fit"
     assert _alternative_label(6.0, "medium") == "similar_fit"

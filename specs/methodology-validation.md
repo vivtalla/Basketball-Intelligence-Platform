@@ -4,6 +4,8 @@ Last updated: 2026-04-28
 
 This document defines the validation layer for CourtVue methodology work. It is the companion to `specs/platform-methodology.md`: the methodology doc explains how each model works, while this document explains how we pressure-test whether the model is behaving responsibly.
 
+> Validation report is `methodology_validation_v2`. Every registered methodology domain now has at least one named regression fixture; reliability primitives accept the documented set of confidence levels (`0.80`, `0.90`, `0.95`, `0.99`) without silent z-value fallbacks.
+
 ## Validation Principles
 
 - Every methodology-bearing service should expose a version, input families, sample gates, confidence or reliability rules, known limitations, and validation notes.
@@ -64,16 +66,22 @@ Planned calibration upgrade:
 - Calibrate better-fit thresholds from historical roster examples.
 - Add lineup role compatibility and injury/context flags without introducing salary or trade-feasibility logic.
 
-## Sprint 74 Validation Endpoint
+## Validation Endpoint
 
-`GET /api/methodology/validation` returns the first structured fixture set:
+`GET /api/methodology/validation` returns the structured fixture set. The current list (`methodology_validation_v2`) covers every registered methodology domain:
 
-- `team_fit_tatum_bos_overlap`
-- `team_fit_traded_tot`
-- `team_fit_thin_playoff_sample`
-- `shot_lab_specialist_shooter`
-- `shot_lab_low_attempt_hot_streak`
-- `team_fit_role_player_clear_fit`
+- Team-Fit: `team_fit_tatum_bos_overlap`, `team_fit_traded_tot`, `team_fit_thin_playoff_sample`, `team_fit_role_player_clear_fit`
+- Shot Lab: `shot_lab_specialist_shooter`, `shot_lab_low_attempt_hot_streak`
+- Similarity: `similarity_role_pool_stability`, `similarity_shrinkage_collinearity`
+- Trend: `trend_injured_star_window`, `trend_bayesian_change_evidence`
+- Opportunity: `opportunity_role_expansion_evidence`
+- Style X-Ray: `style_xray_drift_team`, `style_xray_latent_space`
+- MVP: `mvp_value_versus_award_split`, `mvp_basketball_value_weight_sensitivity`
+- Archetype: `archetype_borderline_role_label`, `archetype_soft_memberships`
+- Custom Metrics: `custom_metrics_collinear_components`, `custom_metrics_weight_sensitivity`
+- Gravity: `gravity_proxy_versus_official`
+- Scouting: `scouting_brief_evidence_linkage`, `scouting_brief_contradictions`
+- Playoffs: `playoffs_thin_series_sample`
 
 ### Similarity
 
@@ -81,15 +89,17 @@ Primary target:
 
 - Peer sets should be stable under small stat perturbations and explain which feature groups drive distance.
 
-Current validation:
+Current v3 validation:
 
 - Same-season z-score pool uses qualified rows only.
 - Team-Fit mode applies duplicate penalties without changing default similarity responses.
+- `distance_method` selects between `weighted_euclidean` (default) and `shrunk_mahalanobis` (similarity_v3). Mahalanobis distance is built on the candidate pool's shrunk inverse covariance (`λ = 0.2` by default) so correlated features no longer double-count against each other.
+- The service falls back to weighted Euclidean automatically below `3 × n_features` candidate rows or whenever the inverse cannot be computed; the resolved method is exposed as `distance_method_used` on every comp.
 
 Planned rigor upgrade:
 
-- Shrinkage Mahalanobis distance for correlated stats, with weighted Euclidean fallback when covariance support is thin.
 - Explicit role-only, production-quality, and age-development modes.
+- Calibrate the shrinkage parameter against held-out historical neighbor stability.
 
 ### Trend and Trajectory
 
@@ -97,14 +107,16 @@ Primary target:
 
 - Injury-limited role drops should not be classified as coach-trust loss.
 
-Current validation:
+Current v2 validation:
 
 - Same minutes/production drop is `losing_trust` without injury context and injury-contextual with overlapping injury/recovery context.
 - Recent-window deltas remain visible after interpretation changes.
+- Bayesian change scores attach a `(z_score, posterior_change_probability)` per metric (minutes, points, plus_minus). Probabilities ≥ 0.7 indicate a meaningful shift; ≤ 0.3 indicate within-noise drift. Baselines below four games short-circuit so thin samples don't produce false confidence.
 
 Planned rigor upgrade:
 
-- Bayesian change detection with exponentially weighted recent form, schedule strength, role/minute context, and injury windows.
+- Exponentially-weighted recent form so the most recent games dominate the change score.
+- Schedule strength and role/minute context conditioning before computing the change.
 - Coach-trust trend should use starts, closing-lineup appearances, minutes, and availability-adjusted expectations.
 
 ### Opportunity
@@ -131,15 +143,16 @@ Primary target:
 
 - Style labels should be season-relative, stable enough for staff communication, and sensitive enough to meaningful recent drift.
 
-Current validation:
+Current v2 validation:
 
 - Percentile vectors and nearest-centroid distances are reproducible.
 - Label stability uses the margin between top style matches.
+- Latent space via PCA: the response attaches a top-2 axis decomposition with subject coordinates, explained-variance ratios, and the strongest positive/negative feature loadings on each axis. League pools below `2 × n_features` complete rows fall back to None so coaches stay on the centroid view.
 
 Planned rigor upgrade:
 
-- Latent style space using PCA or factor analysis, mapped back to coach-readable style dimensions.
 - Opponent-specific style interaction showing which identities stress or neutralize each other.
+- Calibrated PCA shrinkage that adapts to league pool size.
 
 ### MVP, Gravity, and Awards
 
@@ -147,15 +160,16 @@ Primary target:
 
 - Basketball Value and Award Case should remain separable, and proxy Gravity should not overclaim tracking-grade certainty.
 
-Current validation:
+Current v4 validation:
 
 - Basketball Value and Award Case ranks can diverge.
 - Gravity context adjustment is capped and confidence-scaled.
+- Profile-comparison sensitivity reports rank movement across the box-first / balanced / impact-consensus profiles.
+- Weight-perturbation sensitivity attaches a `MvpWeightSensitivity` object to every race response with `max_rank_change` and `top_set_jaccard` over ±10% perturbations of `REFINED_VALUE_WEIGHTS`; the `interpretation` copy escalates to a coach-readable warning when the top-5 ordering flips by more than one rank.
 
 Planned rigor upgrade:
 
 - Historical voter calibration for Award Case.
-- Sensitivity views for pillar weights.
 - Dated historical snapshots before using impact, clutch, Gravity, or opponent context in timeline reconstruction.
 
 ### Scouting, Prep, and Follow-Through
@@ -164,32 +178,35 @@ Primary target:
 
 - Evidence confidence should reflect directness, opponent specificity, recency, and claim-driver strength.
 
-Current validation:
+Current v2 validation:
 
 - Packet snapshots stay frozen after save.
 - Claim links distinguish exact/derived event links from timeline-only evidence.
+- Cross-card contradiction detection covers three rule families (role/trajectory, role/usage, strengths/shot-profile) and skips low-confidence archetypes plus insufficient-sample diagnoses to avoid noise. Tensions surface as a structured `contradictions` list rather than blending into card copy.
 
 Planned rigor upgrade:
 
 - Calibrated evidence confidence model.
-- Claim contradiction detection when evidence supports both a strength and a risk.
+- Expanded contradiction rule set covering opportunity-vs-trajectory and shot-profile-vs-archetype tensions.
 
 ### Custom Metrics and Ask
 
 Primary target:
 
-- User-built composites should warn when they mix metric families, low-sample components, or highly collinear inputs.
+- User-built composites should warn when they mix metric families, low-sample components, highly collinear inputs, or fragile rankings under small weight perturbations.
 
-Current validation:
+Current v2 validation:
 
 - Weights are normalized.
 - Dominant single-component influence creates a warning.
 - Lower-is-better stats invert correctly.
+- Pearson correlation ≥ 0.85 between component pairs surfaces a collinearity warning.
+- Top-5 ranking sensitivity under ±10% weight perturbations is published as a structured `weight_sensitivity` field; ranking flips of more than one rank emit a plain-language warning.
 
 Planned rigor upgrade:
 
-- Reliability warnings at the component level.
 - Suggested default composites generated from validated methodology families.
+- Larger-perturbation sensitivity (±25%, ±50%) for power users who want to stress-test composites further.
 
 ## Drift and Documentation Checks
 
@@ -202,5 +219,9 @@ Before merging methodology changes:
 
 Current automated checks:
 
-- Reliability math unit tests cover empirical Bayes shrinkage, robust z-scores, Wilson intervals, and confidence mapping.
+- Reliability math unit tests cover empirical Bayes shrinkage, robust z-scores, Wilson intervals, confidence mapping, and the `_z_for_level` table for `0.80`, `0.90`, `0.95`, and `0.99` confidence intervals.
 - Methodology registry tests cover core domains and domain lookup.
+- Custom-metric service tests cover collinearity warnings (`pearson_correlation` ≥ 0.85) so composites that double-count the same signal warn the caller.
+- Custom-metric service tests cover weight-sensitivity reporting: stable composites surface zero rank changes and Jaccard 1.0; concentrated composites surface non-zero changes and trigger the plain-language warning.
+- Scouting-brief contradiction-detector tests cover the three v1 rule families (role/trajectory, role/usage, strengths/shot-profile) and confirm that low-confidence archetypes and developmental fallbacks short-circuit the detector.
+- Validation fixture coverage is asserted at the test level: every registered domain in `list_methodologies()` must have at least one fixture in `methodology_validation_report()`.

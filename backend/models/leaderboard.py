@@ -81,6 +81,21 @@ class CustomMetricAnomaly(BaseModel):
     contribution_pct: float
 
 
+class CustomMetricSensitivity(BaseModel):
+    """Stability of the top-N ranking under small perturbations of the
+    component weights. `top_n` is the prefix size analyzed; `max_rank_change`
+    is the largest rank movement any of those players experienced across the
+    perturbation set; `top_set_jaccard` is the Jaccard overlap between the
+    baseline top-N and the perturbed top-N (averaged across perturbations).
+    """
+
+    top_n: int
+    perturbation: float
+    max_rank_change: int
+    top_set_jaccard: float
+    interpretation: str
+
+
 class CustomMetricResponse(BaseModel):
     metric_label: str
     metric_interpretation: str
@@ -88,6 +103,7 @@ class CustomMetricResponse(BaseModel):
     top_player_narratives: List[CustomMetricNarrative]
     anomalies: List[CustomMetricAnomaly]
     validation_warnings: List[str]
+    weight_sensitivity: Optional[CustomMetricSensitivity] = None
 
 
 # ── Sprint 72: Leaderboard trend sparklines ───────────────────────────────────

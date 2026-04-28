@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session
 
 from db.models import GamePlayerStat, Player, PlayerGameLog, PlayerOnOff, SeasonStat
 from models.player import (
+    PlayerTrendChangeEvidence,
     PlayerTrendForm,
     PlayerTrendGame,
     PlayerTrendImpactSnapshot,
@@ -14,10 +15,15 @@ from models.player import (
     PlayerTrendSignals,
 )
 from services.analysis_context_service import contexts_for_window
+from services.reliability_service import bayesian_change_score
 
 
 WINDOW_SIZE = 10
 MIN_READY_GAMES = 5
+# Minimum baseline window (in games) needed for a usable change score; the
+# Bayesian primitive wants ≥2 samples per side and ≥4 is where the variance
+# estimate stops being trivially noisy.
+MIN_BASELINE_GAMES = 4
 
 
 def _round_stat(value: Optional[float], digits: int = 1) -> Optional[float]:
@@ -158,6 +164,84 @@ def _trust_signals(
         games_under_20_last_10=sum(1 for minute in minutes if minute < 20.0),
         minute_volatility=_minute_volatility(recent_rows),
     )
+
+
+def _change_evidence(
+    metric: str,
+    recent_values: Sequence[Optional[float]],
+    baseline_values: Sequence[Optional[float]],
+) -> Optional[PlayerTrendChangeEvidence]:
+    """Build a single change-evidence record from recent vs baseline samples.
+
+    Returns None when the baseline is too thin to produce a stable variance
+    estimate; the caller decides whether to skip the metric entirely or
+    surface it without a probability.
+    """
+    recent_clean = [float(v) for v in recent_values if v is not None]
+    baseline_clean = [float(v) for v in baseline_values if v is not None]
+    if len(recent_clean) < 2 or len(baseline_clean) < MIN_BASELINE_GAMES:
+        return None
+    z_score, probability = bayesian_change_score(
+        recent=recent_clean,
+        baseline=baseline_clean,
+        prior_variance=1.0,
+    )
+    if z_score is None or probability is None:
+        return None
+    direction = "above" if z_score > 0 else "below" if z_score < 0 else "level"
+    if probability >= 0.70:
+        interpretation = (
+            "Recent window is meaningfully {0} the baseline — change probability {1:.0%}."
+        ).format("above" if direction == "above" else "below", probability)
+    elif probability <= 0.30:
+        interpretation = (
+            "Recent window matches the baseline within noise — change probability {0:.0%}."
+        ).format(probability)
+    else:
+        interpretation = (
+            "Recent window leans {0} the baseline but the evidence is mixed — change probability {1:.0%}."
+        ).format("above" if direction == "above" else "below", probability)
+    return PlayerTrendChangeEvidence(
+        metric=metric,
+        recent_mean=round(sum(recent_clean) / len(recent_clean), 2),
+        baseline_mean=round(sum(baseline_clean) / len(baseline_clean), 2),
+        z_score=z_score,
+        posterior_change_probability=probability,
+        interpretation=interpretation,
+    )
+
+
+def _build_change_evidence(
+    recent_rows: Sequence[PlayerGameLog],
+    baseline_rows: Sequence[PlayerGameLog],
+) -> List[PlayerTrendChangeEvidence]:
+    """Produce change-evidence rows for the metrics that drive the role-status
+    label. We compute one entry per metric so readers can see which signal is
+    actually moving — minutes vs scoring vs availability often disagree.
+    """
+    evidence: List[PlayerTrendChangeEvidence] = []
+    candidates: List[Tuple[str, List[Optional[float]], List[Optional[float]]]] = [
+        (
+            "minutes",
+            [row.min for row in recent_rows],
+            [row.min for row in baseline_rows],
+        ),
+        (
+            "points",
+            [row.pts for row in recent_rows],
+            [row.pts for row in baseline_rows],
+        ),
+        (
+            "plus_minus",
+            [row.plus_minus for row in recent_rows],
+            [row.plus_minus for row in baseline_rows],
+        ),
+    ]
+    for metric, recent_values, baseline_values in candidates:
+        record = _change_evidence(metric, recent_values, baseline_values)
+        if record is not None:
+            evidence.append(record)
+    return evidence
 
 
 def _empty_report(player: Player, season: str) -> PlayerTrendReport:
@@ -310,6 +394,9 @@ def build_player_trend_report(db: Session, player: Player, season: str) -> Playe
             "treat this as availability-affected rather than a clean trust-loss signal."
         )
 
+    baseline_rows = game_logs[WINDOW_SIZE:]
+    change_evidence = _build_change_evidence(recent_rows, baseline_rows)
+
     report = PlayerTrendReport(
         player_id=player.id,
         player_name=player.full_name,
@@ -327,6 +414,7 @@ def build_player_trend_report(db: Session, player: Player, season: str) -> Playe
         role_status_reason=role_status_reason,
         injury_context=injury_context,
         adjusted_role_status=adjusted_role_status,
+        change_evidence=change_evidence,
     )
     return report
 

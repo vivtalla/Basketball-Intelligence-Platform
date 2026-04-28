@@ -13,7 +13,19 @@ from models.leaderboard import (
     CustomMetricPlayerRanking,
     CustomMetricRequest,
     CustomMetricResponse,
+    CustomMetricSensitivity,
 )
+from services.reliability_service import (
+    collinearity_warnings,
+    weight_sensitivity_analysis,
+)
+
+
+# How aggressively we perturb each weight when measuring composite stability.
+# 10% is large enough to surface fragile rankings without overwhelming a
+# moderately stable composite.
+_SENSITIVITY_PERTURBATION = 0.10
+_SENSITIVITY_TOP_N = 5
 
 
 STAT_LABELS = {
@@ -270,8 +282,10 @@ def build_custom_metric_report(db: Session, config: CustomMetricRequest) -> Cust
         raise HTTPException(status_code=400, detail="Insufficient player pool for meaningful ranking.")
 
     zscores_by_stat: Dict[str, Dict[int, float]] = {}
-    for stat_id, _, _, inverse in normalized_components:
+    raw_values_by_label: Dict[str, List[float]] = {}
+    for stat_id, label, _, inverse in normalized_components:
         stat_values = [float(getattr(season_row, stat_id)) for season_row, _ in eligible_rows]
+        raw_values_by_label[label] = list(stat_values)
         if inverse:
             stat_values = [-value for value in stat_values]
         zscores = _stat_zscores(stat_values)
@@ -279,6 +293,9 @@ def build_custom_metric_report(db: Session, config: CustomMetricRequest) -> Cust
             player.id: zscore
             for (_, player), zscore in zip(eligible_rows, zscores)
         }
+
+    if len(raw_values_by_label) >= 2:
+        warnings.extend(collinearity_warnings(raw_values_by_label, threshold=0.85))
 
     metric_label = _generate_metric_label(config.metric_name, normalized_components)
     rankings: List[CustomMetricPlayerRanking] = []
@@ -336,6 +353,46 @@ def build_custom_metric_report(db: Session, config: CustomMetricRequest) -> Cust
             )
         )
 
+    # Weight-perturbation sensitivity. We rebuild the per-subject component
+    # vector from raw z-scores (not the already-weighted contributions) so the
+    # sensitivity helper can apply its own perturbed weights cleanly.
+    sensitivity: Optional[CustomMetricSensitivity] = None
+    if len(rankings) >= _SENSITIVITY_TOP_N:
+        baseline_weights = [weight for _, _, weight, _ in normalized_components]
+        contributions_per_subject: Dict[int, List[float]] = {
+            player.id: [
+                zscores_by_stat[stat_id][player.id]
+                for stat_id, _, _, _ in normalized_components
+            ]
+            for _, player in eligible_rows
+        }
+        max_rank_change, top_set_jaccard = weight_sensitivity_analysis(
+            contributions_per_subject=contributions_per_subject,
+            weights=baseline_weights,
+            perturbation=_SENSITIVITY_PERTURBATION,
+            top_n=_SENSITIVITY_TOP_N,
+        )
+        if max_rank_change == 0:
+            interpretation = (
+                "Top-5 ranking is stable under {0:.0%} weight changes."
+            ).format(_SENSITIVITY_PERTURBATION)
+        elif max_rank_change <= 1 and top_set_jaccard >= 0.80:
+            interpretation = (
+                "Top-5 ranking shifts by at most one rank under {0:.0%} weight changes — broadly stable."
+            ).format(_SENSITIVITY_PERTURBATION)
+        else:
+            interpretation = (
+                "Top-5 ranking changes by up to {0} ranks under {1:.0%} weight changes; coaches should treat the order as one plausible read, not the only one."
+            ).format(max_rank_change, _SENSITIVITY_PERTURBATION)
+            warnings.append(interpretation)
+        sensitivity = CustomMetricSensitivity(
+            top_n=_SENSITIVITY_TOP_N,
+            perturbation=_SENSITIVITY_PERTURBATION,
+            max_rank_change=max_rank_change,
+            top_set_jaccard=top_set_jaccard,
+            interpretation=interpretation,
+        )
+
     narratives: List[CustomMetricNarrative] = []
     for ranking in rankings[:3]:
         ordered_components = sorted(
@@ -359,6 +416,7 @@ def build_custom_metric_report(db: Session, config: CustomMetricRequest) -> Cust
         )
 
     return CustomMetricResponse(
+        weight_sensitivity=sensitivity,
         metric_label=metric_label,
         metric_interpretation=_generate_interpretation(metric_label, normalized_components),
         player_rankings=rankings,

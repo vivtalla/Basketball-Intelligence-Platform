@@ -55,6 +55,7 @@ from models.mvp import (
     MvpScorePillar,
     MvpSensitivityPlayer,
     MvpSensitivityResponse,
+    MvpWeightSensitivity,
     MvpSignatureGame,
     MvpSplitRow,
     MvpSupportBurden,
@@ -68,6 +69,7 @@ from models.mvp import (
     MvpVoterRoomResponse,
 )
 from services.gravity_service import build_gravity_profile
+from services.reliability_service import weight_sensitivity_analysis
 
 SCORING_PROFILE = "mvp_case_v3_refined"
 
@@ -1687,11 +1689,11 @@ def _build_ranked_candidates(
     min_gp: int,
     position: Optional[str],
     profile: str = DEFAULT_PROFILE,
-) -> Tuple[List[MvpCandidate], str]:
+) -> Tuple[List[MvpCandidate], str, Optional[MvpWeightSensitivity]]:
     profile = _resolve_profile_name(profile)
     stat_rows = _candidate_rows(db, season, min_gp=min_gp, position=position)
     if not stat_rows:
-        return [], str(date.today())
+        return [], str(date.today()), None
 
     player_ids = [player.id for _, player in stat_rows]
     on_off_by_player = {
@@ -2188,7 +2190,73 @@ def _build_ranked_candidates(
         candidate.case_summary = _case_summary(candidate)
         candidates.append(candidate)
 
-    return candidates, str(latest_date) if latest_date else str(date.today())
+    weight_sensitivity = _build_basketball_value_weight_sensitivity(
+        stat_rows=stat_rows,
+        value_pillar_raw=value_pillar_raw,
+    )
+    return (
+        candidates,
+        str(latest_date) if latest_date else str(date.today()),
+        weight_sensitivity,
+    )
+
+
+def _build_basketball_value_weight_sensitivity(
+    stat_rows: Sequence[Tuple[SeasonStat, Player]],
+    value_pillar_raw: Sequence[Dict[str, float]],
+) -> Optional[MvpWeightSensitivity]:
+    """Run weight sensitivity on the Basketball Value composite.
+
+    Basketball Value is the basketball-first ranking (REFINED_VALUE_WEIGHTS
+    over impact / efficiency / scoring_load / playmaking_load / team_value /
+    availability), kept separate from Award Case per the methodology spec.
+    Sensitivity tells coaches whether the top-N ranking is fragile to small
+    weight changes — when it is, the ranking is one plausible read rather
+    than the only one.
+
+    Adaptive top_n: with fewer than 5 candidates the helper reports rank
+    stability over the full pool rather than refusing to run. Below 2
+    candidates rank changes are meaningless, so the helper short-circuits.
+    """
+    pool_size = len(stat_rows)
+    if pool_size < 2:
+        return None
+    top_n = min(5, pool_size)
+    weight_keys = list(REFINED_VALUE_WEIGHTS.keys())
+    baseline_weights = [REFINED_VALUE_WEIGHTS[key] for key in weight_keys]
+    contributions_per_subject: Dict[int, List[float]] = {
+        stat_rows[i][1].id: [
+            float(value_pillar_raw[i].get(key, 0.0)) for key in weight_keys
+        ]
+        for i in range(pool_size)
+    }
+    max_change, jaccard = weight_sensitivity_analysis(
+        contributions_per_subject=contributions_per_subject,
+        weights=baseline_weights,
+        perturbation=0.10,
+        top_n=top_n,
+    )
+    if max_change == 0:
+        interpretation = (
+            "Top-{0} Basketball Value ranking is stable under 10% weight changes."
+        ).format(top_n)
+    elif max_change <= 1 and jaccard >= 0.80:
+        interpretation = (
+            "Top-{0} Basketball Value ranking shifts by at most one rank under 10% weight changes — broadly stable."
+        ).format(top_n)
+    else:
+        interpretation = (
+            "Top-{0} Basketball Value ranking changes by up to {1} ranks under 10% weight changes; "
+            "treat the ordering as one plausible read, not the only one."
+        ).format(top_n, max_change)
+    return MvpWeightSensitivity(
+        profile="basketball_value",
+        top_n=top_n,
+        perturbation=0.10,
+        max_rank_change=max_change,
+        top_set_jaccard=jaccard,
+        interpretation=interpretation,
+    )
 
 
 def build_mvp_race(
@@ -2200,7 +2268,7 @@ def build_mvp_race(
     profile: Optional[str] = None,
 ) -> MvpRaceResponse:
     resolved = _resolve_profile_name(profile)
-    candidates, as_of = _build_ranked_candidates(
+    candidates, as_of, weight_sensitivity = _build_ranked_candidates(
         db=db,
         season=season,
         top=top,
@@ -2215,6 +2283,7 @@ def build_mvp_race(
         weights=REFINED_VALUE_WEIGHTS,
         scoring_profile=SCORING_PROFILE,
         available_profiles=AVAILABLE_PROFILES,
+        weight_sensitivity=weight_sensitivity,
     )
 
 
@@ -2345,7 +2414,7 @@ def build_mvp_candidate_case(
     profile: Optional[str] = None,
 ) -> MvpCandidateCaseResponse:
     resolved = _resolve_profile_name(profile)
-    candidates, as_of = _build_ranked_candidates(
+    candidates, as_of, _ = _build_ranked_candidates(
         db=db,
         season=season,
         top=25,
@@ -2460,7 +2529,7 @@ def build_mvp_voter_room(
     player_ids: Sequence[int],
     min_gp: int = MIN_GP,
 ) -> MvpVoterRoomResponse:
-    candidates, as_of = _build_ranked_candidates(
+    candidates, as_of, _ = _build_ranked_candidates(
         db=db,
         season=season,
         top=25,
@@ -2617,7 +2686,7 @@ def build_mvp_coverage(
     top: int = 10,
     min_gp: int = MIN_GP,
 ) -> MvpCoverageResponse:
-    candidates, as_of = _build_ranked_candidates(
+    candidates, as_of, _ = _build_ranked_candidates(
         db=db,
         season=season,
         top=top,
@@ -2734,7 +2803,7 @@ def build_mvp_context_map(
     profile: Optional[str] = None,
 ) -> MvpContextMapResponse:
     resolved = _resolve_profile_name(profile)
-    candidates, as_of = _build_ranked_candidates(
+    candidates, as_of, _ = _build_ranked_candidates(
         db=db,
         season=season,
         top=top,
@@ -2796,7 +2865,7 @@ def build_mvp_gravity_leaderboard(
     min_gp: int = MIN_GP,
     position: Optional[str] = None,
 ) -> MvpGravityLeaderboardResponse:
-    candidates, as_of = _build_ranked_candidates(
+    candidates, as_of, _ = _build_ranked_candidates(
         db=db,
         season=season,
         top=max(top, 25),
@@ -2832,7 +2901,7 @@ def build_mvp_sensitivity(
     Returns a lightweight shape for the ranking-shift slope chart; the top-N set
     is chosen by the default profile so the visual compares the same cohort.
     """
-    candidates, as_of = _build_ranked_candidates(
+    candidates, as_of, _ = _build_ranked_candidates(
         db=db,
         season=season,
         top=max(top, 10),

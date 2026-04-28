@@ -126,6 +126,42 @@ class StyleLaunchLinks(BaseModel):
     replay_url: Optional[str] = None
 
 
+class StyleLatentLoading(BaseModel):
+    """Coach-readable description of a single PCA axis: which features push
+    a team toward the positive direction and how strongly.
+    """
+
+    feature_id: str
+    label: str
+    loading: float
+
+
+class StyleLatentAxis(BaseModel):
+    """A principal axis of league-wide stylistic variation. Loadings are the
+    feature weights that define the axis; `subject_coordinate` is where the
+    current team sits along it after centering. `explained_variance_ratio`
+    is the share of total stylistic variance the axis captures.
+    """
+
+    axis: str  # "PC1", "PC2", ...
+    explained_variance_ratio: float
+    subject_coordinate: float
+    top_positive: List[StyleLatentLoading]
+    top_negative: List[StyleLatentLoading]
+
+
+class StyleLatentSpace(BaseModel):
+    """Latent-space view of league style structure (style_xray_v2). Built from
+    the league's current-season style vectors using PCA; complements the
+    centroid-based archetype label rather than replacing it.
+    """
+
+    sample_size: int
+    feature_count: int
+    axes: List[StyleLatentAxis]
+    interpretation: str
+
+
 class StyleXRayResponse(BaseModel):
     data_status: Literal["ready", "partial", "limited", "missing"]
     canonical_source: str
@@ -148,6 +184,7 @@ class StyleXRayResponse(BaseModel):
     source_context: Optional[Dict[str, str]] = None
     replay_target: Optional[ReplayLaunchTarget] = None
     warnings: List[str]
+    latent_space: Optional[StyleLatentSpace] = None
 
 
 class LineupComparisonEntity(BaseModel):
