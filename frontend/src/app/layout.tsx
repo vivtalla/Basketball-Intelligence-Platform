@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import NavSearch from "@/components/NavSearch";
+import NavLinks from "@/components/NavLinks";
 import LiveTicker from "@/components/LiveTicker";
 import "./globals.css";
 
@@ -29,74 +30,7 @@ export default function RootLayout({
               </span>
             </Link>
             <NavSearch />
-            <div className="hidden md:flex items-center gap-5">
-              <Link
-                href="/ask"
-                className="text-sm text-[var(--muted)] bip-link"
-              >
-                Ask
-              </Link>
-              <Link
-                href="/mvp"
-                className="text-sm text-[var(--muted)] bip-link"
-              >
-                MVP Race
-              </Link>
-              <Link
-                href="/player-stats"
-                className="text-sm text-[var(--muted)] bip-link"
-              >
-                Player Stats
-              </Link>
-              <Link
-                href="/standings"
-                className="text-sm text-[var(--muted)] bip-link"
-              >
-                Standings
-              </Link>
-              <Link
-                href="/insights"
-                className="text-sm text-[var(--muted)] bip-link"
-              >
-                Insights
-              </Link>
-              <Link
-                href="/metrics"
-                className="text-sm text-[var(--muted)] bip-link"
-              >
-                Metrics
-              </Link>
-              <Link
-                href="/compare"
-                className="text-sm text-[var(--muted)] bip-link"
-              >
-                Compare
-              </Link>
-              <Link
-                href="/pre-read"
-                className="text-sm text-[var(--muted)] bip-link"
-              >
-                Pre-Read
-              </Link>
-              <Link
-                href="/teams"
-                className="text-sm text-[var(--muted)] bip-link"
-              >
-                Teams
-              </Link>
-              <Link
-                href="/coverage"
-                className="text-sm text-[var(--muted)] bip-link"
-              >
-                Coverage
-              </Link>
-              <Link
-                href="/learn"
-                className="text-sm text-[var(--muted)] bip-link"
-              >
-                Learn
-              </Link>
-            </div>
+            <NavLinks />
           </div>
         </nav>
 

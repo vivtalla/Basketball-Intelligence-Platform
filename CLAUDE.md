@@ -262,6 +262,25 @@ CourtVue Labs uses a hybrid sprint model: major feature sprints typically run as
 
 > Full history → `specs/sprint-history.md`
 
+### Sprint 73 — Playoffs Platform
+
+- Two-team parallel sprint shifting the platform's center of gravity to the 2026 NBA first-round playoffs while keeping the regular-season scope intact. Every playoff surface gates via a new `useSeasonPhase()` hook that auto-detects the active phase from data + date window, so the platform reverts cleanly outside the playoff window — no manual flip needed.
+- **Stream A — data foundation (merged first):**
+  - Alembic `0012_playoffs_data_layer` adds the `playoff_series` table (round, seeds, wins, status, winner), `is_playoff` on `lineup_stats`, and `season_type`/`series_id`/`series_game_num`/`playoff_seed` on `game_logs` and warehouse games.
+  - `nba_client` adds `season_type` pass-through across all relevant nba_api wrappers; `_cache_ttl_for_season` returns the new `PLAYOFF_CACHE_TTL=2h` during the playoff window. `sync_service.sync_official_*_splits/season_stats` accept `is_playoff`. `services/playoff_bracket_service.build_or_refresh_bracket()` derives `PlayoffSeries` from playoff GameLogs and back-references series metadata. `daily_sync.sh` adds `--post-game` and `--dry-run` subcommands plus a playoff-phase block in the morning cron.
+  - New `services/season_phase_service.get_current_phase()` (5-minute LRU, lazy import to avoid circular deps) auto-detects via Apr–Jun date window AND `is_playoff=True` GameLogs in the last 7 days; round inferred from highest active/scheduled `PlayoffSeries.round`.
+  - New `services/playoff_simulator_service.simulate_series()` runs 1000 deterministic Monte-Carlo trials (seeded from `hash(series_id)`) using a sigmoid of weighted z-scores plus a 0.06 home-court bump.
+  - Removed hardcoded `is_playoff == False` filters from `player_archetype_service`, `team_fit_service`, `lineup_context_service`, `similarity_service`; all five accept `season_type` (default Regular Season). Routers `standings`, `advanced`, `similarity`, `teams`, `team_fit` accept `season_type` query param.
+  - New routes: `GET /api/season-phase`, `GET /api/playoffs/bracket`, `GET /api/playoffs/series/{id}`, `GET /api/playoffs/today`, `GET /api/playoffs/series-simulation/{id}`.
+- **Stream B — frontend playoff features (branched off A's merged tip):**
+  - New `/bracket` route + `<PlayoffBracketView>` East/West tree + `<SeriesCard>` reusable across surfaces. New `useSeasonPhase` SWR hook gates every playoff UI region. Bracket nav item rendered conditionally via a new `<NavLinks>` client component extracted from the server-component layout.
+  - Series-mode Pre-Read pivot: when `?series_id=...` AND `isPlayoffs`, the page additionally renders a series-state header, a `<SeriesWPChart>` cumulative win-probability curve, and a `<CoachingAdjustmentsTimeline>` that finally surfaces the `PreReadDeckResponse.adjustments` field deferred from Sprint 72.
+  - Home shift in playoffs: `<HomeMvpTeaser>` early-returns null, `<SeriesNarrative>` carousel rotates active series (3s, pause-on-hover, `prefers-reduced-motion` honored), `<DailyPlayoffSlate>` lists tonight's games. `<HomeLeagueLeaders>` gains a Regular/Playoffs pill toggle.
+  - `/leaderboards` converts to a client page wrapped in `<Suspense>`; in regular season it `router.replace`s to `/player-stats` preserving search params, in playoffs it surfaces the same Regular/Playoffs toggle at top.
+  - MVP page reframes header to `{round_label} MVP Race` and mounts `<SeriesWPSimulator>` (bracket-driven series picker, SWR-backed simulation fetch, memoized inline SVG projection). `/leaderboards` gets a `<PostseasonHeatmap>` (USG% × TS%-delta scatter, rotation-player filter, WCAG AA quadrant labels). `/teams/[abbr]` gets an `opponent_matchup` tab with `<OpponentLineupMatchupMatrix>` (5×5 net-rating delta matrix).
+- Architecture used `Architect → 8 parallel Engineers (4 per stream) → Reviewer → Optimizer`. Reviewer signed off with 4 non-blocking concerns; Optimizer addressed 2 (DST-aware Pacific timezone via `pytz`, memoized WP simulator chart geometry) and deferred 2 to backlog.
+- Verified with **286 backend tests** (was 266, +20 new), `npm run build` + `npm run lint` clean (7 pre-existing warnings), `git diff --check` clean. Closeout: `specs/sprint-73-closeout.md`.
+
 ### Sprint 72 — Design System Closeout + Visual Polish
 
 - Closed every Sprint 70 backlog item plus the API payload audit's top 5 "free UI wins" plus a basketball polish pass on the home-page hero. After this sprint the front-end design work from the design tarball is fully done.
@@ -275,21 +294,11 @@ CourtVue Labs uses a hybrid sprint model: major feature sprints typically run as
   - Pre-Read **urgency badge** above matchup card and **headline callout** under focus levers from `data.prep_context.urgency` and `data.prep_context.headline` (returned by API but previously unrendered).
   - MVP **Teammate quality** sub-card surfacing `candidate.support_burden` via a heuristic score (USG-driven primary, teammate availability fallback) inside each candidate card.
   - Player archetype `data.reason` tooltip with an info-icon visual cue on the archetype label.
-  - Opportunity RoleFitCard hint discoverability — info-icon next to each row label flagging the existing per-row hover tooltip. (Note: `notes` field was speculated in the audit but doesn't exist on `OpportunityRoleFit`; the existing `hint` was reused.)
-- **Stream C (basketball polish):** `FloatingBall.tsx` got a specular-shine radial overlay between body and seams (via `useId` for collision-safe per-instance gradient IDs), varied seam stroke widths/opacity (1.8/0.65 spine, 1.2/0.5 horizontals, 0.8/0.35 shoulders), two-layer drop-shadow for grounding, and a four-stop fill gradient with off-center origin (cx=0.45, cy=0.40) and deeper rim color `#5a2e10`. Optimizer pass moved the `prefers-reduced-motion` rule from per-instance `<style>` injection into a global `globals.css` block.
-- Architecture used the sequential `Architect → 4 parallel Engineers → Reviewer → Optimizer` pattern from CLAUDE.md. Reviewer signed off with no blocking issues; Optimizer addressed 3 of 6 non-blocking concerns in one defensive-fixes commit.
-- Verified with **266 backend tests** (was 263, +3 sparkline), `npm run build` clean, `npm run lint` clean (7 pre-existing `usePlayerStats.ts` warnings unchanged), `git diff --check` clean. Closeout: `specs/sprint-72-closeout.md`.
+  - Opportunity RoleFitCard hint discoverability — info-icon next to each row label flagging the existing per-row hover tooltip.
+- **Stream C (basketball polish):** `FloatingBall.tsx` got a specular-shine radial overlay between body and seams (via `useId` for collision-safe per-instance gradient IDs), varied seam stroke widths/opacity (1.8/0.65 spine, 1.2/0.5 horizontals, 0.8/0.35 shoulders), two-layer drop-shadow for grounding, and a four-stop fill gradient with off-center origin and deeper rim color `#5a2e10`.
+- Verified with **266 backend tests** (was 263, +3 sparkline), `npm run build` clean, `npm run lint` clean (7 pre-existing `usePlayerStats.ts` warnings unchanged). Closeout: `specs/sprint-72-closeout.md`.
 
-### Sprint 71 — Methodology Rigor Layer
-
-- Backend/docs-only sprint that added the shared methodology registry, methodology Pydantic contracts, `GET /api/methodology`, and `GET /api/methodology/{domain}`.
-- Added shared reliability primitives for empirical Bayes shrinkage, reliability scoring, confidence labels, Wilson/normal uncertainty bands, robust z-scores, winsorized z-scores, and sample context.
-- Added optional `analysis_metadata` to Shot Lab, Team-Fit, and Opportunity responses, preserving current frontend contracts while making reliability, drivers, limitations, and validation notes available to clients.
-- Updated `specs/platform-methodology.md`, added `specs/methodology-validation.md`, and refreshed backlog/coordination docs around calibration follow-ons.
-- Verified with **263 backend tests**, `git diff --check`, methodology doc coverage checks, and FastAPI `main` import smoke.
-- Frontend intentionally untouched because Claude had a parallel independent frontend sprint in flight.
-
-*Sprint 70 and older moved to `specs/sprint-history.md`.*
+*Sprint 71 and older moved to `specs/sprint-history.md`.*
 
 ---
 
@@ -314,6 +323,8 @@ CourtVue Labs uses a hybrid sprint model: major feature sprints typically run as
 | `feature/sprint-70-design-system-integration` | Claude | Merged to master |
 | `codex-sprint-71-methodology-rigor` | Codex | Merged to master |
 | `feature/sprint-72-design-system-closeout` | Claude | Merged to master |
+| `feature/sprint-73a-playoffs-data` | Claude | Merged to master |
+| `feature/sprint-73b-playoffs-features` | Claude | Merged to master |
 
 Sprint branches are created at kickoff and listed in `AGENTS.md`.
 
@@ -387,3 +398,14 @@ Sprint branches are created at kickoff and listed in `AGENTS.md`.
 | `HomeLiveCourt` | `components/` | Composed home-page demo section pairing LiveShotPulse + WinProbabilityChart + StandingsLadder (Sprint 70) |
 | `HeroHardwood` | `components/` | Procedural woodgrain texture for hero panels and metric cards (in use since Sprint 70 design integration) |
 | `Sparkline` | `components/` | Pure SVG polyline with min/max scaling, optional baseline reference, delta-driven stroke color, em-dash fallback for <2 values (Sprint 72) |
+| `SeriesCard` | `components/playoffs/` | Compact playoff series card with seed pills, W-L state, status pill; deep-links to /pre-read?series_id=... (Sprint 73) |
+| `PlayoffBracketView` | `components/playoffs/` | East/West two-column bracket tree grouping series by round (Sprint 73) |
+| `CoachingAdjustmentsTimeline` | `components/playoffs/` | Horizontal numbered timeline rendering PreReadDeckResponse.adjustments with forest dots for prior games and gold for the current game (Sprint 73) |
+| `SeriesWPChart` | `components/playoffs/` | Wraps Sprint 70 WinProbabilityChart for cumulative series-level WP across games 1-7 (Sprint 73) |
+| `DailyPlayoffSlate` | `components/playoffs/` | Today's playoff slate with tipoff times, away @ home rows, optional WP percent (Sprint 73) |
+| `SeriesNarrative` | `components/playoffs/` | Auto-rotating series storyline carousel; honors prefers-reduced-motion by stacking (Sprint 73) |
+| `PlayoffsHomeSections` | `components/playoffs/` | Tiny client wrapper that gates DailyPlayoffSlate behind useSeasonPhase().isPlayoffs so the server-component home page stays a server component (Sprint 73) |
+| `SeriesWPSimulator` | `components/playoffs/` | Bracket-driven series picker + Monte-Carlo projection chart with memoized SVG geometry; mounts on MVP page during playoffs (Sprint 73) |
+| `PostseasonHeatmap` | `components/playoffs/` | USG% × TS%-delta scatter computed client-side from Regular vs Playoffs leaderboards; rotation-player filter with WCAG AA quadrant labels (Sprint 73) |
+| `OpponentLineupMatchupMatrix` | `components/playoffs/` | 5×5 net-rating delta matrix between a team's and opponent's top-5 playoff lineups; 100+ possessions per cell threshold (Sprint 73) |
+| `NavLinks` | `components/` | Client-only nav link group extracted from layout.tsx so the conditional Bracket nav item can read useSeasonPhase (Sprint 73) |

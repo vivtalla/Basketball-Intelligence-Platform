@@ -1715,3 +1715,67 @@ export async function getLeaderboardTrends(
     `/api/leaderboards/${encodeURIComponent(stat)}/trends?${params.toString()}`
   );
 }
+
+// ── Sprint 73: Season phase + playoffs bracket ───────────────────────────────
+export async function getSeasonPhase(): Promise<import("./types").SeasonPhaseResponse> {
+  return fetchApi<import("./types").SeasonPhaseResponse>("/api/season-phase");
+}
+
+export async function getBracket(
+  season: string
+): Promise<import("./types").PlayoffBracketResponse> {
+  const params = new URLSearchParams({ season });
+  return fetchApi<import("./types").PlayoffBracketResponse>(
+    `/api/playoffs/bracket?${params.toString()}`
+  );
+}
+
+export async function getSeries(
+  seriesId: string
+): Promise<import("./types").PlayoffSeriesResponse> {
+  return fetchApi<import("./types").PlayoffSeriesResponse>(
+    `/api/playoffs/series/${encodeURIComponent(seriesId)}`
+  );
+}
+
+// Sprint 73B — series simulator (Stream A `GET /api/playoffs/series-simulation/{id}`).
+export async function getSeriesSimulation(
+  seriesId: string
+): Promise<import("./types").SeriesSimulationResponse> {
+  return fetchApi<import("./types").SeriesSimulationResponse>(
+    `/api/playoffs/series-simulation/${encodeURIComponent(seriesId)}`
+  );
+}
+
+// Sprint 73B — playoff-aware lineups query (`/api/advanced/lineups` already
+// accepts `season_type=Playoffs` per Stream A EA3). Distinct from the existing
+// `getLineups` so we don't change its signature.
+export async function getLineupsForSeasonType(
+  season: string,
+  seasonType: "Regular Season" | "Playoffs",
+  teamId?: number,
+  minMinutes = 5,
+  limit = 25
+): Promise<import("./types").LineupsResult> {
+  const params = new URLSearchParams({
+    season,
+    season_type: seasonType,
+    min_minutes: String(minMinutes),
+    limit: String(limit),
+  });
+  if (teamId != null) params.set("team_id", String(teamId));
+  return fetchApi<import("./types").LineupsResult>(
+    `/api/advanced/lineups?${params.toString()}`
+  );
+}
+
+// Sprint 73 (EB3): today's playoff slate. `date` is optional; when omitted, the
+// backend defaults to "today" in US/Pacific.
+export async function getPlayoffsToday(
+  date?: string
+): Promise<import("./types").PlayoffTodayResponse> {
+  const path = date
+    ? `/api/playoffs/today?date=${encodeURIComponent(date)}`
+    : "/api/playoffs/today";
+  return fetchApi<import("./types").PlayoffTodayResponse>(path);
+}

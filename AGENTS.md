@@ -1,6 +1,6 @@
 # Agent Coordination
 
-Last updated: 2026-04-28 by Claude (Sprint 72 closeout reset)
+Last updated: 2026-04-28 by Claude (Sprint 73 closeout reset)
 
 > Both agents read this file before touching code at the start of every session.
 > The canonical source of truth is the clean `master` checkout at `/Users/viv/Documents/Basketball Intelligence Platform`.
@@ -14,12 +14,12 @@ Last updated: 2026-04-28 by Claude (Sprint 72 closeout reset)
 
 | Field | Value |
 |-------|-------|
-| Sprint | 73 |
+| Sprint | 74 |
 | Goal | TBD — awaiting Vivek's next kickoff |
 | Started | TBD |
 | Target merge | TBD |
 | Sprint shape | TBD |
-| Branch | `master` until Sprint 73 kickoff |
+| Branch | `master` until Sprint 74 kickoff |
 | Worker policy | TBD at kickoff |
 
 ---
@@ -40,7 +40,7 @@ If repo state, sprint numbering, or shipped features appear to disagree across l
 ### Claude
 - Branch: TBD at kickoff
 - Scope: No active sprint assignment
-- Status: Sprint 72 closed and merged
+- Status: Sprint 73 closed and merged
 
 ### Codex
 - Branch: TBD at kickoff
@@ -163,6 +163,8 @@ TBD at kickoff. Define areas and owners when the next sprint is scoped.
 ## Notes
 
 *Free-form, dated, newest first. Use this for coordination and repo-state exceptions.*
+
+2026-04-28 (Claude): Sprint 73 closed on `feature/sprint-73a-playoffs-data` + `feature/sprint-73b-playoffs-features` and merged to `master`. Playoffs Platform sprint: two-team parallel (Stream A data foundation, Stream B frontend playoff features). Stream A: Alembic 0012_playoffs_data_layer adds `playoff_series` table + `is_playoff` on `lineup_stats` + `season_type`/`series_id`/`series_game_num`/`playoff_seed` on `game_logs`/warehouse games; `nba_client` + `sync_service` + `daily_sync.sh` get `season_type` pass-through, a 2h `PLAYOFF_CACHE_TTL` during the playoff window, and a new `--post-game` cron path; `services/season_phase_service.get_current_phase()` auto-detects from date+data; `services/playoff_bracket_service` + `playoff_simulator_service`; new routes `/api/season-phase`, `/api/playoffs/bracket|series/{id}|today|series-simulation/{id}`; existing `archetype/team_fit/lineup_context/similarity` services accept `season_type`. Stream B: new `/bracket` route + `<PlayoffBracketView>` + `<SeriesCard>` + `useSeasonPhase` SWR hook; series-mode Pre-Read pivot with `<CoachingAdjustmentsTimeline>` (finally surfaces `data.adjustments` deferred from Sprint 72) + `<SeriesWPChart>`; home shift with `<DailyPlayoffSlate>` + `<SeriesNarrative>` carousel; leaderboards Regular/Playoffs toggle; `<SeriesWPSimulator>` on MVP; `<PostseasonHeatmap>` on leaderboards; `<OpponentLineupMatchupMatrix>` tab on team detail. Every playoff surface gates via `useSeasonPhase()` so the platform reverts cleanly outside the playoff window. Verification: 286 backend tests (was 266, +20 new), `npm run build` + `npm run lint` clean (7 pre-existing warnings). Architect → 8 parallel Engineers → Reviewer → Optimizer. Closeout: `specs/sprint-73-closeout.md`.
 
 2026-04-28 (Claude): Sprint 72 closed on `feature/sprint-72-design-system-closeout` and merged to `master`. Design System Closeout + Visual Polish sprint: shipped every Sprint 70 backlog item plus the API payload audit's top 5 free UI wins plus a basketball polish pass. Stream A (design follow-ons): home league-leaders TREND sparkline column with new `/api/leaderboards/{stat}/trends` endpoint + `<Sparkline>` SVG primitive, Compare PlayerCard hardwood headers with color-coded names, MVP candidate-card hardwood + ★#1 chrome (richness preserved per user decision), `/learn/design-system` showcase page consolidating all Sprint 70+72 primitives, Pre-Read print stylesheet for clean coach-handoff PDFs. Stream B (API audit): Pre-Read `prep_context.urgency` badge + `headline` callout, MVP `support_burden` "Teammate quality" sub-card, Player archetype `reason` tooltip, RoleFitCard `hint` discoverability icon. Stream C: FloatingBall polish (specular shine, varied seam weights, two-layer shadow, four-stop fill). Architecture used Architect → 4 parallel Engineers → Reviewer → Optimizer per CLAUDE.md sprint process. Verification: 266 backend tests (was 263, +3 sparkline), `npm run build` + `npm run lint` clean (7 pre-existing warnings). Closeout: `specs/sprint-72-closeout.md`.
 

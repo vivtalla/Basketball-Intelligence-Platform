@@ -3906,3 +3906,103 @@ export interface LeaderboardTrendResponse {
   window: number;
   entries: LeaderboardTrendEntry[];
 }
+
+// ── Sprint 73: Season phase + playoffs bracket ───────────────────────────────
+export type SeasonPhase =
+  | "regular_season"
+  | "playoff_play_in"
+  | "playoff_round_1"
+  | "playoff_round_2"
+  | "conference_finals"
+  | "finals"
+  | "offseason";
+
+export interface SeasonPhaseResponse {
+  phase: SeasonPhase;
+  season: string;
+  round_label: string | null;
+  last_updated_at: string;
+}
+
+export type PlayoffSeriesStatus = "scheduled" | "active" | "closed";
+
+export interface PlayoffSeriesGame {
+  game_id: string;
+  game_date: string | null;
+  home_team_id: number | null;
+  home_team_abbr: string | null;
+  away_team_id: number | null;
+  away_team_abbr: string | null;
+  home_pts: number | null;
+  away_pts: number | null;
+  winner_team_id: number | null;
+  series_game_num: number | null;
+}
+
+export interface PlayoffSeriesResponse {
+  season: string;
+  round: number;
+  series_id: string;
+  top_seed_team_id: number | null;
+  bottom_seed_team_id: number | null;
+  top_seed_team_abbr: string | null;
+  bottom_seed_team_abbr: string | null;
+  top_seed: number;
+  bottom_seed: number;
+  top_wins: number;
+  bottom_wins: number;
+  status: PlayoffSeriesStatus;
+  winner_team_id: number | null;
+  games: PlayoffSeriesGame[];
+}
+
+export interface PlayoffBracketResponse {
+  season: string;
+  east: PlayoffSeriesResponse[];
+  west: PlayoffSeriesResponse[];
+  finals: PlayoffSeriesResponse | null;
+}
+
+// A playoff game annotated with the series context it belongs to. Mirrors the
+// backend `PlayoffSeriesGameWithMatchup` Pydantic schema (Sprint 73).
+export interface PlayoffSeriesGameWithMatchup extends PlayoffSeriesGame {
+  series_id: string | null;
+  season: string | null;
+  round: number | null;
+  top_seed_team_abbr: string | null;
+  bottom_seed_team_abbr: string | null;
+  top_wins: number | null;
+  bottom_wins: number | null;
+  status: PlayoffSeriesStatus | null;
+}
+
+export interface PlayoffTodayResponse {
+  date: string;
+  games: PlayoffSeriesGameWithMatchup[];
+}
+
+// ── Sprint 73B — Series simulator. Mirrors `backend/models/playoffs.py`.
+export interface SeriesSimulationCurrentState {
+  top_seed_team_abbr: string | null;
+  bottom_seed_team_abbr: string | null;
+  top_wins: number;
+  bottom_wins: number;
+  games_played: number;
+  status: PlayoffSeriesStatus;
+}
+
+export interface SeriesProjectionEntry {
+  game_num: number;
+  home_team_abbr: string | null;
+  away_team_abbr: string | null;
+  home_win_prob: number;
+}
+
+export interface SeriesSimulationResponse {
+  series_id: string;
+  current_state: SeriesSimulationCurrentState;
+  projection: SeriesProjectionEntry[];
+  top_seed_series_win_prob: number;
+  bottom_seed_series_win_prob: number;
+  trials: number;
+}

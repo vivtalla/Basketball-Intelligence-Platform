@@ -3,10 +3,11 @@
 import { Suspense, useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useSWRConfig } from "swr";
+import useSWR, { useSWRConfig } from "swr";
 import {
   createPreReadPacketSnapshot,
   getPreReadSnapshotMarkdown,
+  getSeries,
   updatePreReadPacketSnapshot,
 } from "@/lib/api";
 import {
@@ -18,9 +19,16 @@ import {
   useTeamRotationReport,
   useTeams,
 } from "@/hooks/usePlayerStats";
-import type { PreReadScoutingPacket } from "@/lib/types";
+import { useSeasonPhase } from "@/hooks/useSeasonPhase";
+import type {
+  PlayoffSeriesResponse,
+  PreReadScoutingPacket,
+} from "@/lib/types";
 import AvailabilitySummaryCard from "@/components/AvailabilitySummaryCard";
 import ScoutingReportView from "@/components/ScoutingReportView";
+import SeriesCard from "@/components/playoffs/SeriesCard";
+import SeriesWPChart from "@/components/playoffs/SeriesWPChart";
+import CoachingAdjustmentsTimeline from "@/components/playoffs/CoachingAdjustmentsTimeline";
 
 const SEASONS = ["2025-26", "2024-25", "2023-24", "2022-23"];
 type ViewMode = "briefing" | "scouting";
@@ -37,6 +45,14 @@ function PreReadPageInner() {
   const { mutate } = useSWRConfig();
   const rawMode = searchParams.get("mode");
   const snapshotId = searchParams.get("snapshot_id");
+  const seriesId = searchParams.get("series_id");
+
+  const { isPlayoffs } = useSeasonPhase();
+  const seriesModeActive = Boolean(seriesId) && isPlayoffs === true;
+  const { data: series } = useSWR<PlayoffSeriesResponse>(
+    seriesModeActive && seriesId ? `playoff-series-${seriesId}` : null,
+    () => getSeries(seriesId as string)
+  );
 
   const [team, setTeam] = useState(searchParams.get("team")?.toUpperCase() ?? "OKC");
   const [opponent, setOpponent] = useState(searchParams.get("opponent")?.toUpperCase() ?? "BOS");
@@ -364,6 +380,25 @@ function PreReadPageInner() {
         </div>
       ) : null}
 
+      {/* Series-mode header — gated on ?series_id=… AND playoff phase */}
+      {seriesModeActive && series ? (
+        <section className="space-y-4" data-testid="pre-read-series-mode">
+          <div>
+            <p className="bip-kicker">Series state</p>
+            <h2 className="bip-display mt-1 text-2xl font-semibold text-[var(--foreground)]">
+              {series.top_seed_team_abbr ?? "TBD"} vs {series.bottom_seed_team_abbr ?? "TBD"}
+              <span className="ml-3 text-sm font-medium text-[var(--muted)]">
+                Round {series.round} · {series.season}
+              </span>
+            </h2>
+            <div className="mt-3 max-w-md">
+              <SeriesCard series={series} />
+            </div>
+          </div>
+          <SeriesWPChart series={series} />
+        </section>
+      ) : null}
+
       {/* Matchup header card — visual preview of the selected matchup */}
       {activeTeam && activeOpponent ? (
         <section className="bip-panel-strong rounded-[1.8rem] p-8">
@@ -626,6 +661,18 @@ function PreReadPageInner() {
             })}
           </div>
         </section>
+      ) : null}
+
+      {/* Coaching Adjustments Timeline — series-mode only. Surfaces
+          PreReadDeckResponse.adjustments which the API has long returned but
+          the UI never rendered until Sprint 73B. */}
+      {seriesModeActive && data?.adjustments?.length ? (
+        <CoachingAdjustmentsTimeline
+          adjustments={data.adjustments}
+          currentGameNum={
+            series ? series.top_wins + series.bottom_wins + 1 : undefined
+          }
+        />
       ) : null}
 
       {data?.prep_context?.headline ? (
