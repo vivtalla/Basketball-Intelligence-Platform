@@ -88,3 +88,25 @@ class CustomMetricResponse(BaseModel):
     top_player_narratives: List[CustomMetricNarrative]
     anomalies: List[CustomMetricAnomaly]
     validation_warnings: List[str]
+
+
+# ── Sprint 72: Leaderboard trend sparklines ───────────────────────────────────
+
+
+class LeaderboardTrendEntry(BaseModel):
+    player_id: int
+    player_name: str
+    team_abbreviation: Optional[str] = None
+    season: str
+    stat: str
+    rolling_values: List[float] = []
+    sample_size: int = 0
+    latest_value: Optional[float] = None
+    delta_vs_baseline: Optional[float] = None
+
+
+class LeaderboardTrendResponse(BaseModel):
+    season: str
+    stat: str
+    window: int
+    entries: List[LeaderboardTrendEntry]

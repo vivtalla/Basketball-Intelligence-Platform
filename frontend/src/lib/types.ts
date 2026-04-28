@@ -3886,3 +3886,23 @@ export interface AnalysisContextListResponse {
   season: string;
   contexts: AnalysisContext[];
 }
+
+// ── Sprint 72: Leaderboard trend sparklines ──────────────────────────────────
+export interface LeaderboardTrendEntry {
+  player_id: number;
+  player_name: string;
+  team_abbreviation: string | null;
+  season: string;
+  stat: string;
+  rolling_values: number[];
+  sample_size: number;
+  latest_value: number | null;
+  delta_vs_baseline: number | null;
+}
+
+export interface LeaderboardTrendResponse {
+  season: string;
+  stat: string;
+  window: number;
+  entries: LeaderboardTrendEntry[];
+}

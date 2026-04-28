@@ -9,6 +9,7 @@ import type {
   PlayerTrendReport,
   PersistedShotChartResponse,
   LeaderboardResponse,
+  LeaderboardTrendResponse,
   TeamSummary,
   TeamRosterResponse,
   TeamAnalytics,
@@ -93,6 +94,7 @@ import {
   getPlayerCareerStats,
   getPlayerTrendReport,
   getLeaderboard,
+  getLeaderboardTrends,
   getTeams,
   getTeamRoster,
   getTeamAnalytics,
@@ -1314,5 +1316,23 @@ export function useTeamBenchAnalytics(
   return useSWR(
     key,
     () => getTeamBenchAnalytics(teamAbbreviation!, season, minPossessions)
+  );
+}
+
+// ── Sprint 72: Leaderboard trend sparklines ──────────────────────────────────
+export function useLeaderboardTrends(
+  stat: string | null,
+  playerIds: number[],
+  season: string | null,
+  window: number = 10
+) {
+  const sortedIds = [...playerIds].sort((a, b) => a - b);
+  const key =
+    stat && season && sortedIds.length > 0
+      ? ["leaderboard-trends", stat, season, window, sortedIds.join(",")]
+      : null;
+  return useSWR<LeaderboardTrendResponse>(
+    key,
+    () => getLeaderboardTrends(stat!, sortedIds, season!, window)
   );
 }

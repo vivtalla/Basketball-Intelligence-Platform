@@ -15,9 +15,11 @@ from models.leaderboard import (
     CustomMetricResponse,
     LeaderboardEntry,
     LeaderboardResponse,
+    LeaderboardTrendResponse,
 )
 from services.gravity_service import build_gravity_profile
 from services.custom_metric_service import build_custom_metric_report
+from services.leaderboard_trends import compute_leaderboard_trends
 from services.sync_service import canonical_player_name
 
 router = APIRouter()
@@ -305,3 +307,53 @@ def career_leaderboard(
     ]
 
     return CareerLeaderboardResponse(stat=stat, entries=entries)
+
+
+@router.get("/{stat}/trends", response_model=LeaderboardTrendResponse)
+def leaderboard_trends(
+    stat: str,
+    player_ids: str = Query(..., description="Comma-separated NBA player IDs (max 20)"),
+    season: str = Query(..., description='Season ID, e.g. "2024-25"'),
+    window: int = Query(10, ge=1, le=30, description="Rolling-window size (1–30)"),
+    db: Session = Depends(get_db),
+) -> LeaderboardTrendResponse:
+    """Per-player rolling trend values for a leaderboard stat.
+
+    Returns the last ``window`` regular-season games per player as rolling
+    per-game values for the requested ``stat``. Players with fewer than three
+    games on file are returned with ``sample_size=0`` and an empty
+    ``rolling_values`` array so the frontend can render a placeholder rather
+    than an empty cell.
+    """
+    if stat not in SORTABLE_STATS and stat not in GRAVITY_SORTABLE_STATS:
+        raise HTTPException(
+            status_code=422,
+            detail=(
+                f"Invalid stat '{stat}'. Must be one of: "
+                f"{sorted(SORTABLE_STATS | GRAVITY_SORTABLE_STATS)}"
+            ),
+        )
+
+    raw_ids = [chunk.strip() for chunk in player_ids.split(",") if chunk.strip()]
+    if not raw_ids:
+        raise HTTPException(status_code=400, detail="player_ids must contain at least one ID")
+    if len(raw_ids) > 20:
+        raise HTTPException(status_code=400, detail="player_ids accepts at most 20 IDs")
+
+    parsed_ids: List[int] = []
+    for chunk in raw_ids:
+        try:
+            parsed_ids.append(int(chunk))
+        except ValueError as exc:  # pragma: no cover — defensive parse
+            raise HTTPException(
+                status_code=400,
+                detail=f"Invalid player_id '{chunk}' — must be integer",
+            ) from exc
+
+    return compute_leaderboard_trends(
+        db=db,
+        stat=stat,
+        player_ids=parsed_ids,
+        season=season,
+        window=window,
+    )

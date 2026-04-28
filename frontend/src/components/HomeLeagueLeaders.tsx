@@ -2,10 +2,16 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { useLeaderboard } from "@/hooks/usePlayerStats";
+import { useMemo } from "react";
+import {
+  useLeaderboard,
+  useLeaderboardTrends,
+} from "@/hooks/usePlayerStats";
+import Sparkline from "@/components/Sparkline";
 
 const SEASON = "2025-26";
 const LIMIT = 5;
+const TREND_WINDOW = 10;
 
 interface LeaderColumnProps {
   stat: string;
@@ -14,17 +20,70 @@ interface LeaderColumnProps {
   isPercent?: boolean;
 }
 
+function formatTooltip(
+  isPercent: boolean | undefined,
+  unit: string | undefined,
+  latest: number | null,
+  delta: number | null
+): string {
+  if (latest === null) return "No trend data";
+  const fmt = (v: number) =>
+    isPercent ? `${(v * 100).toFixed(1)}%` : `${v.toFixed(1)}${unit ?? ""}`;
+  const parts = [`Latest: ${fmt(latest)}`];
+  if (delta !== null) {
+    const sign = delta > 0 ? "+" : "";
+    const deltaStr = isPercent
+      ? `${sign}${(delta * 100).toFixed(1)}pp`
+      : `${sign}${delta.toFixed(1)}`;
+    parts.push(`vs season avg: ${deltaStr}`);
+  }
+  return parts.join(" · ");
+}
+
 function LeaderColumn({ stat, label, unit, isPercent }: LeaderColumnProps) {
   const { data, isLoading } = useLeaderboard(stat, SEASON);
 
-  const top = data?.entries.slice(0, LIMIT) ?? [];
+  const top = useMemo(
+    () => data?.entries.slice(0, LIMIT) ?? [],
+    [data]
+  );
+  const playerIds = useMemo(() => top.map((e) => e.player_id), [top]);
+
+  // Trends fetch depends on the leader IDs — guard prevents waterfall side
+  // effects: only fires when leaderboard entries are loaded.
+  const { data: trendData } = useLeaderboardTrends(
+    playerIds.length > 0 ? stat : null,
+    playerIds,
+    playerIds.length > 0 ? SEASON : null,
+    TREND_WINDOW
+  );
+
+  const trendByPlayerId = useMemo(() => {
+    const map = new Map<
+      number,
+      { rolling: number[]; latest: number | null; delta: number | null }
+    >();
+    if (trendData?.entries) {
+      for (const entry of trendData.entries) {
+        map.set(entry.player_id, {
+          rolling: entry.rolling_values,
+          latest: entry.latest_value,
+          delta: entry.delta_vs_baseline,
+        });
+      }
+    }
+    return map;
+  }, [trendData]);
 
   return (
     <div className="bip-panel overflow-hidden rounded-[1.7rem]">
-      <div className="px-4 py-3 border-b border-[var(--border)]">
+      <div className="px-4 py-3 border-b border-[var(--border)] flex items-center justify-between">
         <h3 className="bip-kicker">
           {label}
         </h3>
+        <span className="bip-kicker text-[var(--muted)] text-[0.6rem] tracking-[0.16em]">
+          Trend · L{TREND_WINDOW}
+        </span>
       </div>
 
       {isLoading && (
@@ -48,6 +107,13 @@ function LeaderColumn({ stat, label, unit, isPercent }: LeaderColumnProps) {
             const value = isPercent
               ? `${(entry.stat_value * 100).toFixed(1)}%`
               : `${entry.stat_value.toFixed(1)}${unit ?? ""}`;
+            const trend = trendByPlayerId.get(entry.player_id);
+            const tooltip = formatTooltip(
+              isPercent,
+              unit,
+              trend?.latest ?? null,
+              trend?.delta ?? null
+            );
             return (
               <Link
                 key={entry.player_id}
@@ -78,7 +144,19 @@ function LeaderColumn({ stat, label, unit, isPercent }: LeaderColumnProps) {
                     {entry.team_abbreviation}
                   </div>
                 </div>
-                <span className="text-sm font-bold tabular-nums text-[var(--foreground)] shrink-0">
+                <div
+                  className="shrink-0 flex items-center"
+                  title={tooltip}
+                  aria-label={tooltip}
+                >
+                  <Sparkline
+                    values={trend?.rolling ?? []}
+                    delta={trend?.delta ?? undefined}
+                    width={56}
+                    height={18}
+                  />
+                </div>
+                <span className="text-sm font-bold tabular-nums text-[var(--foreground)] shrink-0 w-12 text-right">
                   {value}
                 </span>
               </Link>
