@@ -77,7 +77,7 @@ Planned calibration upgrade:
 - Opportunity: `opportunity_role_expansion_evidence`
 - Style X-Ray: `style_xray_drift_team`, `style_xray_latent_space`
 - MVP: `mvp_value_versus_award_split`, `mvp_basketball_value_weight_sensitivity`
-- Archetype: `archetype_borderline_role_label`
+- Archetype: `archetype_borderline_role_label`, `archetype_soft_memberships`
 - Custom Metrics: `custom_metrics_collinear_components`, `custom_metrics_weight_sensitivity`
 - Gravity: `gravity_proxy_versus_official`
 - Scouting: `scouting_brief_evidence_linkage`, `scouting_brief_contradictions`

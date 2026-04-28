@@ -382,6 +382,26 @@ def mahalanobis_distance(
     return math.sqrt(max(quad, 0.0))
 
 
+def softmax(values: Sequence[float], temperature: float = 1.0) -> List[float]:
+    """Numerically-stable softmax over a list of real-valued scores.
+
+    `temperature` < 1 sharpens the distribution toward the argmax; > 1
+    flattens it. Returns a list of the same length whose entries sum to 1
+    (within floating-point tolerance). Empty inputs return an empty list.
+    """
+    if temperature <= 0:
+        raise ValueError("temperature must be positive")
+    if not values:
+        return []
+    scaled = [float(v) / float(temperature) for v in values]
+    pivot = max(scaled)
+    exponents = [math.exp(s - pivot) for s in scaled]
+    total = sum(exponents)
+    if total <= 0:
+        return [0.0 for _ in scaled]
+    return [e / total for e in exponents]
+
+
 def bayesian_change_score(
     recent: Sequence[float],
     baseline: Sequence[float],

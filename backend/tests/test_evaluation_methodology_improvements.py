@@ -26,6 +26,7 @@ from services.reliability_service import (  # noqa: E402
     principal_components,
     project_to_components,
     shrunk_covariance,
+    softmax,
     weight_sensitivity_analysis,
     wilson_interval,
 )
@@ -797,3 +798,107 @@ def test_player_trend_change_evidence_helper_returns_none_on_thin_baseline():
         baseline_values=[32.0, 33.0],  # below MIN_BASELINE_GAMES=4
     )
     assert record is None
+
+
+# ---------- softmax primitive (archetype_rules_v2) ----------
+
+
+def test_softmax_distribution_sums_to_one_and_dominant_input_leads():
+    weights = softmax([3.0, 1.0, 0.5, -1.0])
+    assert abs(sum(weights) - 1.0) < 1e-9
+    assert max(range(len(weights)), key=lambda i: weights[i]) == 0
+
+
+def test_softmax_temperature_below_one_sharpens_distribution():
+    sharp = softmax([2.0, 1.0, 0.5], temperature=0.3)
+    flat = softmax([2.0, 1.0, 0.5], temperature=2.0)
+    assert sharp[0] > flat[0]
+    assert sharp[-1] < flat[-1]
+
+
+def test_softmax_handles_empty_input_and_invalid_temperature():
+    assert softmax([]) == []
+    with pytest.raises(ValueError):
+        softmax([1.0, 2.0], temperature=0.0)
+
+
+def test_softmax_is_numerically_stable_for_large_inputs():
+    weights = softmax([1000.0, 999.0, 998.0])
+    assert abs(sum(weights) - 1.0) < 1e-9
+    assert weights[0] > 0.5
+
+
+# ---------- soft archetype memberships ----------
+
+
+def test_soft_archetype_memberships_anchor_to_hard_label():
+    from services.player_archetype_service import _soft_archetype_memberships
+
+    label_map = {
+        "heliocentric_creator": "Heliocentric Creator",
+        "lead_ball_handler": "Lead Ball-Handler",
+        "iso_scorer": "Iso Scorer",
+        "secondary_playmaker": "Secondary Playmaker",
+        "movement_shooter": "Movement Shooter",
+        "three_and_d_wing": "3-and-D Wing",
+        "rim_pressure_guard": "Rim Pressure Guard",
+        "connective_forward": "Connective Forward",
+        "defensive_anchor": "Defensive Anchor",
+        "interior_finisher": "Interior Finisher",
+        "stretch_big": "Stretch Big",
+        "switchable_stopper": "Switchable Stopper",
+        "rotational_energy": "Rotational Energy",
+    }
+    # Clear heliocentric profile satisfies both the stricter
+    # heliocentric_creator rule and the looser lead_ball_handler superset;
+    # with the hard label anchored, heliocentric_creator must lead.
+    zs = {
+        "usg_z": 2.5,
+        "ast_rate_z": 2.0,
+        "ast_tov_z": 1.0,
+        "par3_z": 0.0,
+        "ftr_z": 1.0,
+        "ts_z": 1.0,
+        "stl_rate_z": 0.0,
+        "blk_rate_z": -0.5,
+        "oreb_z": -0.5,
+        "dbpm_z": 0.0,
+        "obpm_z": 2.0,
+        "fg3_pct_z": 0.5,
+    }
+    memberships = _soft_archetype_memberships(
+        zs, size_inches=78, label_map=label_map,
+        hard_archetype_key="heliocentric_creator",
+    )
+    assert memberships
+    assert memberships[0].archetype_key == "heliocentric_creator"
+    # Lead share should clearly beat the runner-up.
+    assert memberships[0].membership > memberships[1].membership
+    # Adjacent archetypes should still register membership.
+    runner_up_keys = {m.archetype_key for m in memberships[1:]}
+    assert "lead_ball_handler" in runner_up_keys
+
+
+def test_soft_archetype_memberships_spread_for_balanced_profile():
+    from services.player_archetype_service import _soft_archetype_memberships
+
+    label_map = {key: key for key in [
+        "heliocentric_creator", "lead_ball_handler", "iso_scorer",
+        "secondary_playmaker", "movement_shooter", "three_and_d_wing",
+        "rim_pressure_guard", "connective_forward", "defensive_anchor",
+        "interior_finisher", "stretch_big", "switchable_stopper",
+        "rotational_energy",
+    ]}
+    # Balanced profile near league average — no single archetype should
+    # dominate; the top membership should stay below 0.5 with the
+    # sub-1.0 default temperature.
+    zs = {key: 0.0 for key in [
+        "usg_z", "ast_rate_z", "ast_tov_z", "par3_z", "ftr_z", "ts_z",
+        "stl_rate_z", "blk_rate_z", "oreb_z", "dbpm_z", "obpm_z", "fg3_pct_z",
+    ]}
+    memberships = _soft_archetype_memberships(zs, size_inches=78, label_map=label_map)
+    assert memberships
+    assert memberships[0].membership < 0.5
+    # Memberships should be sorted descending.
+    for prev, curr in zip(memberships, memberships[1:]):
+        assert prev.membership >= curr.membership

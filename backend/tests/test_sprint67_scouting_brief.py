@@ -40,7 +40,7 @@ def _archetype(
             ArchetypeContributor(feature_key="ftr_z", label="Free-throw rate", value=0.12, z=-0.90, direction="below"),
         ],
         sample=ArchetypeSample(gp=70, min_pg=34.0, peer_pool_size=340),
-        methodology_version="player_archetype_v1",
+        methodology_version="player_archetype_v2",
     )
 
 

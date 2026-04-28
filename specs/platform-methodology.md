@@ -159,6 +159,23 @@ pearson_r = covariance(a, b) / sqrt(var(a) * var(b))
 
 When user-built composites combine highly correlated stats (`|r| ≥ 0.85`), the methodology layer surfaces a plain-language warning so the composite does not silently double-count one signal. This powers the `custom_metrics_collinear_components` validation fixture.
 
+Soft archetype memberships (archetype_rules_v2):
+
+```text
+For each archetype rule, score every condition with a sigmoid:
+
+  satisfaction(value, threshold, "ge") = sigmoid(k · (value - threshold))
+  satisfaction(value, threshold, "le") = sigmoid(k · (threshold - value))
+
+The rule's fit score is the product of its per-condition satisfactions
+so a missed condition pulls the rule toward zero. Membership shares come
+from a sub-1.0 temperature softmax over the 13 rule families:
+
+  membership_i = exp(score_i / τ) / Σ_j exp(score_j / τ)
+```
+
+The hard `archetype_key` is preserved verbatim; soft memberships travel alongside as a top-5 list. The membership distribution sums to ~1; clear-fit profiles are dominated by the hard label, while hybrid players spread across two-to-three adjacent archetypes. Default `k = 2.5` and `τ = 0.6`.
+
 Bayesian change score (trend_intelligence_v2):
 
 ```text

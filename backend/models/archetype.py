@@ -49,6 +49,21 @@ class ArchetypeSample(BaseModel):
     peer_pool_size: int
 
 
+class ArchetypeMembership(BaseModel):
+    """Soft-membership share for a single archetype rule.
+
+    Computed by feeding each archetype's per-condition slack through a
+    sigmoid and softmaxing the resulting fit scores. The hard `archetype_key`
+    on `PlayerArchetype` is preserved verbatim — memberships travel
+    alongside it so coaches can see which adjacent archetypes the player
+    also resembles.
+    """
+
+    archetype_key: ArchetypeKey
+    label: str
+    membership: float
+
+
 class PlayerArchetype(BaseModel):
     player_id: int
     season: str
@@ -60,6 +75,7 @@ class PlayerArchetype(BaseModel):
     sample: ArchetypeSample
     methodology_version: str
     confidence_note: Optional[str] = None
+    memberships: List[ArchetypeMembership] = []
 
 
 class ArchetypeHistoryEntry(BaseModel):
