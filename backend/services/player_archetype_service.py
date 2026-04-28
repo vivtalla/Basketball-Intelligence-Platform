@@ -14,7 +14,7 @@ import statistics
 import time
 from collections import defaultdict
 from datetime import date
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Literal, Optional, Tuple
 
 from sqlalchemy.orm import Session
 
@@ -25,6 +25,8 @@ from models.archetype import (
     PlayerArchetype,
 )
 
+
+SeasonType = Literal["Regular Season", "Playoffs"]
 
 METHODOLOGY_VERSION = "player_archetype_v1"
 
@@ -77,8 +79,8 @@ ARCHETYPE_CONTRIBUTOR_KEYS = frozenset(FEATURE_LABELS.keys())
 _CURRENT_SEASON_CACHE_TTL = 600          # 10 min
 _HISTORICAL_SEASON_CACHE_TTL = 24 * 3600
 
-# Maps season -> (expires_at, _SeasonFrame)
-_SEASON_FRAME_CACHE: Dict[str, Tuple[float, "_SeasonFrame"]] = {}
+# Maps (season, is_playoff) -> (expires_at, _SeasonFrame)
+_SEASON_FRAME_CACHE: Dict[Tuple[str, bool], Tuple[float, "_SeasonFrame"]] = {}
 
 
 def clear_archetype_cache() -> None:
@@ -175,16 +177,19 @@ def parse_height_to_inches(value: Optional[str]) -> Optional[int]:
 
 # --- Subject-row selection --------------------------------------------------
 
-def _select_subject_row(rows: List[SeasonStat]) -> Optional[SeasonStat]:
-    """Spec §1.1: prefer TOT for regular-season; else the single non-TOT rs row."""
-    rs_rows = [r for r in rows if not r.is_playoff]
-    if not rs_rows:
+def _select_subject_row(
+    rows: List[SeasonStat],
+    is_playoff: bool = False,
+) -> Optional[SeasonStat]:
+    """Spec §1.1: prefer TOT for the relevant season type; else the single non-TOT row."""
+    season_rows = [r for r in rows if bool(r.is_playoff) == is_playoff]
+    if not season_rows:
         return None
-    tot_rows = [r for r in rs_rows if (r.team_abbreviation or "").upper() == "TOT"]
+    tot_rows = [r for r in season_rows if (r.team_abbreviation or "").upper() == "TOT"]
     if tot_rows:
         return tot_rows[0]
-    if len(rs_rows) == 1:
-        return rs_rows[0]
+    if len(season_rows) == 1:
+        return season_rows[0]
     return None  # split-season without TOT — ambiguous
 
 
@@ -254,10 +259,10 @@ class _SeasonFrame:
         self.peer_pool_size = len(zscores_by_player)
 
 
-def _build_season_frame(db: Session, season: str) -> _SeasonFrame:
+def _build_season_frame(db: Session, season: str, is_playoff: bool = False) -> _SeasonFrame:
     rows: List[SeasonStat] = (
         db.query(SeasonStat)
-        .filter(SeasonStat.season == season, SeasonStat.is_playoff == False)  # noqa: E712
+        .filter(SeasonStat.season == season, SeasonStat.is_playoff == is_playoff)
         .all()
     )
     # Group by player_id then resolve subject row (prefer TOT).
@@ -280,7 +285,7 @@ def _build_season_frame(db: Session, season: str) -> _SeasonFrame:
     row_by_player: Dict[int, SeasonStat] = {}
 
     for player_id, p_rows in by_player.items():
-        subject = _select_subject_row(p_rows)
+        subject = _select_subject_row(p_rows, is_playoff=is_playoff)
         if subject is None:
             continue
         if (subject.gp or 0) < MIN_GP or (subject.min_pg or 0) < MIN_MIN_PG:
@@ -333,13 +338,14 @@ def _build_season_frame(db: Session, season: str) -> _SeasonFrame:
     )
 
 
-def _get_season_frame(db: Session, season: str) -> _SeasonFrame:
+def _get_season_frame(db: Session, season: str, is_playoff: bool = False) -> _SeasonFrame:
     now = time.monotonic()
-    cached = _SEASON_FRAME_CACHE.get(season)
+    cache_key = (season, is_playoff)
+    cached = _SEASON_FRAME_CACHE.get(cache_key)
     if cached is not None and cached[0] > now:
         return cached[1]
-    frame = _build_season_frame(db, season)
-    _SEASON_FRAME_CACHE[season] = (now + _cache_ttl(season), frame)
+    frame = _build_season_frame(db, season, is_playoff=is_playoff)
+    _SEASON_FRAME_CACHE[cache_key] = (now + _cache_ttl(season), frame)
     return frame
 
 
@@ -588,13 +594,17 @@ def classify_player_archetype(
     db: Session,
     player_id: int,
     season: str,
+    season_type: SeasonType = "Regular Season",
 ) -> PlayerArchetype:
     """Return the archetype classification for a single player-season.
 
     Always returns a `PlayerArchetype` — pool misses fall through to
     `developmental` with an explanatory reason rather than raising.
     """
-    frame = _get_season_frame(db, season)
+    is_playoff = season_type == "Playoffs"
+    frame = _get_season_frame(db, season, is_playoff=is_playoff)
+
+    season_type_label = "playoff" if is_playoff else "regular-season"
 
     # Pool-miss fallbacks (see spec §1.1 missing-feature / sample policy).
     if player_id not in frame.zscores_by_player:
@@ -605,19 +615,22 @@ def classify_player_archetype(
             .filter(
                 SeasonStat.player_id == player_id,
                 SeasonStat.season == season,
-                SeasonStat.is_playoff == False,  # noqa: E712
+                SeasonStat.is_playoff == is_playoff,
             )
             .all()
         )
-        subject = _select_subject_row(p_rows)
+        subject = _select_subject_row(p_rows, is_playoff=is_playoff)
         gp = int(subject.gp) if subject and subject.gp is not None else 0
         min_pg = float(subject.min_pg) if subject and subject.min_pg is not None else 0.0
         if subject is None:
-            reason = "No regular-season row for this player in the requested season."
+            reason = "No {0} row for this player in the requested season.".format(season_type_label)
         elif gp < MIN_GP or min_pg < MIN_MIN_PG:
             reason = "Sample too thin to commit to an archetype yet."
         else:
             reason = "Missing one or more archetype-defining features for this player-season."
+        confidence_note = (
+            "Playoff sample — confidence reduced one tier" if is_playoff else None
+        )
         return PlayerArchetype(
             player_id=player_id,
             season=season,
@@ -628,6 +641,7 @@ def classify_player_archetype(
             contributors=[],
             sample=ArchetypeSample(gp=gp, min_pg=min_pg, peer_pool_size=frame.peer_pool_size),
             methodology_version=METHODOLOGY_VERSION,
+            confidence_note=confidence_note,
         )
 
     zs = frame.zscores_by_player[player_id]
@@ -667,52 +681,78 @@ def classify_player_archetype(
         "developmental": "Developmental",
     }
 
+    confidence = _confidence(trigger_magnitudes)
+    confidence_note: Optional[str] = None
+    if is_playoff:
+        confidence = _reduce_confidence_one_tier(confidence)
+        confidence_note = "Playoff sample — confidence reduced one tier"
+
     return PlayerArchetype(
         player_id=player_id,
         season=season,
         archetype_key=archetype_key,  # type: ignore[arg-type]
         label=label_map[archetype_key],
-        confidence=_confidence(trigger_magnitudes),
+        confidence=confidence,
         reason=reason,
         contributors=_build_contributors(zs, raw),
         sample=ArchetypeSample(gp=gp, min_pg=min_pg, peer_pool_size=frame.peer_pool_size),
         methodology_version=METHODOLOGY_VERSION,
+        confidence_note=confidence_note,
     )
+
+
+def _reduce_confidence_one_tier(confidence: str) -> str:
+    """Lower confidence one tier (high → medium → low). Bottom is sticky."""
+    if confidence == "high":
+        return "medium"
+    if confidence == "medium":
+        return "low"
+    return "low"
 
 
 def classify_many(
     db: Session,
     player_ids: List[int],
     season: str,
+    season_type: SeasonType = "Regular Season",
 ) -> Dict[int, PlayerArchetype]:
     """Batch variant — warms the season frame once, then classifies each id.
 
     Used by the B2 similarity upgrade to attach archetype labels to every comp
     without re-triggering the per-call season-frame build.
     """
+    is_playoff = season_type == "Playoffs"
     # Trigger cache warm up-front; individual lookups reuse the same frame.
-    _get_season_frame(db, season)
-    return {pid: classify_player_archetype(db, pid, season) for pid in player_ids}
+    _get_season_frame(db, season, is_playoff=is_playoff)
+    return {
+        pid: classify_player_archetype(db, pid, season, season_type=season_type)
+        for pid in player_ids
+    }
 
 
 def build_archetype_history(
     db: Session,
     player_id: int,
+    season_type: SeasonType = "Regular Season",
 ) -> List[PlayerArchetype]:
-    """Classify every regular-season year on file for a player, oldest → newest.
+    """Classify every season year on file for a player, oldest → newest.
 
     Returns a list of PlayerArchetype entries. Seasons where the player didn't
     qualify for the peer pool are returned with the `developmental` fallback so
     the timeline has a continuous row per season rather than a gap.
     """
+    is_playoff = season_type == "Playoffs"
     seasons = (
         db.query(SeasonStat.season)
         .filter(
             SeasonStat.player_id == player_id,
-            SeasonStat.is_playoff == False,  # noqa: E712
+            SeasonStat.is_playoff == is_playoff,
         )
         .distinct()
         .all()
     )
     season_strs = sorted({s[0] for s in seasons})  # NBA season strings sort lexicographically
-    return [classify_player_archetype(db, player_id, s) for s in season_strs]
+    return [
+        classify_player_archetype(db, player_id, s, season_type=season_type)
+        for s in season_strs
+    ]

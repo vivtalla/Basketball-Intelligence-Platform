@@ -1,8 +1,8 @@
 """Advanced stats endpoints: on/off splits, clutch stats, lineup analysis."""
 
 from datetime import datetime
-from typing import List, Optional
-from fastapi import APIRouter, Depends, HTTPException
+from typing import List, Literal, Optional
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
@@ -27,18 +27,26 @@ from models.stats import (
 )
 from services.pbp_sync_service import sync_pbp_for_player, sync_pbp_for_season
 
+
+SeasonType = Literal["Regular Season", "Playoffs"]
+
 router = APIRouter()
 
 
-def _build_pbp_dashboard(db: Session, season: str) -> PbpCoverageDashboard:
+def _build_pbp_dashboard(
+    db: Session,
+    season: str,
+    season_type: SeasonType = "Regular Season",
+) -> PbpCoverageDashboard:
     """Assemble a league-wide snapshot of team/player play-by-play sync coverage."""
+    is_playoff = season_type == "Playoffs"
     raw_season_rows = (
         db.query(SeasonStat, Player, Team)
         .join(Player, SeasonStat.player_id == Player.id)
         .outerjoin(Team, Player.team_id == Team.id)
         .filter(
             SeasonStat.season == season,
-            SeasonStat.is_playoff == False,  # noqa: E712
+            SeasonStat.is_playoff == is_playoff,
             Player.is_active == True,  # noqa: E712
         )
         .all()
@@ -70,7 +78,7 @@ def _build_pbp_dashboard(db: Session, season: str) -> PbpCoverageDashboard:
         for row in db.query(PlayerOnOff)
         .filter(
             PlayerOnOff.season == season,
-            PlayerOnOff.is_playoff == False,  # noqa: E712
+            PlayerOnOff.is_playoff == is_playoff,
         )
         .all()
     }
@@ -264,9 +272,17 @@ def sync_player_pbp(player_id: int, season: str, force_refresh: bool = False):
 
 
 @router.get("/{player_id}/on-off")
-def get_on_off(player_id: int, season: str = "2024-25", db: Session = Depends(get_db)):
+def get_on_off(
+    player_id: int,
+    season: str = "2024-25",
+    season_type: SeasonType = Query("Regular Season"),
+    db: Session = Depends(get_db),
+):
     """Return on/off split ratings for a player in a given season."""
-    row = db.query(PlayerOnOff).filter_by(player_id=player_id, season=season, is_playoff=False).first()
+    is_playoff = season_type == "Playoffs"
+    row = db.query(PlayerOnOff).filter_by(
+        player_id=player_id, season=season, is_playoff=is_playoff
+    ).first()
     if not row:
         raise HTTPException(
             status_code=404,
@@ -288,9 +304,17 @@ def get_on_off(player_id: int, season: str = "2024-25", db: Session = Depends(ge
 
 
 @router.get("/{player_id}/clutch")
-def get_clutch(player_id: int, season: str = "2024-25", db: Session = Depends(get_db)):
+def get_clutch(
+    player_id: int,
+    season: str = "2024-25",
+    season_type: SeasonType = Query("Regular Season"),
+    db: Session = Depends(get_db),
+):
     """Return clutch stats for a player (last 5 min, within 5 pts)."""
-    row = db.query(SeasonStat).filter_by(player_id=player_id, season=season, is_playoff=False).first()
+    is_playoff = season_type == "Playoffs"
+    row = db.query(SeasonStat).filter_by(
+        player_id=player_id, season=season, is_playoff=is_playoff
+    ).first()
     if not row:
         raise HTTPException(status_code=404, detail=f"No season stats for player {player_id} in {season}.")
     if row.clutch_pts is None:
@@ -311,14 +335,20 @@ def get_clutch(player_id: int, season: str = "2024-25", db: Session = Depends(ge
 
 
 @router.get("/{player_id}/pbp-coverage", response_model=PbpCoverage)
-def get_pbp_coverage(player_id: int, season: str = "2024-25", db: Session = Depends(get_db)):
+def get_pbp_coverage(
+    player_id: int,
+    season: str = "2024-25",
+    season_type: SeasonType = Query("Regular Season"),
+    db: Session = Depends(get_db),
+):
     """Return play-by-play sync coverage metadata for a player-season."""
+    is_playoff = season_type == "Playoffs"
     season_row = (
         db.query(SeasonStat)
         .filter(
             SeasonStat.player_id == player_id,
             SeasonStat.season == season,
-            SeasonStat.is_playoff == False,  # noqa: E712
+            SeasonStat.is_playoff == is_playoff,
         )
         .order_by(SeasonStat.gp.desc())
         .first()
@@ -373,7 +403,7 @@ def get_pbp_coverage(player_id: int, season: str = "2024-25", db: Session = Depe
     on_off_row = db.query(PlayerOnOff).filter_by(
         player_id=player_id,
         season=season,
-        is_playoff=False,
+        is_playoff=is_playoff,
     ).first()
 
     has_on_off = bool(on_off_row and on_off_row.on_off_net is not None)
@@ -435,23 +465,31 @@ def get_pbp_coverage(player_id: int, season: str = "2024-25", db: Session = Depe
 
 
 @router.get("/pbp-dashboard", response_model=PbpCoverageDashboard)
-def get_pbp_dashboard(season: str = "2024-25", db: Session = Depends(get_db)):
-    return _build_pbp_dashboard(db, season)
+def get_pbp_dashboard(
+    season: str = "2024-25",
+    season_type: SeasonType = Query("Regular Season"),
+    db: Session = Depends(get_db),
+):
+    return _build_pbp_dashboard(db, season, season_type=season_type)
 
 
 @router.get("/pbp-dashboard-seasons", response_model=List[PbpCoverageSeasonSummary])
-def get_pbp_dashboard_season_summaries(db: Session = Depends(get_db)):
+def get_pbp_dashboard_season_summaries(
+    season_type: SeasonType = Query("Regular Season"),
+    db: Session = Depends(get_db),
+):
+    is_playoff = season_type == "Playoffs"
     seasons = [
         season
         for season, in db.query(SeasonStat.season)
-        .filter(SeasonStat.is_playoff == False)  # noqa: E712
+        .filter(SeasonStat.is_playoff == is_playoff)
         .distinct()
         .order_by(SeasonStat.season.desc())
         .all()
     ]
     summaries = []
     for season in seasons:
-        dashboard = _build_pbp_dashboard(db, season)
+        dashboard = _build_pbp_dashboard(db, season, season_type=season_type)
         summaries.append(
             PbpCoverageSeasonSummary(
                 season=dashboard.season,
@@ -473,14 +511,17 @@ def get_pbp_dashboard_season_summaries(db: Session = Depends(get_db)):
 @router.get("/lineups")
 def get_lineups(
     season: str = "2024-25",
+    season_type: SeasonType = Query("Regular Season"),
     team_id: Optional[int] = None,
     min_minutes: float = 5.0,
     limit: int = 25,
     db: Session = Depends(get_db),
 ):
     """Return top 5-man lineups by net rating for a season."""
+    is_playoff = season_type == "Playoffs"
     query = db.query(LineupStats).filter(
         LineupStats.season == season,
+        LineupStats.is_playoff == is_playoff,
         LineupStats.minutes >= min_minutes,
         LineupStats.net_rating.isnot(None),
     )
@@ -517,16 +558,18 @@ def get_lineups(
 @router.get("/on-off-leaderboard")
 def get_on_off_leaderboard(
     season: str = "2024-25",
+    season_type: SeasonType = Query("Regular Season"),
     min_minutes: float = 200.0,
     limit: int = 25,
     db: Session = Depends(get_db),
 ):
     """Return players ranked by on/off net rating differential."""
+    is_playoff = season_type == "Playoffs"
     rows = (
         db.query(PlayerOnOff)
         .filter(
             PlayerOnOff.season == season,
-            PlayerOnOff.is_playoff == False,
+            PlayerOnOff.is_playoff == is_playoff,
             PlayerOnOff.on_minutes >= min_minutes,
             PlayerOnOff.on_off_net.isnot(None),
         )

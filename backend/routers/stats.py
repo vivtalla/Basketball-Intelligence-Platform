@@ -389,7 +389,12 @@ def career_stats(player_id: int, db: Session = Depends(get_db)):
         return sorted(best.values(), key=lambda s: s.season)
 
     seasons = [_stat_to_dict(s) for s in _dedup_seasons(regular_stats)]
-    playoff_seasons = [_stat_to_dict(s) for s in _dedup_seasons(playoff_stats)]
+    # Sprint 73 — surface postseason career history sorted by season descending
+    # so the most recent playoff run appears first on the player profile.
+    playoff_seasons = [
+        _stat_to_dict(s)
+        for s in sorted(_dedup_seasons(playoff_stats), key=lambda r: r.season, reverse=True)
+    ]
     career_totals = _compute_career_totals(seasons)
 
     latest_updated_at = None

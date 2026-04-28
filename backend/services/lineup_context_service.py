@@ -1,13 +1,16 @@
 from __future__ import annotations
 
 from collections import defaultdict
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Literal, Optional, Tuple
 
 from fastapi import HTTPException
 from sqlalchemy.orm import Session
 
 from db.models import LineupStats, Player, PlayerOnOff
 from models.insights import LineupContextResponse, TeammateOnOff
+
+
+SeasonType = Literal["Regular Season", "Playoffs"]
 
 _MIN_LINEUP_POSSESSIONS = 100  # per CLAUDE.md analytics rule
 
@@ -36,10 +39,13 @@ def build_lineup_context(
     db: Session,
     player_id: int,
     season: str,
+    season_type: SeasonType = "Regular Season",
 ) -> LineupContextResponse:
     player = db.query(Player).filter(Player.id == player_id).first()
     if player is None:
         raise HTTPException(status_code=404, detail="Player not found.")
+
+    is_playoff = season_type == "Playoffs"
 
     # Fetch season on/off split.
     on_off_row = (
@@ -47,7 +53,7 @@ def build_lineup_context(
         .filter(
             PlayerOnOff.player_id == player_id,
             PlayerOnOff.season == season,
-            PlayerOnOff.is_playoff == False,  # noqa: E712
+            PlayerOnOff.is_playoff == is_playoff,
         )
         .first()
     )
@@ -59,6 +65,7 @@ def build_lineup_context(
         db.query(LineupStats)
         .filter(
             LineupStats.season == season,
+            LineupStats.is_playoff == is_playoff,
             LineupStats.lineup_key.like("%{0}%".format(player_id_str)),
         )
         .all()

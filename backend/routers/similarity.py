@@ -1,8 +1,8 @@
 """Player similarity endpoints."""
 
-from typing import Optional
+from typing import Literal, Optional
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 
 from db.database import get_db
@@ -12,6 +12,9 @@ from services.similarity_service import (
     find_similar_players,
     find_similar_players_with_archetype,
 )
+
+
+SeasonType = Literal["Regular Season", "Playoffs"]
 
 router = APIRouter()
 
@@ -23,6 +26,7 @@ def similar_players(
     n: int = 8,
     cross_era: bool = True,
     mode: Optional[str] = None,
+    season_type: SeasonType = Query("Regular Season"),
     db: Session = Depends(get_db),
 ):
     """Return the top-N most statistically similar player-seasons.
@@ -41,8 +45,9 @@ def similar_players(
       complement gaps rank ahead of comps that duplicate existing strengths).
     """
     # Verify the target player-season has enough data
+    is_playoff = season_type == "Playoffs"
     target = db.query(SeasonStat).filter_by(
-        player_id=player_id, season=season, is_playoff=False
+        player_id=player_id, season=season, is_playoff=is_playoff
     ).first()
     if not target:
         raise HTTPException(

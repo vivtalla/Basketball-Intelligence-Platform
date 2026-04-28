@@ -2,10 +2,45 @@
 set -e
 cd "$(dirname "$0")/.."
 
-if [ -n "$1" ]; then
-  SEASON="$1"
-else
-  SEASON="$(python - <<'PYEOF'
+# ---------------------------------------------------------------------------
+# Argument parsing — `--post-game` runs the lightweight playoff-night refresh
+# (game logs, brackets, splits, injuries) and exits. `--dry-run` just prints
+# what each path *would* do and exits 0.
+# ---------------------------------------------------------------------------
+POST_GAME_MODE=0
+DRY_RUN=0
+SEASON=""
+
+for arg in "$@"; do
+  case "$arg" in
+    --post-game) POST_GAME_MODE=1 ;;
+    --dry-run)   DRY_RUN=1 ;;
+    --*)         echo "warning: unknown flag $arg" >&2 ;;
+    *)
+      if [ -z "$SEASON" ]; then
+        SEASON="$arg"
+      fi
+      ;;
+  esac
+done
+
+# Resolve the python interpreter once. Prefer the project venv when present
+# (matches how the existing daily cron runs), otherwise fall back to the
+# system `python` or `python3` so manual / dry-run invocations succeed in
+# minimal environments.
+if [ -z "${PYTHON_BIN:-}" ]; then
+  if [ -x "./venv/bin/python" ]; then
+    PYTHON_BIN="./venv/bin/python"
+  elif command -v python >/dev/null 2>&1; then
+    PYTHON_BIN="python"
+  else
+    PYTHON_BIN="python3"
+  fi
+fi
+export PYTHON_BIN
+
+if [ -z "$SEASON" ]; then
+  SEASON="$("$PYTHON_BIN" - <<'PYEOF' 2>/dev/null || true
 from datetime import datetime
 
 now = datetime.utcnow()
@@ -13,14 +48,126 @@ start_year = now.year if now.month >= 8 else now.year - 1
 print(f"{start_year}-{str((start_year + 1) % 100).zfill(2)}")
 PYEOF
 )"
+  if [ -z "$SEASON" ]; then
+    # Fall back to a static current season string so the script remains
+    # usable when no python interpreter is available (e.g. dry-run on a
+    # bare CI worker). Cron callers should always pass an explicit season.
+    SEASON="2025-26"
+  fi
 fi
 export SEASON
+
+# ---------------------------------------------------------------------------
+# Detect playoff window via the season-phase service. Falls back to an
+# April–June heuristic if the service module is unavailable so dry-runs
+# stay deterministic.
+# ---------------------------------------------------------------------------
+IS_PLAYOFFS="$("$PYTHON_BIN" - <<'PYEOF' 2>/dev/null || echo 0
+import sys, os
+sys.path.insert(0, os.getcwd())
+phase = ""
+try:
+    from services.season_phase_service import get_current_phase  # type: ignore
+    phase = (getattr(get_current_phase(), "phase", "") or "")
+except Exception:
+    from datetime import datetime
+    month = datetime.utcnow().month
+    if 4 <= month <= 6:
+        phase = "playoff_round_1"
+print("1" if str(phase).startswith("playoff") else "0")
+PYEOF
+)"
+if [ -z "$IS_PLAYOFFS" ]; then
+  IS_PLAYOFFS=0
+fi
+export IS_PLAYOFFS
+
 LOG="$HOME/Library/Logs/bip_sync.log"
 
-echo "[$(date -u +%Y-%m-%dT%H:%M:%SZ)] daily_sync start season=$SEASON" >> "$LOG"
+# Track summary counters for the closing log line.
+SERIES_REFRESHED="${SERIES_REFRESHED:-0}"
+GAMES_REFRESHED="${GAMES_REFRESHED:-0}"
+
+# ---------------------------------------------------------------------------
+# Dry-run shortcut: print intended actions and exit before doing real work.
+# ---------------------------------------------------------------------------
+if [ "$DRY_RUN" = "1" ]; then
+  echo "daily_sync dry-run: season=$SEASON post_game=$POST_GAME_MODE is_playoffs=$IS_PLAYOFFS"
+  if [ "$POST_GAME_MODE" = "1" ]; then
+    echo "would run: playoff game-log refresh"
+    echo "would run: bracket refreshed"
+    echo "would run: sync_injuries"
+    echo "would run: sync_official_team_general_splits is_playoff=True"
+    echo "would run: sync_official_team_shooting_splits is_playoff=True"
+  else
+    echo "would run: queue_season_shot_charts"
+    echo "would run: warehouse_jobs"
+    echo "would run: sync_injuries"
+    echo "would run: materialize_standings"
+    echo "would run: sync_official_season_stats"
+    echo "would run: sync_official_team_season_stats"
+    echo "would run: sync_official_team_general_splits"
+    echo "would run: sync_official_team_shooting_splits"
+    if [ "$IS_PLAYOFFS" = "1" ]; then
+      echo "would run: playoff sync_official_season_stats is_playoff=True"
+      echo "would run: playoff sync_official_team_general_splits is_playoff=True"
+      echo "would run: playoff sync_official_team_shooting_splits is_playoff=True"
+      echo "would run: bracket refreshed"
+    fi
+  fi
+  echo "daily_sync dry-run complete: series_refreshed=$SERIES_REFRESHED games_refreshed=$GAMES_REFRESHED"
+  exit 0
+fi
+
+echo "[$(date -u +%Y-%m-%dT%H:%M:%SZ)] daily_sync start season=$SEASON post_game=$POST_GAME_MODE is_playoffs=$IS_PLAYOFFS" >> "$LOG"
+
+# ---------------------------------------------------------------------------
+# Post-game cron path: minimal refresh after each playoff game.
+# ---------------------------------------------------------------------------
+if [ "$POST_GAME_MODE" = "1" ]; then
+  "$PYTHON_BIN" - <<'PYEOF' >> "$LOG" 2>&1
+import os, sys
+sys.path.insert(0, os.getcwd())
+from datetime import date
+
+from db.database import SessionLocal
+from db.models import GameLog
+from services.playoff_bracket_service import build_or_refresh_bracket
+from services.sync_service import (
+    sync_injuries,
+    sync_official_team_general_splits,
+    sync_official_team_shooting_splits,
+)
+
+season = os.environ.get("SEASON", "2024-25")
+games_refreshed = 0
+series_refreshed = 0
+db = SessionLocal()
+try:
+    today = date.today()
+    todays_games_query = db.query(GameLog).filter(GameLog.game_date == today, GameLog.season == season)
+    if hasattr(GameLog, "season_type"):
+        todays_games_query = todays_games_query.filter(GameLog.season_type == "Playoffs")
+    games_refreshed = todays_games_query.count()
+    print("post_game: today_playoff_games=", games_refreshed)
+
+    series_refreshed = build_or_refresh_bracket(db, season)
+    print("bracket refreshed:", series_refreshed)
+
+    print("sync_injuries:", sync_injuries(db, season=season))
+    print("sync_official_team_general_splits playoff:", sync_official_team_general_splits(db, season=season, is_playoff=True))
+    print("sync_official_team_shooting_splits playoff:", sync_official_team_shooting_splits(db, season=season, is_playoff=True))
+finally:
+    db.close()
+print("daily_sync_summary: series_refreshed=", series_refreshed, "games_refreshed=", games_refreshed)
+PYEOF
+  echo "[$(date -u +%Y-%m-%dT%H:%M:%SZ)] daily_sync post-game complete season=$SEASON" >> "$LOG"
+  echo "daily_sync post-game complete: season=$SEASON"
+  exit 0
+fi
 
 # 1. Queue current-season shot chart refresh work
-python - <<'PYEOF' >> "$LOG" 2>&1
+"$PYTHON_BIN" - <<'PYEOF' >> "$LOG" 2>&1
 import sys, os
 sys.path.insert(0, os.getcwd())
 from db.database import SessionLocal
@@ -36,10 +183,10 @@ finally:
 PYEOF
 
 # 2. Warehouse ingestion jobs (schedule, box scores, PBP, materialization, shot charts)
-python data/warehouse_jobs.py --season "$SEASON" --max-jobs 100 >> "$LOG" 2>&1
+"$PYTHON_BIN" data/warehouse_jobs.py --season "$SEASON" --max-jobs 100 >> "$LOG" 2>&1
 
 # 3. Injuries sync — queue a sync_injuries job for today
-python - <<'PYEOF' >> "$LOG" 2>&1
+"$PYTHON_BIN" - <<'PYEOF' >> "$LOG" 2>&1
 import sys, os
 sys.path.insert(0, os.getcwd())
 from db.database import SessionLocal
@@ -54,7 +201,7 @@ finally:
 PYEOF
 
 # 4. Materialize standings
-python - <<'PYEOF' >> "$LOG" 2>&1
+"$PYTHON_BIN" - <<'PYEOF' >> "$LOG" 2>&1
 import sys, os
 sys.path.insert(0, os.getcwd())
 from db.database import SessionLocal
@@ -68,8 +215,8 @@ finally:
     db.close()
 PYEOF
 
-# 5. Refresh official player and team season dashboards
-python - <<'PYEOF' >> "$LOG" 2>&1
+# 5. Refresh official player and team season dashboards (regular-season slice)
+"$PYTHON_BIN" - <<'PYEOF' >> "$LOG" 2>&1
 import sys, os
 sys.path.insert(0, os.getcwd())
 from db.database import SessionLocal
@@ -90,4 +237,31 @@ finally:
     db.close()
 PYEOF
 
-echo "[$(date -u +%Y-%m-%dT%H:%M:%SZ)] daily_sync complete season=$SEASON" >> "$LOG"
+# 6. Playoff slice — only when the season-phase service reports an active
+#    postseason. Mirrors block 5 with is_playoff=True, then refreshes the
+#    bracket so the new game results propagate to playoff_series rows.
+if [ "$IS_PLAYOFFS" = "1" ]; then
+  "$PYTHON_BIN" - <<'PYEOF' >> "$LOG" 2>&1
+import sys, os
+sys.path.insert(0, os.getcwd())
+from db.database import SessionLocal
+from services.playoff_bracket_service import build_or_refresh_bracket
+from services.sync_service import (
+    sync_official_season_stats,
+    sync_official_team_general_splits,
+    sync_official_team_shooting_splits,
+)
+
+season = os.environ.get("SEASON", "2024-25")
+db = SessionLocal()
+try:
+    print("sync_official_season_stats playoff:", sync_official_season_stats(db, season=season, is_playoff=True))
+    print("sync_official_team_general_splits playoff:", sync_official_team_general_splits(db, season=season, is_playoff=True))
+    print("sync_official_team_shooting_splits playoff:", sync_official_team_shooting_splits(db, season=season, is_playoff=True))
+    print("bracket refreshed:", build_or_refresh_bracket(db, season))
+finally:
+    db.close()
+PYEOF
+fi
+
+echo "[$(date -u +%Y-%m-%dT%H:%M:%SZ)] daily_sync complete season=$SEASON post_game=$POST_GAME_MODE is_playoffs=$IS_PLAYOFFS" >> "$LOG"

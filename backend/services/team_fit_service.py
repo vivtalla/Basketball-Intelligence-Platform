@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from collections import defaultdict
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Literal, Optional, Tuple
 
 from fastapi import HTTPException
 from sqlalchemy.orm import Session
@@ -34,9 +34,12 @@ from services.similarity_service import (
 )
 
 
+SeasonType = Literal["Regular Season", "Playoffs"]
+
 METHODOLOGY_VERSION = "team_fit_v2"
 BETTER_FIT_DELTA_THRESHOLD = 5.0
 MIN_TEAM_PLAYERS = 3
+PLAYOFF_LOW_SAMPLE_THRESHOLD = 8
 
 WEIGHTS: Dict[str, float] = {
     "value_supplied": 0.45,
@@ -124,11 +127,12 @@ def _resolve_subject_row(
     rows: List[SeasonStat],
     player_id: int,
     season: str,
+    is_playoff: bool = False,
 ) -> Tuple[Optional[SeasonStat], List[str]]:
     warnings: List[str] = []
     player_rows = [
         r for r in rows
-        if r.player_id == player_id and r.season == season and not r.is_playoff
+        if r.player_id == player_id and r.season == season and bool(r.is_playoff) == is_playoff
     ]
     if not player_rows:
         return None, warnings
@@ -474,12 +478,14 @@ def build_team_fit_report(
     player_id: int,
     season: str,
     limit: int = 5,
+    season_type: SeasonType = "Regular Season",
 ) -> TeamFitResponse:
     player = db.query(Player).filter(Player.id == player_id).first()
     if player is None:
         raise HTTPException(status_code=404, detail="Player not found.")
 
-    all_rows = _qualified_rows_v2(db)
+    is_playoff = season_type == "Playoffs"
+    all_rows = _qualified_rows_v2(db, is_playoff=is_playoff)
     norms = _season_norms_v2(all_rows)
     effective_season = season
     warnings: List[str] = []
@@ -494,13 +500,26 @@ def build_team_fit_report(
             )
             effective_season = fallback
 
-    subject_row, row_warnings = _resolve_subject_row(all_rows, player_id, effective_season)
+    subject_row, row_warnings = _resolve_subject_row(
+        all_rows, player_id, effective_season, is_playoff=is_playoff
+    )
     warnings.extend(row_warnings)
     if subject_row is None:
+        season_type_label = "playoff" if is_playoff else "regular-season"
         raise HTTPException(
             status_code=404,
-            detail="No qualified regular-season row found for player {0} in {1}.".format(player_id, season),
+            detail="No qualified {0} row found for player {1} in {2}.".format(
+                season_type_label, player_id, season
+            ),
         )
+
+    low_sample_warning: Optional[str] = None
+    if is_playoff:
+        playoff_gp = int(subject_row.gp or 0)
+        if playoff_gp < PLAYOFF_LOW_SAMPLE_THRESHOLD:
+            low_sample_warning = "Limited playoff sample (<{0} games)".format(
+                PLAYOFF_LOW_SAMPLE_THRESHOLD
+            )
 
     player_ids = list({row.player_id for row in all_rows})
     player_lookup = {
@@ -613,4 +632,5 @@ def build_team_fit_report(
             all_rows=all_rows,
             warnings=warnings,
         ),
+        low_sample_warning=low_sample_warning,
     )

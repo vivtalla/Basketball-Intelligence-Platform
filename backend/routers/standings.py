@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import List, Optional
+from typing import List, Literal, Optional
 
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy import func
@@ -11,6 +11,9 @@ from db.models import GameTeamStat, Team, TeamSeasonStat, TeamStanding, Warehous
 from models.standings import StandingsEntry, StandingsHistoryResponse
 from services.standings_service import get_standings_history
 from services.standings_service import TEAM_CONF_DIV
+
+
+SeasonType = Literal["Regular Season", "Playoffs"]
 
 router = APIRouter()
 
@@ -226,14 +229,19 @@ def _official_stat_payload(team_stats: TeamSeasonStat) -> dict:
     }
 
 
-def _standings_from_team_season_stats(season: str, db: Session) -> Optional[List[StandingsEntry]]:
+def _standings_from_team_season_stats(
+    season: str,
+    db: Session,
+    season_type: SeasonType = "Regular Season",
+) -> Optional[List[StandingsEntry]]:
     """Fallback for current seasons before daily standings snapshots exist."""
+    is_playoff = season_type == "Playoffs"
     rows = (
         db.query(TeamSeasonStat, Team)
         .join(Team, Team.id == TeamSeasonStat.team_id)
         .filter(
             TeamSeasonStat.season == season,
-            TeamSeasonStat.is_playoff == False,  # noqa: E712
+            TeamSeasonStat.is_playoff == is_playoff,
         )
         .all()
     )
@@ -302,10 +310,15 @@ def get_standings_history_endpoint(
 def get_standings(
     season: str = Query("2024-25"),
     db: Session = Depends(get_db),
+    season_type: SeasonType = "Regular Season",
 ):
     """Return league standings from snapshots, or official team stats when snapshots are absent."""
-    snapshot_entries = _standings_from_db(season, db)
-    official_entries = _standings_from_team_season_stats(season, db)
+    official_entries = _standings_from_team_season_stats(season, db, season_type=season_type)
+    # Snapshot path is regular-season only; only consult it for the default season type.
+    if season_type == "Regular Season":
+        snapshot_entries = _standings_from_db(season, db)
+    else:
+        snapshot_entries = None
     entries = official_entries or snapshot_entries
     if entries is None:
         return []

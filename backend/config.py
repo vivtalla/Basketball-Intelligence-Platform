@@ -31,3 +31,7 @@ NBA_API_TIMEOUT = 30
 # Database
 CACHE_DB_PATH = os.path.join(os.path.dirname(__file__), "db", "cache.db")
 DATABASE_URL = os.getenv("DATABASE_URL", "postgresql://localhost/bip")
+
+# Playoff cache override (drops below CURRENT_SEASON_CACHE_TTL during the
+# postseason window so live brackets stay fresh during games).
+PLAYOFF_CACHE_TTL = 7200  # 2 hours during playoff window

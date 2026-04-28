@@ -141,6 +141,9 @@ class SeasonStat(Base):
 
 class GameLog(Base):
     __tablename__ = "game_logs"
+    __table_args__ = (
+        Index("ix_game_logs_series_id", "series_id"),
+    )
 
     game_id = Column(String(10), primary_key=True)
     season = Column(String(7), nullable=False)
@@ -149,6 +152,12 @@ class GameLog(Base):
     away_team_id = Column(Integer, ForeignKey("teams.id"), nullable=True)
     home_score = Column(Integer)
     away_score = Column(Integer)
+
+    # Sprint 73 — playoffs data layer
+    season_type = Column(String, nullable=False, default="Regular Season", server_default="Regular Season")
+    series_id = Column(String, nullable=True)
+    series_game_num = Column(Integer, nullable=True)
+    playoff_seed = Column(Integer, nullable=True)
 
     play_by_play = relationship("PlayByPlay", back_populates="game", cascade="all, delete-orphan")
 
@@ -243,13 +252,16 @@ class PlayerGameLog(Base):
 class LineupStats(Base):
     __tablename__ = "lineup_stats"
     __table_args__ = (
-        UniqueConstraint("lineup_key", "season", name="uq_lineup_season"),
+        UniqueConstraint(
+            "lineup_key", "season", "is_playoff", name="uq_lineup_season_playoff"
+        ),
     )
 
     id = Column(Integer, primary_key=True, autoincrement=True)
     lineup_key = Column(String(200), nullable=False)  # sorted player IDs joined by "-"
     season = Column(String(7), nullable=False)
     team_id = Column(Integer, ForeignKey("teams.id"), nullable=True)
+    is_playoff = Column(Boolean, nullable=False, default=False)
     minutes = Column(Float)
     net_rating = Column(Float)
     ortg = Column(Float)
@@ -355,6 +367,7 @@ class WarehouseGame(Base):
     __table_args__ = (
         Index("ix_games_season_date", "season", "game_date"),
         Index("ix_games_status_flags", "season", "has_final_box_score", "has_parsed_pbp"),
+        Index("ix_games_series_id", "series_id"),
     )
 
     game_id = Column(String(20), primary_key=True)
@@ -385,6 +398,12 @@ class WarehouseGame(Base):
     last_pbp_sync_at = Column(DateTime)
     last_materialized_at = Column(DateTime)
     updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
+
+    # Sprint 73 — playoffs data layer
+    season_type = Column(String, nullable=False, default="Regular Season", server_default="Regular Season")
+    series_id = Column(String, nullable=True)
+    series_game_num = Column(Integer, nullable=True)
+    playoff_seed = Column(Integer, nullable=True)
 
 
 class RawGamePayload(Base):
@@ -1185,3 +1204,34 @@ class ShotQualityBaseline(Base):
     payload = Column(JSON, nullable=False)
     computed_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
     created_at = Column(DateTime, server_default=func.now())
+
+
+# ---------------------------------------------------------------------------
+# Sprint 73 — Playoffs Data Layer
+# ---------------------------------------------------------------------------
+
+class PlayoffSeries(Base):
+    """A single playoff series between two teams (best-of-7 within a bracket round)."""
+    __tablename__ = "playoff_series"
+    __table_args__ = (
+        UniqueConstraint("season", "series_id", name="uq_playoff_series_season_series"),
+        Index("ix_playoff_series_season", "season"),
+        Index("ix_playoff_series_round", "round"),
+        Index("ix_playoff_series_status", "status"),
+    )
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    season = Column(String, nullable=False)
+    # Bracket round: 1=first round, 2=conference semis, 3=conference finals, 4=NBA Finals
+    round = Column(Integer, nullable=False)
+    series_id = Column(String, nullable=False)  # e.g. "2025-26-W-R1-OKC-MIN"
+    top_seed_team_id = Column(Integer, ForeignKey("teams.id"), nullable=False)
+    bottom_seed_team_id = Column(Integer, ForeignKey("teams.id"), nullable=False)
+    top_seed = Column(Integer, nullable=False)     # 1..16
+    bottom_seed = Column(Integer, nullable=False)
+    top_wins = Column(Integer, nullable=False, default=0)
+    bottom_wins = Column(Integer, nullable=False, default=0)
+    status = Column(String, nullable=False)        # "scheduled", "active", "closed"
+    winner_team_id = Column(Integer, ForeignKey("teams.id"), nullable=True)
+    created_at = Column(DateTime, server_default=func.now())
+    updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())

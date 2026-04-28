@@ -19,10 +19,12 @@ from routers import (
     methodology,
     mvp,
     players,
+    playoffs,
     pre_read,
     query,
     schedule,
     scouting,
+    season_phase,
     shotchart,
     similarity,
     standings,
@@ -74,6 +76,8 @@ app.include_router(methodology.router, prefix="/api/methodology", tags=["methodo
 app.include_router(injuries.router, prefix="/api/injuries", tags=["injuries"])
 app.include_router(query.router, prefix="/api/query", tags=["query"])
 app.include_router(mvp.router, prefix="/api/mvp", tags=["mvp"])
+app.include_router(season_phase.router, prefix="/api/season-phase", tags=["season-phase"])
+app.include_router(playoffs.router, prefix="/api/playoffs", tags=["playoffs"])
 
 
 @app.on_event("startup")

@@ -200,7 +200,7 @@ def test_sync_official_team_general_splits_upserts_and_filters_rows(monkeypatch)
         )
         session.commit()
 
-        def fake_get_team_general_splits(season: str, team_id: int):
+        def fake_get_team_general_splits(season: str, team_id: int, **_kwargs):
             assert season == "2025-26"
             if team_id == 1610612738:
                 return [
@@ -347,7 +347,7 @@ def test_sync_official_team_shooting_splits_upserts_and_filters_rows(monkeypatch
         )
         session.commit()
 
-        def fake_get_team_shooting_splits(season: str, team_id: int):
+        def fake_get_team_shooting_splits(season: str, team_id: int, **_kwargs):
             assert season == "2025-26"
             if team_id == 1610612738:
                 return [
