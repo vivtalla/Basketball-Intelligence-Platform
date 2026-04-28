@@ -1,9 +1,20 @@
 # Sprint History Archive
 
-Archived sprint summaries through Sprint 72. The two most recent sprint summaries also stay inline in `CLAUDE.md` under "Recent Sprints".
+Archived sprint summaries through Sprint 73. The two most recent sprint summaries also stay inline in `CLAUDE.md` under "Recent Sprints".
 
 For detailed per-sprint records, see the individual closeout files in this directory where available:
 `specs/sprint-09-closeout.md` through `specs/sprint-59-closeout.md`, plus `specs/sprint-62-closeout.md` and `specs/sprint-67-closeout.md` onward.
+
+---
+
+### Sprint 73 — Playoffs Platform
+**Branches:** `feature/sprint-73a-playoffs-data` (Stream A) → `feature/sprint-73b-playoffs-features` (Stream B); two-team parallel, Architect → 8 Engineers → Reviewer → Optimizer
+
+- Centered the platform on the 2026 NBA first-round playoffs while preserving the regular-season scope. Every playoff surface gates behind a new `useSeasonPhase()` SWR hook backed by an auto-detect service so the platform reverts cleanly outside the playoff window.
+- Stream A (data foundation) shipped: Alembic `0012_playoffs_data_layer` (new `playoff_series` table + `is_playoff` on `lineup_stats` + `season_type`/`series_id`/`series_game_num`/`playoff_seed` on game_logs and warehouse games); `nba_client` + `sync_service` + `daily_sync.sh` got `season_type` pass-through, a 2h `PLAYOFF_CACHE_TTL` during the playoff window, and a new `--post-game` cron path; `services/season_phase_service.get_current_phase()` auto-detects from date+data; new `services/playoff_bracket_service` and `playoff_simulator_service` (deterministic Monte-Carlo); 5 services unblocked from `is_playoff=False` filters; new routes `/api/season-phase`, `/api/playoffs/bracket|series/{id}|today|series-simulation/{id}`.
+- Stream B (frontend) shipped: `/bracket` route + `<PlayoffBracketView>` + `<SeriesCard>` + `useSeasonPhase` hook; series-mode Pre-Read pivot with `<CoachingAdjustmentsTimeline>` (finally surfaces `data.adjustments` deferred from Sprint 72) + `<SeriesWPChart>`; home shift with `<DailyPlayoffSlate>` + `<SeriesNarrative>` carousel; leaderboards Regular/Playoffs toggle; `<SeriesWPSimulator>` on MVP; `<PostseasonHeatmap>` on leaderboards; `<OpponentLineupMatchupMatrix>` tab on team detail.
+- Reviewer signed off no-blockers; Optimizer addressed DST-aware Pacific timezone (`pytz` for `/api/playoffs/today`) and memoized WP simulator chart geometry in one defensive-fixes commit.
+- Verified with **286 backend tests** (was 266, +20 new), `npm run build` + `npm run lint` clean (7 pre-existing warnings).
 
 ---
 

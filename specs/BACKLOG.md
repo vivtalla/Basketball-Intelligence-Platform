@@ -298,11 +298,26 @@ Why it matters:
 Sprint 72 surfaced and shipped the top five free UI wins from the API payload audit (Pre-Read urgency badge + headline, MVP support_burden, archetype reason tooltip, opportunity hint discoverability). The audit also flagged a second tier of medium-priority untapped fields that have UI value but need a small design pass before they ship.
 
 Likely shape:
-- **`PreReadDeckResponse.adjustments` (PreReadAdjustment[])** — render as a "Coaching adjustments" panel under the Pre-Read scouting packet. Today returned by the API but never read by the page. Needs design for layout (table vs. card vs. inline list). ~20 min once design is set.
 - **`PreReadDeckResponse.prep_context.best_edge_label` + `best_edge_rationale`** — currently rendered as part of the prep_context blob; promoting them to a dedicated "Biggest edge" card adjacent to focus levers would give them more visual weight. ~15 min.
 - **`MvpCandidate.impact_consensus`** — render as a metric-agreement pill on each candidate card showing how many of the multi-metric impact systems (EPM / LEBRON / RAPTOR / PIPM / DARKO) agree on this candidate's tier. Adds a "wisdom of metrics" overlay separate from the existing composite score.
 - **`MvpCandidate.signature_games` carousel** — currently rendered inline as a small list inside the case panel. Promoting this to a clickable carousel that deep-links into Game Explorer would pair well with the "Key moments" UX direction.
 - **`TrajectoryPlayerRow.key_stat_deltas` standalone view** — currently used only to drive the existing `DriverBar` decomposition. Surfacing the full delta dict as a "stat-by-stat YoY" mini chart could replace one of the current Trajectory cards.
+
+(`PreReadDeckResponse.adjustments` was deferred from Sprint 72 and shipped via the Sprint 73 `<CoachingAdjustmentsTimeline>` on the Pre-Read series-mode pivot.)
+
+### Sprint 73 follow-ons (Playoffs Platform)
+Why it matters:
+Sprint 73 shipped the Playoffs Platform with a season-phase auto-detect, full bracket page, series Pre-Read pivot, home shift, MVP simulator, Postseason heatmap, and opponent lineup matchup tab. A few v1 limitations were documented inline; closing them turns the playoff platform from "good" to "complete."
+
+Likely shape:
+- **WP Simulator hypothetical state overrides** — backend `/api/playoffs/series-simulation/{id}` accepts `?override_top_wins=&override_bottom_wins=` so the W/L stub buttons in `<SeriesWPSimulator>` can drive real hypothetical re-simulation. Currently a no-op v1 that just re-fetches the current projection.
+- **PostseasonHeatmap position-bucket coloring** — needs `position` field on `LeaderboardEntry` Pydantic schema (one-line backend addition); frontend then colors heatmap dots by G/F/C bucket instead of TS-delta sign.
+- **Opponent lineup head-to-head net delta** — replace the standalone net rating delta in `<OpponentLineupMatchupMatrix>` with a true shared-possession net delta once a `lineup-matchups` endpoint exists. Currently the matrix shows each cell's standalone value, not the head-to-head edge between the two specific lineups.
+- **Series snapshot system** mirroring Sprint 66's `pre_read_snapshots` for full series archives — staff packets that capture the full series state at a moment in time.
+- **Live in-game playoff updates** — sub-minute freshness via WebSocket ingest. Out of scope this sprint; would unlock real-time bracket/WP movement during games.
+- **Mobile vertical bracket layout** — desktop-first this sprint; bracket page in particular could use a mobile vertical layout when viewport < 768px.
+- **`nba_client.py` lowercase-generic typing cleanup** — file uses `from __future__ import annotations` so `list[dict]` runtime subscripts are safe (stringified), but worth normalizing to `typing.Dict[]`/`List[]` in a sweep for consistency with the rest of the backend.
+- **Print stylesheet for `/insights/trajectory` and `/insights/x-ray`** — Sprint 72 added Pre-Read print rules; carry the pattern across so coaches can print other surfaces too.
 
 ### Frontend component-logic test infrastructure
 Why it matters:
