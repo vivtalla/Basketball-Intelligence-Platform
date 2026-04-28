@@ -3,11 +3,52 @@
 import { useMemo, useState, type ReactNode } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import type { MvpCandidate, MvpRaceResponse, MvpScorePillar } from "@/lib/types";
+import type { MvpCandidate, MvpRaceResponse, MvpScorePillar, MvpSupportBurden } from "@/lib/types";
+import HeroHardwood from "./HeroHardwood";
 import MvpImpactRadar from "./MvpImpactRadar";
 import MvpClutchCard from "./MvpClutchCard";
 import MvpSignatureGames from "./MvpSignatureGames";
 import { useLineupContext } from "@/hooks/useTrajectory";
+
+// Inline team-tint map keyed by abbreviation; mirrors the palette in /teams.
+const TEAM_TINT: Record<string, string> = {
+  ATL: "#e03a3e", BOS: "#007a33", BKN: "#000000", CHA: "#00788c", CHI: "#ce1141",
+  CLE: "#6f263d", DET: "#c8102e", IND: "#002d62", MIA: "#98002e", MIL: "#00471b",
+  NYK: "#f58426", ORL: "#0077c0", PHI: "#006bb6", TOR: "#ce1141", WAS: "#002b5c",
+  DAL: "#00538c", DEN: "#0e2240", GSW: "#1d428a", HOU: "#ce1141", LAC: "#c8102e",
+  LAL: "#552583", MEM: "#5d76a9", MIN: "#0c2340", NOP: "#0c2340", OKC: "#007ac1",
+  PHX: "#1d1160", POR: "#e03a3e", SAC: "#5a2d81", SAS: "#c4ced4", UTA: "#002b5c",
+};
+
+function teamTintFor(abbr: string | null | undefined): string {
+  if (!abbr) return "var(--accent)";
+  return TEAM_TINT[abbr] ?? "var(--accent)";
+}
+
+function rankBadge(rank: number): string {
+  if (rank <= 0) return "#--";
+  return `#${rank.toString().padStart(2, "0")}`;
+}
+
+// Convert a MvpSupportBurden to a 0-100 burden score for a small bar visualizer.
+// Heuristic: usage% (0-1 typical) drives most of the burden. If usage missing,
+// fall back to inverse of teammate availability avg GP.
+function supportBurdenScore(support: MvpSupportBurden): number | null {
+  const usage = support.candidate_usage_pct;
+  if (usage != null && Number.isFinite(usage)) {
+    const usagePct = usage <= 1 ? usage * 100 : usage;
+    // 20% usage → 50 burden, 35% → 85 burden, capped 0..100.
+    const burden = Math.max(0, Math.min(100, (usagePct - 10) * 4));
+    return burden;
+  }
+  const avgGp = support.teammate_availability_avg_gp;
+  if (avgGp != null && Number.isFinite(avgGp)) {
+    // 65 GP avg → low burden (20). 30 GP avg → high burden (75).
+    const burden = Math.max(0, Math.min(100, (65 - avgGp) * 1.7 + 20));
+    return burden;
+  }
+  return null;
+}
 
 interface MvpRacePanelProps {
   data: MvpRaceResponse;
@@ -268,6 +309,37 @@ function ModifierBar({ modifier }: { modifier: NonNullable<MvpCandidate["award_m
   );
 }
 
+function TeammateQualityBar({ support }: { support: MvpSupportBurden }) {
+  const burden = supportBurdenScore(support);
+  if (burden == null) return null;
+  // Lower burden ⇒ better support ⇒ accent (forest). Higher burden ⇒ signal (gold).
+  const isHighBurden = burden >= 60;
+  const barColor = isHighBurden ? "var(--signal)" : "var(--accent)";
+  const label = isHighBurden ? "Heavy lift" : burden >= 40 ? "Balanced" : "Strong support";
+  const width = Math.max(4, Math.min(100, burden));
+
+  return (
+    <div className="rounded-lg border border-[var(--border)] bg-[var(--surface-alt)] px-2 py-2">
+      <div className="flex items-center justify-between gap-2">
+        <span className="bip-kicker text-[10px]">Teammate quality</span>
+        <span className="text-[10px] font-semibold uppercase tracking-[0.06em] text-[var(--muted)]">{label}</span>
+      </div>
+      <div className="mt-1.5 h-1.5 overflow-hidden rounded bg-[var(--border)]">
+        <div
+          className="h-full rounded transition-all"
+          style={{ width: `${width.toFixed(0)}%`, backgroundColor: barColor }}
+        />
+      </div>
+      {support.top_teammate_name ? (
+        <p className="mt-1.5 truncate text-[10px] text-[var(--muted)]">
+          Top: {support.top_teammate_name}
+          {support.top_teammate_pts_pg != null ? ` · ${fmt(support.top_teammate_pts_pg)} PPG` : ""}
+        </p>
+      ) : null}
+    </div>
+  );
+}
+
 function CandidateRow({
   candidate,
   selected,
@@ -280,55 +352,73 @@ function CandidateRow({
   const team = candidate.team_context;
   const awardScore = candidate.award_case_score ?? candidate.composite_score;
   const valueScore = candidate.basketball_value_score;
+  const tint = teamTintFor(candidate.team_abbreviation);
+  const seed = (candidate.player_id % 31) + 3;
+  const isLeader = candidate.rank === 1;
+  const support = candidate.support_burden;
+  const showTeammate = support != null && supportBurdenScore(support) != null;
 
   return (
     <button
       type="button"
       onClick={onSelect}
-      className={`w-full rounded-lg border p-4 text-left transition-colors ${
+      className={`relative w-full overflow-hidden rounded-lg border p-4 text-left transition-colors ${
         selected
           ? "border-[var(--accent)] bg-[rgba(33,72,59,0.08)]"
           : "border-[var(--border)] bg-[var(--surface)] hover:border-[var(--accent)]"
       }`}
     >
-      <div className="flex items-center gap-3">
-        <div className="w-7 shrink-0 text-center text-lg font-bold tabular-nums text-[var(--accent)]">
-          {candidate.rank}
-        </div>
-        <div className="relative h-12 w-12 shrink-0 overflow-hidden rounded-full bg-[var(--surface-alt)]">
-          {candidate.headshot_url ? (
-            <Image src={candidate.headshot_url} alt={candidate.player_name} fill className="object-cover object-top" unoptimized />
-          ) : (
-            <div className="flex h-full w-full items-center justify-center text-xs font-bold text-[var(--muted)]">
-              {candidate.player_name.split(" ").map((name) => name[0]).join("").slice(0, 2)}
-            </div>
-          )}
-        </div>
-        <div className="min-w-0 flex-1">
-          <div className="flex items-center gap-2">
-            <p className="truncate text-sm font-semibold text-[var(--foreground)]">{candidate.player_name}</p>
-            <span className="rounded border border-[var(--border)] px-1.5 py-0.5 text-[10px] uppercase text-[var(--muted)]">
-              {candidate.momentum}
-            </span>
-            <span className={`rounded border px-1.5 py-0.5 text-[10px] uppercase ${eligibilityClass(candidate.eligibility?.eligibility_status)}`}>
-              {candidate.eligibility?.eligible_games ?? candidate.gp}/65
-            </span>
+      <HeroHardwood opacity={0.07} tint={tint} seed={seed} />
+      <div className="relative">
+        <div className="flex items-center gap-3">
+          <div
+            className="w-12 shrink-0 text-center text-sm font-bold tabular-nums"
+            style={{ color: isLeader ? "var(--signal)" : "var(--muted)" }}
+          >
+            {isLeader ? "★ #1" : rankBadge(candidate.rank)}
           </div>
-          <p className="mt-0.5 text-xs text-[var(--muted)]">
-            {candidate.team_abbreviation} - {candidate.gp} GP - Award {fmt(awardScore, 1)}
-            {candidate.context_adjusted_score != null ? ` - Context ${fmt(candidate.context_adjusted_score, 1)}` : ""}
-          </p>
+          <div className="relative h-12 w-12 shrink-0 overflow-hidden rounded-full bg-[var(--surface-alt)]">
+            {candidate.headshot_url ? (
+              <Image src={candidate.headshot_url} alt={candidate.player_name} fill className="object-cover object-top" unoptimized />
+            ) : (
+              <div className="flex h-full w-full items-center justify-center text-xs font-bold text-[var(--muted)]">
+                {candidate.player_name.split(" ").map((name) => name[0]).join("").slice(0, 2)}
+              </div>
+            )}
+          </div>
+          <div className="min-w-0 flex-1">
+            <div className="flex items-center gap-2">
+              <p className="bip-display truncate text-2xl font-bold text-[var(--foreground)]">
+                {candidate.player_name}
+              </p>
+              <span className="rounded border border-[var(--border)] px-1.5 py-0.5 text-[10px] uppercase text-[var(--muted)]">
+                {candidate.momentum}
+              </span>
+              <span className={`rounded border px-1.5 py-0.5 text-[10px] uppercase ${eligibilityClass(candidate.eligibility?.eligibility_status)}`}>
+                {candidate.eligibility?.eligible_games ?? candidate.gp}/65
+              </span>
+            </div>
+            <p className="mt-0.5 text-xs text-[var(--muted)]">
+              {candidate.team_abbreviation} - {candidate.gp} GP - Award {fmt(awardScore, 1)}
+              {candidate.context_adjusted_score != null ? ` - Context ${fmt(candidate.context_adjusted_score, 1)}` : ""}
+            </p>
+          </div>
         </div>
-      </div>
-      <div className="mt-4 grid grid-cols-3 gap-2 text-center text-xs">
-        <StatTile label="Award" value={fmt(awardScore)} />
-        <StatTile label="Value" value={fmt(valueScore)} />
-        <StatTile label="Confidence" value={candidate.confidence?.overall ?? "-"} />
-      </div>
-      <div className="mt-3 text-xs text-[var(--muted)]">
-        {team?.wins != null && team?.losses != null
-          ? `${candidate.team_abbreviation} ${team.wins}-${team.losses}, net ${fmtSigned(team.net_rating)}`
-          : "Team context pending"}
+        <div className="mt-4 grid grid-cols-3 gap-2 text-center text-xs">
+          <StatTile label="Award" value={fmt(awardScore)} />
+          <StatTile label="Value" value={fmt(valueScore)} />
+          <StatTile label="Confidence" value={candidate.confidence?.overall ?? "-"} />
+        </div>
+        {showTeammate && support ? (
+          <div className="mt-2">
+            <TeammateQualityBar support={support} />
+          </div>
+        ) : null}
+        <div className="mt-3 text-xs text-[var(--muted)]">
+          {team?.wins != null && team?.losses != null
+            ? `${candidate.team_abbreviation} ${team.wins}-${team.losses}, net ${fmtSigned(team.net_rating)}`
+            : "Team context pending"}
+        </div>
       </div>
     </button>
   );
