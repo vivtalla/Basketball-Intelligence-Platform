@@ -12,9 +12,10 @@ Routes:
 """
 from __future__ import annotations
 
-from datetime import date, datetime, timedelta, timezone
+from datetime import date, datetime
 from typing import Dict, List, Optional
 
+import pytz
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 
@@ -47,15 +48,13 @@ _WEST_ABBRS = {
 }
 
 
-# US Pacific is UTC-8 standard / UTC-7 daylight. We use a fixed UTC-7 offset as
-# a "good enough" approximation for the today's-slate default — playoff games
-# all happen during DST so the gap is negligible. Stdlib in Python 3.8 does not
-# include zoneinfo without a third-party install.
-_PACIFIC_OFFSET = timezone(timedelta(hours=-7))
+# US Pacific via pytz (DST-aware). Stdlib `zoneinfo` isn't available on Python
+# 3.8 without a third-party install, but pytz is already in the dep tree.
+_PACIFIC_TZ = pytz.timezone("US/Pacific")
 
 
 def _today_pacific() -> date:
-    return datetime.now(tz=_PACIFIC_OFFSET).date()
+    return datetime.now(tz=_PACIFIC_TZ).date()
 
 
 def _conference_for_team(team: Optional[Team], abbr_fallback: Optional[str]) -> Optional[str]:

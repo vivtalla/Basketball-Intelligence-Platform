@@ -52,6 +52,18 @@ const W = 720;
 const H = 220;
 
 function ProjectionChart({ projection }: { projection: SeriesProjectionEntry[] }) {
+  // Memoize the chart geometry so the SVG path + per-point coords don't get
+  // recomputed every time a parent (the SWR-driven simulator section) re-renders.
+  const geom = useMemo(() => {
+    const x = (i: number) =>
+      PAD.l + (projection.length === 1 ? 0 : (i / (projection.length - 1)) * (W - PAD.l - PAD.r));
+    const y = (p: number) => PAD.t + (1 - p) * (H - PAD.t - PAD.b);
+    const path = projection
+      .map((entry, i) => `${i === 0 ? "M" : "L"} ${x(i).toFixed(1)} ${y(entry.home_win_prob).toFixed(1)}`)
+      .join(" ");
+    return { x, y, path };
+  }, [projection]);
+
   if (projection.length === 0) {
     return (
       <div className="flex h-[180px] items-center justify-center text-xs text-[var(--muted)]">
@@ -59,14 +71,7 @@ function ProjectionChart({ projection }: { projection: SeriesProjectionEntry[] }
       </div>
     );
   }
-
-  // x maps each projected game to a slot 0..N-1; y maps win-prob 0..1.
-  const x = (i: number) =>
-    PAD.l + (projection.length === 1 ? 0 : (i / (projection.length - 1)) * (W - PAD.l - PAD.r));
-  const y = (p: number) => PAD.t + (1 - p) * (H - PAD.t - PAD.b);
-  const path = projection
-    .map((entry, i) => `${i === 0 ? "M" : "L"} ${x(i).toFixed(1)} ${y(entry.home_win_prob).toFixed(1)}`)
-    .join(" ");
+  const { x, y, path } = geom;
 
   return (
     <svg viewBox={`0 0 ${W} ${H}`} width="100%" style={{ display: "block" }}>
