@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { usePlayerTeamFit } from "@/hooks/useTeamFit";
+import { MethodologyEvidenceCard } from "@/components/methodology/MethodologyEvidenceCard";
 import type {
   TeamFitAlternativeLabel,
   TeamFitAlternativeTeam,
@@ -129,6 +130,20 @@ function CurrentTeamCard({ team }: { team: TeamFitCurrentTeam }) {
       </div>
       {team.confidence_notes.length > 0 && (
         <p className="mt-3 text-xs leading-5 text-[var(--muted)]">{team.confidence_notes[0]}</p>
+      )}
+      {team.theoretical_usage_score != null && (
+        <div className="mt-4 rounded-2xl border border-[var(--border)] bg-[var(--surface-alt)] p-3">
+          <div className="text-[10px] font-semibold uppercase tracking-[0.14em] text-[var(--muted)]">
+            Current fit vs best usage
+          </div>
+          <div className="mt-2 flex flex-wrap gap-3 text-sm text-[var(--muted-strong)]">
+            <span>Theoretical {team.theoretical_usage_score.toFixed(0)}</span>
+            <span>Gap {signed(team.fit_gap_vs_theoretical ?? 0)}</span>
+          </div>
+          {team.fit_interpretation ? (
+            <p className="mt-2 text-xs leading-5 text-[var(--muted)]">{team.fit_interpretation}</p>
+          ) : null}
+        </div>
       )}
     </article>
   );
@@ -264,9 +279,11 @@ export function TeamFitPanel({ playerId, season }: TeamFitPanelProps) {
         <p className="text-xs text-[var(--muted)]">{data.warnings[0]}</p>
       )}
 
+      <MethodologyEvidenceCard domain="team_fit" metadata={data.analysis_metadata} title="Team-Fit methodology reliability" />
+
       <details className="rounded-[1.25rem] border border-[var(--border)] bg-[rgba(255,255,255,0.58)] p-4 text-sm text-[var(--muted-strong)]">
         <summary className="cursor-pointer list-none font-semibold text-[var(--foreground)]">
-          How Team-Fit v2 is calculated
+          How Team-Fit v3 is calculated
         </summary>
         <div className="mt-3 space-y-2 text-xs leading-5">
           <p>

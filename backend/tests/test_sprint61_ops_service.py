@@ -131,7 +131,7 @@ def test_ops_reports_baseline_missing_and_ready():
         ShotQualityBaseline(
             season="2024-25",
             season_type="Regular Season",
-            methodology_version="shot_quality_v1",
+            methodology_version="shot_quality_v2",
             sample_n=1234,
             payload={"league": [1234, 500, 1400]},
             computed_at=datetime.utcnow(),

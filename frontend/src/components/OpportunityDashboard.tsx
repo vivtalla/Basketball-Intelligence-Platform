@@ -15,6 +15,7 @@ import { RoleFitCard } from "./opportunity/RoleFitCard";
 import { CohortPositionCard } from "./opportunity/CohortPositionCard";
 import { DirectionalHintBanner } from "./opportunity/DirectionalHintBanner";
 import { MethodologyDrawer } from "./opportunity/MethodologyDrawer";
+import { MethodologyEvidenceCard } from "@/components/methodology/MethodologyEvidenceCard";
 import {
   OpportunityDriverBar,
   SIGNAL_DESCRIPTIONS,
@@ -313,7 +314,10 @@ export default function OpportunityDashboard({
               </div>
 
               {report?.methodology ? (
-                <MethodologyDrawer methodology={report.methodology} />
+                <>
+                  <MethodologyEvidenceCard domain="opportunity" metadata={report.analysis_metadata} title="Opportunity methodology reliability" compact />
+                  <MethodologyDrawer methodology={report.methodology} />
+                </>
               ) : null}
             </>
           ) : !isLoading ? (

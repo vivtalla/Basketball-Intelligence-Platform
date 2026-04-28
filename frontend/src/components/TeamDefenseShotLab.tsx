@@ -198,7 +198,7 @@ export default function TeamDefenseShotLab({
                 team_abbreviation: teamAbbreviation,
                 intelligence_view: view,
                 coverage_state: shotQuality?.coverage_state ?? activeShotChart?.completeness_status ?? activeShotChart?.data_status ?? "missing",
-                methodology_version: shotQuality?.methodology_version ?? "shot_quality_v1",
+                methodology_version: shotQuality?.methodology_version ?? "shot_quality_v2",
                 advanced_split_mode: view === "creation" ? "proxy-labeled" : "default",
               },
             }}

@@ -1,5 +1,7 @@
 "use client";
 
+import { MethodologyEvidenceCard } from "@/components/methodology/MethodologyEvidenceCard";
+
 const WEIGHTS: Array<{ signal: string; label: string; weight: number }> = [
   { signal: "ts_pct", label: "TS%", weight: 0.25 },
   { signal: "pts", label: "PTS", weight: 0.2 },
@@ -11,6 +13,8 @@ const WEIGHTS: Array<{ signal: string; label: string; weight: number }> = [
 
 export function TrajectoryMethodologyDrawer() {
   return (
+    <div className="space-y-3">
+    <MethodologyEvidenceCard domain="trend" title="Trend methodology reliability" compact />
     <details className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-4 text-xs text-[var(--muted-strong)]">
       <summary className="cursor-pointer text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--muted)]">
         Trajectory methodology
@@ -65,5 +69,6 @@ export function TrajectoryMethodologyDrawer() {
         </div>
       </div>
     </details>
+    </div>
   );
 }

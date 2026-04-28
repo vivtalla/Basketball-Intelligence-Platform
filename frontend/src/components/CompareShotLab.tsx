@@ -340,7 +340,7 @@ export default function CompareShotLab({
               right: playerBLabel,
               intelligence_view: view,
               coverage_state: qualityA?.coverage_state ?? qualityB?.coverage_state ?? "missing",
-              methodology_version: qualityA?.methodology_version ?? qualityB?.methodology_version ?? "shot_quality_v1",
+              methodology_version: qualityA?.methodology_version ?? qualityB?.methodology_version ?? "shot_quality_v2",
               advanced_split_mode: view === "creation" ? "proxy-labeled" : "default",
             },
           }}

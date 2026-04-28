@@ -1643,10 +1643,11 @@ export async function getPlayerArchetypeHistory(
 export async function getPlayerTeamFit(
   playerId: number,
   season: string,
-  limit = 5
+  limit = 5,
+  seasonType = "Regular Season"
 ): Promise<import("./types").TeamFitResponse> {
   return fetchApi<import("./types").TeamFitResponse>(
-    `/api/team-fit/${playerId}?season=${encodeURIComponent(season)}&limit=${limit}`
+    `/api/team-fit/${playerId}?season=${encodeURIComponent(season)}&limit=${limit}&season_type=${encodeURIComponent(seasonType)}`
   );
 }
 
@@ -1697,6 +1698,23 @@ export async function deletePlayerAnalysisContext(
     `/api/players/${playerId}/analysis-contexts/${contextId}`,
     { method: "DELETE" }
   );
+}
+
+// Sprint 74 — shared methodology registry and validation
+export async function getMethodologyRegistry(): Promise<import("./types").MethodologyRegistryResponse> {
+  return fetchApi<import("./types").MethodologyRegistryResponse>("/api/methodology");
+}
+
+export async function getMethodologyDomain(
+  domain: string
+): Promise<import("./types").MethodologyDetailResponse> {
+  return fetchApi<import("./types").MethodologyDetailResponse>(
+    `/api/methodology/${encodeURIComponent(domain)}`
+  );
+}
+
+export async function getMethodologyValidation(): Promise<import("./types").MethodologyValidationResponse> {
+  return fetchApi<import("./types").MethodologyValidationResponse>("/api/methodology/validation");
 }
 
 // ── Sprint 72: Leaderboard trend sparklines ──────────────────────────────────

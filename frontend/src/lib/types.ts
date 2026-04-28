@@ -4006,3 +4006,133 @@ export interface SeriesSimulationResponse {
   bottom_seed_series_win_prob: number;
   trials: number;
 }
+
+// ── Sprint 74: Shared methodology metadata ──────────────────────────────────
+export type MethodologyConfidence = "high" | "medium" | "low";
+
+export interface UncertaintyBand {
+  lower: number | null;
+  upper: number | null;
+  level: number;
+  method: string;
+}
+
+export interface SampleContext {
+  sample_size: number | null;
+  effective_sample_size: number | null;
+  population_size: number | null;
+  minimum_recommended: number | null;
+  notes: string[];
+}
+
+export interface DriverBreakdown {
+  key: string;
+  label: string;
+  value: number | null;
+  weight: number | null;
+  contribution: number | null;
+  explanation: string;
+}
+
+export interface AnalysisMetadata {
+  methodology_version: string;
+  reliability_score: number | null;
+  confidence: MethodologyConfidence | null;
+  uncertainty_band: UncertaintyBand | null;
+  sample_context: SampleContext | null;
+  driver_breakdown: DriverBreakdown[];
+  limitations: string[];
+  validation_notes: string[];
+}
+
+export interface MethodologyDomain {
+  domain: string;
+  label: string;
+  methodology_version: string;
+  status: string;
+  model_stage: string;
+  question_answered: string;
+  input_families: string[];
+  season_type_support: string[];
+  sample_gates: string[];
+  confidence_rules: string[];
+  reliability_policy: string;
+  explainability_policy: string;
+  known_limitations: string[];
+  validation_notes: string[];
+  last_validation_date: string | null;
+  docs_path: string;
+  implementation_refs: string[];
+}
+
+export interface MethodologyRegistryResponse {
+  version: string;
+  domains: MethodologyDomain[];
+}
+
+export interface MethodologyDetailResponse extends MethodologyDomain {
+  related_domains: string[];
+  recommended_next_steps: string[];
+}
+
+export interface MethodologyValidationFixture {
+  fixture_key: string;
+  domain: string;
+  label: string;
+  expected_result: string;
+  current_result: string;
+  passed: boolean;
+  notes: string[];
+}
+
+export interface MethodologyValidationResponse {
+  version: string;
+  fixtures: MethodologyValidationFixture[];
+}
+
+export interface ShotQualitySummary {
+  fg_uncertainty_band?: UncertaintyBand | null;
+  pps_delta_uncertainty_band?: UncertaintyBand | null;
+  stabilized_fg_pct?: number | null;
+  stabilized_pps?: number | null;
+  stabilized_pps_delta?: number | null;
+  sustainability_label?: string | null;
+}
+
+export interface ShotQualityBin {
+  stabilized_fg_pct?: number | null;
+  stabilized_pps?: number | null;
+  stabilized_pps_delta?: number | null;
+  sustainability_label?: string | null;
+}
+
+export interface ShotQualityZone {
+  stabilized_fg_pct?: number | null;
+  stabilized_pps?: number | null;
+  stabilized_pps_delta?: number | null;
+  sustainability_label?: string | null;
+}
+
+export interface ShotQualityResponse {
+  analysis_metadata?: AnalysisMetadata | null;
+}
+
+export interface OpportunityResponse {
+  analysis_metadata?: AnalysisMetadata | null;
+}
+
+export interface TeamFitCurrentTeam {
+  theoretical_usage_score?: number | null;
+  fit_gap_vs_theoretical?: number | null;
+  fit_interpretation?: string | null;
+  reliability_notes?: string[];
+}
+
+export interface TeamFitMethodology {
+  calibrated_better_fit_thresholds?: Record<string, number>;
+}
+
+export interface TeamFitResponse {
+  analysis_metadata?: AnalysisMetadata | null;
+  low_sample_warning?: string | null;
+}
