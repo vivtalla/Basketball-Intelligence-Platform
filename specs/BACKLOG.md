@@ -193,16 +193,28 @@ Likely shape:
 
 ### MVP Award-Race Follow-Ons
 Why it matters:
-Sprints 48-56 turned the MVP tracker into a case platform with eligibility, opponent context, support burden, Gravity context, refined Basketball Value/Award Case scoring, weekly voter timeline, Voter Room case comparison, player embeds, MVP coverage ops, and a Team Impact lens. The next gains are calibration, richer official-data coverage, lineup-aware on/off explanations, and more historically faithful longitudinal modeling.
+Sprints 48-56 turned the MVP tracker into a case platform with eligibility, opponent context, support burden, Gravity context, refined Basketball Value/Award Case scoring, weekly voter timeline, Voter Room case comparison, player embeds, MVP coverage ops, and a Team Impact lens. Sprint 76 added Basketball Value weight-perturbation sensitivity (`mvp_case_v4`). The next gains are voter calibration, richer official-data coverage, lineup-aware on/off explanations, and more historically faithful longitudinal modeling.
 
 Likely shape:
 - decide when persisted daily snapshots should become a visible daily timeline toggle alongside weekly reconstruction
 - add true voter-points ballot simulation once the Voter Room case-comparison foundation is stable
 - formalize production automation policy for daily MVP snapshot jobs
 - add historical dated rows for impact, Gravity, clutch, opponent-adjusted context, and signature-game leverage so the timeline can evolve beyond game-log-only reconstruction
-- calibrate Award Case modifier caps after more live review of ranking movement
 - broaden official play-type/tracking/hustle refresh coverage and improve coverage health explanations per candidate
 - add lineup-with/without teammate context and dated on/off history so Team Impact explains why a candidate's team changes when he sits or plays
+
+### MVP Award Case Voter Calibration (`mvp_case_v5`) — blocked on data
+Why it matters:
+The Award Case composite uses hand-tuned modifier weights (`team_framing 0.08`, `eligibility_pressure 0.08`, `clutch 0.06`, `momentum 0.05`, `signature_games 0.05`) added on top of Basketball Value. They're defensible expert priors but not calibrated against actual voting outcomes. The registry's `mvp_case_v4` policy explicitly notes this gap. Sprint 76 design memo: `specs/methodology-future-modeling.md#1-mvp-award-case-voter-calibration-mvp_case_v5`.
+
+Blocker: needs an `award_voting` table (player_id, season, ballot_position, voter_count, total_award_points) covering at least the last 15 MVP seasons. Source: scrape Basketball-Reference's `awards_share` table or load a one-time CSV under `backend/data/`.
+
+Likely shape (full design in the memo):
+- materialize `award_voting` from the published Basketball-Reference data; commit as a CSV-backed loader, no scheduled job needed
+- fit modifier weights with constrained coordinate-descent against historical point shares; report leave-one-season-out Spearman
+- replace the hand-tuned weights at `mvp_service.py` line ~1920 with the calibrated weights at module import — no schema change
+- add `MvpCalibration` sidecar model + `MvpRaceResponse.calibration` optional field documenting fold count and held-out Spearman
+- bump registry `mvp_case_v4 → v5`; new `mvp_award_case_voter_calibration` validation fixture asserts Spearman ≥ 0.7 on held-out seasons
 
 ### Gravity Calibration and Official Coverage
 Why it matters:
@@ -248,13 +260,26 @@ Likely shape:
 
 ### Opportunity Workspace Follow-Ons
 Why it matters:
-Sprint 65 closed out the core Opportunity follow-ons (TTL cache, compare-handoff peers, role-fit AST/TOV depth, directional-hint gating calibration, and the long-standing `UsageEfficiencyDashboard.tsx` → `OpportunityDashboard.tsx` rename). Sprint 71 added response-level reliability metadata for Opportunity. The remaining gains are about expanding the peer model beyond same-team scope and upgrading the composite into a more rigorous role-expansion read.
+Sprint 65 closed out the core Opportunity follow-ons (TTL cache, compare-handoff peers, role-fit AST/TOV depth, directional-hint gating calibration, and the long-standing `UsageEfficiencyDashboard.tsx` → `OpportunityDashboard.tsx` rename). Sprint 71 added response-level reliability metadata for Opportunity. The remaining same-sprint gains are about expanding the peer model beyond same-team scope.
 
 Likely shape:
 - expand Compare handoff peer lookup to league-wide positional cohorts instead of only the currently-scoped team, so a same-team handoff on BOS can still surface league-wide G peers when that is the intent
 - keep tuning directional hints and confidence labels against real roster cases
-- add comparable-player role-expansion backtests, expected upside/downside bands, and evidence-strength notes
 - lift `_position_bucket` out of `opportunity_service.py` into a shared helper and switch `trajectory_service` plus any future callers, so bucket rules cannot drift between surfaces
+
+### Opportunity Uplift Modeling (`opportunity_v2`) — blocked on data materialization
+Why it matters:
+The current Opportunity composite blends five capped z-scores into a directional 0-100 score. The registry policy notes the planned upgrade: an interpretable uplift model that estimates whether per-possession efficiency historically survives a usage bump for comparable players. Sprint 76 design memo: `specs/methodology-future-modeling.md#2-opportunity-uplift-modeling-opportunity_v2`.
+
+Blocker: needs a `role_expansion_observations` table materialized from existing `season_stats` rows (every player-season pair where usg_pct grows by ≥ 3 percentage points year-over-year, joined with pre/post TS%, age, archetype). The data exists in latent form — the blocker is the materialization script, not a new ingestion path.
+
+Likely shape (full design in the memo):
+- write a one-time materialization that scans `season_stats` for qualifying (player_id, from_season, to_season) pairs and writes pre/post TS% + covariates to `role_expansion_observations`
+- estimate per-target uplift via shrunk-Mahalanobis KNN (similarity_v3 primitive) over (usg_delta, pre_ts_pct, pre_ast_rate, pre_obpm, pre_age) within the subject's archetype bucket
+- report `mean_uplift`, 25/75 percentile bands, neighbor count, and an evidence_confidence label; fall back to None below 5 comparables
+- attach as a sibling `OpportunityRow.uplift: Optional[OpportunityUplift]` field — no breaking schema change
+- bump registry `opportunity_v1 → v2`; new `opportunity_role_expansion_uplift` validation fixture covers clear-fit and thin-comp cases
+- KNN uplift is descriptive ("comparable historical players who took on more usage tended to lose 1.5 TS%") not causal — the UI copy must say "historically comparable cases", not "expected outcome"
 
 ### Pre-Read Deck Follow-Ons
 Why it matters:
