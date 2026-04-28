@@ -78,6 +78,21 @@ class PlayerTrendGame(BaseModel):
     trend_note: str
 
 
+class PlayerTrendChangeEvidence(BaseModel):
+    """Bayesian change-score evidence for a single metric. The recent window
+    is compared against a baseline drawn from older game logs in the same
+    season. `posterior_change_probability` is in [0, 1]; values above ~0.7
+    suggest a real shift, values below ~0.3 suggest noise.
+    """
+
+    metric: str
+    recent_mean: Optional[float] = None
+    baseline_mean: Optional[float] = None
+    z_score: Optional[float] = None
+    posterior_change_probability: Optional[float] = None
+    interpretation: str
+
+
 class PlayerTrendReport(BaseModel):
     player_id: int
     player_name: str
@@ -95,3 +110,4 @@ class PlayerTrendReport(BaseModel):
     role_status_reason: Optional[str] = None
     injury_context: Optional[str] = None
     adjusted_role_status: Optional[str] = None
+    change_evidence: List[PlayerTrendChangeEvidence] = []

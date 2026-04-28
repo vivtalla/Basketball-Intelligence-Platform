@@ -382,6 +382,61 @@ def mahalanobis_distance(
     return math.sqrt(max(quad, 0.0))
 
 
+def bayesian_change_score(
+    recent: Sequence[float],
+    baseline: Sequence[float],
+    prior_variance: float = 1.0,
+) -> Tuple[Optional[float], Optional[float]]:
+    """Two-sample Bayesian change score.
+
+    Models the difference of means under two competing hypotheses:
+      H_0: the recent and baseline windows share a mean (no change)
+      H_1: the means differ, with the difference drawn from N(0, τ²)
+
+    Under Gaussian likelihoods this gives a closed-form Bayes factor:
+
+        BF_10 = (1 / sqrt(1 + τ²)) * exp(z² · τ² / (2 · (1 + τ²)))
+
+    where z is the standardized difference of means. Equal prior weight on
+    the two hypotheses lets us return the posterior change probability:
+
+        P(change | data) = BF_10 / (1 + BF_10)
+
+    Returns `(z_score, posterior_change_probability)`. Returns
+    `(None, None)` when either window is too thin to estimate variance.
+    """
+    if prior_variance <= 0:
+        raise ValueError("prior_variance must be positive")
+    recent_clean = [float(v) for v in recent]
+    baseline_clean = [float(v) for v in baseline]
+    if len(recent_clean) < 2 or len(baseline_clean) < 2:
+        return None, None
+    mean_recent = statistics.mean(recent_clean)
+    mean_baseline = statistics.mean(baseline_clean)
+    var_recent = statistics.variance(recent_clean)
+    var_baseline = statistics.variance(baseline_clean)
+    standard_error = math.sqrt(
+        var_recent / len(recent_clean) + var_baseline / len(baseline_clean)
+    )
+    if standard_error <= 0:
+        # Both windows had zero variance and identical means → no signal;
+        # both windows had zero variance and different means → infinite
+        # signal. Treat as no usable read either way.
+        return None, None
+    z_score = (mean_recent - mean_baseline) / standard_error
+    tau_sq = float(prior_variance)
+    log_bf = (
+        -0.5 * math.log(1.0 + tau_sq)
+        + (z_score * z_score * tau_sq) / (2.0 * (1.0 + tau_sq))
+    )
+    # Convert to posterior in a numerically-stable way: P = sigmoid(log_bf).
+    if log_bf >= 0:
+        posterior = 1.0 / (1.0 + math.exp(-log_bf))
+    else:
+        posterior = math.exp(log_bf) / (1.0 + math.exp(log_bf))
+    return round(z_score, 4), round(posterior, 4)
+
+
 def principal_components(
     vectors: Sequence[Sequence[float]],
     k: int = 2,

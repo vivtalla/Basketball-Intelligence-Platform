@@ -15,6 +15,7 @@ from services.methodology_registry_service import list_methodologies  # noqa: E4
 from services.methodology_validation_service import methodology_validation_report  # noqa: E402
 from services.reliability_service import (  # noqa: E402
     _z_for_level,
+    bayesian_change_score,
     collinearity_warnings,
     covariance_matrix,
     empirical_bayes_rate,
@@ -728,3 +729,71 @@ def test_style_xray_latent_space_helper_returns_none_when_subject_missing():
         subject_team_id=999,  # not in pool
     )
     assert latent is None
+
+
+# ---------- Bayesian change-score primitive (trend_intelligence_v2) ----------
+
+
+def test_bayesian_change_score_high_probability_for_clear_shift():
+    # Recent and baseline windows are clearly separated.
+    recent = [10.0, 11.0, 9.0, 10.5, 10.0, 11.0, 9.5, 10.0]
+    baseline = [32.0, 33.0, 31.5, 32.5, 31.0, 33.5, 32.0, 31.5]
+    z_score, probability = bayesian_change_score(recent, baseline)
+    assert z_score is not None
+    assert z_score < 0  # recent below baseline
+    assert probability >= 0.95
+
+
+def test_bayesian_change_score_low_probability_for_within_noise_variation():
+    # Recent and baseline windows look identical apart from noise.
+    recent = [32.0, 31.5, 32.5, 31.0, 33.0, 32.0]
+    baseline = [32.5, 31.0, 32.5, 32.0, 31.5, 33.0, 31.0, 32.0]
+    _z_score, probability = bayesian_change_score(recent, baseline)
+    assert probability is not None
+    assert probability <= 0.50
+
+
+def test_bayesian_change_score_returns_none_for_thin_inputs():
+    z_score, probability = bayesian_change_score([1.0], [1.0, 2.0, 3.0])
+    assert z_score is None and probability is None
+    z_score, probability = bayesian_change_score([1.0, 2.0], [3.0])
+    assert z_score is None and probability is None
+
+
+def test_bayesian_change_score_handles_zero_variance_windows():
+    # Both windows constant — no usable read.
+    z_score, probability = bayesian_change_score([5.0, 5.0, 5.0], [10.0, 10.0, 10.0])
+    assert z_score is None and probability is None
+
+
+def test_bayesian_change_score_rejects_invalid_prior_variance():
+    with pytest.raises(ValueError):
+        bayesian_change_score([1.0, 2.0], [3.0, 4.0], prior_variance=0.0)
+
+
+# ---------- player trend change-evidence wiring ----------
+
+
+def test_player_trend_change_evidence_helper_flags_clear_shift():
+    from services.player_trend_service import _change_evidence
+
+    record = _change_evidence(
+        metric="minutes",
+        recent_values=[10.0, 11.0, 9.0, 10.5, 10.0, 11.0, 9.5, 10.0],
+        baseline_values=[32.0, 33.0, 31.5, 32.5, 31.0, 33.5, 32.0, 31.5],
+    )
+    assert record is not None
+    assert record.metric == "minutes"
+    assert record.posterior_change_probability >= 0.7
+    assert "below" in record.interpretation
+
+
+def test_player_trend_change_evidence_helper_returns_none_on_thin_baseline():
+    from services.player_trend_service import _change_evidence
+
+    record = _change_evidence(
+        metric="minutes",
+        recent_values=[10.0, 11.0, 9.0, 10.5],
+        baseline_values=[32.0, 33.0],  # below MIN_BASELINE_GAMES=4
+    )
+    assert record is None

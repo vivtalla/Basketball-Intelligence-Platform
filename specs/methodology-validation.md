@@ -73,7 +73,7 @@ Planned calibration upgrade:
 - Team-Fit: `team_fit_tatum_bos_overlap`, `team_fit_traded_tot`, `team_fit_thin_playoff_sample`, `team_fit_role_player_clear_fit`
 - Shot Lab: `shot_lab_specialist_shooter`, `shot_lab_low_attempt_hot_streak`
 - Similarity: `similarity_role_pool_stability`, `similarity_shrinkage_collinearity`
-- Trend: `trend_injured_star_window`
+- Trend: `trend_injured_star_window`, `trend_bayesian_change_evidence`
 - Opportunity: `opportunity_role_expansion_evidence`
 - Style X-Ray: `style_xray_drift_team`, `style_xray_latent_space`
 - MVP: `mvp_value_versus_award_split`, `mvp_basketball_value_weight_sensitivity`
@@ -107,14 +107,16 @@ Primary target:
 
 - Injury-limited role drops should not be classified as coach-trust loss.
 
-Current validation:
+Current v2 validation:
 
 - Same minutes/production drop is `losing_trust` without injury context and injury-contextual with overlapping injury/recovery context.
 - Recent-window deltas remain visible after interpretation changes.
+- Bayesian change scores attach a `(z_score, posterior_change_probability)` per metric (minutes, points, plus_minus). Probabilities ≥ 0.7 indicate a meaningful shift; ≤ 0.3 indicate within-noise drift. Baselines below four games short-circuit so thin samples don't produce false confidence.
 
 Planned rigor upgrade:
 
-- Bayesian change detection with exponentially weighted recent form, schedule strength, role/minute context, and injury windows.
+- Exponentially-weighted recent form so the most recent games dominate the change score.
+- Schedule strength and role/minute context conditioning before computing the change.
 - Coach-trust trend should use starts, closing-lineup appearances, minutes, and availability-adjusted expectations.
 
 ### Opportunity

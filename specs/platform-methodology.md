@@ -159,6 +159,27 @@ pearson_r = covariance(a, b) / sqrt(var(a) * var(b))
 
 When user-built composites combine highly correlated stats (`|r| ≥ 0.85`), the methodology layer surfaces a plain-language warning so the composite does not silently double-count one signal. This powers the `custom_metrics_collinear_components` validation fixture.
 
+Bayesian change score (trend_intelligence_v2):
+
+```text
+Standard error of the difference:
+  SE = sqrt(var_recent / n_recent + var_baseline / n_baseline)
+
+Standardized z-score:
+  z = (mean_recent - mean_baseline) / SE
+
+Bayes factor for "means differ" (H1) vs "means match" (H0), with a
+N(0, τ²) prior on the change:
+
+  BF_10 = (1 / sqrt(1 + τ²)) * exp(z² · τ² / (2 · (1 + τ²)))
+
+Posterior change probability with equal prior weights:
+
+  P(change | data) = BF_10 / (1 + BF_10)
+```
+
+The trend service compares each metric's recent 10-game window against the older baseline window in the same season and surfaces the resulting `(z_score, posterior_change_probability)` per metric on the report. Probabilities ≥ 0.7 indicate a meaningful shift; ≤ 0.3 indicate within-noise drift. Default `τ²` is `1.0`.
+
 Principal components (style_xray_v2):
 
 ```text
