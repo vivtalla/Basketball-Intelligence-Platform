@@ -212,19 +212,15 @@ def sync_playoff_full(season: str, fast: bool = False) -> None:
         r = sync_playoff_player_game_logs(db, season=season)
         print(f"   {r}")
 
-        # 5. Synergy play-type
+        # 5. Synergy play-type — sync_player_play_type_stats internally
+        # iterates both 'offensive' and 'defensive' groupings.
         print("[6/7] sync_player_play_type_stats (Playoffs) ...")
-        for grouping in ("offensive", "defensive"):
-            try:
-                r = sync_player_play_type_stats(db, season=season, season_type="Playoffs", type_grouping=grouping)
-                print(f"   {grouping}: {r}")
-            except TypeError:
-                # Fall back to default-grouping signature.
-                r = sync_player_play_type_stats(db, season=season, season_type="Playoffs")
-                print(f"   {r}")
-                break
-            except Exception as exc:
-                print(f"   {grouping} failed: {exc}")
+        try:
+            r = sync_player_play_type_stats(db, season=season, season_type="Playoffs")
+            print(f"   {r}")
+        except Exception as exc:
+            print(f"   play-type failed: {exc}")
+            db.rollback()
 
         # 6. Hustle
         print("[7a/7] sync_player_hustle_stats (Playoffs) ...")
@@ -233,6 +229,7 @@ def sync_playoff_full(season: str, fast: bool = False) -> None:
             print(f"   {r}")
         except Exception as exc:
             print(f"   hustle failed: {exc}")
+            db.rollback()
 
         # 7. Tracking — per player, expensive, only for players with a playoff
         # SeasonStat row (~220 players × 0.6s rate limit ~= 2 minutes).
@@ -249,11 +246,16 @@ def sync_playoff_full(season: str, fast: bool = False) -> None:
                 print(f"   {r}")
             except Exception as exc:
                 print(f"   tracking failed: {exc}")
+                db.rollback()
 
         # 8. Refresh bracket once more in case any series advanced.
         print("[8/8] build_or_refresh_bracket ...")
-        n = build_or_refresh_bracket(db, season)
-        print(f"   {n} series refreshed")
+        try:
+            n = build_or_refresh_bracket(db, season)
+            print(f"   {n} series refreshed")
+        except Exception as exc:
+            print(f"   bracket refresh failed: {exc}")
+            db.rollback()
 
         print("=== done ===")
     finally:

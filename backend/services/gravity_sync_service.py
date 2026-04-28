@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import logging
+import math
 from typing import Any, Dict, Iterable, Optional, Sequence
 
 from sqlalchemy.orm import Session
@@ -17,6 +18,22 @@ from services.gravity_service import persist_proxy_gravity_profiles
 
 
 logger = logging.getLogger(__name__)
+
+
+def _sanitize_for_json(value: Any) -> Any:
+    """Recursively replace NaN/Inf with None so payloads survive Postgres JSON columns.
+
+    pandas DataFrame conversion to dict keeps NaN as float('nan'); json.dumps with
+    allow_nan=True (the default) emits the literal string 'NaN', which Postgres
+    rejects as invalid JSON. Sanitize once at the persistence boundary.
+    """
+    if isinstance(value, float):
+        return None if math.isnan(value) or math.isinf(value) else value
+    if isinstance(value, dict):
+        return {k: _sanitize_for_json(v) for k, v in value.items()}
+    if isinstance(value, (list, tuple)):
+        return [_sanitize_for_json(v) for v in value]
+    return value
 
 
 def _float(row: Dict[str, Any], *keys: str) -> Optional[float]:
@@ -101,7 +118,7 @@ def sync_player_play_type_stats(
             row.efg_pct = _float(payload, "EFG_PCT")
             row.tov_poss_pct = _float(payload, "TOV_POSS_PCT")
             row.score_poss_pct = _float(payload, "SCORE_POSS_PCT")
-            row.raw_payload = payload
+            row.raw_payload = _sanitize_for_json(payload)
             refreshed += 1
     db.commit()
     return {"status": "ok", "rows_synced": refreshed, "rows_created": created}
@@ -139,7 +156,7 @@ def sync_player_hustle_stats(db: Session, season: str, season_type: str = "Regul
         row.screen_assist_points = _float(payload, "SCREEN_AST_PTS")
         row.loose_balls_recovered = _float(payload, "LOOSE_BALLS_RECOVERED")
         row.box_outs = _float(payload, "BOX_OUTS")
-        row.raw_payload = payload
+        row.raw_payload = _sanitize_for_json(payload)
         refreshed += 1
     db.commit()
     return {"status": "ok", "rows_synced": refreshed, "rows_created": created}
@@ -159,10 +176,22 @@ def sync_player_tracking_stats(
         except Exception as exc:  # pragma: no cover
             logger.warning("Tracking sync failed for %s/%s: %s", player_id, season, exc)
             rows = []
+        # The dashboard returns multiple rows that can share a (family, split_key)
+        # composite key when split_key falls back to a SHOT_TYPE value that
+        # repeats across underlying datasets. The unique constraint on the
+        # table is (player_id, season, season_type, tracking_family, split_key,
+        # source); the .first() query below cannot see a sibling row added in
+        # the same session before flush, so dedupe in-memory by composite key
+        # to avoid IntegrityError on commit.
+        seen_in_session: set = set()
         for item in rows:
             payload = dict(item.get("raw") or {})
             family = str(item.get("family") or "tracking")
             split_key = str(item.get("split_key") or "overall")
+            session_key = (family, split_key)
+            if session_key in seen_in_session:
+                continue
+            seen_in_session.add(session_key)
             row = (
                 db.query(PlayerTrackingStat)
                 .filter_by(
@@ -196,7 +225,7 @@ def sync_player_tracking_stats(
             row.pull_up_pts = _float(payload, "PULL_UP_PTS")
             row.paint_touch_pts = _float(payload, "PAINT_TOUCH_PTS")
             row.close_touch_pts = _float(payload, "CLOSE_TOUCH_PTS")
-            row.raw_payload = payload
+            row.raw_payload = _sanitize_for_json(payload)
             refreshed += 1
     db.commit()
     return {"status": "ok", "rows_synced": refreshed, "rows_created": created}
@@ -233,7 +262,7 @@ def sync_official_gravity_stats(
             row.gravity_minutes = _float(payload, "GV-MP", "GRAVITY_MINUTES")
             row.gravity_confidence = "high"
             row.source_note = "Official NBA Inside the Game Gravity persisted when a structured source was available."
-            row.raw_payload = payload
+            row.raw_payload = _sanitize_for_json(payload)
             refreshed += 1
         db.commit()
         return {"status": "ok", "source": "nba_inside_the_game", "rows_synced": refreshed, "rows_created": created}

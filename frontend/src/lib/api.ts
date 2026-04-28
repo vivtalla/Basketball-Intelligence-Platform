@@ -1265,6 +1265,7 @@ export async function getMvpRace(
   if (options?.minGp != null) params.set("min_gp", String(options.minGp));
   if (options?.position) params.set("position", options.position);
   if (options?.profile) params.set("profile", options.profile);
+  if (options?.seasonType) params.set("season_type", options.seasonType);
   return fetchApi<import("./types").MvpRaceResponse>(
     `/api/mvp/race?${params.toString()}`
   );

@@ -3121,6 +3121,7 @@ export interface MvpRaceOptions {
   top?: number;
   minGp?: number;
   position?: string | null;
+  seasonType?: "Regular Season" | "Playoffs";
 }
 
 export interface MvpContextMapPoint {
