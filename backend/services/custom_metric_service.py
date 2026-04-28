@@ -14,6 +14,7 @@ from models.leaderboard import (
     CustomMetricRequest,
     CustomMetricResponse,
 )
+from services.reliability_service import collinearity_warnings
 
 
 STAT_LABELS = {
@@ -270,8 +271,10 @@ def build_custom_metric_report(db: Session, config: CustomMetricRequest) -> Cust
         raise HTTPException(status_code=400, detail="Insufficient player pool for meaningful ranking.")
 
     zscores_by_stat: Dict[str, Dict[int, float]] = {}
-    for stat_id, _, _, inverse in normalized_components:
+    raw_values_by_label: Dict[str, List[float]] = {}
+    for stat_id, label, _, inverse in normalized_components:
         stat_values = [float(getattr(season_row, stat_id)) for season_row, _ in eligible_rows]
+        raw_values_by_label[label] = list(stat_values)
         if inverse:
             stat_values = [-value for value in stat_values]
         zscores = _stat_zscores(stat_values)
@@ -279,6 +282,9 @@ def build_custom_metric_report(db: Session, config: CustomMetricRequest) -> Cust
             player.id: zscore
             for (_, player), zscore in zip(eligible_rows, zscores)
         }
+
+    if len(raw_values_by_label) >= 2:
+        warnings.extend(collinearity_warnings(raw_values_by_label, threshold=0.85))
 
     metric_label = _generate_metric_label(config.metric_name, normalized_components)
     rankings: List[CustomMetricPlayerRanking] = []

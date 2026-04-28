@@ -2,9 +2,32 @@ from __future__ import annotations
 
 import math
 import statistics
-from typing import Iterable, List, Optional, Sequence, Tuple
+from typing import Dict, Iterable, List, Optional, Sequence, Tuple
 
 from models.methodology import SampleContext, UncertaintyBand
+
+
+# Two-sided normal critical values for the most common documented confidence
+# levels. Anything outside this table falls back to the closest listed level so
+# the resulting interval is never quietly mis-calibrated against the requested
+# `level`.
+_Z_FOR_LEVEL = (
+    (0.80, 1.282),
+    (0.90, 1.645),
+    (0.95, 1.960),
+    (0.99, 2.576),
+)
+
+
+def _z_for_level(level: float) -> Tuple[float, float]:
+    """Return (resolved_level, z_value) for a requested confidence level.
+
+    Levels outside the supported table snap to the nearest supported level so
+    callers always receive a properly-calibrated interval rather than a
+    silently-wrong 1.96-fallback.
+    """
+    nearest = min(_Z_FOR_LEVEL, key=lambda entry: abs(entry[0] - float(level)))
+    return nearest[0], nearest[1]
 
 
 def clamp(value: float, low: float = 0.0, high: float = 1.0) -> float:
@@ -43,11 +66,17 @@ def empirical_bayes_rate(
         raise ValueError("successes and attempts must be non-negative")
     if prior_weight < 0:
         raise ValueError("prior_weight must be non-negative")
+    if not 0.0 <= float(prior_rate) <= 1.0:
+        raise ValueError("prior_rate must be in [0, 1]")
+    if successes > attempts:
+        raise ValueError("successes cannot exceed attempts")
     denominator = float(attempts) + float(prior_weight)
     if denominator <= 0:
         return float(prior_rate)
     posterior = (float(successes) + float(prior_rate) * float(prior_weight)) / denominator
-    return posterior
+    # Clamp guards against floating-point drift; the math itself is in [0,1] when
+    # the inputs satisfy the validation above.
+    return clamp(posterior, 0.0, 1.0)
 
 
 def empirical_bayes_mean(
@@ -89,23 +118,22 @@ def normal_uncertainty_band(
     std_dev: Optional[float],
     level: float = 0.90,
 ) -> UncertaintyBand:
+    resolved_level, z_value = _z_for_level(level)
     if mean is None or sample_size is None or sample_size <= 1 or std_dev is None:
-        return UncertaintyBand(level=level, method="insufficient_sample")
-    # z=1.64 is the two-sided normal approximation for a 90% interval.
-    z_value = 1.64 if abs(level - 0.90) < 1e-9 else 1.96
+        return UncertaintyBand(level=resolved_level, method="insufficient_sample")
     margin = z_value * (float(std_dev) / math.sqrt(float(sample_size)))
     return UncertaintyBand(
         lower=round(float(mean) - margin, 4),
         upper=round(float(mean) + margin, 4),
-        level=level,
+        level=resolved_level,
         method="normal_approximation",
     )
 
 
 def wilson_interval(successes: float, attempts: float, level: float = 0.90) -> UncertaintyBand:
+    resolved_level, z_value = _z_for_level(level)
     if attempts <= 0:
-        return UncertaintyBand(level=level, method="insufficient_sample")
-    z_value = 1.64 if abs(level - 0.90) < 1e-9 else 1.96
+        return UncertaintyBand(level=resolved_level, method="insufficient_sample")
     phat = float(successes) / float(attempts)
     denom = 1.0 + (z_value * z_value / float(attempts))
     center = (phat + (z_value * z_value) / (2.0 * float(attempts))) / denom
@@ -117,7 +145,7 @@ def wilson_interval(successes: float, attempts: float, level: float = 0.90) -> U
     return UncertaintyBand(
         lower=round(max(0.0, center - margin), 4),
         upper=round(min(1.0, center + margin), 4),
-        level=level,
+        level=resolved_level,
         method="wilson_score",
     )
 
@@ -180,3 +208,56 @@ def sample_context(
         minimum_recommended=minimum_recommended,
         notes=list(notes or []),
     )
+
+
+def pearson_correlation(
+    series_a: Sequence[Optional[float]],
+    series_b: Sequence[Optional[float]],
+) -> Optional[float]:
+    """Pairwise Pearson correlation. Returns None when fewer than two complete
+    pairs exist or either series has zero variance after pairing."""
+    if len(series_a) != len(series_b):
+        raise ValueError("series_a and series_b must have equal length")
+    pairs = [
+        (float(a), float(b))
+        for a, b in zip(series_a, series_b)
+        if a is not None and b is not None
+    ]
+    if len(pairs) < 2:
+        return None
+    mean_a = statistics.mean(a for a, _ in pairs)
+    mean_b = statistics.mean(b for _, b in pairs)
+    covariance = sum((a - mean_a) * (b - mean_b) for a, b in pairs)
+    var_a = sum((a - mean_a) ** 2 for a, _ in pairs)
+    var_b = sum((b - mean_b) ** 2 for _, b in pairs)
+    if var_a <= 0 or var_b <= 0:
+        return None
+    return round(covariance / math.sqrt(var_a * var_b), 4)
+
+
+def collinearity_warnings(
+    series_by_label: Dict[str, Sequence[Optional[float]]],
+    threshold: float = 0.85,
+) -> List[str]:
+    """Surface a plain-language warning for each pair of components whose
+    pairwise Pearson correlation magnitude meets the threshold.
+
+    The output is intentionally human-readable so callers can append it to
+    existing `validation_warnings` lists without translating numeric matrices.
+    """
+    labels = list(series_by_label.keys())
+    warnings_out: List[str] = []
+    for index, label_a in enumerate(labels):
+        for label_b in labels[index + 1 :]:
+            corr = pearson_correlation(series_by_label[label_a], series_by_label[label_b])
+            if corr is None:
+                continue
+            if abs(corr) >= float(threshold):
+                warnings_out.append(
+                    "{0} and {1} are highly correlated (r={2:+.2f}); the composite may double-count one signal.".format(
+                        label_a,
+                        label_b,
+                        corr,
+                    )
+                )
+    return warnings_out

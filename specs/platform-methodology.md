@@ -149,6 +149,15 @@ Uncertainty bands:
 - Binary outcomes can use a Wilson score interval.
 - Continuous means can use a normal approximation interval.
 - The default documentation target is a 90% interval unless a surface says otherwise.
+- Supported confidence levels are `0.80` (z ≈ 1.282), `0.90` (z ≈ 1.645), `0.95` (z ≈ 1.960), and `0.99` (z ≈ 2.576). Requests outside this table snap to the nearest supported level and the returned `UncertaintyBand.level` reflects what was actually used.
+
+Component collinearity:
+
+```text
+pearson_r = covariance(a, b) / sqrt(var(a) * var(b))
+```
+
+When user-built composites combine highly correlated stats (`|r| ≥ 0.85`), the methodology layer surfaces a plain-language warning so the composite does not silently double-count one signal. This powers the `custom_metrics_collinear_components` validation fixture.
 
 Robust normalization:
 

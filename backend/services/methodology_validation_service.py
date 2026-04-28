@@ -5,7 +5,7 @@ from typing import List
 from models.methodology import MethodologyValidationFixture, MethodologyValidationResponse
 
 
-VALIDATION_VERSION = "methodology_validation_v1"
+VALIDATION_VERSION = "methodology_validation_v2"
 
 
 def methodology_validation_report() -> MethodologyValidationResponse:
@@ -63,6 +63,96 @@ def methodology_validation_report() -> MethodologyValidationResponse:
             current_result="team_fit_v3 keeps skill supply/roster need/role competition components separate from theoretical usage.",
             passed=True,
             notes=["Keeps coach-readable fit rationale ahead of abstract score movement."],
+        ),
+        MethodologyValidationFixture(
+            fixture_key="similarity_role_pool_stability",
+            domain="similarity",
+            label="Role-vector pool stability",
+            expected_result="Similarity peer sets should be stable under small stat perturbations and explain which feature groups drove the comp.",
+            current_result="similarity_v2 uses a same-season z-score pool with a 20-game role-vector gate and exposes feature-group decomposition.",
+            passed=True,
+            notes=["Resilience fixture: small noise on usage/scoring should not flip top-five neighbors."],
+        ),
+        MethodologyValidationFixture(
+            fixture_key="trend_injured_star_window",
+            domain="trend",
+            label="Injury-limited recent window",
+            expected_result="Production drops that overlap an active injury context should not flip a player into a coach-trust loss label.",
+            current_result="trend_intelligence_v1 keeps raw deltas visible while tagging injury-contextual reads instead of trust-loss language.",
+            passed=True,
+            notes=["Companion to the role-player low-minutes fixture; protects against injury-driven mislabeling."],
+        ),
+        MethodologyValidationFixture(
+            fixture_key="opportunity_role_expansion_evidence",
+            domain="opportunity",
+            label="Role-player expansion evidence",
+            expected_result="Opportunity calls should require concurrent efficiency-load and team-impact evidence, not a single noisy on/off spike.",
+            current_result="opportunity_v1 caps single-axis z-scores and gates directional hints behind multi-signal agreement.",
+            passed=True,
+            notes=["Reliability score reflects the full filtered pool, not the visible leaderboard slice."],
+        ),
+        MethodologyValidationFixture(
+            fixture_key="style_xray_drift_team",
+            domain="style_xray",
+            label="Style identity drift team",
+            expected_result="Recent stylistic drift should be visible without overwriting the season-relative identity label.",
+            current_result="style_xray_v1 surfaces drift and adjacent archetypes alongside the centroid label rather than replacing it.",
+            passed=True,
+            notes=["Centroid distance plus drift narrative protect against early-season identity churn."],
+        ),
+        MethodologyValidationFixture(
+            fixture_key="mvp_value_versus_award_split",
+            domain="mvp",
+            label="Basketball Value vs Award Case divergence",
+            expected_result="A candidate with strong basketball value but a weak voter-facing case should rank differently in the two views.",
+            current_result="mvp_case_v3 keeps Basketball Value separate from Award Case with capped, labeled modifiers.",
+            passed=True,
+            notes=["Prevents proxy gravity or narrative weights from quietly contaminating the basketball-first ranking."],
+        ),
+        MethodologyValidationFixture(
+            fixture_key="archetype_borderline_role_label",
+            domain="archetype",
+            label="Borderline role label clarity",
+            expected_result="Borderline archetype assignments should expose positive drivers, near-miss labels, and sample-gated features rather than a single hard label.",
+            current_result="archetype_rules_v1 returns rule margin, peer-pool size, and near-miss reporting alongside the chosen archetype.",
+            passed=True,
+            notes=["Hybrid roles should surface as low-margin labels with adjacent archetype context."],
+        ),
+        MethodologyValidationFixture(
+            fixture_key="custom_metrics_collinear_components",
+            domain="custom_metrics",
+            label="Highly collinear components",
+            expected_result="Composites that combine two highly correlated stats should warn that the components may double-count the same signal.",
+            current_result="custom_metric_v1 emits collinearity warnings when component pairs exceed 0.85 absolute Pearson correlation in the eligible pool.",
+            passed=True,
+            notes=["Warning copy is deliberately plain-language so coaches can act on it without statistical training."],
+        ),
+        MethodologyValidationFixture(
+            fixture_key="gravity_proxy_versus_official",
+            domain="gravity",
+            label="Proxy vs official gravity",
+            expected_result="Proxy gravity should never be presented as tracking-grade, and official rows should outrank proxy reads when both exist.",
+            current_result="gravity_proxy_v1 keeps proxy components capped, labels the data source, and prefers imported gravity when present.",
+            passed=True,
+            notes=["Confidence and labeling guard against overclaiming optical-tracking certainty."],
+        ),
+        MethodologyValidationFixture(
+            fixture_key="scouting_brief_evidence_linkage",
+            domain="scouting",
+            label="Evidence linkage quality",
+            expected_result="Claim confidence should weight directness, opponent specificity, recency, and replay/deep-link support.",
+            current_result="scouting_brief_v1 grounds each claim in top evidence features with linkage-quality pills on replay deep links.",
+            passed=True,
+            notes=["Open follow-up: contradiction detection when evidence supports both a strength and a risk."],
+        ),
+        MethodologyValidationFixture(
+            fixture_key="playoffs_thin_series_sample",
+            domain="playoffs",
+            label="Thin playoff series sample",
+            expected_result="Series intelligence should run before four completed games but flag the read as directional with explicit data-coverage warnings.",
+            current_result="playoff_series_intelligence_v1 produces directional pulse, low-confidence lineup notes below 25 possessions, and surfaces missing-data warnings.",
+            passed=True,
+            notes=["Companion regression for early-series volatility."],
         ),
     ]
     return MethodologyValidationResponse(version=VALIDATION_VERSION, fixtures=fixtures)

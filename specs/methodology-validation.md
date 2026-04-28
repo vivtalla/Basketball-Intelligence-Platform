@@ -4,6 +4,8 @@ Last updated: 2026-04-28
 
 This document defines the validation layer for CourtVue methodology work. It is the companion to `specs/platform-methodology.md`: the methodology doc explains how each model works, while this document explains how we pressure-test whether the model is behaving responsibly.
 
+> Validation report is `methodology_validation_v2`. Every registered methodology domain now has at least one named regression fixture; reliability primitives accept the documented set of confidence levels (`0.80`, `0.90`, `0.95`, `0.99`) without silent z-value fallbacks.
+
 ## Validation Principles
 
 - Every methodology-bearing service should expose a version, input families, sample gates, confidence or reliability rules, known limitations, and validation notes.
@@ -64,16 +66,22 @@ Planned calibration upgrade:
 - Calibrate better-fit thresholds from historical roster examples.
 - Add lineup role compatibility and injury/context flags without introducing salary or trade-feasibility logic.
 
-## Sprint 74 Validation Endpoint
+## Validation Endpoint
 
-`GET /api/methodology/validation` returns the first structured fixture set:
+`GET /api/methodology/validation` returns the structured fixture set. The current list (`methodology_validation_v2`) covers every registered methodology domain:
 
-- `team_fit_tatum_bos_overlap`
-- `team_fit_traded_tot`
-- `team_fit_thin_playoff_sample`
-- `shot_lab_specialist_shooter`
-- `shot_lab_low_attempt_hot_streak`
-- `team_fit_role_player_clear_fit`
+- Team-Fit: `team_fit_tatum_bos_overlap`, `team_fit_traded_tot`, `team_fit_thin_playoff_sample`, `team_fit_role_player_clear_fit`
+- Shot Lab: `shot_lab_specialist_shooter`, `shot_lab_low_attempt_hot_streak`
+- Similarity: `similarity_role_pool_stability`
+- Trend: `trend_injured_star_window`
+- Opportunity: `opportunity_role_expansion_evidence`
+- Style X-Ray: `style_xray_drift_team`
+- MVP: `mvp_value_versus_award_split`
+- Archetype: `archetype_borderline_role_label`
+- Custom Metrics: `custom_metrics_collinear_components`
+- Gravity: `gravity_proxy_versus_official`
+- Scouting: `scouting_brief_evidence_linkage`
+- Playoffs: `playoffs_thin_series_sample`
 
 ### Similarity
 
@@ -202,5 +210,7 @@ Before merging methodology changes:
 
 Current automated checks:
 
-- Reliability math unit tests cover empirical Bayes shrinkage, robust z-scores, Wilson intervals, and confidence mapping.
+- Reliability math unit tests cover empirical Bayes shrinkage, robust z-scores, Wilson intervals, confidence mapping, and the `_z_for_level` table for `0.80`, `0.90`, `0.95`, and `0.99` confidence intervals.
 - Methodology registry tests cover core domains and domain lookup.
+- Custom-metric service tests cover collinearity warnings (`pearson_correlation` ≥ 0.85) so composites that double-count the same signal warn the caller.
+- Validation fixture coverage is asserted at the test level: every registered domain in `list_methodologies()` must have at least one fixture in `methodology_validation_report()`.
