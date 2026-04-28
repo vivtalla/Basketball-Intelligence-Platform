@@ -4,6 +4,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { useMemo, useState } from "react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
+import useSWR from "swr";
 import {
   useTeamAvailability,
   useTeamPrepQueue,
@@ -26,6 +27,10 @@ import {
   useTeamPeriodScoring,
   useTeamBenchAnalytics,
 } from "@/hooks/usePlayerStats";
+import { useSeasonPhase } from "@/hooks/useSeasonPhase";
+import { getBracket } from "@/lib/api";
+import OpponentLineupMatchupMatrix from "@/components/playoffs/OpponentLineupMatchupMatrix";
+import type { PlayoffBracketResponse, PlayoffSeriesResponse } from "@/lib/types";
 import AvailabilitySummaryCard from "@/components/AvailabilitySummaryCard";
 import TeamAnalyticsPanel from "@/components/TeamAnalyticsPanel";
 import TeamDefenseShotLab from "@/components/TeamDefenseShotLab";
@@ -56,7 +61,18 @@ function coverageTone(status: "none" | "partial" | "ready") {
   return "bg-[var(--surface-alt)] text-[var(--muted)]";
 }
 
-type Tab = "decision" | "prep" | "intelligence" | "roster" | "analytics" | "splits" | "lineups";
+type Tab = "decision" | "prep" | "intelligence" | "roster" | "analytics" | "splits" | "lineups" | "opponent_matchup";
+
+const ALL_TABS: Tab[] = [
+  "decision",
+  "prep",
+  "intelligence",
+  "roster",
+  "analytics",
+  "splits",
+  "lineups",
+  "opponent_matchup",
+];
 
 export default function TeamDetailPage() {
   const params = useParams<{ abbr: string }>();
@@ -73,7 +89,7 @@ export default function TeamDetailPage() {
   const [selectedSeason, setSelectedSeason] = useState<string>("");
   const [splitView, setSplitView] = useState<"situational" | "shooting">("situational");
   const activeTab =
-    (activeTabParam && (["decision", "prep", "intelligence", "roster", "analytics", "splits", "lineups"] as Tab[]).includes(activeTabParam as Tab)
+    (activeTabParam && ALL_TABS.includes(activeTabParam as Tab)
       ? (activeTabParam as Tab)
       : selectedTab);
 
@@ -93,6 +109,50 @@ export default function TeamDetailPage() {
     (seasonParam && availableSeasons.includes(seasonParam) ? seasonParam : null) ??
     availableSeasons[0] ??
     DEFAULT_SEASON;
+
+  // Sprint 73B (EB4) — playoff bracket lookup so we can offer the
+  // "Opponent matchup" tab only when this team is in an active series.
+  const { isPlayoffs } = useSeasonPhase();
+  const { data: bracket } = useSWR<PlayoffBracketResponse>(
+    isPlayoffs && effectiveSeason ? ["bracket", effectiveSeason] : null,
+    () => getBracket(effectiveSeason)
+  );
+  const activeSeriesForTeam = useMemo<PlayoffSeriesResponse | null>(() => {
+    if (!bracket || !teamAbbreviation) return null;
+    const all: PlayoffSeriesResponse[] = [
+      ...bracket.east,
+      ...bracket.west,
+      ...(bracket.finals ? [bracket.finals] : []),
+    ];
+    const match = all.find(
+      (series) =>
+        series.status !== "scheduled" &&
+        (series.top_seed_team_abbr === teamAbbreviation ||
+          series.bottom_seed_team_abbr === teamAbbreviation)
+    );
+    return match ?? null;
+  }, [bracket, teamAbbreviation]);
+  const playoffOpponentAbbreviations = useMemo<string[]>(() => {
+    if (!activeSeriesForTeam || !teamAbbreviation) return [];
+    const abbrs: string[] = [];
+    if (
+      activeSeriesForTeam.top_seed_team_abbr &&
+      activeSeriesForTeam.top_seed_team_abbr !== teamAbbreviation
+    ) {
+      abbrs.push(activeSeriesForTeam.top_seed_team_abbr);
+    }
+    if (
+      activeSeriesForTeam.bottom_seed_team_abbr &&
+      activeSeriesForTeam.bottom_seed_team_abbr !== teamAbbreviation
+    ) {
+      abbrs.push(activeSeriesForTeam.bottom_seed_team_abbr);
+    }
+    return abbrs;
+  }, [activeSeriesForTeam, teamAbbreviation]);
+  const showOpponentMatchupTab = isPlayoffs && playoffOpponentAbbreviations.length > 0;
+  const [selectedMatchupOpponent, setSelectedMatchupOpponent] = useState<string | null>(null);
+  const effectiveMatchupOpponent =
+    selectedMatchupOpponent ?? playoffOpponentAbbreviations[0] ?? null;
 
   const {
     data: intelligence,
@@ -554,7 +614,9 @@ export default function TeamDetailPage() {
 
       {/* Tab bar */}
       <div className="flex rounded-xl overflow-hidden border border-gray-200 dark:border-gray-700 w-fit text-sm">
-        {(["decision", "prep", "intelligence", "roster", "analytics", "splits", "lineups"] as Tab[]).map((tab) => (
+        {ALL_TABS.filter(
+          (tab) => tab !== "opponent_matchup" || showOpponentMatchupTab
+        ).map((tab) => (
           <button
             key={tab}
             onClick={() => {
@@ -573,7 +635,7 @@ export default function TeamDetailPage() {
                 : "bip-toggle"
             }`}
           >
-            {tab}
+            {tab === "opponent_matchup" ? "Opponent matchup" : tab}
           </button>
         ))}
       </div>
@@ -807,6 +869,40 @@ export default function TeamDetailPage() {
         <section className="space-y-6">
           {teamBenchAnalytics && <TeamBenchAnalyticsPanel teamAbbreviation={teamAbbreviation ?? ""} season={effectiveSeason} />}
           <TeamLineupsPanel teamId={roster.team_id} season={effectiveSeason} />
+        </section>
+      )}
+
+      {/* Sprint 73B (EB4) — Opponent matchup tab. Only mounts when phase is
+          playoffs AND this team is in an active series (verified via the
+          bracket lookup above). */}
+      {activeTab === "opponent_matchup" && showOpponentMatchupTab && teamAbbreviation && effectiveMatchupOpponent && (
+        <section className="space-y-4">
+          {playoffOpponentAbbreviations.length > 1 ? (
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="text-xs font-semibold uppercase tracking-[0.14em] text-[var(--muted)]">
+                Opponent
+              </span>
+              {playoffOpponentAbbreviations.map((opp) => (
+                <button
+                  key={opp}
+                  type="button"
+                  onClick={() => setSelectedMatchupOpponent(opp)}
+                  className={`rounded-full border border-[var(--border)] px-3 py-1 text-xs font-semibold transition-colors ${
+                    effectiveMatchupOpponent === opp
+                      ? "bg-[var(--accent)] text-[var(--surface)]"
+                      : "bg-[var(--surface-alt)] text-[var(--foreground)]"
+                  }`}
+                >
+                  {opp}
+                </button>
+              ))}
+            </div>
+          ) : null}
+          <OpponentLineupMatchupMatrix
+            team={teamAbbreviation}
+            opponent={effectiveMatchupOpponent}
+            season={effectiveSeason}
+          />
         </section>
       )}
 

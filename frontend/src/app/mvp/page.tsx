@@ -3,11 +3,13 @@
 import { Suspense, useEffect, useState } from "react";
 import { getAvailableSeasons } from "@/lib/api";
 import { useMvpRace, useMvpSensitivity, useMvpTimeline } from "@/hooks/usePlayerStats";
+import { useSeasonPhase } from "@/hooks/useSeasonPhase";
 import MvpRacePanel, { MvpRacePanelSkeleton } from "@/components/MvpRacePanel";
 import MvpSensitivitySlope from "@/components/MvpSensitivitySlope";
 import MvpTimelineStrip from "@/components/MvpTimelineStrip";
 import MvpVoterRoom from "@/components/MvpVoterRoom";
 import MvpSnapshotFreshnessBadge from "@/components/MvpSnapshotFreshnessBadge";
+import SeriesWPSimulator from "@/components/playoffs/SeriesWPSimulator";
 
 const POSITION_OPTIONS = [
   { label: "All positions", value: "" },
@@ -89,12 +91,19 @@ export default function MvpPage() {
   const [season, setSeason] = useState<string | null>(null);
   const [top, setTop] = useState(10);
   const [position, setPosition] = useState<string>("");
+  const { isPlayoffs, roundLabel } = useSeasonPhase();
   const raceQuery = useMvpRace(season, {
     top,
     minGp: 20,
     position: position || null,
     profile: "balanced",
   });
+
+  // Sprint 73B — reframe the page header during the playoffs. Falls back to
+  // the regular-season copy when phase resolves to regular_season/offseason.
+  const headerTitle = isPlayoffs
+    ? `${roundLabel ?? "Playoff"} MVP Race`
+    : "MVP Race";
 
   useEffect(() => {
     getAvailableSeasons()
@@ -111,7 +120,7 @@ export default function MvpPage() {
         <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
           <div>
             <p className="bip-kicker">Award case lab</p>
-            <h1 className="bip-display mt-2 text-3xl font-bold tracking-tight text-[var(--foreground)]">MVP Race</h1>
+            <h1 className="bip-display mt-2 text-3xl font-bold tracking-tight text-[var(--foreground)]">{headerTitle}</h1>
             <p className="mt-2 max-w-3xl text-sm leading-6 text-[var(--muted)]">
               A refined four-layer race model: Basketball Value, Award Case modifiers, context/confidence signals,
               and structured analyst lenses in one transparent case workspace.
@@ -209,6 +218,10 @@ export default function MvpPage() {
       ) : (
         <MvpRacePanelSkeleton />
       )}
+
+      {/* Sprint 73B — Series WP Simulator. Gated on `isPlayoffs` so the
+          regular-season MVP page is unchanged. */}
+      {isPlayoffs ? <SeriesWPSimulator /> : null}
 
       <section className="rounded-lg border border-[var(--border)] bg-[var(--surface)] p-5">
         <p className="text-xs font-semibold uppercase text-[var(--accent)]">Methodology</p>
