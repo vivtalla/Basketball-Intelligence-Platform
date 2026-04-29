@@ -8,6 +8,7 @@ import StatCard from "./StatCard";
 import { usePlayerPercentiles, useLeagueContext, usePlayerShotIdentity } from "@/hooks/usePlayerStats";
 import { useFavorites } from "@/hooks/useFavorites";
 import ShotIdentityBadges from "./ShotIdentityBadges";
+import PlayerStreakChip from "./PlayerStreakChip";
 
 interface PlayerHeaderProps {
   profile: PlayerProfile;
@@ -256,7 +257,7 @@ export default function PlayerHeader({
             </button>
           </div>
 
-          <div className="flex flex-wrap gap-2 mb-4">
+          <div className="flex flex-wrap gap-2 mb-4 items-center">
             <span className="px-3 py-1 rounded-full text-sm font-medium bg-[var(--accent-soft)] text-[var(--accent-strong)]">
               {profile.team_name || "Free Agent"}
             </span>
@@ -265,6 +266,8 @@ export default function PlayerHeader({
                 {profile.position}
               </span>
             )}
+            {/* Sprint 78 CF5 — surfaces the longest active streak only when there is one. */}
+            <PlayerStreakChip playerId={profile.id} />
           </div>
 
           {(identityLoading || (identityData?.cards?.length ?? 0) > 0) && (

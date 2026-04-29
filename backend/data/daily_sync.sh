@@ -122,6 +122,7 @@ if [ "$DRY_RUN" = "1" ]; then
     echo "would run: sync_injuries"
     echo "would run: sync_official_team_general_splits is_playoff=True"
     echo "would run: sync_official_team_shooting_splits is_playoff=True"
+    echo "would run: sync_streaks_milestones (CF5 nightly snapshot)"
   else
     echo "would run: queue_season_shot_charts"
     echo "would run: warehouse_jobs"
@@ -131,6 +132,7 @@ if [ "$DRY_RUN" = "1" ]; then
     echo "would run: sync_official_team_season_stats"
     echo "would run: sync_official_team_general_splits"
     echo "would run: sync_official_team_shooting_splits"
+    echo "would run: sync_streaks_milestones (CF5 nightly snapshot)"
     if [ "$IS_PLAYOFFS" = "1" ]; then
       echo "would run: ingest today's playoff finals from CDN scoreboard"
       echo "would run: playoff sync_official_season_stats is_playoff=True"
@@ -196,6 +198,12 @@ PYEOF
   # --fast skips the slow per-player tracking dashboard pass; that runs in
   # the morning daily sync.
   PYTHONPATH=. "$PYTHON_BIN" scripts/sync_playoff_full.py --fast "$SEASON" >> "$LOG" 2>&1 || true
+
+  # Sprint 78 CF5 — refresh streaks + career milestone snapshots after the
+  # game logs settle. Non-fatal: the /milestones page falls back to the
+  # last successful snapshot if this hiccups.
+  PYTHONPATH=. "$PYTHON_BIN" data/sync_streaks_milestones.py --season "$SEASON" >> "$LOG" 2>&1 || true
+
   echo "[$(date -u +%Y-%m-%dT%H:%M:%SZ)] daily_sync post-game complete season=$SEASON" >> "$LOG"
   echo "daily_sync post-game complete: season=$SEASON"
   exit 0
@@ -286,5 +294,10 @@ if [ "$IS_PLAYOFFS" = "1" ]; then
   PYTHONPATH=. "$PYTHON_BIN" data/sync_today_playoff_finals.py --season "$SEASON" >> "$LOG" 2>&1 || true
   PYTHONPATH=. "$PYTHON_BIN" scripts/sync_playoff_full.py "$SEASON" >> "$LOG" 2>&1 || true
 fi
+
+# Sprint 78 CF5 — recompute active streaks + milestone snapshots once the
+# canonical season-stats + game-log data is up-to-date. Non-fatal: the
+# /milestones page tolerates stale snapshots.
+PYTHONPATH=. "$PYTHON_BIN" data/sync_streaks_milestones.py --season "$SEASON" >> "$LOG" 2>&1 || true
 
 echo "[$(date -u +%Y-%m-%dT%H:%M:%SZ)] daily_sync complete season=$SEASON post_game=$POST_GAME_MODE is_playoffs=$IS_PLAYOFFS" >> "$LOG"

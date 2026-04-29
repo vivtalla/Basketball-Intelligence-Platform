@@ -21,13 +21,15 @@ to two tiles rather than failing the whole rail:
 """
 from __future__ import annotations
 
-from typing import List, Optional
+from typing import Dict, List, Optional
 
 from sqlalchemy.orm import Session
 
 from db.models import Player, PlayerGameLog, SeasonStat
 from models.playoffs import PlayoffStoryTile
+from services.milestone_proximity_service import fetch_approaching_milestones
 from services.playoff_leaders_service import _impact_score
+from services.streak_detection_service import fetch_top_active_streaks
 
 
 _MIN_GAMES_FOR_TREND = 3
@@ -187,12 +189,92 @@ def _x_factor(db: Session, rows: List[SeasonStat]) -> Optional[PlayoffStoryTile]
     )
 
 
+def _streaks_and_milestones_tile(db: Session, season: str) -> Optional[PlayoffStoryTile]:
+    """Sprint 78 CF5 — surface the night's biggest streak/milestone story.
+
+    Picks whichever of the two narratives is more interesting:
+        - Longest active streak in the league (length >= 3 games).
+        - Most-approaching career milestone (games_to_milestone <= 5).
+    Returns None when neither story is interesting.
+    """
+    streak_rows: List[Dict[str, object]] = []
+    try:
+        streak_rows = fetch_top_active_streaks(db, season=season, limit=1)
+    except Exception:  # pragma: no cover — best-effort
+        streak_rows = []
+
+    milestone_rows: List[Dict[str, object]] = []
+    try:
+        milestone_rows = fetch_approaching_milestones(db, limit=5)
+    except Exception:  # pragma: no cover — best-effort
+        milestone_rows = []
+
+    streak = streak_rows[0] if streak_rows and int(streak_rows[0].get("length", 0)) >= 3 else None
+
+    milestone: Optional[Dict[str, object]] = None
+    for row in milestone_rows:
+        gtm = row.get("games_to_milestone")
+        if isinstance(gtm, int) and gtm <= 5:
+            milestone = row
+            break
+
+    if streak is None and milestone is None:
+        return None
+
+    # Heuristic: a streak of 5+ outranks any milestone watch.
+    pick_streak = (
+        streak is not None
+        and (milestone is None or int(streak.get("length", 0)) >= 5)
+    )
+
+    if pick_streak and streak is not None:
+        name = streak["player_name"]
+        team = streak["team_abbreviation"]
+        length = int(streak["length"])
+        label = streak["streak_label"]
+        headline = "{name} just ran his streak to {length} straight {label}.".format(
+            name=name, length=length, label=label,
+        )
+        team_note = " · {0}".format(team) if team else ""
+        subhead = "Active streak{0} — refreshed nightly.".format(team_note)
+        return PlayoffStoryTile(
+            kicker="Streak of the Night",
+            headline=headline,
+            subhead=subhead,
+            href="/players/{0}".format(int(streak["player_id"])),
+            read_time="Updated nightly",
+        )
+
+    if milestone is not None:
+        name = milestone["player_name"]
+        gtm = int(milestone["games_to_milestone"])
+        threshold = int(milestone["threshold"])
+        label = milestone["milestone_label"]
+        remaining = milestone.get("points_remaining") or 0.0
+        formatted_remaining = "{0:,.0f}".format(float(remaining)) if remaining > 0 else "0"
+        headline = "{name} is {gtm} games from {label}.".format(
+            name=name, gtm=gtm, label=label,
+        )
+        subhead = "{0} away from {1:,} — current pace.".format(formatted_remaining, threshold)
+        return PlayoffStoryTile(
+            kicker="Milestone Watch",
+            headline=headline,
+            subhead=subhead,
+            href="/players/{0}".format(int(milestone["player_id"])),
+            read_time="Updated nightly",
+        )
+
+    return None
+
+
 def compute_story_rail(db: Session, season: str) -> List[PlayoffStoryTile]:
-    """Compute up to 3 auto-generated story tiles for the given season.
+    """Compute up to 4 auto-generated story tiles for the given season.
 
     Returns an empty list if no playoff data exists for the season. Each
     tile slot is computed independently — a slot that can't find a
     qualifying player is skipped rather than padded with placeholder copy.
+    Sprint 78 added the streak/milestone tile, which is best-effort and
+    can fire even when the playoff slate is thin.
     """
     rows = (
         db.query(SeasonStat)
@@ -202,20 +284,31 @@ def compute_story_rail(db: Session, season: str) -> List[PlayoffStoryTile]:
         )
         .all()
     )
-    if not rows:
-        return []
 
     tiles: List[PlayoffStoryTile] = []
-    for builder in (_heat_check, _efficiency_desk, _x_factor):
-        try:
-            if builder is _heat_check:
-                tile = builder(db, season, rows)
-            else:
-                tile = builder(db, rows)
-        except Exception:  # pragma: no cover — story tiles are best-effort
-            tile = None
-        if tile is not None:
-            tiles.append(tile)
+
+    if rows:
+        for builder in (_heat_check, _efficiency_desk, _x_factor):
+            try:
+                if builder is _heat_check:
+                    tile = builder(db, season, rows)
+                else:
+                    tile = builder(db, rows)
+            except Exception:  # pragma: no cover — story tiles are best-effort
+                tile = None
+            if tile is not None:
+                tiles.append(tile)
+
+    # Sprint 78 CF5 — streak/milestone tile is independent of the playoff
+    # slate (works during regular season too) and degrades gracefully
+    # when no streak or milestone is interesting tonight.
+    try:
+        sm_tile = _streaks_and_milestones_tile(db, season)
+    except Exception:  # pragma: no cover — best-effort
+        sm_tile = None
+    if sm_tile is not None:
+        tiles.append(sm_tile)
+
     return tiles
 
 

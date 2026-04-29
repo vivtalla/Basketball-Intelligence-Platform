@@ -4371,3 +4371,72 @@ export interface GameDetailResponse {
   player_quarter_impact?: PlayerQuarterImpact[] | null;
   series_odds_history?: SeriesOddsPoint[] | null;
 }
+
+// ── Sprint 78 (CF5) — Streaks & Milestones tracker ──────────────────────────
+// One active streak row for the league-wide /milestones board. Mirrors
+// `PlayerStreakSummary` in `backend/models/milestones.py`.
+export interface PlayerStreakSummary {
+  player_id: number;
+  player_name: string;
+  team_abbreviation: string;
+  streak_type: string;
+  streak_label: string;
+  length: number;
+  started_on?: string | null;
+  last_game_on?: string | null;
+  last_game_id?: string | null;
+  season?: string | null;
+}
+
+export interface ActiveStreaksResponse {
+  season: string;
+  streaks: PlayerStreakSummary[];
+}
+
+// One approaching-or-achieved career milestone row. Mirrors
+// `MilestoneSnapshotSummary` in `backend/models/milestones.py`.
+export interface MilestoneSnapshotSummary {
+  player_id: number;
+  player_name: string;
+  team_abbreviation?: string | null;
+  milestone_key: string;
+  milestone_label: string;
+  threshold: number;
+  current_value: number;
+  games_to_milestone?: number | null;
+  points_remaining?: number | null;
+  achieved_on?: string | null;
+  season?: string | null;
+}
+
+export interface ApproachingMilestonesResponse {
+  milestones: MilestoneSnapshotSummary[];
+}
+
+// One signature box-score line. Mirrors `SignaturePerformance` in
+// `backend/models/milestones.py`.
+export interface SignaturePerformance {
+  player_id: number;
+  player_name: string;
+  team_abbreviation?: string | null;
+  game_id: string;
+  game_date?: string | null;
+  matchup?: string | null;
+  pts: number;
+  reb: number;
+  ast: number;
+  stl: number;
+  blk: number;
+  fgm: number;
+  fga: number;
+  fg3m: number;
+  composite_score: number;
+  career_percentile: number;
+  tier: string; // "career" | "signature"
+  line: string;
+}
+
+export interface SignaturePerformancesResponse {
+  date?: string | null;
+  performances: SignaturePerformance[];
+}
