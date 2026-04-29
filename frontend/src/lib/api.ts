@@ -1867,3 +1867,21 @@ export type {
   PlayerQuarterImpact as GamePlayerQuarterImpact,
   SeriesOddsPoint as GameSeriesOddsPoint,
 } from "./types";
+
+// ── Sprint 78 (CF3) — Career Legacy / Hall of Fame view ─────────────────────
+// Single endpoint backing the new `<LegacyTab>` on the player profile.
+// `peer_count` clamps to 3..10; default 8 matches the Era Peers grid.
+export async function getPlayerLegacy(
+  playerId: number,
+  options?: { peerCount?: number },
+): Promise<import("./types").CareerLegacyResponse> {
+  const params = new URLSearchParams();
+  if (options?.peerCount != null) {
+    params.set("peer_count", String(options.peerCount));
+  }
+  const qs = params.toString();
+  const path = qs
+    ? `/api/players/${encodeURIComponent(playerId)}/legacy?${qs}`
+    : `/api/players/${encodeURIComponent(playerId)}/legacy`;
+  return fetchApi<import("./types").CareerLegacyResponse>(path);
+}
