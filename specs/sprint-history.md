@@ -1,9 +1,21 @@
 # Sprint History Archive
 
-Archived sprint summaries through Sprint 76. The two most recent sprint summaries also stay inline in `CLAUDE.md` under "Recent Sprints".
+Archived sprint summaries through Sprint 77. The two most recent sprint summaries also stay inline in `CLAUDE.md` under "Recent Sprints".
 
 For detailed per-sprint records, see the individual closeout files in this directory where available:
 `specs/sprint-09-closeout.md` through `specs/sprint-59-closeout.md`, plus `specs/sprint-62-closeout.md` and `specs/sprint-67-closeout.md` onward.
+
+---
+
+### Sprint 77 — Broadsheet Playoff Home + Game Detail Deep-Dive
+**Branches:** `feature/sprint-77a-game-data-foundation` + `feature/sprint-77b-broadsheet-screens` (Claude, two-team parallel, Architect → 8 Engineers → Reviewer → Optimizer)
+
+- Shipped a fresh broadsheet/newsprint visual direction for `/` (replaces Sprint 73's home during the playoff window) and a deep Game Detail page with 12 new modules above the existing box-score sections. Driven by a new design tarball that introduced the broadsheet feel + a user-facing Mode toggle (Playoff / Regular / Offseason) on top of Sprint 73's auto-detect.
+- Stream A built per-game data primitives: WP trajectory + lead-tracker (closed-form logistic over PBP), possession diary (top 24 lead-impact possessions tagged shot/defense/turnover/transition/clutch), per-quarter player +/- via PBP substitution walk, series odds history (post-game WP snapshots via Sprint 75 simulator overrides), and a single resilient `game_detail_assembler`. Plus `useViewMode` hook (auto-detect + localStorage override), storyline copy on `/api/playoffs/today`, and `/api/playoffs/leaders` with trend symbols + 5-game grades.
+- Stream B built 26 new components under `frontend/src/components/broadsheet/` (11 home + 15 game-detail). Auto-pick scoreboard chrome for live/halftime games, broadsheet for finals + pre-game; manual toggle persists in localStorage. Existing `/games/[gameId]` box-score / PBP feed / 3D-visualizer / score timeline preserved below the new modules under `#legacy-game-explorer` anchor.
+- All broadsheet UI gated by `useViewMode` so toggle-back to `regular_season` or `offseason` renders Sprint 73's home cleanly under the same masthead chrome.
+- Reviewer no-blockers; Optimizer addressed 3 concerns (tightened live-state inference, memoized LeadTracker + PossessionDiary geometry, WCAG AA contrast fix on possession-diary impact tags).
+- Verified with **360 backend tests** (was 346, +14 new), `npm run build` + `npm run lint` clean.
 
 ---
 

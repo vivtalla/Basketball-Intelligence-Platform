@@ -262,6 +262,15 @@ CourtVue Labs uses a hybrid sprint model: major feature sprints typically run as
 
 > Full history → `specs/sprint-history.md`
 
+### Sprint 77 — Broadsheet Playoff Home + Game Detail Deep-Dive
+
+- Two-team parallel sprint shipping the broadsheet/newsprint Playoff Home (replaces Sprint 73's carousel + slate sections during the playoff window) and the Game Detail deep-dive page with 12 new modules above the existing box-score sections. Driven by a fresh design tarball that introduced the broadsheet visual direction + the Mode toggle (Playoff / Regular / Offseason).
+- **Stream A — game data foundation:** new `services/game_trajectory_service.py` (closed-form WP trajectory + per-minute lead-tracker derived from PBP), `services/possession_diary_service.py` (24-row top-impact possession diary + per-quarter player +/- via PBP substitution walk), `services/game_detail_assembler.py` (single resilient entry point that wraps box-score + 4 derived components with try/except + logger.warning), `services/playoff_simulator_service.py` extended with `compute_series_odds_history` (post-game series WP snapshots via Sprint 75 simulator overrides), `services/playoff_leaders_service.py` (new `/api/playoffs/leaders` endpoint with trend symbols + 5-game grades), and `services/playoff_bracket_service.py` extended with `compute_game_storyline` (headline_storyline copy on `/api/playoffs/today`). Frontend: new `useViewMode` hook (auto-detect via useSeasonPhase + localStorage override).
+- **Stream B — broadsheet screens:** new `frontend/src/components/broadsheet/` directory with the playoff home stack (BroadsheetMasthead + ModeToggle + BroadsheetHero + TodaysSlate + BroadsheetGameCard + SeriesTrackerStrip + BracketStrip + NarrativeLeaders + StoryRail) plus offseason content (ArchiveVault + TipOffAgenda). New `frontend/src/components/broadsheet/game-detail/` with 15 components composing the broadsheet game-detail page (GameStateBanner + BroadsheetHeadline + BroadsheetScoreBanner + ScoreboardChrome alternative + GameVariantToggle + the 12 module bodies: WP hero, lead tracker, dual shot charts, lineup grid, player impact cards, possession diary, coaching log, hustle stats, series odds card, quote ribbon, plus BroadsheetGameDetail wrapper and SharedGameModules). Auto-pick scoreboard chrome for live/halftime games, broadsheet for finals + pre-game; manual toggle persists in localStorage. Existing `/games/[gameId]` box-score / PBP feed / 3D-visualizer / score timeline / top-players sections preserved below the new modules under `#legacy-game-explorer` anchor.
+- All broadsheet UI gated by `useViewMode` so toggle-back to `regular_season` or `offseason` renders the existing Sprint 73 home cleanly under the same masthead chrome. Sprint 73's `<DailyPlayoffSlate>` + `<SeriesNarrative>` self-gate to render only when `viewMode !== "playoff"` so they don't double-render.
+- Architecture used `Architect → 8 parallel Engineers (4+4) → Reviewer → Optimizer` per CLAUDE.md two-team parallel pattern. Stream A merged first; Stream B branched off A's tip. Reviewer signed off no-blockers; Optimizer addressed 3 cheap concerns (live-state inference tightened to require both scores null AND game date today/past, LeadTracker + PossessionDiary memoized, WCAG AA contrast fix on impact tags).
+- Verified with **360 backend tests** (was 346 + 14 new from EA1×4, EA2×3, EA3×4, EA4×3), `npm run build` + `npm run lint` clean (7 pre-existing `usePlayerStats.ts` warnings unchanged). Closeout: `specs/sprint-77-closeout.md`.
+
 ### Sprint 76 — Methodology Rigor Pass
 
 - Single-stream Claude sprint promoting every previously-deferred methodology upgrade from "planned" in the registry to either a working end-to-end implementation or a focused design memo with explicit data prerequisites.
@@ -272,16 +281,7 @@ CourtVue Labs uses a hybrid sprint model: major feature sprints typically run as
 - Pure backend sprint by design: every new response field is `Optional` so existing frontend consumers keep working unchanged. Frontend follow-on work (rendering the new methodology evidence in existing drawers) is captured in the closeout under "Frontend follow-ons".
 - Verified with **346 backend tests** (was 293 at Sprint 75 close; +53 net new), `npm run lint` (7 pre-existing warnings), `npm run build` clean. Closeout: `specs/sprint-76-closeout.md`.
 
-### Sprint 75 — Playoff Command Center & Series Intelligence
-
-- Single-stream Codex sprint upgrading `/bracket` from a static bracket into a coach/analyst Playoff Command Center.
-- Added `playoff_series_intelligence_v1` and `GET /api/playoffs/series/{series_id}/intelligence`, returning series pulse, data coverage, Four Factors plus regular-season deltas, star burden, shot-diet pressure, lineup chess, tactical edges, adjustment signals, warnings, and `analysis_metadata`.
-- Added a `playoffs` methodology registry domain and documented the new method in `specs/platform-methodology.md`.
-- Extended `GET /api/playoffs/series-simulation/{series_id}` with non-mutating `override_top_wins` / `override_bottom_wins` and wired `<SeriesWPSimulator>` what-if buttons to real re-simulation plus reset.
-- Added `<PlayoffCommandCenter>` with selected-series rail, today's slate strip, Series Pulse, Tactical Edges, Star Burden, Shot Diet, Lineup Chess, simulator, and reliability card.
-- Verified with **293 backend tests**, targeted playoff tests, `npm run lint` (7 pre-existing warnings), `npm run build`, and `git diff --check`. Closeout: `specs/sprint-75-closeout.md`.
-
-*Sprint 74 and older moved to `specs/sprint-history.md`.*
+*Sprint 75 and older moved to `specs/sprint-history.md`.*
 
 ---
 
@@ -311,6 +311,8 @@ CourtVue Labs uses a hybrid sprint model: major feature sprints typically run as
 | `codex-sprint-74-methodology-upgrades` | Codex | Merged to master |
 | `codex-sprint-75-playoff-command-center` | Codex | Merged to master |
 | `claude/improve-evaluation-methods-ZAo94` | Claude | Merged to master |
+| `feature/sprint-77a-game-data-foundation` | Claude | Merged to master |
+| `feature/sprint-77b-broadsheet-screens` | Claude | Merged to master |
 
 Sprint branches are created at kickoff and listed in `AGENTS.md`.
 

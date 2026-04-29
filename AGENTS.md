@@ -1,6 +1,6 @@
 # Agent Coordination
 
-Last updated: 2026-04-28 by Claude (Sprint 76 closeout reset)
+Last updated: 2026-04-28 by Claude (Sprint 77 closeout reset)
 
 > Both agents read this file before touching code at the start of every session.
 > The canonical source of truth is the clean `master` checkout at `/Users/viv/Documents/Basketball Intelligence Platform`.
@@ -14,12 +14,12 @@ Last updated: 2026-04-28 by Claude (Sprint 76 closeout reset)
 
 | Field | Value |
 |-------|-------|
-| Sprint | 77 |
+| Sprint | 78 |
 | Goal | TBD — awaiting Vivek's sprint kickoff |
 | Started | TBD |
 | Target merge | TBD |
 | Sprint shape | TBD |
-| Branch | `master` until Sprint 77 kickoff |
+| Branch | `master` until Sprint 78 kickoff |
 | Worker policy | No active sprint; set at kickoff |
 
 ---
@@ -163,6 +163,8 @@ Sprint 77 allocation — TBD at kickoff.
 ## Notes
 
 *Free-form, dated, newest first. Use this for coordination and repo-state exceptions.*
+
+2026-04-28 (Claude): Sprint 77 closed on `feature/sprint-77a-game-data-foundation` + `feature/sprint-77b-broadsheet-screens` and merged to `master`. Two-team parallel sprint shipping the broadsheet/newsprint Playoff Home (replaces Sprint 73's carousel + slate during the playoff window) and the Game Detail deep-dive page with 12 new modules above the existing box-score sections. Stream A: new `services/game_trajectory_service.py` (WP trajectory + lead-tracker computed from PBP), `services/possession_diary_service.py` (24-row top-impact possession diary + per-quarter player +/-), `services/game_detail_assembler.py` (single resilient entry point for /api/games/{id}), `services/playoff_simulator_service.py` extended with `compute_series_odds_history`, `services/playoff_leaders_service.py` (new /api/playoffs/leaders endpoint with trend symbols + 5-game grades), `services/playoff_bracket_service.py` extended with `compute_game_storyline` (headline_storyline on /api/playoffs/today), and a new `frontend/src/hooks/useViewMode.ts` (auto-detect via useSeasonPhase + localStorage override). Stream B: new `frontend/src/components/broadsheet/` (11 components: BroadsheetMasthead, ModeToggle, BroadsheetHero, TodaysSlate, BroadsheetGameCard, SeriesTrackerStrip, BracketStrip, NarrativeLeaders, StoryRail, ArchiveVault, TipOffAgenda) and `frontend/src/components/broadsheet/game-detail/` (15 components including BroadsheetGameDetail, ScoreboardChrome, GameVariantToggle, plus the 12 page-modules — WP hero, lead tracker, dual shot charts, lineup grid, player impact cards, possession diary, coaching log, hustle stats, series odds card, quote ribbon). Auto-pick scoreboard for live/halftime, broadsheet for final + pre-game, manual toggle persists in localStorage. All broadsheet UI gated by useViewMode so toggle-back to regular_season or offseason renders existing Sprint 73 home cleanly. Architect → 8 parallel Engineers → Reviewer → Optimizer per CLAUDE.md. Reviewer signed off no-blockers; Optimizer addressed 3 cheap concerns (live-state inference tightened, LeadTracker + PossessionDiary memoized, WCAG AA contrast fix on impact tags). Verification: 360 backend tests (was 346, +14 new), `npm run build` + `npm run lint` clean (7 pre-existing warnings unchanged). Closeout: `specs/sprint-77-closeout.md`.
 
 2026-04-28 (Claude): Sprint 76 closed on `claude/improve-evaluation-methods-ZAo94` and merged to `master`. Pure backend methodology rigor pass: shipped 8 reliability primitives, bumped 7 methodology versions end-to-end with structured response evidence (similarity_v3 shrunk Mahalanobis, custom_metric_v2 collinearity + weight sensitivity, scouting_brief_v2 contradiction detection, mvp_case_v4 Basketball Value sensitivity, style_xray_v2 PCA latent space, trend_intelligence_v2 Bayesian change scores, archetype_rules_v2 soft memberships), expanded the validation harness from 6 to 17 fixtures covering every registered methodology domain, and authored a design memo (`specs/methodology-future-modeling.md`) for the two remaining items (mvp_case_v5 voter calibration, opportunity_v2 uplift modeling) — both blocked on data prerequisites, not engineering. No frontend code changed; every new response field is `Optional`. Verification: 346 backend tests (was 293 at Sprint 75 close; +53 new), `npm run lint` clean (7 pre-existing warnings), `npm run build` clean. Closeout: `specs/sprint-76-closeout.md`.
 
