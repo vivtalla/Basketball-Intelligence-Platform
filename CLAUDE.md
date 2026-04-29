@@ -262,6 +262,16 @@ CourtVue Labs uses a hybrid sprint model: major feature sprints typically run as
 
 > Full history → `specs/sprint-history.md`
 
+### Sprint 77c — Broadsheet Live Data + Sync Hooks
+
+- Single-stream conversational sprint that replaced Sprint 77's hardcoded prototype copy with live data across the playoff broadsheet. `/api/playoffs/today` now merges the live `cdn.nba.com` scoreboard so upcoming + in-progress games appear before the nightly sync; new `tipoff_utc` and `broadcaster` fields on `PlayoffSeriesGameWithMatchup`. New `/api/playoffs/story-rail` endpoint with auto-generated tiles (Heat Check / Efficiency Desk / X-Factor) — internal-only links, no external URLs. Hero + by-the-numbers strip on `/playoffs` now compute from live bracket + today endpoints (round label, headline templated by game count, prose subhead listing tonight's matchups, real broadcasters).
+- **Narrative Leaders** ranks by composite impact score (`pts*0.35 + ast*0.20 + reb*0.10 + min(ts,0.65)*100*0.20 + net*0.15`) with qualifying thresholds (GP≥4, MIN≥22, PPG≥12) and a TS%-cap at 65 to neutralize small-sample shooting inflation. Dynamic 3-stat line picks AST vs RPG and TS% / NET / USG% based on what's most distinctive per player. Methodology popover (CSS group-hover) anchored to a ⓘ glyph reveals the formula + thresholds.
+- **Postseason heatmap** fixes: USG% scaling bug (was reading 0..1 fraction onto a 0..100 axis), rotation thresholds bumped to gp≥4/min≥18 to match leaders, hover tooltip with player name + team · GP · MPG + 3-stat grid + regular-season TS% baseline. New `TopLeadersTable` on `/leaderboards` with stat-picker chips that respond to the seasonType toggle; heatmap gated to Playoffs only.
+- Series tracker win-bar cells deep-link to `/games/{gameId}`; `BroadsheetGameCard` links to game detail directly (was sending every click to `/pre-read?series_id=...` which defaulted to OKC vs BOS). `game_detail_assembler` returns a base response when PBP is missing instead of 404'ing the whole page. Mode-toggle bug fixed: `useViewMode` now uses `useSyncExternalStore` over a shared module-level store so ModeToggle and HomePage re-render together.
+- **Sync hooks:** new `sync_today_playoff_finals.py` ingests final-status games from the live CDN scoreboard before `build_or_refresh_bracket`, wired into `daily_sync.sh` for both post-game (every 30 min) and morning paths. New `sync_playoff_pbp.py` is a focused playoff-only PBP sync that doesn't pollute regular-season aggregates; ran end-to-end against 2025-26 (now 36 games covered). Cron installed on Vivek's laptop with documented schedule. Backlog entry added for moving the cron off-laptop to a server.
+- Quick wins from the design audit: 56px logo mark + new `courtvue-mark.svg`, favicon (`icon.svg`) replacing legacy `.ico`, `bip-display tabular-nums` on StatCard values, momentum gradient on WinProbabilityChart, animated Ticker on MVP composite scores, ported brand primitives (Kicker/Pill/Button/Stat/Icon/Hardwood/Reveal/Ticker) and chart components (WinProbability/StandingsLadder/BoxScoreTable) into reusable directories.
+- Verified with **360 backend tests** (no count change — same suite as Sprint 77, with the storyline test patched to mock the live CDN), `npx tsc --noEmit` clean, `npm run lint` shows the 7 pre-existing warnings unchanged. Closeout: `specs/sprint-77c-closeout.md`.
+
 ### Sprint 77 — Broadsheet Playoff Home + Game Detail Deep-Dive
 
 - Two-team parallel sprint shipping the broadsheet/newsprint Playoff Home (replaces Sprint 73's carousel + slate sections during the playoff window) and the Game Detail deep-dive page with 12 new modules above the existing box-score sections. Driven by a fresh design tarball that introduced the broadsheet visual direction + the Mode toggle (Playoff / Regular / Offseason).
@@ -271,17 +281,7 @@ CourtVue Labs uses a hybrid sprint model: major feature sprints typically run as
 - Architecture used `Architect → 8 parallel Engineers (4+4) → Reviewer → Optimizer` per CLAUDE.md two-team parallel pattern. Stream A merged first; Stream B branched off A's tip. Reviewer signed off no-blockers; Optimizer addressed 3 cheap concerns (live-state inference tightened to require both scores null AND game date today/past, LeadTracker + PossessionDiary memoized, WCAG AA contrast fix on impact tags).
 - Verified with **360 backend tests** (was 346 + 14 new from EA1×4, EA2×3, EA3×4, EA4×3), `npm run build` + `npm run lint` clean (7 pre-existing `usePlayerStats.ts` warnings unchanged). Closeout: `specs/sprint-77-closeout.md`.
 
-### Sprint 76 — Methodology Rigor Pass
-
-- Single-stream Claude sprint promoting every previously-deferred methodology upgrade from "planned" in the registry to either a working end-to-end implementation or a focused design memo with explicit data prerequisites.
-- Eight new reliability primitives in `backend/services/reliability_service.py`: `_z_for_level` table (correctly-calibrated Wilson and normal intervals at 0.80 / 0.90 / 0.95 / 0.99), `pearson_correlation`, `collinearity_warnings`, `covariance_matrix`, `shrunk_covariance`, `invert_matrix`, `mahalanobis_distance`, `weight_sensitivity_analysis`, `principal_components`, `project_to_components`, `bayesian_change_score`, and `softmax`. `empirical_bayes_rate` hardened with input validation and posterior clamping.
-- Seven methodology versions ticked end-to-end with structured response evidence: `similarity_v3` (shrunk Mahalanobis distance method with auto-fallback), `custom_metric_v2` (collinearity warnings + top-5 ranking sensitivity under ±10% weight perturbations), `scouting_brief_v2` (cross-card contradiction detection across role/trajectory, role/usage, strengths/shot-profile), `mvp_case_v4` (Basketball Value weight-perturbation sensitivity), `style_xray_v2` (top-2 PCA latent axes with explained-variance ratios + feature loadings), `trend_intelligence_v2` (Bayesian two-sample change probability per metric), `archetype_rules_v2` (soft-membership distribution over the 13 archetype rules anchored to the hard label).
-- Validation harness expanded from 6 fixtures (team_fit + shot_lab) to 17 fixtures covering every registered methodology domain; a coverage assertion in the test suite blocks future registry additions from shipping without a fixture.
-- New design memo `specs/methodology-future-modeling.md` for the two remaining items (`mvp_case_v5` Award Case voter calibration, `opportunity_v2` uplift modeling). Both blocked on data prerequisites, not engineering — full data shape, math sketch, service wiring, and acceptance criteria captured. Backlog entries call out the data prerequisite explicitly.
-- Pure backend sprint by design: every new response field is `Optional` so existing frontend consumers keep working unchanged. Frontend follow-on work (rendering the new methodology evidence in existing drawers) is captured in the closeout under "Frontend follow-ons".
-- Verified with **346 backend tests** (was 293 at Sprint 75 close; +53 net new), `npm run lint` (7 pre-existing warnings), `npm run build` clean. Closeout: `specs/sprint-76-closeout.md`.
-
-*Sprint 75 and older moved to `specs/sprint-history.md`.*
+*Sprint 76 and older moved to `specs/sprint-history.md`.*
 
 ---
 
@@ -313,6 +313,7 @@ CourtVue Labs uses a hybrid sprint model: major feature sprints typically run as
 | `claude/improve-evaluation-methods-ZAo94` | Claude | Merged to master |
 | `feature/sprint-77a-game-data-foundation` | Claude | Merged to master |
 | `feature/sprint-77b-broadsheet-screens` | Claude | Merged to master |
+| `feature/sprint-77c-broadsheet-live-data` | Claude | Merged to master |
 
 Sprint branches are created at kickoff and listed in `AGENTS.md`.
 

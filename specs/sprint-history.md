@@ -1,9 +1,22 @@
 # Sprint History Archive
 
-Archived sprint summaries through Sprint 77. The two most recent sprint summaries also stay inline in `CLAUDE.md` under "Recent Sprints".
+Archived sprint summaries through Sprint 77c. The two most recent sprint summaries also stay inline in `CLAUDE.md` under "Recent Sprints".
 
 For detailed per-sprint records, see the individual closeout files in this directory where available:
 `specs/sprint-09-closeout.md` through `specs/sprint-59-closeout.md`, plus `specs/sprint-62-closeout.md` and `specs/sprint-67-closeout.md` onward.
+
+---
+
+### Sprint 77c — Broadsheet Live Data + Sync Hooks
+**Branch:** `feature/sprint-77c-broadsheet-live-data` (Claude, single-stream conversational)
+
+- Replaced hardcoded Sprint 77 prototype copy with live data across the playoff broadsheet. `/api/playoffs/today` now merges the live `cdn.nba.com` scoreboard so upcoming + in-progress games appear before nightly sync; new `tipoff_utc` and `broadcaster` fields on `PlayoffSeriesGameWithMatchup`. New `/api/playoffs/story-rail` endpoint with auto-generated tiles (Heat Check / Efficiency Desk / X-Factor) — internal links only, no external URLs. Hero + by-the-numbers strip on `/playoffs` now compute from live bracket + today endpoints (round label, headline templated by game count, prose subhead listing tonight's matchups, real broadcasters).
+- Narrative Leaders ranks by composite impact score (`pts*0.35 + ast*0.20 + reb*0.10 + min(ts,0.65)*100*0.20 + net*0.15`) with qualifying thresholds (GP≥4, MIN≥22, PPG≥12) and a TS%-cap at 65 to neutralize small-sample shooting inflation. Dynamic 3-stat line picks AST vs RPG and TS% / NET / USG% based on what's most distinctive per player. Methodology popover (CSS group-hover) anchored to a ⓘ glyph reveals the formula + thresholds.
+- Postseason heatmap fixes: USG% scaling bug (0..1 fraction → 0..100 axis), rotation thresholds bumped to gp≥4/min≥18 to match leaders, hover tooltip with player name + team · GP · MPG + 3-stat grid + regular-season TS% baseline. `TopLeadersTable` added on `/leaderboards` with stat-picker chips that respond to the seasonType toggle; heatmap gated to Playoffs only.
+- Series tracker win-bar cells deep-link to `/games/{gameId}`; `BroadsheetGameCard` links to game detail directly (was sending every click to `/pre-read?series_id=...` which then defaulted to OKC vs BOS). `game_detail_assembler` returns a base response when PBP is missing instead of 404'ing the whole page. Mode toggle bug fixed: `useViewMode` now uses `useSyncExternalStore` over a shared module-level store so ModeToggle and HomePage re-render together.
+- New `sync_today_playoff_finals.py` ingests final-status games from the live CDN scoreboard before `build_or_refresh_bracket`, wired into `daily_sync.sh` for both post-game (every 30 min) and morning paths. New `sync_playoff_pbp.py` is a focused playoff-only PBP sync that doesn't pollute regular-season aggregates; ran end-to-end against 2025-26 (now 36 games covered). Cron installed on Vivek's laptop with documented schedule. Backlog entry added for moving the cron off-laptop to a server.
+- Quick wins from the design audit: 56px logo mark + new `courtvue-mark.svg`, favicon (`icon.svg`) replacing legacy `.ico`, `bip-display tabular-nums` on StatCard values, momentum gradient on WinProbabilityChart, animated Ticker on MVP composite scores, ported brand primitives (Kicker/Pill/Button/Stat/Icon/Hardwood/Reveal/Ticker) and chart components (WinProbability/StandingsLadder/BoxScoreTable) into reusable directories.
+- Verified with **360 backend tests** (no count change — same suite as Sprint 77, with the storyline test patched to mock the live CDN), `npx tsc --noEmit` clean, `npm run lint` shows the 7 pre-existing warnings unchanged. Closeout: `specs/sprint-77c-closeout.md`.
 
 ---
 
