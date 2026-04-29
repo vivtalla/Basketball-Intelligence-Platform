@@ -18,6 +18,7 @@ from routers import (
     leaderboards,
     metrics,
     methodology,
+    milestones,
     mvp,
     players,
     playoffs,
@@ -82,6 +83,7 @@ app.include_router(season_phase.router, prefix="/api/season-phase", tags=["seaso
 app.include_router(playoffs.router, prefix="/api/playoffs", tags=["playoffs"])
 app.include_router(share.router, prefix="/api/share", tags=["share"])
 app.include_router(career.router, prefix="/api/players", tags=["career"])
+app.include_router(milestones.router, prefix="/api/milestones", tags=["milestones"])
 
 
 @app.on_event("startup")

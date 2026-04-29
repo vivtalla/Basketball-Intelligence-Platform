@@ -51,6 +51,9 @@ export default function NavLinks() {
       <Link href="/coverage" className="text-xs text-[var(--muted)] whitespace-nowrap bip-link">
         Coverage
       </Link>
+      <Link href="/milestones" className="text-xs text-[var(--muted)] whitespace-nowrap bip-link">
+        Milestones
+      </Link>
       <Link href="/learn" className="text-xs text-[var(--muted)] whitespace-nowrap bip-link">
         Learn
       </Link>

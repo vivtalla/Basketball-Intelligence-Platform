@@ -1885,3 +1885,35 @@ export async function getPlayerLegacy(
     : `/api/players/${encodeURIComponent(playerId)}/legacy`;
   return fetchApi<import("./types").CareerLegacyResponse>(path);
 }
+
+// ── Sprint 78 (CF5) — Streaks & Milestones tracker ──────────────────────────
+export async function getActiveStreaks(
+  season?: string,
+  limit = 50
+): Promise<import("./types").ActiveStreaksResponse> {
+  const params = new URLSearchParams({ limit: String(limit) });
+  if (season) params.set("season", season);
+  return fetchApi<import("./types").ActiveStreaksResponse>(
+    `/api/milestones/active-streaks?${params.toString()}`
+  );
+}
+
+export async function getApproachingMilestones(
+  limit = 20
+): Promise<import("./types").ApproachingMilestonesResponse> {
+  const params = new URLSearchParams({ limit: String(limit) });
+  return fetchApi<import("./types").ApproachingMilestonesResponse>(
+    `/api/milestones/approaching?${params.toString()}`
+  );
+}
+
+export async function getSignaturePerformances(
+  date?: string,
+  limit = 10
+): Promise<import("./types").SignaturePerformancesResponse> {
+  const params = new URLSearchParams({ limit: String(limit) });
+  if (date) params.set("date", date);
+  return fetchApi<import("./types").SignaturePerformancesResponse>(
+    `/api/milestones/signature-performances?${params.toString()}`
+  );
+}
