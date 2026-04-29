@@ -4405,3 +4405,65 @@ export interface GameStoryMoment {
   /** Anchor link the card scrolls to on click. */
   anchor: string;
 }
+
+// ── Sprint 78 (CF3) — Career Legacy / Hall of Fame view ─────────────────────
+// Mirrors backend/models/career_legacy.py. The Legacy tab on the player
+// profile renders these blocks: era-adjusted summary, milestones,
+// era peers, and an HOF projection.
+
+export interface EraAdjustedSummary {
+  pts_pg: number | null;
+  pts_pg_era_adj: number | null;
+  reb_pg: number | null;
+  ast_pg: number | null;
+  ts_pct: number | null;
+  ts_pct_delta_vs_league_avg: number | null;
+  games_played: number;
+  seasons_played: number;
+}
+
+export interface MilestoneAchievement {
+  milestone_key: string;
+  milestone_label: string;
+  threshold: number;
+  achieved_on?: string | null;
+  achieved_in_season?: string | null;
+  current_value?: number | null;
+}
+
+export interface MilestoneApproach {
+  milestone_key: string;
+  milestone_label: string;
+  threshold: number;
+  current_value: number;
+  points_remaining: number;
+  games_to_milestone?: number | null;
+}
+
+export interface EraPeer {
+  player_id: number;
+  player_name: string;
+  headshot_url?: string | null;
+  seasons_played: number;
+  similarity_score: number;
+  comp_basis: string;
+}
+
+export interface HofProjection {
+  label: string;          // "Likely HOF" | "Borderline" | "Tracking"
+  score: number;          // 0..100
+  drivers: string[];      // top 3
+}
+
+export interface CareerLegacyResponse {
+  player_id: number;
+  player_name: string;
+  seasons_played: number;
+  era_adjusted_summary: EraAdjustedSummary;
+  milestones_achieved: MilestoneAchievement[];
+  next_milestone?: MilestoneApproach | null;
+  era_peers: EraPeer[];
+  hof_projection: HofProjection;
+  methodology_version: string;
+  methodology?: Record<string, unknown> | null;
+}

@@ -23,15 +23,18 @@ import ChartStatusBadge from "./ChartStatusBadge";
 import PerformanceCalendar from "./PerformanceCalendar";
 import PlayerGravityPanel from "./PlayerGravityPanel";
 import MvpPlayerCaseEmbed from "./MvpPlayerCaseEmbed";
+import LegacyTab from "./career/LegacyTab";
 
 interface PlayerDashboardProps {
   playerId: number;
 }
 
 type Mode = "regular" | "playoffs";
+type Tab = "profile" | "legacy";
 
 export default function PlayerDashboard({ playerId }: PlayerDashboardProps) {
   const [mode, setMode] = useState<Mode>("regular");
+  const [tab, setTab] = useState<Tab>("profile");
   const [selectedSeasonStr, setSelectedSeasonStr] = useState<string>("");
 
   const { data: profile, error: profileError } = usePlayerProfile(playerId);
@@ -120,6 +123,39 @@ export default function PlayerDashboard({ playerId }: PlayerDashboardProps) {
     <div className="space-y-6">
       <PlayerHeader profile={profile} currentSeason={currentSeason} priorSeason={priorSeason} />
 
+      {/* Sprint 78 / CF3 — Profile / Legacy tabs */}
+      <div className="flex items-center gap-2">
+        <span className="mr-1 text-sm text-[var(--muted)]">Tab:</span>
+        <div className="flex w-fit overflow-hidden rounded-xl border border-[var(--border)] text-sm">
+          <button
+            onClick={() => setTab("profile")}
+            className={`px-4 py-1.5 transition-colors ${
+              tab === "profile" ? "bip-toggle-active" : "bip-toggle"
+            }`}
+          >
+            Profile
+          </button>
+          <button
+            onClick={() => setTab("legacy")}
+            className={`px-4 py-1.5 transition-colors ${
+              tab === "legacy" ? "bip-toggle-signal" : "bip-toggle"
+            }`}
+          >
+            Legacy
+          </button>
+        </div>
+      </div>
+
+      {tab === "legacy" ? (
+        <LegacyTab
+          playerId={playerId}
+          seasons={careerStats.seasons}
+          birthDate={profile.birth_date}
+        />
+      ) : null}
+
+      {tab === "profile" ? (
+        <>
       <PlayerSettingsDrawer playerId={playerId} season={effectiveSeasonStr} />
 
       <ScoutingBrief playerId={playerId} season={effectiveSeasonStr} />
@@ -281,6 +317,8 @@ export default function PlayerDashboard({ playerId }: PlayerDashboardProps) {
       />
 
       <ExternalMetricsPanel seasons={activeSeasonsArr} />
+        </>
+      ) : null}
     </div>
   );
 }
