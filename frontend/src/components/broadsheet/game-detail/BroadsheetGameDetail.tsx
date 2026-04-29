@@ -16,6 +16,7 @@ import BroadsheetHeadline from "./BroadsheetHeadline";
 import BroadsheetScoreBanner from "./BroadsheetScoreBanner";
 import GameStoryTimeline from "./GameStoryTimeline";
 import SharedGameModules from "./SharedGameModules";
+import ShareCardButton from "@/components/share/ShareCardButton";
 
 interface BroadsheetGameDetailProps {
   data: GameDetailResponse;
@@ -111,6 +112,12 @@ export default function BroadsheetGameDetail({
 
   return (
     <div className="space-y-7">
+      {/* Sprint 78 (CF1): Share-card button — top-right, parallel to the
+          state banner so it stays accessible without crowding the chrome. */}
+      <div className="flex justify-end -mb-3">
+        <ShareCardButton kind="game" id={data.game_id} />
+      </div>
+
       {/* 1. State banner */}
       <GameStateBanner state={state} series={series} venue={venue} date={date} />
 
