@@ -4,6 +4,7 @@ import useSWR from "swr";
 import Link from "next/link";
 import { getBracket } from "@/lib/api";
 import { useSeasonPhase } from "@/hooks/useSeasonPhase";
+import ShareCardButton from "@/components/share/ShareCardButton";
 import type {
   PlayoffBracketResponse,
   PlayoffSeriesResponse,
@@ -265,16 +266,24 @@ function TrackerCard({ entry }: { entry: TrackerSeries }) {
           <span className="text-[var(--muted)] font-normal">vs</span>{" "}
           #{series.bottom_seed} {bot}
         </p>
-        <span
-          className="tabular-nums font-bold"
-          style={{
-            fontFamily: "var(--font-geist-mono)",
-            fontSize: 11,
-            color: closed ? "var(--muted)" : "var(--accent)",
-          }}
-        >
-          {Math.round(topWP * 100)}%
-        </span>
+        <div className="flex items-center gap-2">
+          <span
+            className="tabular-nums font-bold"
+            style={{
+              fontFamily: "var(--font-geist-mono)",
+              fontSize: 11,
+              color: closed ? "var(--muted)" : "var(--accent)",
+            }}
+          >
+            {Math.round(topWP * 100)}%
+          </span>
+          {/* Sprint 78 (CF1): compact share-card icon for this series. */}
+          <ShareCardButton
+            kind="series"
+            id={series.series_id}
+            compact
+          />
+        </div>
       </div>
       <WinBar series={series} />
       <div
