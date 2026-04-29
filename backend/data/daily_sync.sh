@@ -1,4 +1,26 @@
 #!/bin/bash
+#
+# CourtVue Labs — daily / post-game data sync orchestrator.
+#
+# Recommended cron lines (replace /path/to/repo with the absolute repo path):
+#
+#   # Daily full sync — 6am UTC. Picks up yesterday's late finals + runs the
+#   # full pipeline (warehouse jobs, standings, season dashboards, playoff
+#   # slice when in season).
+#   0 6 * * * /path/to/repo/backend/data/daily_sync.sh
+#
+#   # Post-game refresh — every 30 minutes. Cheap. Self-gates on the season
+#   # phase, so outside the playoff window it's near-zero work. During the
+#   # postseason it ingests today's final-status games from the live CDN
+#   # scoreboard, recomputes the bracket, and refreshes injuries + splits.
+#   */30 * * * * /path/to/repo/backend/data/daily_sync.sh --post-game
+#
+# Manual usage:
+#   ./daily_sync.sh                  # full daily run, current season auto-detected
+#   ./daily_sync.sh --post-game      # lightweight refresh
+#   ./daily_sync.sh --dry-run        # print intended actions, do nothing
+#   ./daily_sync.sh 2025-26          # explicit season override
+#
 set -e
 cd "$(dirname "$0")/.."
 
@@ -94,6 +116,7 @@ GAMES_REFRESHED="${GAMES_REFRESHED:-0}"
 if [ "$DRY_RUN" = "1" ]; then
   echo "daily_sync dry-run: season=$SEASON post_game=$POST_GAME_MODE is_playoffs=$IS_PLAYOFFS"
   if [ "$POST_GAME_MODE" = "1" ]; then
+    echo "would run: ingest today's playoff finals from CDN scoreboard"
     echo "would run: playoff game-log refresh"
     echo "would run: bracket refreshed"
     echo "would run: sync_injuries"
@@ -109,6 +132,7 @@ if [ "$DRY_RUN" = "1" ]; then
     echo "would run: sync_official_team_general_splits"
     echo "would run: sync_official_team_shooting_splits"
     if [ "$IS_PLAYOFFS" = "1" ]; then
+      echo "would run: ingest today's playoff finals from CDN scoreboard"
       echo "would run: playoff sync_official_season_stats is_playoff=True"
       echo "would run: playoff sync_official_team_general_splits is_playoff=True"
       echo "would run: playoff sync_official_team_shooting_splits is_playoff=True"
@@ -125,6 +149,12 @@ echo "[$(date -u +%Y-%m-%dT%H:%M:%SZ)] daily_sync start season=$SEASON post_game
 # Post-game cron path: minimal refresh after each playoff game.
 # ---------------------------------------------------------------------------
 if [ "$POST_GAME_MODE" = "1" ]; then
+  # Step 0 — ingest any final-status playoff games from the live CDN
+  # scoreboard that aren't yet in GameLog. Without this, the bracket
+  # recompute below sees stale series state. Non-fatal if it fails:
+  # the rest of the pipeline still runs against whatever's in the DB.
+  PYTHONPATH=. "$PYTHON_BIN" data/sync_today_playoff_finals.py --season "$SEASON" >> "$LOG" 2>&1 || true
+
   "$PYTHON_BIN" - <<'PYEOF' >> "$LOG" 2>&1
 import os, sys
 sys.path.insert(0, os.getcwd())
@@ -243,13 +273,17 @@ finally:
 PYEOF
 
 # 6. Playoff slice — only when the season-phase service reports an active
-#    postseason. Delegates to scripts/sync_playoff_full.py which orchestrates:
+#    postseason. First catches any final-status games from the live CDN
+#    scoreboard that haven't been ingested yet (yesterday's late finals,
+#    afternoon games on West Coast, etc.); then delegates to
+#    scripts/sync_playoff_full.py which orchestrates:
 #      - season_stats / team general+shooting splits with is_playoff=True
 #      - GameLog backfill via LeagueGameFinder + bracket refresh
 #      - PlayerGameLog from CDN box scores for each playoff game
 #      - Synergy play-type, league hustle, per-player tracking dashboards
-#    The script is idempotent — safe to re-run on every cron tick.
+#    Both legs are idempotent — safe to re-run on every cron tick.
 if [ "$IS_PLAYOFFS" = "1" ]; then
+  PYTHONPATH=. "$PYTHON_BIN" data/sync_today_playoff_finals.py --season "$SEASON" >> "$LOG" 2>&1 || true
   PYTHONPATH=. "$PYTHON_BIN" scripts/sync_playoff_full.py "$SEASON" >> "$LOG" 2>&1 || true
 fi
 

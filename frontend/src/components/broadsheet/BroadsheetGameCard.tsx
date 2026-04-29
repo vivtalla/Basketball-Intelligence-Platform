@@ -31,29 +31,37 @@ interface State {
 }
 
 function deriveState(game: PlayoffSeriesGameWithMatchup): State {
+  const gameNum = game.series_game_num != null ? `Game ${game.series_game_num}` : null;
   if (game.winner_team_id != null) {
     return {
       kind: "final",
-      kicker: `Final · Game ${game.series_game_num ?? "?"}`,
+      kicker: ["Final", gameNum].filter(Boolean).join(" · "),
     };
   }
   if (game.home_pts != null && game.away_pts != null) {
     return {
       kind: "live",
-      kicker: `Live · Game ${game.series_game_num ?? "?"}`,
+      kicker: ["Live", gameNum].filter(Boolean).join(" · "),
     };
   }
-  // Scheduled.
+  // Scheduled — prefer the real CDN-sourced tipoff_utc when present.
   let tipoff = "Tipoff TBD";
-  if (game.game_date) {
+  if (game.tipoff_utc) {
+    const parsed = new Date(game.tipoff_utc);
+    if (!Number.isNaN(parsed.getTime())) {
+      tipoff = TIME_FORMATTER.format(parsed);
+    }
+  } else if (game.game_date) {
     const parsed = new Date(`${game.game_date}T19:00:00Z`);
     if (!Number.isNaN(parsed.getTime())) {
       tipoff = TIME_FORMATTER.format(parsed);
     }
   }
+  const network = game.broadcaster ?? null;
+  const parts = [tipoff, gameNum, network].filter(Boolean) as string[];
   return {
     kind: "scheduled",
-    kicker: `${tipoff} · Game ${game.series_game_num ?? "?"} · TNT`,
+    kicker: parts.join(" · "),
   };
 }
 
@@ -124,11 +132,7 @@ export default function BroadsheetGameCard({ game }: BroadsheetGameCardProps) {
         }
       `}</style>
       <Link
-      href={
-        game.series_id
-          ? `/pre-read?series_id=${encodeURIComponent(game.series_id)}`
-          : "/bracket"
-      }
+      href={`/games/${encodeURIComponent(game.game_id)}`}
       className="block bip-panel rounded-2xl overflow-hidden hover:-translate-y-0.5 transition-transform focus:outline-none focus:ring-2 focus:ring-[var(--accent)]"
       style={{
         background: "rgba(255,249,241,0.6)",

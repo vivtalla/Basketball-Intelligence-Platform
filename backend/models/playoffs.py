@@ -64,6 +64,11 @@ class PlayoffSeriesGameWithMatchup(PlayoffSeriesGame):
     bottom_wins: Optional[int] = None
     status: Optional[PlayoffSeriesStatus] = None
     headline_storyline: Optional[str] = None
+    # ISO-8601 UTC tipoff for upcoming games (e.g. "2026-04-28T23:00:00Z").
+    # Populated from the live CDN scoreboard when the slate is queried for
+    # today; null for completed/historical rows where the time has no UI value.
+    tipoff_utc: Optional[str] = None
+    broadcaster: Optional[str] = None  # e.g. "TNT", "ESPN" — optional, scoreboard-derived
 
 
 class PlayoffTodayResponse(BaseModel):
@@ -236,8 +241,30 @@ class PlayoffLeaderEntry(BaseModel):
     line: str  # e.g., "31.4 PPG · 7.2 AST · 58.4 TS%"
     trend: str  # "▲" | "→" | "▼"
     recent_games_grade: List[int] = Field(default_factory=list)  # length 5, each 1-5
+    impact_score: float = 0.0  # CourtVue composite — see playoff_leaders_service._impact_score
 
 
 class PlayoffLeadersResponse(BaseModel):
     season: str
     leaders: List[PlayoffLeaderEntry] = Field(default_factory=list)
+
+
+class PlayoffStoryTile(BaseModel):
+    """One tile in the broadsheet Story Rail.
+
+    Auto-generated from platform stats — `headline` and `subhead` are derived
+    from current playoff data, `href` deep-links to an internal route
+    (typically /players/{id}). Byline is always "CourtVue Numbers Desk" to
+    make it explicit these tiles are computed, not editorial.
+    """
+    kicker: str          # e.g. "Heat Check", "Efficiency Desk", "X-Factor"
+    headline: str        # the data-driven hook in serif prose
+    subhead: Optional[str] = None  # supporting one-liner
+    byline: str = "CourtVue Numbers Desk"
+    href: str            # internal route only — never an external URL
+    read_time: Optional[str] = None  # short fixture, e.g. "Updated tonight"
+
+
+class PlayoffStoryRailResponse(BaseModel):
+    season: str
+    tiles: List[PlayoffStoryTile] = Field(default_factory=list)

@@ -23,9 +23,14 @@ export default function RootLayout({
 
         {/* Nav */}
         <nav className="sticky top-9 z-40 border-b border-[var(--border)] bg-[rgba(247,239,228,0.86)] backdrop-blur-xl">
-          <div className="max-w-7xl mx-auto px-4 py-4 flex items-center gap-4">
-            <Link href="/" className="flex items-center gap-2 shrink-0">
-              <span className="bip-display text-2xl font-bold tracking-tight text-[var(--foreground)]">
+          <div className="max-w-7xl mx-auto px-4 py-3 flex items-center gap-4">
+            <Link href="/" className="flex items-center gap-3.5 shrink-0">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src="/courtvue-mark.svg" alt="" width={56} height={56} />
+              <span
+                className="bip-display font-bold text-[var(--foreground)]"
+                style={{ fontSize: 34, letterSpacing: "-0.015em" }}
+              >
                 CourtVue <span className="text-[var(--signal)]">Labs</span>
               </span>
             </Link>

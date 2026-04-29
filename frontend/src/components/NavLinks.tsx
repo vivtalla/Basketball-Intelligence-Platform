@@ -12,43 +12,46 @@ export default function NavLinks() {
   const { isPlayoffs } = useSeasonPhase();
 
   return (
-    <div className="hidden md:flex items-center gap-5">
-      <Link href="/ask" className="text-sm text-[var(--muted)] bip-link">
+    <div className="hidden md:flex items-center gap-3">
+      <Link href="/playoffs" className="text-sm font-medium text-[var(--accent)] whitespace-nowrap bip-link">
+        Playoffs
+      </Link>
+      <Link href="/ask" className="text-xs text-[var(--muted)] whitespace-nowrap bip-link">
         Ask
       </Link>
-      <Link href="/mvp" className="text-sm text-[var(--muted)] bip-link">
+      <Link href="/mvp" className="text-xs text-[var(--muted)] whitespace-nowrap bip-link">
         MVP Race
       </Link>
-      <Link href="/player-stats" className="text-sm text-[var(--muted)] bip-link">
+      <Link href="/player-stats" className="text-xs text-[var(--muted)] whitespace-nowrap bip-link">
         Player Stats
       </Link>
-      <Link href="/standings" className="text-sm text-[var(--muted)] bip-link">
+      <Link href="/standings" className="text-xs text-[var(--muted)] whitespace-nowrap bip-link">
         Standings
       </Link>
-      <Link href="/insights" className="text-sm text-[var(--muted)] bip-link">
+      <Link href="/insights" className="text-xs text-[var(--muted)] whitespace-nowrap bip-link">
         Insights
       </Link>
-      <Link href="/metrics" className="text-sm text-[var(--muted)] bip-link">
+      <Link href="/metrics" className="text-xs text-[var(--muted)] whitespace-nowrap bip-link">
         Metrics
       </Link>
-      <Link href="/compare" className="text-sm text-[var(--muted)] bip-link">
+      <Link href="/compare" className="text-xs text-[var(--muted)] whitespace-nowrap bip-link">
         Compare
       </Link>
-      <Link href="/pre-read" className="text-sm text-[var(--muted)] bip-link">
+      <Link href="/pre-read" className="text-xs text-[var(--muted)] whitespace-nowrap bip-link">
         Pre-Read
       </Link>
-      <Link href="/teams" className="text-sm text-[var(--muted)] bip-link">
+      <Link href="/teams" className="text-xs text-[var(--muted)] whitespace-nowrap bip-link">
         Teams
       </Link>
       {isPlayoffs && (
-        <Link href="/bracket" className="text-sm text-[var(--muted)] bip-link">
+        <Link href="/bracket" className="text-xs text-[var(--muted)] whitespace-nowrap bip-link">
           Bracket
         </Link>
       )}
-      <Link href="/coverage" className="text-sm text-[var(--muted)] bip-link">
+      <Link href="/coverage" className="text-xs text-[var(--muted)] whitespace-nowrap bip-link">
         Coverage
       </Link>
-      <Link href="/learn" className="text-sm text-[var(--muted)] bip-link">
+      <Link href="/learn" className="text-xs text-[var(--muted)] whitespace-nowrap bip-link">
         Learn
       </Link>
     </div>

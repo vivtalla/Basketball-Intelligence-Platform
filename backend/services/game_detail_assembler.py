@@ -88,10 +88,11 @@ def _build_base_game_detail(db: Session, game_id: str) -> GameDetailResponse:
             .order_by(PlayByPlay.action_number.asc())
             .all()
         )
-    if not events:
-        raise HTTPException(
-            status_code=404, detail=f"No play-by-play found for game {game_id}."
-        )
+    # When PBP hasn't been synced yet, we still want to render the base
+    # game card (score, teams, date, series context) instead of 404'ing
+    # the whole page. Returning an empty-PBP response lets the frontend
+    # display "PBP pending" while the rest of the surface remains usable.
+    pbp_missing = not events
 
     teams = {
         team.id: team

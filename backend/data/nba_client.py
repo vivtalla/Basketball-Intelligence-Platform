@@ -663,6 +663,21 @@ def get_play_by_play_payload(game_id: str, timeout: int = NBA_API_TIMEOUT) -> di
     return _fetch_live_json(f"playbyplay/playbyplay_{game_id}.json", timeout=timeout)
 
 
+def get_todays_scoreboard(timeout: int = NBA_API_TIMEOUT) -> dict:
+    """Fetch today's NBA scoreboard from the live CDN.
+
+    Returns the raw `todaysScoreboard_00.json` payload — a single JSON
+    document listing every game scheduled for today (NBA's calendar day,
+    not the caller's local day) including upcoming, in-progress, and
+    final states. Game IDs starting with "004" are playoff games; "005"
+    is regular season; "001" preseason; "002" play-in.
+
+    Cheap and idempotent: a single CDN request, no per-entity rate
+    limit since this is a league-wide document.
+    """
+    return _fetch_live_json("scoreboard/todaysScoreboard_00.json", timeout=timeout)
+
+
 def _current_schedule_game_ids(season: str, timeout: int = NBA_API_TIMEOUT) -> list[str]:
     """Return current-season regular-season game IDs from the free NBA schedule feed."""
     payload = _fetch_static_json("scheduleLeagueV2.json", timeout=timeout)

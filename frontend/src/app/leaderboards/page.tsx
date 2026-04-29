@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { useSeasonPhase } from "@/hooks/useSeasonPhase";
 import PostseasonHeatmap from "@/components/playoffs/PostseasonHeatmap";
+import TopLeadersTable from "@/components/leaderboards/TopLeadersTable";
 
 type SeasonType = "Regular Season" | "Playoffs";
 
@@ -57,7 +58,7 @@ function SeasonTypeToggle({
 function LeaderboardsPageInner() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { isPlayoffs, isLoading } = useSeasonPhase();
+  const { isPlayoffs, isLoading, season } = useSeasonPhase();
 
   const initialSeasonType: SeasonType =
     searchParams.get("seasonType") === "Playoffs" ? "Playoffs" : "Regular Season";
@@ -127,14 +128,16 @@ function LeaderboardsPageInner() {
         </div>
       </section>
 
-      {/*
-        EB4 will mount the Postseason heatmap section below this comment.
-        Don't place additional EB3 content here.
-      */}
+      {/* Top leaders table — switches data source based on the toggle. */}
+      <TopLeadersTable
+        season={season ?? "2025-26"}
+        seasonType={seasonType}
+      />
 
-      {/* Sprint 73B (EB4) — Postseason Performer Heatmap. Self-gates on
-          `useSeasonPhase().isPlayoffs`; renders nothing in regular season. */}
-      <PostseasonHeatmap />
+      {/* Postseason Performer Heatmap — playoff-specific (compares playoff
+          USG/TS to regular-season baseline). Hide when toggle is on Regular
+          Season since the comparison is degenerate there. */}
+      {seasonType === "Playoffs" && <PostseasonHeatmap />}
     </div>
   );
 }

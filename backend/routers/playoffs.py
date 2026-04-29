@@ -7,11 +7,14 @@ Routes:
 - ``GET /api/playoffs/series/{series_id}`` — a single series with all games
   in ``series_game_num`` order.
 - ``GET /api/playoffs/today?date=YYYY-MM-DD`` — playoff games on a given date
-  (defaults to "today" in US/Pacific).
+  (defaults to "today" in US/Pacific). When the request is for today's date,
+  upcoming/in-progress games are merged in from the live CDN scoreboard so
+  the slate is populated even before the daily sync ingests them.
 - ``GET /api/playoffs/series-simulation/{series_id}`` — Monte-Carlo projection.
 """
 from __future__ import annotations
 
+import logging
 from datetime import date, datetime
 from typing import Dict, List, Optional
 
@@ -19,6 +22,7 @@ import pytz
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 
+from data.nba_client import get_todays_scoreboard
 from db.database import get_db
 from db.models import GameLog, Team
 from models.playoffs import (
@@ -28,6 +32,7 @@ from models.playoffs import (
     PlayoffSeriesGame,
     PlayoffSeriesGameWithMatchup,
     PlayoffSeriesResponse,
+    PlayoffStoryRailResponse,
     PlayoffTodayResponse,
     SeriesSimulationResponse,
 )
@@ -35,6 +40,9 @@ from services.playoff_bracket_service import compute_game_storyline
 from services.playoff_leaders_service import compute_playoff_leaders
 from services.playoff_series_intelligence_service import build_playoff_series_intelligence
 from services.playoff_simulator_service import simulate_series
+from services.story_rail_service import compute_story_rail
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
@@ -261,12 +269,147 @@ def get_series_intelligence(
     return response
 
 
+def _scoreboard_games_for_today() -> Dict[str, dict]:
+    """Return playoff games from the live CDN scoreboard, keyed by game_id.
+
+    Returns an empty dict on any failure (network error, malformed payload).
+    The endpoint uses this as a supplement, never a replacement, so a CDN
+    outage degrades cleanly to DB-only data.
+    """
+    try:
+        payload = get_todays_scoreboard()
+    except Exception as exc:  # pragma: no cover — best-effort enrichment
+        logger.warning("Failed to fetch live scoreboard for /playoffs/today: %s", exc)
+        return {}
+
+    scoreboard = payload.get("scoreboard") or {}
+    games = scoreboard.get("games") or []
+    out: Dict[str, dict] = {}
+    for game in games:
+        game_id = (game.get("gameId") or "").strip()
+        # Only keep playoff games. Game ID format: "00" + type + season + num.
+        # type=4 is playoffs.
+        if not game_id or not game_id.startswith("004"):
+            continue
+        out[game_id] = game
+    return out
+
+
+def _build_scheduled_game_from_scoreboard(
+    sb_game: dict,
+    target: date,
+    db: Session,
+) -> Optional[PlayoffSeriesGameWithMatchup]:
+    """Translate a scoreboard payload entry into PlayoffSeriesGameWithMatchup.
+
+    Pulls series context from the DB if any prior game in the same series
+    has been ingested. If the series is brand-new (no rows yet), series
+    context is null and the card renders as a generic upcoming game.
+    """
+    from db.models import PlayoffSeries  # local import to avoid cycle
+
+    game_id = sb_game.get("gameId")
+    if not game_id:
+        return None
+
+    home_sb = sb_game.get("homeTeam") or {}
+    away_sb = sb_game.get("awayTeam") or {}
+    home_team_id = home_sb.get("teamId")
+    away_team_id = away_sb.get("teamId")
+    home_abbr = (home_sb.get("teamTricode") or "").upper() or None
+    away_abbr = (away_sb.get("teamTricode") or "").upper() or None
+
+    # Scoreboard scores: 0 for upcoming, real for live/final. Use None when
+    # the game hasn't tipped (gameStatus 1) so the frontend renders the
+    # "scheduled" state instead of "0–0 live".
+    game_status = sb_game.get("gameStatus")
+    home_pts: Optional[int] = home_sb.get("score") if game_status != 1 else None
+    away_pts: Optional[int] = away_sb.get("score") if game_status != 1 else None
+    winner_team_id: Optional[int] = None
+    if game_status == 3 and home_pts is not None and away_pts is not None:
+        if home_pts > away_pts:
+            winner_team_id = home_team_id
+        elif away_pts > home_pts:
+            winner_team_id = away_team_id
+
+    tipoff_utc = sb_game.get("gameTimeUTC") or None
+    broadcasters = sb_game.get("broadcasters") or {}
+    national = (broadcasters.get("nationalTvBroadcasters") or [])
+    broadcaster: Optional[str] = None
+    if national:
+        broadcaster = national[0].get("broadcasterDisplay") or national[0].get("broadcasterAbbreviation") or None
+
+    # Series context — try to find any existing PlayoffSeries record where
+    # the two teams already met this postseason.
+    series_id: Optional[str] = None
+    season: Optional[str] = None
+    round_no: Optional[int] = None
+    top_abbr: Optional[str] = None
+    bot_abbr: Optional[str] = None
+    top_wins: Optional[int] = None
+    bot_wins: Optional[int] = None
+    status = None
+
+    if home_team_id is not None and away_team_id is not None:
+        series_row = (
+            db.query(PlayoffSeries)
+            .filter(
+                ((PlayoffSeries.top_seed_team_id == home_team_id) & (PlayoffSeries.bottom_seed_team_id == away_team_id))
+                | ((PlayoffSeries.top_seed_team_id == away_team_id) & (PlayoffSeries.bottom_seed_team_id == home_team_id))
+            )
+            .order_by(PlayoffSeries.round.desc())
+            .first()
+        )
+        if series_row is not None:
+            series_id = series_row.series_id
+            season = series_row.season
+            round_no = series_row.round
+            top_wins = series_row.top_wins
+            bot_wins = series_row.bottom_wins
+            status = series_row.status
+            top_team = db.query(Team).filter(Team.id == series_row.top_seed_team_id).first()
+            bot_team = db.query(Team).filter(Team.id == series_row.bottom_seed_team_id).first()
+            top_abbr = top_team.abbreviation if top_team else None
+            bot_abbr = bot_team.abbreviation if bot_team else None
+
+    return PlayoffSeriesGameWithMatchup(
+        game_id=game_id,
+        game_date=target,
+        home_team_id=home_team_id,
+        home_team_abbr=home_abbr,
+        away_team_id=away_team_id,
+        away_team_abbr=away_abbr,
+        home_pts=home_pts,
+        away_pts=away_pts,
+        winner_team_id=winner_team_id,
+        series_game_num=None,  # not always reliable from scoreboard
+        series_id=series_id,
+        season=season,
+        round=round_no,
+        top_seed_team_abbr=top_abbr,
+        bottom_seed_team_abbr=bot_abbr,
+        top_wins=top_wins,
+        bottom_wins=bot_wins,
+        status=status,
+        headline_storyline=None,
+        tipoff_utc=tipoff_utc,
+        broadcaster=broadcaster,
+    )
+
+
 @router.get("/today", response_model=PlayoffTodayResponse)
 def get_today(
     date_param: Optional[str] = Query(None, alias="date", description="YYYY-MM-DD; defaults to today (US/Pacific)."),
     db: Session = Depends(get_db),
 ) -> PlayoffTodayResponse:
-    """Return all playoff games on a given date along with their series context."""
+    """Return all playoff games on a given date along with their series context.
+
+    For today's date, also fetches the live CDN scoreboard and merges in any
+    scheduled or in-progress games that haven't been ingested into the DB yet.
+    DB rows remain authoritative for completed games (scores, series context,
+    storyline). For upcoming games, the scoreboard supplies tipoff time,
+    broadcaster, and current live scores.
+    """
     from db.models import PlayoffSeries  # local import
 
     if date_param is None:
@@ -277,6 +420,8 @@ def get_today(
         except ValueError:
             raise HTTPException(status_code=400, detail="`date` must be formatted YYYY-MM-DD")
 
+    is_today = target == _today_pacific()
+
     rows = (
         db.query(GameLog)
         .filter(GameLog.season_type == "Playoffs")
@@ -285,8 +430,11 @@ def get_today(
         .all()
     )
 
-    if not rows:
-        return PlayoffTodayResponse(date=target, games=[])
+    # Fetch scoreboard supplements only for today — historical dates don't
+    # need a live CDN call.
+    scoreboard_lookup: Dict[str, dict] = {}
+    if is_today:
+        scoreboard_lookup = _scoreboard_games_for_today()
 
     series_ids = list({row.series_id for row in rows if row.series_id})
     series_rows = []
@@ -312,7 +460,9 @@ def get_today(
     team_lookup = _team_lookup(db, list(set(needed_team_ids)))
 
     games: List[PlayoffSeriesGameWithMatchup] = []
+    db_game_ids = set()
     for row in rows:
+        db_game_ids.add(row.game_id)
         home_team = team_lookup.get(row.home_team_id) if row.home_team_id is not None else None
         away_team = team_lookup.get(row.away_team_id) if row.away_team_id is not None else None
         series = series_lookup.get(row.series_id) if row.series_id else None
@@ -327,6 +477,29 @@ def get_today(
             except Exception:  # pragma: no cover - storyline is best-effort, never fatal
                 storyline = None
 
+        # Overlay live scoreboard data when the game is happening today and
+        # the scoreboard has fresher info (tipoff time, live scores).
+        sb_game = scoreboard_lookup.get(row.game_id)
+        sb_tipoff = sb_game.get("gameTimeUTC") if sb_game else None
+        sb_broadcaster = None
+        if sb_game:
+            broadcasters = sb_game.get("broadcasters") or {}
+            national = broadcasters.get("nationalTvBroadcasters") or []
+            if national:
+                sb_broadcaster = (
+                    national[0].get("broadcasterDisplay")
+                    or national[0].get("broadcasterAbbreviation")
+                )
+
+        # Live game with no DB scores yet — pull current scores from scoreboard.
+        live_home_pts = row.home_score
+        live_away_pts = row.away_score
+        if sb_game and (live_home_pts is None or live_away_pts is None):
+            game_status = sb_game.get("gameStatus")
+            if game_status in (2, 3):  # live or final
+                live_home_pts = (sb_game.get("homeTeam") or {}).get("score")
+                live_away_pts = (sb_game.get("awayTeam") or {}).get("score")
+
         games.append(
             PlayoffSeriesGameWithMatchup(
                 game_id=row.game_id,
@@ -335,8 +508,8 @@ def get_today(
                 home_team_abbr=home_team.abbreviation if home_team is not None else None,
                 away_team_id=row.away_team_id,
                 away_team_abbr=away_team.abbreviation if away_team is not None else None,
-                home_pts=row.home_score,
-                away_pts=row.away_score,
+                home_pts=live_home_pts,
+                away_pts=live_away_pts,
                 winner_team_id=_winner_team_id(row),
                 series_game_num=row.series_game_num,
                 series_id=row.series_id,
@@ -348,8 +521,21 @@ def get_today(
                 bottom_wins=series.bottom_wins if series is not None else None,
                 status=series.status if series is not None else None,
                 headline_storyline=storyline,
+                tipoff_utc=sb_tipoff,
+                broadcaster=sb_broadcaster,
             )
         )
+
+    # Append any scoreboard games that weren't already in the DB (true
+    # "upcoming" games not yet ingested).
+    for game_id, sb_game in scoreboard_lookup.items():
+        if game_id in db_game_ids:
+            continue
+        scheduled = _build_scheduled_game_from_scoreboard(sb_game, target, db)
+        if scheduled is not None:
+            games.append(scheduled)
+
+    games.sort(key=lambda g: (g.tipoff_utc or "9999", g.game_id))
 
     return PlayoffTodayResponse(date=target, games=games)
 
@@ -380,4 +566,22 @@ def get_playoff_leaders(
     return PlayoffLeadersResponse(
         season=season,
         leaders=compute_playoff_leaders(db, season, limit),
+    )
+
+
+@router.get("/story-rail", response_model=PlayoffStoryRailResponse)
+def get_story_rail(
+    season: str = Query(..., description="Season string, e.g. '2025-26'."),
+    db: Session = Depends(get_db),
+) -> PlayoffStoryRailResponse:
+    """Return up to 3 auto-generated story tiles for the broadsheet rail.
+
+    Tiles are computed from current playoff data (heat checks, efficiency
+    leaders, x-factor contributors) and link to internal player routes.
+    No editorial copy or external content — every tile is data-driven and
+    refreshes whenever the underlying stats refresh.
+    """
+    return PlayoffStoryRailResponse(
+        season=season,
+        tiles=compute_story_rail(db, season),
     )

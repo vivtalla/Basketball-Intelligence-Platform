@@ -10,7 +10,7 @@ export default function StatCard({ label, value, subtitle }: StatCardProps) {
       <p className="bip-kicker mb-1 text-[10px]">
         {label}
       </p>
-      <p className="text-2xl font-bold text-[var(--foreground)]">{value}</p>
+      <p className="bip-display text-2xl font-bold tabular-nums text-[var(--foreground)]">{value}</p>
       {subtitle && (
         <p className="mt-1 text-xs text-[var(--muted)]">{subtitle}</p>
       )}

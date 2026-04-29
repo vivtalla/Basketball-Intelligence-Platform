@@ -1843,6 +1843,17 @@ export async function getPlayoffLeaders(
   );
 }
 
+// ── Story Rail — auto-generated story tiles for the broadsheet rail.
+// All tiles link to internal routes only.
+export async function getPlayoffStoryRail(
+  season: string
+): Promise<import("./types").PlayoffStoryRailResponse> {
+  const params = new URLSearchParams({ season });
+  return fetchApi<import("./types").PlayoffStoryRailResponse>(
+    `/api/playoffs/story-rail?${params.toString()}`
+  );
+}
+
 // ── Sprint 77 (Stream B / EB3) — Game-detail enrichment ──────────────────────
 // `getGameDetail` already returns the augmented `GameDetailResponse` (see
 // `lib/types.ts`) with `win_probability`, `lead_tracker`, `possession_diary`,
