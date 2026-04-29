@@ -1,5 +1,7 @@
 "use client";
 
+import { useEffect } from "react";
+import { useRouter } from "next/navigation";
 import PlayerSearchBar from "@/components/PlayerSearchBar";
 import HomeLeagueLeaders from "@/components/HomeLeagueLeaders";
 import HomeMvpTeaser from "@/components/HomeMvpTeaser";
@@ -339,6 +341,21 @@ function OffseasonHome() {
 
 export default function HomePage() {
   const { viewMode } = useViewMode();
+  const router = useRouter();
+
+  // Playoff-month redirect to /playoffs when the user has no explicit
+  // mode override. April–June (months 3–5, zero-indexed) only. The
+  // ModeToggle's localStorage override at "bip-view-mode" opts out —
+  // a user who picked REGULAR on /playoffs lands back on / cleanly.
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const stored = window.localStorage.getItem("bip-view-mode");
+    if (stored != null) return;
+    const month = new Date().getMonth();
+    if (month >= 3 && month <= 5) {
+      router.replace("/playoffs");
+    }
+  }, [router]);
 
   if (viewMode === "playoff") {
     return <PlayoffHome />;

@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import useSWR from "swr";
 import { getLeaderboard } from "@/lib/api";
 import { useSeasonPhase } from "@/hooks/useSeasonPhase";
@@ -62,6 +62,13 @@ function colorForDelta(delta: number): string {
   return "#7e7468"; // neutral
 }
 
+// Backend stores rate stats as 0..1 fractions but historically some endpoints
+// have returned percentage points (e.g., 25.4 instead of 0.254). Normalize
+// defensively: anything ≤1.5 is treated as a fraction and scaled to 0..100.
+function pctToScale(v: number): number {
+  return v <= 1.5 ? v * 100 : v;
+}
+
 function buildPoints(
   regular: LeaderboardEntry[] | undefined,
   playoff: LeaderboardEntry[] | undefined
@@ -72,16 +79,30 @@ function buildPoints(
 
   const points: RotationPoint[] = [];
   for (const playoffEntry of playoff) {
-    const usg = playoffEntry.metric_values.usg_pct ?? null;
-    const tsPlayoff = playoffEntry.ts_pct ?? playoffEntry.metric_values.ts_pct ?? null;
+    const rawUsg = playoffEntry.metric_values.usg_pct ?? null;
+    const rawTsPlayoff =
+      playoffEntry.ts_pct ?? playoffEntry.metric_values.ts_pct ?? null;
     const minPg = playoffEntry.metric_values.min_pg ?? null;
-    if (usg == null || tsPlayoff == null) continue;
-    if (minPg != null && minPg < 8) continue;
-    if (playoffEntry.gp < 2) continue;
+    if (rawUsg == null || rawTsPlayoff == null) continue;
+
+    // Sample thresholds: real rotation player on a real workload. Matches
+    // the floor used by NarrativeLeaders so the heatmap and the rail tell
+    // the same story.
+    if (minPg == null || minPg < 18) continue;
+    if (playoffEntry.gp < 4) continue;
 
     const regularEntry = regularByPlayer.get(playoffEntry.player_id);
-    const tsRegular = regularEntry?.ts_pct ?? regularEntry?.metric_values?.ts_pct ?? null;
-    if (tsRegular == null) continue;
+    const rawTsRegular =
+      regularEntry?.ts_pct ?? regularEntry?.metric_values?.ts_pct ?? null;
+    if (rawTsRegular == null) continue;
+
+    // USG% is plotted on a 10..40 axis in percentage points. Backend
+    // returns it as a 0..1 fraction (0.378), so scale up.
+    const usg = pctToScale(rawUsg);
+    // TS% delta math is done in fraction space (-0.10..+0.10) — both inputs
+    // come back as 0..1 so no scaling needed here.
+    const tsPlayoff = rawTsPlayoff;
+    const tsRegular = rawTsRegular;
 
     points.push({
       player_id: playoffEntry.player_id,
@@ -103,6 +124,8 @@ interface ScatterProps {
 }
 
 function Scatter({ points }: ScatterProps) {
+  const [hovered, setHovered] = useState<RotationPoint | null>(null);
+
   const xFor = (usg: number) =>
     PAD_L + ((clamp(usg, USG_MIN, USG_MAX) - USG_MIN) / (USG_MAX - USG_MIN)) * (PLOT_W - PAD_L - PAD_R);
   const yFor = (delta: number) =>
@@ -112,7 +135,21 @@ function Scatter({ points }: ScatterProps) {
   const x0 = xFor((USG_MIN + USG_MAX) / 2);
   const y0 = yFor(0);
 
+  // SVG uses a viewBox + width="100%", so the rendered pixel size scales
+  // with the container. Position the HTML tooltip as a % of the viewBox
+  // so it tracks the dot at any container width. The +6/-6 offsets nudge
+  // the tooltip just above-and-right of the dot.
+  const hoverX = hovered ? xFor(hovered.usg_pct_playoff) : 0;
+  const hoverY = hovered ? yFor(hovered.ts_delta) : 0;
+  const hoverLeftPct = (hoverX / PLOT_W) * 100;
+  const hoverTopPct = (hoverY / PLOT_H) * 100;
+  // Anchor the tooltip on the right side of the dot if the dot is in the
+  // left half of the chart, and vice-versa, so the popover never spills
+  // off the side.
+  const anchorLeftSide = hoverX < PLOT_W / 2;
+
   return (
+    <div className="relative" style={{ width: "100%" }}>
     <svg viewBox={`0 0 ${PLOT_W} ${PLOT_H}`} width="100%" style={{ display: "block" }}>
       {/* axis box */}
       <rect
@@ -235,25 +272,155 @@ function Scatter({ points }: ScatterProps) {
         TS% Δ vs reg. season
       </text>
       {/* points */}
-      {points.map((point) => (
-        <g key={point.player_id}>
-          <title>
-            {point.player_name} ({point.team_abbreviation}) · USG {point.usg_pct_playoff.toFixed(1)}% · playoff TS {(
-              point.ts_pct_playoff * 100
-            ).toFixed(1)}% · Δ {(point.ts_delta * 100 > 0 ? "+" : "") + (point.ts_delta * 100).toFixed(1)}
-          </title>
-          <circle
-            cx={xFor(point.usg_pct_playoff)}
-            cy={yFor(point.ts_delta)}
-            r={4}
-            fill={colorForDelta(point.ts_delta)}
-            stroke="#fcfffd"
-            strokeWidth="1.2"
-            opacity="0.92"
-          />
-        </g>
-      ))}
+      {points.map((point) => {
+        const isHovered = hovered?.player_id === point.player_id;
+        return (
+          <g key={point.player_id}>
+            {/* Larger transparent target for easier hover hit. */}
+            <circle
+              cx={xFor(point.usg_pct_playoff)}
+              cy={yFor(point.ts_delta)}
+              r={10}
+              fill="transparent"
+              style={{ cursor: "pointer" }}
+              onMouseEnter={() => setHovered(point)}
+              onMouseLeave={() => setHovered((cur) => (cur?.player_id === point.player_id ? null : cur))}
+            />
+            <circle
+              cx={xFor(point.usg_pct_playoff)}
+              cy={yFor(point.ts_delta)}
+              r={isHovered ? 6 : 4}
+              fill={colorForDelta(point.ts_delta)}
+              stroke={isHovered ? "var(--foreground)" : "#fcfffd"}
+              strokeWidth={isHovered ? 1.6 : 1.2}
+              opacity={hovered && !isHovered ? 0.4 : 0.92}
+              style={{ pointerEvents: "none", transition: "r 120ms, opacity 120ms" }}
+            />
+          </g>
+        );
+      })}
     </svg>
+
+    {/* HTML tooltip — positioned in container space using % of viewBox. */}
+    {hovered && (
+      <div
+        className="absolute z-20 pointer-events-none"
+        style={{
+          left: `${hoverLeftPct}%`,
+          top: `${hoverTopPct}%`,
+          transform: anchorLeftSide
+            ? "translate(12px, -50%)"
+            : "translate(calc(-100% - 12px), -50%)",
+        }}
+      >
+        <div
+          className="rounded-xl border shadow-lg px-4 py-3"
+          style={{
+            background: "var(--surface)",
+            borderColor: "var(--border-strong)",
+            boxShadow: "var(--shadow)",
+            minWidth: 220,
+          }}
+        >
+          <p
+            className="font-semibold text-[var(--foreground)]"
+            style={{
+              fontFamily: "var(--font-display)",
+              fontSize: 15,
+              letterSpacing: "-0.01em",
+              lineHeight: 1.2,
+            }}
+          >
+            {hovered.player_name}
+          </p>
+          <p
+            className="mt-0.5 text-[11px] uppercase"
+            style={{
+              fontFamily: "var(--font-geist-mono)",
+              letterSpacing: "0.14em",
+              color: "var(--muted)",
+            }}
+          >
+            {hovered.team_abbreviation} · {hovered.gp_playoff}G · {hovered.min_pg_playoff.toFixed(1)} mpg
+          </p>
+          <div className="mt-2.5 grid grid-cols-3 gap-3 text-[11px]">
+            <div>
+              <p
+                className="uppercase"
+                style={{
+                  fontFamily: "var(--font-geist-mono)",
+                  letterSpacing: "0.12em",
+                  color: "var(--muted)",
+                  fontSize: 9,
+                }}
+              >
+                USG%
+              </p>
+              <p
+                className="tabular-nums font-semibold text-[var(--foreground)]"
+                style={{ fontFamily: "var(--font-display)", fontSize: 15 }}
+              >
+                {hovered.usg_pct_playoff.toFixed(1)}
+              </p>
+            </div>
+            <div>
+              <p
+                className="uppercase"
+                style={{
+                  fontFamily: "var(--font-geist-mono)",
+                  letterSpacing: "0.12em",
+                  color: "var(--muted)",
+                  fontSize: 9,
+                }}
+              >
+                TS% PO
+              </p>
+              <p
+                className="tabular-nums font-semibold text-[var(--foreground)]"
+                style={{ fontFamily: "var(--font-display)", fontSize: 15 }}
+              >
+                {(hovered.ts_pct_playoff * 100).toFixed(1)}
+              </p>
+            </div>
+            <div>
+              <p
+                className="uppercase"
+                style={{
+                  fontFamily: "var(--font-geist-mono)",
+                  letterSpacing: "0.12em",
+                  color: "var(--muted)",
+                  fontSize: 9,
+                }}
+              >
+                TS% Δ
+              </p>
+              <p
+                className="tabular-nums font-semibold"
+                style={{
+                  fontFamily: "var(--font-display)",
+                  fontSize: 15,
+                  color: colorForDelta(hovered.ts_delta),
+                }}
+              >
+                {(hovered.ts_delta * 100 > 0 ? "+" : "") +
+                  (hovered.ts_delta * 100).toFixed(1)}
+              </p>
+            </div>
+          </div>
+          <p
+            className="mt-2.5 text-[10px] uppercase"
+            style={{
+              fontFamily: "var(--font-geist-mono)",
+              letterSpacing: "0.14em",
+              color: "var(--muted)",
+            }}
+          >
+            vs reg. season {(hovered.ts_pct_regular * 100).toFixed(1)}%
+          </p>
+        </div>
+      </div>
+    )}
+    </div>
   );
 }
 
@@ -292,7 +459,7 @@ export default function PostseasonHeatmap({ season: seasonProp }: PostseasonHeat
           </h2>
         </div>
         <span className="text-[10px] font-semibold uppercase tracking-[0.14em] text-[var(--muted)]">
-          ≥8 mpg · ≥2 playoff games
+          ≥18 mpg · ≥4 playoff games
         </span>
       </div>
 
@@ -304,7 +471,7 @@ export default function PostseasonHeatmap({ season: seasonProp }: PostseasonHeat
         <div className="mt-4 h-[320px] animate-pulse rounded-lg bg-[var(--surface-alt)]" />
       ) : points.length === 0 ? (
         <div className="mt-4 rounded-lg border border-[var(--border)] bg-[var(--surface-alt)] p-4 text-sm text-[var(--muted-strong)]">
-          Not enough playoff sample yet — check back once rotations log ≥2 playoff games and ≥8 mpg.
+          Not enough playoff sample yet — check back once rotations log ≥4 playoff games and ≥18 mpg.
         </div>
       ) : (
         <>

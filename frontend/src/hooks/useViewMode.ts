@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useSyncExternalStore } from "react";
 import type { SeasonPhase } from "@/lib/types";
 import { useSeasonPhase } from "./useSeasonPhase";
 
@@ -31,7 +31,17 @@ function deriveAutoMode(phase: SeasonPhase | undefined): ViewMode {
   return "regular";
 }
 
-function readStoredOverride(): ViewMode | null {
+// ─── Shared external store ───────────────────────────────────────────────
+// All `useViewMode()` consumers subscribe to the same in-memory cache.
+// Without this, each call to useViewMode would have its own useState slot
+// and ModeToggle's setViewMode would only re-render itself, leaving the
+// HomePage stuck on the auto-detected mode.
+
+const overrideListeners = new Set<() => void>();
+let cachedOverride: ViewMode | null = null;
+let didHydrateFromStorage = false;
+
+function readFromStorage(): ViewMode | null {
   if (typeof window === "undefined") {
     return null;
   }
@@ -44,6 +54,48 @@ function readStoredOverride(): ViewMode | null {
   }
 }
 
+function ensureHydrated() {
+  if (didHydrateFromStorage || typeof window === "undefined") {
+    return;
+  }
+  didHydrateFromStorage = true;
+  cachedOverride = readFromStorage();
+}
+
+function getOverrideSnapshot(): ViewMode | null {
+  ensureHydrated();
+  return cachedOverride;
+}
+
+function getOverrideServerSnapshot(): ViewMode | null {
+  // SSR + initial hydration render: no override known yet.
+  return null;
+}
+
+function subscribeToOverride(cb: () => void): () => void {
+  overrideListeners.add(cb);
+  return () => {
+    overrideListeners.delete(cb);
+  };
+}
+
+function writeOverride(next: ViewMode | null) {
+  cachedOverride = next;
+  didHydrateFromStorage = true;
+  if (typeof window !== "undefined") {
+    try {
+      if (next === null) {
+        window.localStorage.removeItem(STORAGE_KEY);
+      } else {
+        window.localStorage.setItem(STORAGE_KEY, next);
+      }
+    } catch {
+      // Storage write failed — in-memory override still applies for this tab.
+    }
+  }
+  overrideListeners.forEach((cb) => cb());
+}
+
 /**
  * View-mode hook that wraps useSeasonPhase with a localStorage override.
  *
@@ -54,7 +106,9 @@ function readStoredOverride(): ViewMode | null {
  *   - "offseason" if phase === "offseason"
  *
  * Override behavior: if the user has previously called setViewMode(), the
- * choice is persisted in localStorage and overrides the auto-detect.
+ * choice is persisted in localStorage and overrides the auto-detect. The
+ * override is held in a shared external store so every consumer of this
+ * hook (ModeToggle, HomePage, etc.) re-renders together when it changes.
  *
  * Returns:
  *   - phase: raw SeasonPhase from useSeasonPhase (auto-detected)
@@ -72,32 +126,32 @@ export function useViewMode(): {
   isLoading: boolean;
 } {
   const { phase, isLoading } = useSeasonPhase();
-  // Read localStorage post-mount to avoid hydration mismatch — the first
-  // render uses `null` (no override), and `useEffect` fills in the stored
-  // value once the client has hydrated.
-  const [override, setOverride] = useState<ViewMode | null>(null);
+  const override = useSyncExternalStore(
+    subscribeToOverride,
+    getOverrideSnapshot,
+    getOverrideServerSnapshot,
+  );
 
+  // Cross-tab sync: if the user toggles view mode in another tab, mirror it here.
   useEffect(() => {
-    // One-time hydration sync from localStorage. The lint rule
-    // react-hooks/set-state-in-effect flags this pattern, but reading from
-    // an external store (window.localStorage) is the documented escape.
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    setOverride(readStoredOverride());
+    if (typeof window === "undefined") {
+      return;
+    }
+    const handler = (event: StorageEvent) => {
+      if (event.key !== STORAGE_KEY) {
+        return;
+      }
+      cachedOverride = isViewMode(event.newValue) ? event.newValue : null;
+      overrideListeners.forEach((cb) => cb());
+    };
+    window.addEventListener("storage", handler);
+    return () => {
+      window.removeEventListener("storage", handler);
+    };
   }, []);
 
   const setViewMode = useCallback((next: ViewMode | null) => {
-    if (typeof window !== "undefined") {
-      try {
-        if (next === null) {
-          window.localStorage.removeItem(STORAGE_KEY);
-        } else {
-          window.localStorage.setItem(STORAGE_KEY, next);
-        }
-      } catch {
-        // Swallow storage errors — the override still applies in-memory.
-      }
-    }
-    setOverride(next);
+    writeOverride(next);
   }, []);
 
   const autoMode = deriveAutoMode(phase);

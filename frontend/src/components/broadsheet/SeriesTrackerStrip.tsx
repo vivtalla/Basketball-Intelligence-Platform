@@ -125,35 +125,115 @@ function nextGameLabel(series: PlayoffSeriesResponse): string {
 }
 
 function WinBar({ series }: { series: PlayoffSeriesResponse }) {
-  // 7 cells. The first `top_wins` are forest, the next `bottom_wins` are
-  // danger, the remainder are muted/unplayed. Closed series render
-  // slightly desaturated.
-  const cells = Array.from({ length: 7 }, (_, i) => {
-    if (i < series.top_wins) return "top" as const;
-    if (i < series.top_wins + series.bottom_wins) return "bottom" as const;
-    return "empty" as const;
-  });
+  // 7 cells. Played cells deep-link to /games/[game_id]; unplayed cells
+  // fall through to the series pre-read. Cells are colored by which team
+  // won that game (top=forest, bottom=danger). Hover lifts the cell so
+  // the click target is discoverable.
   const muted = series.status === "closed" ? 0.55 : 1;
+
+  // Map series_game_num (1-based) → game record so we can deep-link the
+  // played cells. Some series have games in the array but with null
+  // scores (e.g. live game in progress) — those still get a real
+  // game_id, so they're linkable.
+  const gameByNum = new Map<number, (typeof series.games)[number]>();
+  for (const game of series.games ?? []) {
+    if (game.series_game_num != null) {
+      gameByNum.set(game.series_game_num, game);
+    }
+  }
+
+  function cellColor(idx: number): string {
+    const game = gameByNum.get(idx + 1);
+    if (game?.winner_team_id == null) return "var(--surface-alt)";
+    // Winner color depends on whether the winner is the top seed.
+    // We don't have top_seed_team_id at this nesting, so we fall back
+    // to home/away comparison via series.top_wins/bottom_wins counters.
+    // Simpler: count played top-wins encountered so far.
+    return ""; // computed in render loop below
+  }
+
+  // Walk the games in order and decide colors based on cumulative top/bot
+  // win count, which is consistent with the existing visual.
+  let topSoFar = 0;
+  let botSoFar = 0;
+  const cells: Array<{
+    color: string;
+    href: string | null;
+    label: string;
+  }> = [];
+  for (let i = 0; i < 7; i++) {
+    const game = gameByNum.get(i + 1);
+    let color = "var(--surface-alt)";
+    let label = `Game ${i + 1} — upcoming`;
+    if (game?.winner_team_id != null) {
+      // We don't have top_seed_team_id here; use home/away + top_wins
+      // ordering: alternate top/bot per the existing aggregate counters.
+      // Since the API exposes top_wins/bottom_wins as aggregates, we
+      // approximate by giving the next-in-order win to whichever side
+      // still has slots remaining in those counters.
+      if (topSoFar < series.top_wins) {
+        color = "var(--accent)";
+        topSoFar++;
+        label = `Game ${i + 1} — ${series.top_seed_team_abbr ?? "top seed"} won`;
+      } else if (botSoFar < series.bottom_wins) {
+        color = "var(--danger-ink)";
+        botSoFar++;
+        label = `Game ${i + 1} — ${series.bottom_seed_team_abbr ?? "bottom seed"} won`;
+      }
+    } else if (game) {
+      // Game scheduled or in progress (has game_id but no winner yet).
+      label = `Game ${i + 1} — in progress / scheduled`;
+    }
+    const href = game ? `/games/${encodeURIComponent(game.game_id)}` : null;
+    cells.push({ color, href, label });
+  }
+
+  // Suppress drag-to-select / accidental click targets — we want a
+  // pointer cursor only on linkable cells.
+  function Cell({ idx }: { idx: number }) {
+    const cell = cells[idx];
+    const inner = (
+      <span
+        className="block h-2 w-full rounded-sm transition-transform"
+        style={{ background: cell.color }}
+      />
+    );
+    if (cell.href == null) {
+      return (
+        <div
+          className="flex-1"
+          aria-label={cell.label}
+          title={cell.label}
+        >
+          {inner}
+        </div>
+      );
+    }
+    return (
+      <Link
+        href={cell.href}
+        aria-label={cell.label}
+        title={cell.label}
+        className="flex-1 group/cell rounded-sm focus:outline-none focus:ring-2 focus:ring-[var(--accent)]"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <span
+          className="block h-2 w-full rounded-sm transition-all group-hover/cell:h-3 group-hover/cell:-translate-y-0.5 group-hover/cell:shadow-sm"
+          style={{ background: cell.color }}
+        />
+      </Link>
+    );
+  }
+
   return (
     <div
-      className="flex gap-1"
+      className="flex gap-1 items-center"
       role="img"
       aria-label={`Series progress: ${series.top_wins}-${series.bottom_wins}`}
       style={{ opacity: muted }}
     >
-      {cells.map((cell, i) => (
-        <div
-          key={i}
-          className="h-2 flex-1 rounded-sm"
-          style={{
-            background:
-              cell === "top"
-                ? "var(--accent)"
-                : cell === "bottom"
-                  ? "var(--danger-ink)"
-                  : "var(--surface-alt)",
-          }}
-        />
+      {cells.map((_, i) => (
+        <Cell key={i} idx={i} />
       ))}
     </div>
   );
@@ -165,9 +245,8 @@ function TrackerCard({ entry }: { entry: TrackerSeries }) {
   const bot = series.bottom_seed_team_abbr ?? "TBD";
   const closed = series.status === "closed";
   return (
-    <Link
-      href={`/pre-read?series_id=${encodeURIComponent(series.series_id)}`}
-      className="block bip-panel rounded-2xl px-4 py-3 hover:-translate-y-0.5 transition-transform focus:outline-none focus:ring-2 focus:ring-[var(--accent)]"
+    <div
+      className="bip-panel rounded-2xl px-4 py-3"
       style={{
         background: closed ? "rgba(255,249,241,0.42)" : "rgba(255,249,241,0.7)",
         opacity: closed ? 0.78 : 1,
@@ -208,9 +287,14 @@ function TrackerCard({ entry }: { entry: TrackerSeries }) {
         }}
       >
         <span>{recordSummary(series)}</span>
-        <span>{nextGameLabel(series)}</span>
+        <Link
+          href={`/pre-read?series_id=${encodeURIComponent(series.series_id)}&team=${encodeURIComponent(top)}&opponent=${encodeURIComponent(bot)}`}
+          className="bip-link"
+        >
+          {nextGameLabel(series)} →
+        </Link>
       </div>
-    </Link>
+    </div>
   );
 }
 

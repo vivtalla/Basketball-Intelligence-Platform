@@ -4,6 +4,7 @@ game when the two teams have a clear stat differential.
 from pathlib import Path
 import sys
 from datetime import date
+from unittest.mock import patch
 
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
@@ -101,7 +102,11 @@ def test_storyline_non_empty_when_clear_stat_edge():
     session = SessionLocal()
     try:
         target_date = _seed_storyline_fixture(session)
-        response = get_today(date_param=target_date.isoformat(), db=session)
+        # Stub the live CDN scoreboard so the test stays hermetic — without
+        # this, when the fixture date matches the system date, the endpoint
+        # would merge in real games from the live scoreboard.
+        with patch("routers.playoffs._scoreboard_games_for_today", return_value={}):
+            response = get_today(date_param=target_date.isoformat(), db=session)
     finally:
         session.close()
 

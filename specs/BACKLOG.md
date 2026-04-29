@@ -429,6 +429,17 @@ Likely shape:
 - decide whether those enrichments should live in the existing JSON payload or a more structured summary table
 - keep the first follow-on targeted to real product use cases instead of collecting fields speculatively
 
+### Sync Hosting — move daily / post-game cron off the laptop
+Why it matters:
+The Sprint 77 broadsheet relies on a 6am-UTC daily sync and a 30-min post-game refresh (`backend/data/daily_sync.sh`, plus the `sync_today_playoff_finals.py` ingest path) to keep the bracket and game-detail surfaces honest. Today both run on Vivek's laptop via `crontab`, which means scheduled ticks are silently skipped whenever the Mac is off or asleep — most painfully the 6am UTC daily run when the laptop is closed overnight. The post-game ticks recover on next wake (the script is idempotent), but the daily pipeline is a real gap.
+
+Likely shape:
+- stand up a small always-on host (Raspberry Pi, $5/mo VPS, or existing infra) with DB connectivity
+- migrate the two cron entries (`daily_sync.sh` and `daily_sync.sh --post-game`) to that host
+- keep MAILTO behavior + log path conventions the same so existing dashboards / log greps keep working
+- when the migration ships, remove the laptop cron entries to avoid double-runs
+- as a cheap interim if the server move is delayed, an `~/Library/LaunchAgents/` plist with `StartCalendarInterval` would give catch-up semantics on wake (launchd recovers missed runs; cron does not)
+
 ---
 
 ## Platform Gaps (deliberate scope boundaries — candidates for future phases)

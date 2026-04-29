@@ -3977,6 +3977,12 @@ export interface PlayoffSeriesGameWithMatchup extends PlayoffSeriesGame {
   status: PlayoffSeriesStatus | null;
   // Sprint 77 (Stream A): backend now exposes a one-line storyline per game.
   headline_storyline?: string | null;
+  // ISO-8601 UTC tipoff time for upcoming/in-progress games, sourced from
+  // the live NBA CDN scoreboard. Null for completed games.
+  tipoff_utc?: string | null;
+  // National TV broadcaster for the game (e.g. "TNT", "ESPN"), when the
+  // scoreboard provides one. Null otherwise.
+  broadcaster?: string | null;
 }
 
 export interface PlayoffTodayResponse {
@@ -4279,11 +4285,32 @@ export interface PlayoffLeaderEntry {
   line: string;
   trend: "▲" | "→" | "▼";
   recent_games_grade: number[];
+  // CourtVue composite score: pts*0.35 + ast*0.20 + reb*0.10 + ts*0.20 + net*0.15
+  // (TS% capped at 65% to neutralize small-sample inflation).
+  impact_score: number;
 }
 
 export interface PlayoffLeadersResponse {
   season: string;
   leaders: PlayoffLeaderEntry[];
+}
+
+// Mirrors the backend `PlayoffStoryTile` / `PlayoffStoryRailResponse`
+// schemas returned by `GET /api/playoffs/story-rail?season=...`. Each
+// tile is auto-generated from current playoff stats and links to an
+// internal route only — never an external URL.
+export interface PlayoffStoryTile {
+  kicker: string;
+  headline: string;
+  subhead?: string | null;
+  byline: string;
+  href: string;
+  read_time?: string | null;
+}
+
+export interface PlayoffStoryRailResponse {
+  season: string;
+  tiles: PlayoffStoryTile[];
 }
 
 // ── Sprint 77 (Stream A) — Game-detail enrichment fields ────────────────────

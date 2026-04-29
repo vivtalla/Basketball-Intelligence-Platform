@@ -9,6 +9,7 @@ import MvpImpactRadar from "./MvpImpactRadar";
 import MvpClutchCard from "./MvpClutchCard";
 import MvpSignatureGames from "./MvpSignatureGames";
 import { useLineupContext } from "@/hooks/useTrajectory";
+import { Ticker } from "@/components/brand";
 
 // Inline team-tint map keyed by abbreviation; mirrors the palette in /teams.
 const TEAM_TINT: Record<string, string> = {
@@ -433,11 +434,26 @@ function StatTile({ label, value }: { label: string; value: string }) {
   );
 }
 
-function MetricBlock({ label, value, sub }: { label: string; value: string; sub?: string }) {
+function MetricBlock({
+  label,
+  value,
+  sub,
+  rawValue,
+  decimals = 1,
+}: {
+  label: string;
+  value: string;
+  sub?: string;
+  /** When set, the headline value animates from 0 → rawValue on mount. */
+  rawValue?: number | null;
+  decimals?: number;
+}) {
   return (
     <div className="rounded-lg border border-[var(--border)] bg-[var(--surface-alt)] p-3">
       <p className="text-[10px] uppercase tracking-[0.08em] text-[var(--muted)]">{label}</p>
-      <p className="mt-1 text-lg font-semibold tabular-nums text-[var(--foreground)]">{value}</p>
+      <p className="mt-1 text-lg font-semibold tabular-nums text-[var(--foreground)]">
+        {rawValue != null ? <Ticker value={rawValue} decimals={decimals} /> : value}
+      </p>
       {sub && <p className="mt-1 text-xs text-[var(--muted)]">{sub}</p>}
     </div>
   );
@@ -508,8 +524,18 @@ function CandidateCase({ candidate, asOfDate, season }: { candidate: MvpCandidat
       </div>
 
       <div className="mt-6 grid gap-3 sm:grid-cols-3">
-        <MetricBlock label="Award Case" value={fmt(awardScore)} sub={`Rank ${candidate.award_case_rank ?? candidate.rank}`} />
-        <MetricBlock label="Basketball Value" value={fmt(valueScore)} sub={candidate.basketball_value_rank ? `Value rank ${candidate.basketball_value_rank}` : "Core season score"} />
+        <MetricBlock
+          label="Award Case"
+          value={fmt(awardScore)}
+          rawValue={awardScore}
+          sub={`Rank ${candidate.award_case_rank ?? candidate.rank}`}
+        />
+        <MetricBlock
+          label="Basketball Value"
+          value={fmt(valueScore)}
+          rawValue={valueScore}
+          sub={candidate.basketball_value_rank ? `Value rank ${candidate.basketball_value_rank}` : "Core season score"}
+        />
         <MetricBlock label="Confidence" value={candidate.confidence?.overall ?? "-"} sub={`Coverage ${fmt(candidate.confidence?.coverage_score, 0)}`} />
         <MetricBlock label="Eligibility" value={`${eligibility?.eligible_games ?? candidate.gp}/65`} sub={eligibility?.eligibility_status ?? "unknown"} />
       </div>

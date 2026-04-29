@@ -36,3 +36,7 @@ Thumbs.db
 
 # Misc
 *.log
+
+# Design system source tarball — kept locally for reference, but the
+# patterns are ported into code so the zip itself doesn't belong in git.
+specs/design-system/

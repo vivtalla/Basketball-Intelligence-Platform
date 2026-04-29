@@ -46,7 +46,17 @@ export default function WinProbabilityChart({
   const x = (t: number) => PAD.l + (t / 48) * (W - PAD.l - PAD.r);
   const y = (p: number) => PAD.t + (1 - p) * (H - PAD.t - PAD.b);
   const path = data.map((d, i) => `${i === 0 ? "M" : "L"} ${x(d.t).toFixed(1)} ${y(d.prob).toFixed(1)}`).join(" ");
-  const area = `${path} L ${x(48).toFixed(1)} ${y(0)} L ${x(0).toFixed(1)} ${y(0)} Z`;
+  // Momentum shading — clip the home-favored region (above 50%) to a forest tint
+  // and the away-favored region (below 50%) to a gold tint, so the curve's swings
+  // read as momentum at a glance.
+  const homeArea =
+    `M ${x(0).toFixed(1)} ${y(0.5).toFixed(1)} ` +
+    data.map((d) => `L ${x(d.t).toFixed(1)} ${y(Math.max(0.5, d.prob)).toFixed(1)}`).join(" ") +
+    ` L ${x(48).toFixed(1)} ${y(0.5).toFixed(1)} Z`;
+  const awayArea =
+    `M ${x(0).toFixed(1)} ${y(0.5).toFixed(1)} ` +
+    data.map((d) => `L ${x(d.t).toFixed(1)} ${y(Math.min(0.5, d.prob)).toFixed(1)}`).join(" ") +
+    ` L ${x(48).toFixed(1)} ${y(0.5).toFixed(1)} Z`;
   const events = data.filter((d) => d.event);
   const dashLen = data.length * 24;
 
@@ -56,6 +66,10 @@ export default function WinProbabilityChart({
         <linearGradient id="cv-wp-home" x1="0" x2="0" y1="0" y2="1">
           <stop offset="0%" stopColor="#21483b" stopOpacity="0.32" />
           <stop offset="100%" stopColor="#21483b" stopOpacity="0" />
+        </linearGradient>
+        <linearGradient id="cv-wp-away" x1="0" x2="0" y1="1" y2="0">
+          <stop offset="0%" stopColor="#b4893d" stopOpacity="0.28" />
+          <stop offset="100%" stopColor="#b4893d" stopOpacity="0" />
         </linearGradient>
       </defs>
       {[12, 24, 36].map((q) => (
@@ -101,10 +115,16 @@ export default function WinProbabilityChart({
         50
       </text>
       <path
-        d={area}
+        d={homeArea}
         fill="url(#cv-wp-home)"
         opacity={seen ? 1 : 0}
         style={{ transition: "opacity 1000ms 200ms" }}
+      />
+      <path
+        d={awayArea}
+        fill="url(#cv-wp-away)"
+        opacity={seen ? 1 : 0}
+        style={{ transition: "opacity 1000ms 280ms" }}
       />
       <path
         d={path}
