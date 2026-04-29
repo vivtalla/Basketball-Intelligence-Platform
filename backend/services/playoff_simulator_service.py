@@ -26,6 +26,7 @@ from typing import Dict, List, Optional, Tuple
 from sqlalchemy.orm import Session
 
 from db.models import GameLog, SeasonStat, Team, TeamSeasonStat
+from models.game import SeriesOddsPoint
 from models.playoffs import (
     SeriesProjectionEntry,
     SeriesSimulationCurrentState,
@@ -474,3 +475,120 @@ def simulate_series(
         bottom_seed_series_win_prob=round(bottom_series_prob, 4),
         trials=TRIALS,
     )
+
+
+# ---------------------------------------------------------------------------
+# Sprint 77 — Post-game series odds history
+# ---------------------------------------------------------------------------
+
+
+def compute_series_odds_history(
+    db: Session,
+    series_id: str,
+) -> List[SeriesOddsPoint]:
+    """Build a per-game post-game series-odds curve for a playoff series.
+
+    For each completed game in the series (ordered by ``series_game_num``):
+
+    1. Resolve the winner from ``home_team_id``/``away_team_id`` + scores.
+    2. Compute the post-game snapshot ``(top_wins_after, bottom_wins_after)``.
+    3. Re-run :func:`simulate_series` with the snapshot supplied via
+       ``override_top_wins`` / ``override_bottom_wins`` and capture the
+       resulting ``top_seed_series_win_prob``.
+    4. Compare against the previous game's snapshot odds (or against the
+       pre-series prior — i.e. ``simulate_series`` with no overrides — for
+       Game 1) to derive ``swing_pp``.
+
+    Returns an empty list if the series doesn't exist or no games are
+    completed.
+    """
+    # Local import — keeps this module compatible with the same lazy-import
+    # pattern used by ``simulate_series``.
+    from db.models import PlayoffSeries  # type: ignore
+
+    series = (
+        db.query(PlayoffSeries)
+        .filter(PlayoffSeries.series_id == series_id)
+        .first()
+    )
+    if series is None:
+        return []
+
+    games = (
+        db.query(GameLog)
+        .filter(GameLog.series_id == series_id)
+        .order_by(GameLog.series_game_num.asc(), GameLog.game_date.asc())
+        .all()
+    )
+
+    completed_games: List[GameLog] = [
+        g
+        for g in games
+        if g.home_score is not None
+        and g.away_score is not None
+        and g.series_game_num is not None
+    ]
+    if not completed_games:
+        return []
+
+    top_id = series.top_seed_team_id
+    bottom_id = series.bottom_seed_team_id
+    top_abbr = _team_abbr(db, top_id)
+    bottom_abbr = _team_abbr(db, bottom_id)
+
+    # Pre-series prior — overrides 0/0 forces the simulator to project the
+    # series from scratch regardless of the row's persisted ``top_wins`` /
+    # ``bottom_wins`` (which already reflect completed games).
+    prior_sim = simulate_series(
+        db,
+        series_id,
+        override_top_wins=0,
+        override_bottom_wins=0,
+    )
+    previous_odds = float(prior_sim.top_seed_series_win_prob)
+
+    points: List[SeriesOddsPoint] = []
+    top_wins_after = 0
+    bottom_wins_after = 0
+
+    for game in completed_games:
+        # Determine which side won this game.
+        home_won = (game.home_score or 0) > (game.away_score or 0)
+        winner_team_id = game.home_team_id if home_won else game.away_team_id
+        if winner_team_id == top_id:
+            top_wins_after += 1
+            winner_abbr = top_abbr or ""
+        elif winner_team_id == bottom_id:
+            bottom_wins_after += 1
+            winner_abbr = bottom_abbr or ""
+        else:
+            # Game references a team not part of the series — skip rather than
+            # corrupt the snapshot.
+            continue
+
+        # Snapshot simulator: re-project AS IF only games up to here had been
+        # played. ``simulate_series`` clamps wins and short-circuits when one
+        # side has already reached 4 — it returns the deterministic terminal
+        # 1.0/0.0 in that case, which is exactly what we want.
+        snapshot = simulate_series(
+            db,
+            series_id,
+            override_top_wins=top_wins_after,
+            override_bottom_wins=bottom_wins_after,
+        )
+        odds_after = float(snapshot.top_seed_series_win_prob)
+        swing_pp = odds_after - previous_odds
+
+        points.append(
+            SeriesOddsPoint(
+                game_num=int(game.series_game_num or 0),
+                date=game.game_date.isoformat() if game.game_date else "",
+                winner_team_abbr=winner_abbr,
+                top_seed_post_game_odds=round(odds_after, 4),
+                swing_pp=round(swing_pp, 4),
+            )
+        )
+
+        previous_odds = odds_after
+
+    return points

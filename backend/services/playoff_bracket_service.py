@@ -19,6 +19,7 @@ canonical class instead.
 from __future__ import annotations
 
 import logging
+import math
 from datetime import date
 from typing import Dict, List, Optional, Tuple
 
@@ -357,6 +358,179 @@ def build_or_refresh_bracket(db: Session, season: str) -> int:
     return refreshed
 
 
+# ---------------------------------------------------------------------------
+# Sprint 77 — Headline storyline derived from team season-stat differentials.
+# ---------------------------------------------------------------------------
+
+# Per-stat presentation: (orm_field, leader_phrase, trailer_phrase, higher_is_better)
+# - leader_phrase: "{Leader} chasing {leader_phrase}; ..."
+# - trailer_phrase: "...; {Trailer} fighting {trailer_phrase} math"
+# higher_is_better=True means the team with the larger value is the "leader".
+_STORYLINE_STATS: Tuple[Tuple[str, str, str, bool], ...] = (
+    ("pts_pg", "scoring volume", "elimination", True),
+    ("off_rating", "offensive firepower", "stalled offense", True),
+    ("def_rating", "defensive lockdown", "leaky defense", False),
+    ("pace", "tempo control", "tempo reverse", True),
+    ("ts_pct", "shotmaking edge", "efficiency drought", True),
+)
+
+
+def _league_team_stats(db: Session, season: str, is_playoff: bool) -> List[TeamSeasonStat]:
+    return (
+        db.query(TeamSeasonStat)
+        .filter(
+            TeamSeasonStat.season == season,
+            TeamSeasonStat.is_playoff == is_playoff,
+        )
+        .all()
+    )
+
+
+def _stat_value(row: Optional[TeamSeasonStat], field: str) -> Optional[float]:
+    if row is None:
+        return None
+    raw = getattr(row, field, None)
+    if raw is None:
+        return None
+    try:
+        return float(raw)
+    except (TypeError, ValueError):
+        return None
+
+
+def _league_z(values: List[float], target: float) -> Optional[float]:
+    """Return the z-score of ``target`` against ``values`` (excluding NaN)."""
+    cleaned = [v for v in values if v is not None and not math.isnan(v)]
+    if len(cleaned) < 2:
+        return None
+    mean = sum(cleaned) / len(cleaned)
+    variance = sum((v - mean) ** 2 for v in cleaned) / len(cleaned)
+    if variance <= 0:
+        return None
+    std = math.sqrt(variance)
+    if std == 0:
+        return None
+    return (target - mean) / std
+
+
+def _team_season_stat_for(
+    db: Session, team_id: int, season: str
+) -> Optional[TeamSeasonStat]:
+    """Prefer playoff row for the team, fall back to regular-season row."""
+    if team_id is None:
+        return None
+    playoff_row = (
+        db.query(TeamSeasonStat)
+        .filter(
+            TeamSeasonStat.team_id == team_id,
+            TeamSeasonStat.season == season,
+            TeamSeasonStat.is_playoff == True,  # noqa: E712
+        )
+        .first()
+    )
+    if playoff_row is not None:
+        return playoff_row
+    return (
+        db.query(TeamSeasonStat)
+        .filter(
+            TeamSeasonStat.team_id == team_id,
+            TeamSeasonStat.season == season,
+            TeamSeasonStat.is_playoff == False,  # noqa: E712
+        )
+        .first()
+    )
+
+
+def _team_short_name(team: Optional[Team]) -> Optional[str]:
+    if team is None:
+        return None
+    name = (getattr(team, "city", None) or getattr(team, "name", None) or "").strip()
+    if name:
+        return name
+    abbr = getattr(team, "abbreviation", None)
+    return abbr if abbr else None
+
+
+def compute_game_storyline(
+    db: Session,
+    game: GameLog,
+    home_team: Team,
+    away_team: Team,
+) -> Optional[str]:
+    """One-line storyline for a playoff game, derived from the most lopsided
+    season-stat differential between the two teams.
+
+    Strategy:
+        1. Pull TeamSeasonStat rows for both teams (current season, is_playoff=True
+           if available, falling back to is_playoff=False).
+        2. Compute z-score for each of [pts_pg, off_rating, def_rating, pace, ts_pct]
+           across the league this season.
+        3. Find the largest absolute z-score gap between the two teams.
+        4. Return a one-line storyline:
+           "{Leader} chasing {stat_name}; {Trailer} fighting {opposing_action} math"
+
+    If neither team has enough data, return None (UI falls back to "Game N · {tipoff}").
+    """
+    season = getattr(game, "season", None)
+    if not season or home_team is None or away_team is None:
+        return None
+
+    home_row = _team_season_stat_for(db, home_team.id, season)
+    away_row = _team_season_stat_for(db, away_team.id, season)
+    if home_row is None or away_row is None:
+        return None
+
+    # League sample is drawn from the same season-type bucket as the home
+    # row. We z-score both teams against that frame to find the largest gap.
+    league_rows = _league_team_stats(
+        db, season, bool(getattr(home_row, "is_playoff", False))
+    )
+
+    best_gap: float = 0.0
+    best_spec: Optional[Tuple[str, str, str, bool]] = None
+    best_home_z: Optional[float] = None
+    best_away_z: Optional[float] = None
+
+    for spec in _STORYLINE_STATS:
+        field, _, _, _ = spec
+        home_value = _stat_value(home_row, field)
+        away_value = _stat_value(away_row, field)
+        if home_value is None or away_value is None:
+            continue
+
+        league_floats: List[float] = [
+            v for v in (_stat_value(row, field) for row in league_rows) if v is not None
+        ]
+        home_z = _league_z(league_floats, home_value)
+        away_z = _league_z(league_floats, away_value)
+        if home_z is None or away_z is None:
+            continue
+
+        gap = abs(home_z - away_z)
+        if gap > best_gap:
+            best_gap = gap
+            best_spec = spec
+            best_home_z = home_z
+            best_away_z = away_z
+
+    if best_spec is None or best_home_z is None or best_away_z is None:
+        return None
+
+    _, leader_phrase, trailer_phrase, higher_is_better = best_spec
+    home_leads = best_home_z > best_away_z if higher_is_better else best_home_z < best_away_z
+    leader_team = home_team if home_leads else away_team
+    trailer_team = away_team if home_leads else home_team
+
+    leader_name = _team_short_name(leader_team)
+    trailer_name = _team_short_name(trailer_team)
+    if leader_name is None or trailer_name is None:
+        return None
+
+    return "{0} chasing {1}; {2} fighting {3} math".format(
+        leader_name, leader_phrase, trailer_name, trailer_phrase
+    )
+
+
 # Public re-export so ``from services.playoff_bracket_service import PlayoffSeries``
 # works even when the fallback class above is used.
-__all__ = ["build_or_refresh_bracket", "PlayoffSeries"]
+__all__ = ["build_or_refresh_bracket", "compute_game_storyline", "PlayoffSeries"]
