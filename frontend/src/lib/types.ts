@@ -3975,6 +3975,8 @@ export interface PlayoffSeriesGameWithMatchup extends PlayoffSeriesGame {
   top_wins: number | null;
   bottom_wins: number | null;
   status: PlayoffSeriesStatus | null;
+  // Sprint 77 (Stream A): backend now exposes a one-line storyline per game.
+  headline_storyline?: string | null;
 }
 
 export interface PlayoffTodayResponse {
@@ -4264,4 +4266,81 @@ export interface PlayoffSeriesIntelligenceResponse {
   adjustment_signals: PlayoffAdjustmentSignal[];
   warnings: string[];
   analysis_metadata?: AnalysisMetadata | null;
+}
+
+// ── Sprint 77 (Stream A) — Playoff narrative leaders ─────────────────────────
+// Mirrors the backend `PlayoffLeaderEntry` / `PlayoffLeadersResponse` schemas
+// returned by `GET /api/playoffs/leaders?season=...&limit=...`.
+export interface PlayoffLeaderEntry {
+  rank: number;
+  player_id: number;
+  player_name: string;
+  team_abbreviation: string;
+  line: string;
+  trend: "▲" | "→" | "▼";
+  recent_games_grade: number[];
+}
+
+export interface PlayoffLeadersResponse {
+  season: string;
+  leaders: PlayoffLeaderEntry[];
+}
+
+// ── Sprint 77 (Stream A) — Game-detail enrichment fields ────────────────────
+// Mirrors backend Pydantic schemas in `backend/models/game.py`. These are
+// optional on the existing `GameDetailResponse`; we extend that interface
+// below via declaration merging so we don't have to mutate the original
+// definition.
+
+export interface WinProbPoint {
+  seconds_elapsed: number;
+  score_home: number;
+  score_away: number;
+  wp_home: number;
+  event?: string | null;
+}
+
+export interface LeadPoint {
+  minute: number;
+  home_lead: number;
+}
+
+export interface PossessionEntry {
+  quarter: number;
+  time_remaining: string;
+  offense_team_abbr: string;
+  primary_action_type: string;
+  primary_player_name: string;
+  points_scored: number;
+  impact_tag: string;
+  lead_swing: number;
+}
+
+export interface PlayerQuarterImpact {
+  player_id: number;
+  player_name: string;
+  team_abbreviation: string;
+  quarter: number;
+  plus_minus: number;
+  minutes: number;
+}
+
+export interface SeriesOddsPoint {
+  game_num: number;
+  date: string;
+  winner_team_abbr: string;
+  top_seed_post_game_odds: number;
+  swing_pp: number;
+}
+
+// Augment `GameDetailResponse` (declared earlier in this file) with the
+// Sprint 77 enrichment fields. TypeScript merges interface declarations in
+// the same module, so existing consumers keep their fields and the new
+// broadsheet modules can read these directly off the same hook payload.
+export interface GameDetailResponse {
+  win_probability?: WinProbPoint[] | null;
+  lead_tracker?: LeadPoint[] | null;
+  possession_diary?: PossessionEntry[] | null;
+  player_quarter_impact?: PlayerQuarterImpact[] | null;
+  series_odds_history?: SeriesOddsPoint[] | null;
 }
