@@ -23,6 +23,7 @@ from db.database import get_db
 from db.models import GameLog, Team
 from models.playoffs import (
     PlayoffBracketResponse,
+    PlayoffLeadersResponse,
     PlayoffSeriesIntelligenceResponse,
     PlayoffSeriesGame,
     PlayoffSeriesGameWithMatchup,
@@ -30,6 +31,8 @@ from models.playoffs import (
     PlayoffTodayResponse,
     SeriesSimulationResponse,
 )
+from services.playoff_bracket_service import compute_game_storyline
+from services.playoff_leaders_service import compute_playoff_leaders
 from services.playoff_series_intelligence_service import build_playoff_series_intelligence
 from services.playoff_simulator_service import simulate_series
 
@@ -317,6 +320,13 @@ def get_today(
         top_team = team_lookup.get(series.top_seed_team_id) if series is not None else None
         bottom_team = team_lookup.get(series.bottom_seed_team_id) if series is not None else None
 
+        storyline: Optional[str] = None
+        if home_team is not None and away_team is not None:
+            try:
+                storyline = compute_game_storyline(db, row, home_team, away_team)
+            except Exception:  # pragma: no cover - storyline is best-effort, never fatal
+                storyline = None
+
         games.append(
             PlayoffSeriesGameWithMatchup(
                 game_id=row.game_id,
@@ -337,6 +347,7 @@ def get_today(
                 top_wins=series.top_wins if series is not None else None,
                 bottom_wins=series.bottom_wins if series is not None else None,
                 status=series.status if series is not None else None,
+                headline_storyline=storyline,
             )
         )
 
@@ -356,4 +367,17 @@ def get_series_simulation(
         series_id,
         override_top_wins=override_top_wins,
         override_bottom_wins=override_bottom_wins,
+    )
+
+
+@router.get("/leaders", response_model=PlayoffLeadersResponse)
+def get_playoff_leaders(
+    season: str = Query(...),
+    limit: int = Query(5, ge=1, le=15),
+    db: Session = Depends(get_db),
+) -> PlayoffLeadersResponse:
+    """Return the top-N playoff scoring leaders with trend + recent-grade chips."""
+    return PlayoffLeadersResponse(
+        season=season,
+        leaders=compute_playoff_leaders(db, season, limit),
     )

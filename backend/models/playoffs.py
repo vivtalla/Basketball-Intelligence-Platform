@@ -63,6 +63,7 @@ class PlayoffSeriesGameWithMatchup(PlayoffSeriesGame):
     top_wins: Optional[int] = None
     bottom_wins: Optional[int] = None
     status: Optional[PlayoffSeriesStatus] = None
+    headline_storyline: Optional[str] = None
 
 
 class PlayoffTodayResponse(BaseModel):
@@ -220,3 +221,23 @@ class PlayoffSeriesIntelligenceResponse(BaseModel):
     adjustment_signals: List[PlayoffAdjustmentSignal] = Field(default_factory=list)
     warnings: List[str] = Field(default_factory=list)
     analysis_metadata: Optional[AnalysisMetadata] = None
+
+
+# ---------------------------------------------------------------------------
+# Sprint 77 — Playoff narrative leaders (PPG with trend + grades)
+# ---------------------------------------------------------------------------
+
+
+class PlayoffLeaderEntry(BaseModel):
+    rank: int
+    player_id: int
+    player_name: str
+    team_abbreviation: str
+    line: str  # e.g., "31.4 PPG · 7.2 AST · 58.4 TS%"
+    trend: str  # "▲" | "→" | "▼"
+    recent_games_grade: List[int] = Field(default_factory=list)  # length 5, each 1-5
+
+
+class PlayoffLeadersResponse(BaseModel):
+    season: str
+    leaders: List[PlayoffLeaderEntry] = Field(default_factory=list)
