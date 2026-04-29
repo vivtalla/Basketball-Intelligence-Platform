@@ -7,6 +7,7 @@
  * Quarter dividers drawn at minutes 12 / 24 / 36 / 48 (and OT extensions).
  */
 
+import { useMemo } from "react";
 import type { LeadPoint } from "@/lib/types";
 
 interface LeadTrackerProps {
@@ -20,29 +21,31 @@ const VIEW_H = 240;
 const PAD = { l: 44, r: 16, t: 18, b: 28 };
 
 export default function LeadTracker({ points, homeAbbr, awayAbbr }: LeadTrackerProps) {
+  // Sprint 77 optimizer (O5): memoize SVG geometry so re-renders triggered
+  // by parent polling don't recompute the bar layout when `points` is stable.
   const ready = Array.isArray(points) && points.length > 0;
-  const data = ready ? (points as LeadPoint[]) : [];
-
-  const maxMinute = data.reduce((m, p) => Math.max(m, p.minute), 48);
-  const totalMinutes = Math.max(maxMinute, 48);
-  const absMax = Math.max(
-    6,
-    data.reduce((m, p) => Math.max(m, Math.abs(p.home_lead)), 0)
-  );
-
-  const innerW = VIEW_W - PAD.l - PAD.r;
-  const innerH = VIEW_H - PAD.t - PAD.b;
-  const midY = PAD.t + innerH / 2;
-
+  const geom = useMemo(() => {
+    const data: LeadPoint[] = ready ? (points as LeadPoint[]) : [];
+    const maxMinute = data.reduce((m, p) => Math.max(m, p.minute), 48);
+    const totalMinutes = Math.max(maxMinute, 48);
+    const absMax = Math.max(
+      6,
+      data.reduce((m, p) => Math.max(m, Math.abs(p.home_lead)), 0)
+    );
+    const innerW = VIEW_W - PAD.l - PAD.r;
+    const innerH = VIEW_H - PAD.t - PAD.b;
+    const midY = PAD.t + innerH / 2;
+    const barWidth = Math.max(2, innerW / Math.max(totalMinutes, 1) - 1);
+    const yScale = innerH / 2 / absMax;
+    const quarterMarks: number[] = [];
+    for (let q = 12; q <= totalMinutes; q += 12) {
+      if (q < totalMinutes) quarterMarks.push(q);
+    }
+    return { data, totalMinutes, absMax, midY, barWidth, yScale, quarterMarks };
+  }, [points, ready]);
+  const { data, totalMinutes, absMax, midY, barWidth, yScale, quarterMarks } = geom;
   const x = (minute: number) =>
-    PAD.l + (minute / totalMinutes) * innerW;
-  const barWidth = Math.max(2, innerW / Math.max(totalMinutes, 1) - 1);
-  const yScale = innerH / 2 / absMax;
-
-  const quarterMarks: number[] = [];
-  for (let q = 12; q <= totalMinutes; q += 12) {
-    if (q < totalMinutes) quarterMarks.push(q);
-  }
+    PAD.l + (minute / totalMinutes) * (VIEW_W - PAD.l - PAD.r);
 
   return (
     <section

@@ -498,13 +498,20 @@ export default function GameDetailPage() {
 
   // ── Sprint 77 (EB4): Scoreboard / Broadsheet variant gate ──────────────────
   // The backend GameDetailResponse does not yet expose an `is_complete` flag,
-  // so we infer state from data presence:
-  //   - Both scores present → treat as final (broadsheet auto-pick)
-  //   - Otherwise → treat as live (scoreboard auto-pick)
+  // so we infer state from data presence. Tightened in Sprint 77 optimizer
+  // (O1) to avoid mid-sync mis-routing when one score is recorded but the
+  // other isn't yet:
+  //   - Both scores null AND game date is today/past → live (scoreboard)
+  //   - Either score present → treat as final (broadsheet auto-pick)
+  //   - Future-dated game with both null → treat as scheduled/live (scoreboard)
   // When the backend later adds `is_complete` / `game_status`, swap the
   // `inferredIsLive` line for the canonical signal.
-  const inferredIsLive =
-    data.home_score == null || data.away_score == null;
+  const bothScoresMissing =
+    data.home_score == null && data.away_score == null;
+  const todayIso = new Date().toISOString().slice(0, 10);
+  const gameDateIso = (data.game_date ?? "").slice(0, 10);
+  const dateIsTodayOrPast = !gameDateIso || gameDateIso <= todayIso;
+  const inferredIsLive = bothScoresMissing && dateIsTodayOrPast;
   const autoVariant: GameVariant = inferredIsLive ? "scoreboard" : "broadsheet";
   const variant: GameVariant = manualVariant ?? autoVariant;
   const isOverridden = manualVariant != null && manualVariant !== autoVariant;

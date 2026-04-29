@@ -7,6 +7,7 @@
  * `impact_tag` (shot / defense / turnover / transition / clutch).
  */
 
+import { useMemo } from "react";
 import type { PossessionEntry } from "@/lib/types";
 
 interface PossessionDiaryProps {
@@ -14,12 +15,14 @@ interface PossessionDiaryProps {
 }
 
 function impactColor(tag: string): string {
-  // Note: `--signal-strong` falls back to `--signal` if not defined in CSS.
+  // Sprint 77 optimizer (O7): transition/clutch use `--signal-ink` (#4f3810)
+  // on `--signal-soft` for ~8:1 contrast; the prior `--signal` (#b4893d)
+  // was 2.33:1 and failed WCAG AA on the muted cream background.
   if (tag === "shot") return "var(--success-ink)";
-  if (tag === "defense") return "var(--accent)";
+  if (tag === "defense") return "var(--accent-strong)";
   if (tag === "turnover") return "var(--danger-ink)";
-  if (tag === "transition") return "var(--signal)";
-  if (tag === "clutch") return "var(--signal-strong, var(--signal))";
+  if (tag === "transition") return "var(--signal-ink)";
+  if (tag === "clutch") return "var(--signal-ink)";
   return "var(--muted)";
 }
 
@@ -51,7 +54,12 @@ function fmtSwing(value: number): string {
 }
 
 export default function PossessionDiary({ diary }: PossessionDiaryProps) {
-  const rows = Array.isArray(diary) ? diary.slice(0, 24) : [];
+  // Sprint 77 optimizer (O5): memoize the sliced row set so polling-driven
+  // parent re-renders skip the array allocation when `diary` is stable.
+  const rows = useMemo(
+    () => (Array.isArray(diary) ? diary.slice(0, 24) : []),
+    [diary]
+  );
   const ready = rows.length > 0;
 
   return (
