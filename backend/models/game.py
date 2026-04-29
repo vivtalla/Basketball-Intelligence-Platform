@@ -47,6 +47,19 @@ class GamePlayerSummary(BaseModel):
     plus_minus: Optional[int] = None
 
 
+class WinProbPoint(BaseModel):
+    seconds_elapsed: int       # 0 at tip, 2880 at end of regulation
+    score_home: int
+    score_away: int
+    wp_home: float             # 0.0..1.0
+    event: Optional[str] = None  # swing label, e.g. "+8 RUN"
+
+
+class LeadPoint(BaseModel):
+    minute: int                # 0..48 (or higher for OT)
+    home_lead: int             # positive = home leading, negative = away leading
+
+
 class GameDetailResponse(BaseModel):
     game_id: str
     season: str
@@ -67,6 +80,11 @@ class GameDetailResponse(BaseModel):
     timeline: List[GameTimelinePoint]
     top_players: List[GamePlayerSummary]
     events: List[GameEvent]
+    win_probability: Optional[List[WinProbPoint]] = None
+    lead_tracker: Optional[List[LeadPoint]] = None
+    possession_diary: Optional[List["PossessionEntry"]] = None
+    player_quarter_impact: Optional[List["PlayerQuarterImpact"]] = None
+    series_odds_history: Optional[List["SeriesOddsPoint"]] = None
 
 
 class GameTeamBoxScore(BaseModel):
@@ -203,3 +221,64 @@ class GameVisualizationResponse(BaseModel):
     focus_steps: List[GameVisualizationStep] = []
     source_context: Optional[Dict[str, str]] = None
     steps: List[GameVisualizationStep]
+
+
+# ---------------------------------------------------------------------------
+# Sprint 77 — Possession Diary + Per-Quarter +/- (Engineer EA2)
+# ---------------------------------------------------------------------------
+
+
+class PossessionEntry(BaseModel):
+    """One scoring or impact-tagged possession from a game.
+
+    Returned as part of the top 24 most lead-impactful possessions for a game.
+    `impact_tag` is one of: "shot", "defense", "turnover", "transition", "clutch".
+    """
+
+    quarter: int
+    time_remaining: str  # "MM:SS" of game clock at start of possession
+    offense_team_abbr: str
+    primary_action_type: str
+    primary_player_name: str
+    points_scored: int
+    impact_tag: str
+    lead_swing: int
+
+
+class PlayerQuarterImpact(BaseModel):
+    """Per-player per-quarter on-court +/- and minutes.
+
+    Quarters 1-4 are regulation; 5+ are overtime.
+    """
+
+    player_id: int
+    player_name: str
+    team_abbreviation: str
+    quarter: int
+    plus_minus: int
+    minutes: float
+
+
+# ---------------------------------------------------------------------------
+# Sprint 77 — Series odds history (Engineer EA3)
+# ---------------------------------------------------------------------------
+
+
+class SeriesOddsPoint(BaseModel):
+    """Post-game series-odds snapshot for a single completed playoff series game.
+
+    For each completed game in a series, ``top_seed_post_game_odds`` is the
+    simulator's estimate of the top-seed's chance of winning the series given
+    only the games up to and including this one. ``swing_pp`` is the change
+    relative to the previous game's snapshot (or relative to the pre-series
+    prior for Game 1).
+    """
+
+    game_num: int
+    date: str                        # ISO date of game
+    winner_team_abbr: str
+    top_seed_post_game_odds: float   # 0.0..1.0
+    swing_pp: float                  # change in pp from previous snapshot
+
+
+GameDetailResponse.model_rebuild()
