@@ -6,6 +6,39 @@ import { useParams, useSearchParams } from "next/navigation";
 import { startTransition, useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
 import { useGameDetail, useGameSummary, useGameVisualization } from "@/hooks/usePlayerStats";
 import GameContextBanner from "@/components/GameContextBanner";
+import ScoreboardChrome from "@/components/broadsheet/game-detail/ScoreboardChrome";
+import GameVariantToggle, {
+  type GameVariant,
+} from "@/components/broadsheet/game-detail/GameVariantToggle";
+import BroadsheetGameDetail from "@/components/broadsheet/game-detail/BroadsheetGameDetail";
+
+const GAME_VARIANT_STORAGE_KEY = "bip-game-variant";
+
+function readStoredVariant(): GameVariant | null {
+  if (typeof window === "undefined") return null;
+  try {
+    const stored = window.localStorage.getItem(GAME_VARIANT_STORAGE_KEY);
+    if (stored === "broadsheet" || stored === "scoreboard") {
+      return stored;
+    }
+    return null;
+  } catch {
+    return null;
+  }
+}
+
+function writeStoredVariant(value: GameVariant | null): void {
+  if (typeof window === "undefined") return;
+  try {
+    if (value == null) {
+      window.localStorage.removeItem(GAME_VARIANT_STORAGE_KEY);
+    } else {
+      window.localStorage.setItem(GAME_VARIANT_STORAGE_KEY, value);
+    }
+  } catch {
+    // localStorage may be disabled (private mode, quota); auto-variant still works.
+  }
+}
 
 const GameVisualization3D = dynamic(
   () => import("@/components/three/GameVisualization3D"),
@@ -18,10 +51,6 @@ const GameVisualization3D = dynamic(
     ),
   }
 );
-
-function formatScore(value: number | null) {
-  return value == null ? "-" : String(value);
-}
 
 function statValue(value: number | null) {
   return value == null ? "-" : value.toFixed(0);
@@ -214,6 +243,13 @@ export default function GameDetailPage() {
   const [explorerMode, setExplorerMode] = useState<"feed" | "three">(
     source === "shot-lab" ? "three" : "feed"
   );
+  const [manualVariant, setManualVariant] = useState<GameVariant | null>(null);
+  // Read the persisted variant override on mount. The hook runs once per game
+  // page so a refresh keeps the user's choice; switching games does not reset.
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setManualVariant(readStoredVariant());
+  }, []);
   const drillDownRef = useRef<HTMLDivElement | null>(null);
   const deferredSearchQuery = useDeferredValue(searchQuery);
   const parsedInitialActionNumber =
@@ -459,15 +495,44 @@ export default function GameDetailPage() {
       : [];
   const focusSequenceSteps = visualization?.focus_steps ?? [];
   const replayLinkageLabel = formatLinkageLabel(visualization?.linkage_quality ?? linkageQuality);
+
+  // ── Sprint 77 (EB4): Scoreboard / Broadsheet variant gate ──────────────────
+  // The backend GameDetailResponse does not yet expose an `is_complete` flag,
+  // so we infer state from data presence:
+  //   - Both scores present → treat as final (broadsheet auto-pick)
+  //   - Otherwise → treat as live (scoreboard auto-pick)
+  // When the backend later adds `is_complete` / `game_status`, swap the
+  // `inferredIsLive` line for the canonical signal.
+  const inferredIsLive =
+    data.home_score == null || data.away_score == null;
+  const autoVariant: GameVariant = inferredIsLive ? "scoreboard" : "broadsheet";
+  const variant: GameVariant = manualVariant ?? autoVariant;
+  const isOverridden = manualVariant != null && manualVariant !== autoVariant;
+  const handleSetVariant = (next: GameVariant) => {
+    setManualVariant(next);
+    writeStoredVariant(next);
+  };
+  const handleResetVariant = () => {
+    setManualVariant(null);
+    writeStoredVariant(null);
+  };
+  const scoreboardState: "live" | "final" = inferredIsLive ? "live" : "final";
+
   return (
     <div className="mx-auto max-w-6xl space-y-8">
-      <div>
+      <div className="flex items-center justify-between gap-4">
         <Link
           href={returnHref ?? "/"}
           className="inline-flex items-center gap-1 text-sm text-gray-500 transition-colors hover:text-blue-500 dark:text-gray-400 dark:hover:text-blue-400"
         >
           ← Back to {returnHref ? "source" : "Home"}
         </Link>
+        <GameVariantToggle
+          variant={variant}
+          onSetVariant={handleSetVariant}
+          isOverridden={isOverridden}
+          onResetAuto={handleResetVariant}
+        />
       </div>
 
       <GameContextBanner
@@ -517,59 +582,47 @@ export default function GameDetailPage() {
         </div>
       </section>
 
-      <section className="rounded-[2rem] border border-gray-200 bg-white p-8 dark:border-gray-800 dark:bg-gray-900">
-        <div className="flex flex-col gap-8 lg:flex-row lg:items-end lg:justify-between">
-          <div>
-            <p className="text-sm font-medium uppercase tracking-[0.24em] text-blue-500">
-              Game Explorer
-            </p>
-            <h1 className="mt-3 text-4xl font-bold text-gray-900 dark:text-gray-100">
-              {title}
-            </h1>
-            <p className="mt-3 text-sm text-gray-500 dark:text-gray-400">
-              {data.game_date ?? "Date unavailable"} · {data.season ?? "Season unavailable"} · {data.game_id}
-            </p>
-          </div>
+      {/* Sprint 77: variant-aware chrome + shared module body. The Broadsheet
+          variant renders its full chrome triplet (state banner + headline +
+          score banner) plus the shared module body. The Scoreboard variant
+          renders its own dark stadium chrome + the same shared module body. */}
+      {variant === "scoreboard" ? (
+        <>
+          <ScoreboardChrome data={data} state={scoreboardState} />
+          <BroadsheetGameDetail data={data} modulesOnly />
+        </>
+      ) : (
+        <BroadsheetGameDetail data={data} />
+      )}
 
-          <div className="grid min-w-full gap-3 sm:grid-cols-3 lg:min-w-[25rem]">
-            <div className="rounded-3xl bg-gray-50 p-5 dark:bg-gray-800">
-              <div className="text-xs uppercase tracking-[0.18em] text-gray-500 dark:text-gray-400">
-                Away
-              </div>
-              <div className="mt-2 text-lg font-semibold text-gray-900 dark:text-gray-100">
-                {data.away_team_abbreviation ?? "Away"}
-              </div>
-              <div className="mt-3 text-4xl font-bold text-gray-900 dark:text-gray-100">
-                {formatScore(data.away_score)}
-              </div>
-            </div>
-            <div className="rounded-3xl bg-blue-50 p-5 dark:bg-blue-950/40">
-              <div className="text-xs uppercase tracking-[0.18em] text-blue-600 dark:text-blue-300">
-                Final
-              </div>
-              <div className="mt-2 text-lg font-semibold text-blue-700 dark:text-blue-200">
-                Margin
-              </div>
-              <div className="mt-3 text-4xl font-bold text-blue-700 dark:text-blue-200">
-                {data.home_score != null && data.away_score != null
-                  ? Math.abs(data.home_score - data.away_score)
-                  : "-"}
-              </div>
-            </div>
-            <div className="rounded-3xl bg-gray-50 p-5 dark:bg-gray-800">
-              <div className="text-xs uppercase tracking-[0.18em] text-gray-500 dark:text-gray-400">
-                Home
-              </div>
-              <div className="mt-2 text-lg font-semibold text-gray-900 dark:text-gray-100">
-                {data.home_team_abbreviation ?? "Home"}
-              </div>
-              <div className="mt-3 text-4xl font-bold text-gray-900 dark:text-gray-100">
-                {formatScore(data.home_score)}
-              </div>
-            </div>
-          </div>
+      {/* Box score · Play-by-play anchor for the legacy Game Explorer surfaces */}
+      <div id="legacy-game-explorer" className="pt-6">
+        <div className="border-t pt-6" style={{ borderColor: "var(--border)" }}>
+          <p
+            className="text-xs font-semibold uppercase"
+            style={{
+              fontFamily: "var(--font-geist-mono)",
+              letterSpacing: "0.22em",
+              color: "var(--muted)",
+            }}
+          >
+            Box score · Play-by-play
+          </p>
+          <h2
+            className="bip-display mt-2 font-bold"
+            style={{
+              color: "var(--foreground)",
+              fontSize: "clamp(1.6rem, 2.4vw, 2.2rem)",
+              letterSpacing: "-0.02em",
+            }}
+          >
+            {title}
+          </h2>
+          <p className="mt-2 text-sm text-[var(--muted)]">
+            {data.game_date ?? "Date unavailable"} · {data.season ?? "Season unavailable"} · {data.game_id}
+          </p>
         </div>
-      </section>
+      </div>
 
       {summary && (summary.home_team_stats || summary.away_team_stats || summary.players.length > 0) && (
         <section className="rounded-[2rem] border border-gray-200 bg-white p-6 dark:border-gray-800 dark:bg-gray-900">
