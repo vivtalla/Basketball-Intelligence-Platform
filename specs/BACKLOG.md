@@ -356,6 +356,21 @@ Likely shape:
 - skip component-render tests for now — they're slower to maintain and the build/lint already catches structural issues
 - run via `npm test` from `frontend/`; wire into pre-commit if it becomes a friction point
 
+### Sprint 77 follow-ons (Broadsheet game-detail completeness)
+Why it matters:
+Sprint 77 shipped the broadsheet Playoff Home + Game Detail deep-dive with 12 modules above the existing box-score sections. Five modules render as empty-states or placeholders for v1 because the underlying data isn't computable from current sources. Closing these turns the game-detail page from "skeleton with WP/Lead/Diary depth" into a fully fleshed analytical surface.
+
+Likely shape:
+- **Per-game team shot charts** — `<DualShotCharts>` is empty-state v1. The existing `<ShotChart>` is keyed on `player_id` only; needs new backend that returns per-game shot data per team (game_id + team_id filter on the existing shot_charts table).
+- **Per-game lineup data** — `<LineupGrid>` shows season-level lineups with a "per-game lineup data not yet wired" caveat. Needs PBP-stint extraction per game (the on-court tracking from Sprint 77 EA2 has the substitution data needed).
+- **Per-game Hustle stats** — `<HustleStats>` empty-state v1. NBA API doesn't expose per-game hustle. Either compute proxies from PBP (deflections via STL events, contested shots via blocks events, charges from foul events) or skip entirely.
+- **Per-game Coaching Log** — `<CoachingLog>` empty-state v1. No current data source. Could auto-generate from lineup-substitution patterns + timeout events in PBP, or accept manual entry from coaches.
+- **Story Rail CMS wiring** — `<StoryRail>` v1 hardcoded editorial copy. Backlog item to wire to a real content source (CMS or AI-generated).
+- **Archive Vault API** — `<ArchiveVault>` v1 hardcoded historical Finals MVP + tag pills. Needs a real archive endpoint that knows last N seasons' Finals and key players.
+- **Per-game Player Impact (EPM/RAPM/clutch)** — `<PlayerImpactCards>` shows +/- per quarter only. Per-game EPM/RAPM/clutch deferred (no current data source).
+- **N+1 query consolidation in `game_detail_assembler`** — Optimizer flagged but didn't refactor mid-sprint. Each component service issues its own `db.query(PlayByPlay)` for the same `game_id`. Consolidation requires service-signature changes (pass pre-loaded events list rather than re-querying).
+- **Live game state signal** — auto-pick currently infers from `home_score == null || away_score == null`. Backend should expose a canonical `is_complete` / `game_status` field on `GameDetailResponse` for cleaner detection (one-line backend change).
+
 ---
 
 ## Later

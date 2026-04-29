@@ -1,3 +1,5 @@
+"use client";
+
 import PlayerSearchBar from "@/components/PlayerSearchBar";
 import HomeLeagueLeaders from "@/components/HomeLeagueLeaders";
 import HomeMvpTeaser from "@/components/HomeMvpTeaser";
@@ -8,8 +10,16 @@ import FloatingBall from "@/components/FloatingBall";
 import SpotlightCursor from "@/components/SpotlightCursor";
 import Reveal from "@/components/Reveal";
 import HomeLiveCourt from "@/components/HomeLiveCourt";
-import SeriesNarrative from "@/components/playoffs/SeriesNarrative";
-import PlayoffsHomeSections from "@/components/playoffs/PlayoffsHomeSections";
+import ArchiveVault from "@/components/broadsheet/ArchiveVault";
+import TipOffAgenda from "@/components/broadsheet/TipOffAgenda";
+import BroadsheetMasthead from "@/components/broadsheet/BroadsheetMasthead";
+import BroadsheetHero from "@/components/broadsheet/BroadsheetHero";
+import TodaysSlate from "@/components/broadsheet/TodaysSlate";
+import BracketStrip from "@/components/broadsheet/BracketStrip";
+import SeriesTrackerStrip from "@/components/broadsheet/SeriesTrackerStrip";
+import NarrativeLeaders from "@/components/broadsheet/NarrativeLeaders";
+import StoryRail from "@/components/broadsheet/StoryRail";
+import { useViewMode } from "@/hooks/useViewMode";
 import Link from "next/link";
 
 // Heroicons-style SVG icons for platform cards (24×24, 1.7px stroke, round caps/joins)
@@ -152,45 +162,79 @@ const platformAreas = [
   },
 ];
 
-export default function HomePage() {
+/**
+ * Playoff broadsheet variant — EB1 owns the visual chrome and section stack.
+ * EB2 keeps the mode toggle inside the masthead via the `<ModeToggle>`
+ * embed in `BroadsheetMasthead.tsx`, so the toggle slot is consistent across
+ * all three view modes.
+ *
+ * Section stack (per Sprint 77 spec):
+ *   1. Masthead
+ *   2. Hero (above-the-fold cover)
+ *   3. Today's Slate (2/3) + Series Tracker (1/3)
+ *   4. Bracket Strip (full width)
+ *   5. Narrative Leaders (2/3) + Story Rail (1/3)
+ *
+ * The legacy Sprint 73 <SeriesNarrative> + <PlayoffsHomeSections> blocks
+ * are intentionally removed from the playoff branch — the new broadsheet
+ * stack covers their role. `<PlayoffsHomeSections>` also self-gates on
+ * `viewMode === "playoff"` so any future re-import won't double-render.
+ */
+function PlayoffHome() {
+  return (
+    <div className="space-y-8">
+      <BroadsheetMasthead />
+      <Reveal>
+        <BroadsheetHero />
+      </Reveal>
+      <Reveal>
+        <div className="grid grid-cols-1 lg:grid-cols-[2fr_1fr] gap-6">
+          <TodaysSlate />
+          <SeriesTrackerStrip />
+        </div>
+      </Reveal>
+      <Reveal>
+        <BracketStrip />
+      </Reveal>
+      <Reveal>
+        <div className="grid grid-cols-1 lg:grid-cols-[2fr_1fr] gap-6">
+          <NarrativeLeaders />
+          <StoryRail />
+        </div>
+      </Reveal>
+    </div>
+  );
+}
+
+function RegularHome() {
   return (
     <div className="space-y-14">
+      <BroadsheetMasthead />
+
       {/* ── Hero ─────────────────────────────────────────────────── */}
       <div className="bip-panel-strong relative overflow-hidden rounded-[2.2rem] px-6 sm:px-12 min-h-[88vh] flex flex-col items-center justify-center">
-
         {/* ── Warm woodgrain texture ── */}
         <HeroHardwood opacity={0.18} tint="#b07a37" seed={7} />
 
         {/* ── Decorative court art (purely visual) ── */}
         <div className="absolute inset-0 overflow-hidden rounded-[2.2rem] pointer-events-none select-none">
-          {/* Three-point arc */}
           <div className="absolute bottom-[-20px] left-1/2 -translate-x-1/2 w-[520px] h-[260px] rounded-t-full border-t-2 border-l-2 border-r-2 border-[rgba(33,72,59,0.09)]" />
-          {/* Paint box */}
           <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-[180px] h-[150px] border-2 border-[rgba(33,72,59,0.08)]" />
-          {/* Free throw circle */}
           <div className="absolute bottom-[148px] left-1/2 -translate-x-1/2 w-[120px] h-[120px] rounded-full border border-[rgba(33,72,59,0.07)]" />
-          {/* Concentric decorative rings */}
           <div className="absolute bottom-[-120px] left-1/2 -translate-x-1/2 w-[700px] h-[700px] rounded-full border border-[rgba(33,72,59,0.055)]" />
           <div className="absolute bottom-[-200px] left-1/2 -translate-x-1/2 w-[900px] h-[900px] rounded-full border border-[rgba(33,72,59,0.04)]" />
-          {/* Ambient glow blobs */}
           <div className="absolute right-[-5rem] top-[-5rem] h-72 w-72 rounded-full bg-[rgba(33,72,59,0.11)] blur-3xl" />
           <div className="absolute left-[-4rem] bottom-[6rem] h-60 w-60 rounded-full bg-[rgba(180,137,61,0.10)] blur-3xl" />
           <div className="absolute inset-x-0 top-0 h-48 bg-gradient-to-b from-[rgba(180,137,61,0.14)] via-[rgba(244,236,222,0)] to-transparent" />
         </div>
 
-        {/* ── Spotlight cursor ── */}
         <SpotlightCursor />
 
-        {/* ── Floating basketball ── */}
         <FloatingBall size={64} style={{ position: "absolute", top: 56, right: 56, zIndex: 1 }} />
         <FloatingBall size={44} style={{ position: "absolute", bottom: 80, left: 64, zIndex: 1, animationDelay: "1.4s" }} />
 
-        {/* ── Content ── */}
         <div className="relative text-center max-w-3xl py-20">
-          <p
-            className="bip-kicker mb-5 animate-fade-up"
-            style={{ animationDelay: "0ms" }}
-          >
+          <p className="bip-kicker mb-5 animate-fade-up" style={{ animationDelay: "0ms" }}>
             CourtVue Labs
           </p>
           <h1
@@ -208,18 +252,11 @@ export default function HomePage() {
             The basketball-IQ lab where strategy, analytics, and decisions are built and tested.
           </p>
 
-          {/* Animated stat counter */}
-          <div
-            className="mb-8 animate-fade-up"
-            style={{ animationDelay: "240ms" }}
-          >
+          <div className="mb-8 animate-fade-up" style={{ animationDelay: "240ms" }}>
             <StatCounter target={4892} label="players tracked" />
           </div>
 
-          <div
-            className="animate-fade-up"
-            style={{ animationDelay: "320ms" }}
-          >
+          <div className="animate-fade-up" style={{ animationDelay: "320ms" }}>
             <PlayerSearchBar />
           </div>
 
@@ -233,11 +270,6 @@ export default function HomePage() {
           </div>
         </div>
       </div>
-
-      {/* ── Playoff series narrative (playoffs only — self-gates) ─ */}
-      <Reveal>
-        <SeriesNarrative />
-      </Reveal>
 
       {/* ── Platform areas ───────────────────────────────────────── */}
       <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
@@ -275,14 +307,9 @@ export default function HomePage() {
         <FavoritesList />
       </Reveal>
 
-      {/* ── MVP race teaser (regular season only — self-gates) ──── */}
+      {/* ── MVP race teaser ──────────────────────────────────────── */}
       <Reveal>
         <HomeMvpTeaser />
-      </Reveal>
-
-      {/* ── Today's playoff slate (playoffs only — self-gates) ──── */}
-      <Reveal>
-        <PlayoffsHomeSections />
       </Reveal>
 
       {/* ── Live league leaders ──────────────────────────────────── */}
@@ -291,4 +318,35 @@ export default function HomePage() {
       </Reveal>
     </div>
   );
+}
+
+function OffseasonHome() {
+  return (
+    <div className="space-y-12">
+      <BroadsheetMasthead />
+      <Reveal>
+        <ArchiveVault />
+      </Reveal>
+      <Reveal>
+        <TipOffAgenda />
+      </Reveal>
+      <Reveal>
+        <HomeLeagueLeaders />
+      </Reveal>
+    </div>
+  );
+}
+
+export default function HomePage() {
+  const { viewMode } = useViewMode();
+
+  if (viewMode === "playoff") {
+    return <PlayoffHome />;
+  }
+
+  if (viewMode === "offseason") {
+    return <OffseasonHome />;
+  }
+
+  return <RegularHome />;
 }

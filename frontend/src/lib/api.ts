@@ -1828,3 +1828,31 @@ export async function getSeriesSimulationWithOverrides(
     `/api/playoffs/series-simulation/${encodeURIComponent(seriesId)}${suffix}`
   );
 }
+
+// ── Sprint 77 (Stream A) — Playoff narrative leaders ─────────────────────────
+export async function getPlayoffLeaders(
+  season: string,
+  limit = 5
+): Promise<import("./types").PlayoffLeadersResponse> {
+  const params = new URLSearchParams({
+    season,
+    limit: String(limit),
+  });
+  return fetchApi<import("./types").PlayoffLeadersResponse>(
+    `/api/playoffs/leaders?${params.toString()}`
+  );
+}
+
+// ── Sprint 77 (Stream B / EB3) — Game-detail enrichment ──────────────────────
+// `getGameDetail` already returns the augmented `GameDetailResponse` (see
+// `lib/types.ts`) with `win_probability`, `lead_tracker`, `possession_diary`,
+// `player_quarter_impact`, and `series_odds_history`. No new endpoints are
+// needed for the broadsheet game-detail surface — re-export the existing
+// types so component files don't have to dig into `lib/types`.
+export type {
+  WinProbPoint as GameWinProbPoint,
+  LeadPoint as GameLeadPoint,
+  PossessionEntry as GamePossessionEntry,
+  PlayerQuarterImpact as GamePlayerQuarterImpact,
+  SeriesOddsPoint as GameSeriesOddsPoint,
+} from "./types";
