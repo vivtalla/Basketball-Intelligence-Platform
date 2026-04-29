@@ -1235,3 +1235,271 @@ class PlayoffSeries(Base):
     winner_team_id = Column(Integer, ForeignKey("teams.id"), nullable=True)
     created_at = Column(DateTime, server_default=func.now())
     updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
+
+
+# ---------------------------------------------------------------------------
+# Sprint 78 — Phase 0 schema kickoff
+# ---------------------------------------------------------------------------
+# These tables back the 10 Sprint 78 feature teams. Schemas land here ahead of
+# the team architects so all 10 can spec their services against stable types.
+# Additive only: nothing in this block should reorder or modify pre-existing
+# columns above.
+# ---------------------------------------------------------------------------
+
+
+class PlayerContract(Base):
+    """Active player contract (per season). Backs FO1 Trade Machine + FO2 Free
+    Agency Workspace + FO4 Multi-Year Team Trajectory.
+
+    Sourced from Spotrac (primary) with HoopsHype fallback. Refresh cadence is
+    daily via `daily_sync.sh`. One row per (player, season). For multi-year
+    deals, additional rows exist for future seasons with `years_remaining`
+    decremented.
+    """
+    __tablename__ = "player_contracts"
+    __table_args__ = (
+        UniqueConstraint("player_id", "season", name="uq_player_contract_player_season"),
+        Index("ix_player_contracts_player", "player_id"),
+        Index("ix_player_contracts_season", "season"),
+        Index("ix_player_contracts_team", "team_id"),
+    )
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    player_id = Column(Integer, ForeignKey("players.id"), nullable=False)
+    team_id = Column(Integer, ForeignKey("teams.id"), nullable=True)  # nullable for FAs
+    season = Column(String(10), nullable=False)        # e.g. "2025-26"
+    salary = Column(Integer, nullable=False)           # USD, integer dollars
+    years_remaining = Column(Integer, default=1)       # at start of `season`
+    is_player_option = Column(Boolean, default=False)
+    is_team_option = Column(Boolean, default=False)
+    is_non_guaranteed = Column(Boolean, default=False)
+    no_trade_clause = Column(Boolean, default=False)
+    contract_type = Column(String(20))                 # "standard", "two-way", "rookie", "max", "supermax", "veteran-min"
+    signed_on = Column(Date, nullable=True)
+    expires_on = Column(Date, nullable=True)
+    source = Column(String(40), default="spotrac")     # "spotrac" | "hoopshype" | "manual"
+    source_url = Column(Text)
+    last_synced_at = Column(DateTime, server_default=func.now())
+    created_at = Column(DateTime, server_default=func.now())
+    updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
+
+    player = relationship("Player")
+
+
+class DraftProspect(Base):
+    """A single draft-eligible prospect for an upcoming or recent draft.
+
+    Backs FO3 Draft Prospect Workspace. Top ~60 of each draft class — sourced
+    from public mock-draft consensus + Sports Reference (NCAA stats) +
+    NBA Draft Combine measurements.
+    """
+    __tablename__ = "draft_prospects"
+    __table_args__ = (
+        UniqueConstraint("draft_year", "external_id", name="uq_draft_prospect_year_extid"),
+        Index("ix_draft_prospects_year", "draft_year"),
+        Index("ix_draft_prospects_consensus", "consensus_rank"),
+    )
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    external_id = Column(String(80), nullable=False)   # stable ID from Sports Reference / source
+    full_name = Column(String(120), nullable=False)
+    draft_year = Column(Integer, nullable=False)       # e.g. 2026
+    age_on_draft_day = Column(Float, nullable=True)
+    height_inches = Column(Float, nullable=True)       # listed height
+    weight_lbs = Column(Float, nullable=True)          # listed weight
+    primary_position = Column(String(10), nullable=True)  # PG, SG, SF, PF, C, F, G
+    school = Column(String(120), nullable=True)        # last team (college / G League / international)
+    school_type = Column(String(20), nullable=True)    # "ncaa" | "g_league" | "international" | "high_school"
+    consensus_rank = Column(Integer, nullable=True)    # avg of major mocks (1..60)
+    consensus_sources = Column(JSON)                   # {"espn": 5, "ringer": 7, ...}
+    nba_player_id = Column(Integer, ForeignKey("players.id"), nullable=True)  # populated post-draft once linked
+    headshot_url = Column(String(300))
+    bio = Column(Text)
+    created_at = Column(DateTime, server_default=func.now())
+    updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
+
+    stats = relationship("DraftProspectStat", back_populates="prospect", cascade="all, delete-orphan")
+    measurements = relationship("DraftProspectMeasurement", back_populates="prospect", cascade="all, delete-orphan")
+
+
+class DraftProspectStat(Base):
+    """Per-season pre-NBA stat line for a prospect (NCAA / G League / international)."""
+    __tablename__ = "draft_prospect_stats"
+    __table_args__ = (
+        UniqueConstraint("prospect_id", "season", "league", name="uq_dp_stat_prospect_season_league"),
+        Index("ix_dp_stats_prospect", "prospect_id"),
+    )
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    prospect_id = Column(Integer, ForeignKey("draft_prospects.id"), nullable=False)
+    season = Column(String(10), nullable=False)        # e.g. "2025-26"
+    league = Column(String(40), nullable=False)        # "NCAA D-I", "G League Ignite", "Euroleague", etc.
+    team_name = Column(String(120))
+    gp = Column(Integer)
+    min_pg = Column(Float)
+    pts_pg = Column(Float)
+    reb_pg = Column(Float)
+    ast_pg = Column(Float)
+    stl_pg = Column(Float)
+    blk_pg = Column(Float)
+    tov_pg = Column(Float)
+    fg_pct = Column(Float)
+    fg3_pct = Column(Float)
+    ft_pct = Column(Float)
+    ts_pct = Column(Float)
+    usg_pct = Column(Float)
+    pace = Column(Float)            # league pace, used for translation
+    # Per-100 normalization is computed in service layer; raw per-game stored here.
+    source = Column(String(40), default="sports_reference")
+    last_synced_at = Column(DateTime, server_default=func.now())
+
+    prospect = relationship("DraftProspect", back_populates="stats")
+
+
+class DraftProspectMeasurement(Base):
+    """Combine + workout measurements for a draft prospect."""
+    __tablename__ = "draft_prospect_measurements"
+    __table_args__ = (
+        Index("ix_dp_measurements_prospect", "prospect_id"),
+    )
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    prospect_id = Column(Integer, ForeignKey("draft_prospects.id"), nullable=False)
+    height_no_shoes = Column(Float)        # inches
+    height_with_shoes = Column(Float)
+    weight = Column(Float)                 # lbs
+    wingspan = Column(Float)               # inches
+    standing_reach = Column(Float)         # inches
+    body_fat_pct = Column(Float)
+    hand_length = Column(Float)            # inches
+    hand_width = Column(Float)             # inches
+    standing_vert = Column(Float)          # inches
+    max_vert = Column(Float)
+    lane_agility_seconds = Column(Float)
+    three_quarter_sprint_seconds = Column(Float)
+    bench_press_135 = Column(Integer)
+    measured_on = Column(Date)
+    source = Column(String(40), default="nba_combine")
+    created_at = Column(DateTime, server_default=func.now())
+
+    prospect = relationship("DraftProspect", back_populates="measurements")
+
+
+class DraftPickAsset(Base):
+    """A single draft pick owned (or owed) by an NBA team.
+
+    Backs FO4 Multi-Year Team Trajectory. Captures pick swaps, protections,
+    conveyance windows. Curated initially; can be replaced by an automated
+    feed in a future sprint.
+    """
+    __tablename__ = "draft_pick_assets"
+    __table_args__ = (
+        Index("ix_dp_assets_owner", "owner_team_id"),
+        Index("ix_dp_assets_year", "draft_year"),
+    )
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    draft_year = Column(Integer, nullable=False)
+    round = Column(Integer, nullable=False)            # 1 or 2
+    owner_team_id = Column(Integer, ForeignKey("teams.id"), nullable=False)  # team that currently owns the pick
+    origin_team_id = Column(Integer, ForeignKey("teams.id"), nullable=False)  # team whose pick this is (record-of)
+    is_swap = Column(Boolean, default=False)
+    is_conveyed = Column(Boolean, default=False)       # has it landed yet?
+    protection_summary = Column(String(200))           # e.g. "top-4 protected through 2027"
+    expected_slot_low = Column(Integer)                # est. range, low end (e.g. 12)
+    expected_slot_high = Column(Integer)               # est. range, high end (e.g. 18)
+    note = Column(Text)
+    source = Column(String(40), default="manual")
+    created_at = Column(DateTime, server_default=func.now())
+    updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
+
+
+class PlayerInjuryHistory(Base):
+    """Historical per-injury record for a player. Backs FO5 Injury Duration Model.
+
+    Distinct from `player_injuries` (which is a current-state CDN snapshot).
+    Sourced from Pro Sports Transactions historical data, backfilled for the
+    last 10+ NBA seasons. One row per discrete injury event with start /
+    resolved / games-missed.
+    """
+    __tablename__ = "player_injury_history"
+    __table_args__ = (
+        Index("ix_pih_player", "player_id"),
+        Index("ix_pih_started", "started_on"),
+        Index("ix_pih_body_part", "body_part"),
+    )
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    player_id = Column(Integer, ForeignKey("players.id"), nullable=False)
+    season = Column(String(10))                        # NBA season the injury happened in
+    body_part = Column(String(60))                     # normalized: "knee", "ankle", "hamstring", etc.
+    severity = Column(String(20))                      # "minor", "moderate", "severe", "season-ending"
+    diagnosis = Column(String(200))                    # raw text from source
+    started_on = Column(Date, nullable=False)
+    resolved_on = Column(Date)                         # may be null for season-ending
+    games_missed = Column(Integer)                     # canonical absence length
+    age_at_start = Column(Float)                       # for cohort filtering
+    is_recurring = Column(Boolean, default=False)      # same body part as a prior injury
+    source = Column(String(40), default="prosportstransactions")
+    source_url = Column(Text)
+    last_synced_at = Column(DateTime, server_default=func.now())
+    created_at = Column(DateTime, server_default=func.now())
+
+    player = relationship("Player")
+
+
+class PlayerStreak(Base):
+    """Cached active streak for a player. Backs CF5 Streaks & Milestones Tracker.
+
+    Computed nightly. One row per (player, streak_type). Snapshot pattern —
+    overwritten on each refresh; not a historical streaks log.
+    """
+    __tablename__ = "player_streaks"
+    __table_args__ = (
+        UniqueConstraint("player_id", "streak_type", name="uq_player_streak_type"),
+        Index("ix_player_streaks_type", "streak_type"),
+        Index("ix_player_streaks_length", "length"),
+    )
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    player_id = Column(Integer, ForeignKey("players.id"), nullable=False)
+    streak_type = Column(String(40), nullable=False)   # "30plus_pts", "double_double", "triple_double", etc.
+    length = Column(Integer, nullable=False)           # consecutive games meeting criterion
+    started_on = Column(Date)
+    last_game_on = Column(Date)
+    last_game_id = Column(String(20))
+    threshold = Column(JSON)                           # criteria dict, e.g. {"pts_ge": 30}
+    is_active = Column(Boolean, default=True)
+    season = Column(String(10))
+    computed_at = Column(DateTime, server_default=func.now())
+
+    player = relationship("Player")
+
+
+class MilestoneSnapshot(Base):
+    """Cached milestone progress per (player, milestone). Backs CF5.
+
+    Captures both achieved milestones (with date) and approaching milestones
+    (with games-to-go). Recomputed nightly; snapshot-style.
+    """
+    __tablename__ = "milestone_snapshots"
+    __table_args__ = (
+        UniqueConstraint("player_id", "milestone_key", name="uq_milestone_player_key"),
+        Index("ix_milestones_player", "player_id"),
+        Index("ix_milestones_key", "milestone_key"),
+        Index("ix_milestones_proximity", "games_to_milestone"),
+    )
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    player_id = Column(Integer, ForeignKey("players.id"), nullable=False)
+    milestone_key = Column(String(40), nullable=False)  # "10k_pts", "1k_3pm", "20k_pts", etc.
+    threshold = Column(Integer, nullable=False)         # numerical threshold
+    current_value = Column(Float, nullable=False)       # current career total
+    games_to_milestone = Column(Integer)                # est. games until reached, null if achieved
+    achieved_on = Column(Date, nullable=True)
+    achieved_in_game_id = Column(String(20), nullable=True)
+    season = Column(String(10))
+    is_career_milestone = Column(Boolean, default=True)
+    computed_at = Column(DateTime, server_default=func.now())
+
+    player = relationship("Player")
