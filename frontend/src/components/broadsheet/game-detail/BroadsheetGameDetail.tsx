@@ -14,6 +14,7 @@ import type { GameDetailResponse } from "@/lib/types";
 import GameStateBanner, { type GameState } from "./GameStateBanner";
 import BroadsheetHeadline from "./BroadsheetHeadline";
 import BroadsheetScoreBanner from "./BroadsheetScoreBanner";
+import GameStoryTimeline from "./GameStoryTimeline";
 import SharedGameModules from "./SharedGameModules";
 
 interface BroadsheetGameDetailProps {
@@ -142,6 +143,12 @@ export default function BroadsheetGameDetail({
         seriesState={data.matchup ?? null}
         tipoffLabel={null}
       />
+
+      {/* Sprint 78 (CF4): Game Story timeline — top narrative moments,
+          mounted between the score banner and the WP hero so users see
+          the recap before the deep modules. Renders nothing when the
+          page lacks PBP-derived data, so pre-game pages stay calm. */}
+      <GameStoryTimeline data={data} />
 
       {/* 4-12. Shared module body */}
       <SharedGameModules data={data} />

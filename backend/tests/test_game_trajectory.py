@@ -237,6 +237,84 @@ def test_lead_tracker_length_48_for_regulation_game():
         session.close()
 
 
+def test_wp_series_provides_enough_signal_for_story_timeline():
+    """Sprint 78 (CF4): a regulation game with several lead changes
+    should produce both (a) a non-trivial WP curve and (b) at least one
+    swing-labelled point for the front-end story-timeline ranker.
+
+    The Game Story Mode timeline computes
+        narrative_score = |wp_delta| * 100 + lead_impact * 0.5
+    from the curve, so we assert the curve carries enough variation
+    (>= 8 points; >= 1 labelled swing; observed swing magnitude >= 5pp)
+    to seed a meaningful story.
+    """
+    session = _make_session()
+    try:
+        game_id = "0022400781"
+        _seed_game_shell(session, game_id)
+
+        # Tight game, two lead changes, away closing strong, with a
+        # late clutch run that the trajectory service should label.
+        events = [
+            (1, 1, _clock(11, 0), 2, 0),
+            (2, 1, _clock(8, 0), 5, 6),
+            (3, 1, _clock(0, 5), 22, 24),
+            (4, 2, _clock(8, 0), 35, 38),
+            (5, 2, _clock(0, 5), 50, 52),
+            (6, 3, _clock(6, 0), 65, 68),
+            (7, 3, _clock(0, 5), 78, 79),
+            # Q4 — tied at 95-95 with 90s left, then away 9-0 run.
+            (8, 4, _clock(2, 0), 95, 95),
+            (9, 4, _clock(1, 30), 95, 98, "3pt"),
+            (10, 4, _clock(1, 0), 95, 101, "3pt"),
+            (11, 4, _clock(0, 30), 95, 104, "3pt"),
+            (12, 4, _clock(0, 1), 97, 104, "2pt"),
+        ]
+        for ev in events:
+            action_number, period, clock = ev[0], ev[1], ev[2]
+            sh, sa = ev[3], ev[4]
+            action_type = ev[5] if len(ev) > 5 else "2pt"
+            _add_event(
+                session,
+                game_id=game_id,
+                action_number=action_number,
+                period=period,
+                clock=clock,
+                score_home=sh,
+                score_away=sa,
+                action_type=action_type,
+            )
+        session.commit()
+
+        points = compute_win_probability(session, game_id)
+        # (a) curve has enough resolution for a 10-card timeline.
+        assert len(points) >= 8, (
+            "story timeline expects at least ~8 WP points; got {:d}".format(
+                len(points)
+            )
+        )
+        # (b) at least one swing is labelled — the front-end picks
+        # these as the dominant narrative signal.
+        labelled = [p for p in points if p.event]
+        assert labelled, (
+            "story timeline expects at least one swing-labelled WP point"
+        )
+        # (c) observed swing magnitude is meaningful.
+        max_swing = 0.0
+        prev = None
+        for p in points:
+            if prev is not None:
+                max_swing = max(max_swing, abs(p.wp_home - prev))
+            prev = p.wp_home
+        assert max_swing >= 0.05, (
+            "story timeline expects at least one >=5pp WP swing; max was {:.3f}".format(
+                max_swing
+            )
+        )
+    finally:
+        session.close()
+
+
 def test_lead_tracker_tied_at_tip():
     """First minute boundary always reports a 0 lead — neither team has scored at tip."""
     session = _make_session()

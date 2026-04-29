@@ -4371,3 +4371,37 @@ export interface GameDetailResponse {
   player_quarter_impact?: PlayerQuarterImpact[] | null;
   series_odds_history?: SeriesOddsPoint[] | null;
 }
+
+// ── Sprint 78 (CF4) — Game Story Mode ───────────────────────────────────────
+// Frontend-only narrative type. Computed client-side in
+// `<GameStoryTimeline>` from existing GameDetailResponse fields
+// (win_probability, possession_diary, timeline). Not currently produced
+// by any backend response — declared here so future backend work can
+// adopt the same shape if/when it lands.
+
+export interface GameStoryMoment {
+  /** Origin signal: WP swing, possession diary, or scoring play. */
+  source: "wp" | "diary" | "score";
+  /** 1-indexed period (5+ for OT). */
+  quarter: number;
+  /** Display clock — already mm:ss formatted, or "—" when unknown. */
+  clock: string;
+  /** Stable seconds-from-tip used for chronological ordering. */
+  seconds_elapsed: number;
+  /** Headline string, data-driven from PBP / diary / WP descriptions. */
+  description: string;
+  /** Team abbreviation involved in the moment, when available. */
+  team_abbreviation: string | null;
+  /** Primary player name involved, when available. */
+  player_name: string | null;
+  /** Client-computed ranking score: |wp_delta|*100 + lead_impact*0.5. */
+  narrative_score: number;
+  /** Display score line "104-101", when applicable. */
+  score_line: string | null;
+  /** Win-probability delta in percentage points (signed, +ve home). */
+  wp_delta_pp: number | null;
+  /** Lead-impact magnitude (proxy for diary impact score). */
+  lead_impact_score: number | null;
+  /** Anchor link the card scrolls to on click. */
+  anchor: string;
+}
