@@ -1,9 +1,33 @@
 # Sprint History Archive
 
-Archived sprint summaries through Sprint 78. The most recent sprint summary also stays inline in `CLAUDE.md` under "Recent Sprints".
+Archived sprint summaries through Sprint 80. The two most recent sprints also stay inline in `CLAUDE.md` under "Recent Sprints".
 
 For detailed per-sprint records, see the individual closeout files in this directory where available:
 `specs/sprint-09-closeout.md` through `specs/sprint-59-closeout.md`, plus `specs/sprint-62-closeout.md` and `specs/sprint-67-closeout.md` onward.
+
+---
+
+### Sprint 80 — Cloud Migration: DB + Cron Off the Laptop
+**Branch:** `master` (infra-only sprint, no feature branch)
+
+- Single-stream infrastructure sprint migrating Postgres and the daily sync cron from Vivek's MacBook to a Hetzner CX22 VM (`5.78.114.15`, Ashburn VA) at ~$5/month. Cloudflare R2 free tier for nightly pg_dump backups. FastAPI deploy deferred to Sprint 81.
+- **DB cleanup:** Alembic migration `0017_sprint80_raw_payload_ttl` TTLs `raw_game_payloads` rows older than 30 days (freed 184 MB). Legacy `play_by_play` table drop deferred — 11+ active service readers found.
+- **Salary data improvement (Sprint 79 carry-over):** `contracts_2025_26.csv` expanded to 514-player coverage. `salary_source` field wired backend → router → frontend. Trade Machine shows amber `est.` badge per player and panel banner for estimated contracts.
+- **Migration:** `pg_dump` → scp → `pg_restore`. Verified: PASS: 50 tables, 4,558,469 rows, `alembic_version=0017_sprint80_raw_payload_ttl`.
+- **Cron:** Python venv + full requirements on VM. Crontab active: 4am UTC backup, 6am daily sync, */30 post-game, Sunday 5am restore drill. Each job sources `/etc/bip/env`.
+- **Backup:** `infra/bip-backup.sh` → gzip → R2, `infra/bip-backup-prune.sh` (7d/4w/3m), `infra/bip-backup-verify.sh` (weekly drill). Manual backup confirmed: `bip-20260430.dump.gz` (140 MB) in R2.
+- No test count change (infra-only). `npx tsc --noEmit` clean. Closeout: `specs/sprint-80-closeout.md`.
+
+---
+
+### Sprint 79 — Data Foundation: Playoff PBP Fix + Methodology Unblocks
+**Branches:** `feature/sprint-79-*` (3 parallel streams)
+
+- **Stream B — Playoff PBP Derivations:** Fixed `_upsert_lineup` bug where `filter_by` was missing `is_playoff`, which would silently clobber regular-season lineup rows. Added `is_playoff: bool = False` cascade to five helpers. Added `sync_pbp_for_playoffs_from_db()`. Fixed `bulk_sync_service.py` hardcoded `"Regular Season"` (lines 372, 424). Wired `sync_playoff_pbp.py` into `daily_sync.sh`. Migration `0014_sprint79_playoff_indexes` + NULL backfills.
+- **Stream A2 — `opportunity_v2`:** Materialized `role_expansion_observations` — 286 observations from 1,063 players. New `opportunity_uplift_service.py`: shrunk-Mahalanobis KNN (K=20). `OpportunityUplift` as sibling `OpportunityRow.uplift` — no breaking change. Migration `0015_sprint79_role_expansion`. Registry bumped `opportunity_v1 → v2`.
+- **Stream A1 — `mvp_case_v5`:** Seeded `award_voting` table (57 ballot rows, 13 MVP races). `award_calibration_service.py`: coordinate-descent fitter, drift cap ±0.04, leave-one-season-out CV. Migration `0016_sprint79_award_voting`. Registry bumped `mvp_case_v4 → v5`.
+- **Bugs fixed:** `0013` boolean defaults (`sa.text("false"/"true")`), `salary_ingestion_service` bulk rollback on unique violation (per-row flush fix), Alembic revision name over varchar(32).
+- Verified with **415 backend tests** (+18 new). Closeout: `specs/sprint-79-closeout.md`.
 
 ---
 
