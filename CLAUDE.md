@@ -262,6 +262,25 @@ CourtVue Labs uses a hybrid sprint model: major feature sprints typically run as
 
 > Full history → `specs/sprint-history.md`
 
+### Sprint 78 — 10-Team Parallel Sprint: Front Office + Casual Fan
+
+- Largest sprint to date. **10 parallel feature teams** running the standard `Architect → Engineer → Reviewer → Optimizer` pipeline (per CLAUDE.md two-team-parallel pattern, scaled up). Two streams of five: Front Office (NBA exec) features and Casual Fan engagement features. Three teams (FO1, FO3, FO5) got expanded engineering allocation for live-data ingestion alongside their feature work.
+- **Phase 0 schema kickoff** landed 8 new tables on `master` ahead of any team architect, so 10 concurrent architects could spec services against stable types: `player_contracts`, `draft_prospects` + `draft_prospect_stats` + `draft_prospect_measurements`, `draft_pick_assets`, `player_injury_history`, `player_streaks`, `milestone_snapshots`. Alembic migration `0013_sprint78_phase0_schemas` is idempotent against fresh SQLite.
+- **Stream A — Front Office (5 teams):**
+  - **FO1 Trade Machine** — `services/{salary_ingestion,trade_machine,trade_impact}_service.py` + `routers/trade.py` + new `/trade-machine` route. ±125% salary-matching for up to 4-team packages with tax/apron/BYC/TPE flagged-not-enforced. Trade impact reuses `lineup_impact_service` for projected net-rating delta. Salary data via seed CSV with stubbed Spotrac interface.
+  - **FO2 Free Agency Workspace** — `services/free_agency_service.py` + new `/free-agency` route. Expiring-contract tier bucketing (max / above_mid / mid_level / minimum / two_way) + per-FA top-10 team fits via existing `team_fit_service`.
+  - **FO3 Draft Prospect Workspace** — `services/{draft_translation,draft_prospect_comp}_service.py` + `routers/draft.py` + new `/draft` board + `/draft/[prospectId]` detail. Pace-adjusted (NCAA → NBA) per-100 projection with confidence score + 5-NBA-comp grid via existing `similarity_service`. Seed CSV with stubbed Sports Reference interface.
+  - **FO4 Multi-Year Team Arc** — `services/{aging_curve,team_arc_projection}_service.py` + new "Arc" tab on `/teams/[abbr]`. Position-bucketed empirical aging curves + 3-year roster projection with `PlayerContract` cap state + `DraftPickAsset` overlay + decision-lever sliders.
+  - **FO5 Injury Impact** — `services/{injury_duration_model,availability_impact}_service.py` extending existing `team_availability_service`. Tiered (body_part × age × recurrence) duration distributions with hardcoded prior fallback. New player-profile injury panel + team availability-impact panel. Seed CSV with stubbed ProSportsTransactions interface.
+- **Stream B — Casual Fan (5 teams):**
+  - **CF1 Shareable Story Cards** — `services/share_card_service.py` (Pillow, 1200×630 broadsheet PNG) + `routers/share.py` + `<ShareCardButton>` mounted on player profile, game-detail, series tracker. OG metadata wired on key routes.
+  - **CF2 Bracket Pick'em** — `services/picks_scoring_service.py` reusing `playoff_simulator_service` for model bracket. Per user-confirmed scope: localStorage-only, single-user, "you vs CourtVue's model" framing. New `/picks` route.
+  - **CF3 Career Hall of Fame** — `services/{career_legacy,career_milestone,era_peer}_service.py` + new "Legacy" tab on player profile. Era-adjusted PPG (pace ratio) + TS%-vs-league delta + 12-milestone catalog + cross-era similarity peers + composite HOF projection (Likely / Borderline / Tracking).
+  - **CF4 Game Story Mode** — `<GameStoryTimeline>` component on `/games/[gameId]` (frontend-led, no new backend service). Combines WP swing events + possession-diary top-impact + scoring events with `narrative_score = |wp_delta| × 100 + lead_impact × 0.5`.
+  - **CF5 Streaks & Milestones** — `services/{streak_detection,milestone_proximity,signature_performance}_service.py` + `routers/milestones.py` + new `/milestones` route + `PlayerStreakChip` on player header + story-rail tile integration. Nightly snapshots wired into `daily_sync.sh`.
+- Architecture used the standard pipeline scaled to 10 teams. All agents worked in dedicated git worktrees to avoid main-checkout contention. File-lock discipline was strict-additive only on shared files (`models.py`, `main.py`, `lib/types.ts`, `lib/api.ts`, `NavLinks.tsx`); merge coordinator resolved conflicts at integration time using a small Python `merge_resolve.py` helper for the "additive both sides" pattern.
+- Verified with **397 backend tests** (was 360, +37 new across 10 teams + Phase 0), `npx tsc --noEmit` clean, `npm run lint` shows only the 8 pre-existing warnings unchanged. Closeout: `specs/sprint-78-closeout.md`. `master` tip at `c3ec5dd`.
+
 ### Sprint 77c — Broadsheet Live Data + Sync Hooks
 
 - Single-stream conversational sprint that replaced Sprint 77's hardcoded prototype copy with live data across the playoff broadsheet. `/api/playoffs/today` now merges the live `cdn.nba.com` scoreboard so upcoming + in-progress games appear before the nightly sync; new `tipoff_utc` and `broadcaster` fields on `PlayoffSeriesGameWithMatchup`. New `/api/playoffs/story-rail` endpoint with auto-generated tiles (Heat Check / Efficiency Desk / X-Factor) — internal-only links, no external URLs. Hero + by-the-numbers strip on `/playoffs` now compute from live bracket + today endpoints (round label, headline templated by game count, prose subhead listing tonight's matchups, real broadcasters).
@@ -272,16 +291,7 @@ CourtVue Labs uses a hybrid sprint model: major feature sprints typically run as
 - Quick wins from the design audit: 56px logo mark + new `courtvue-mark.svg`, favicon (`icon.svg`) replacing legacy `.ico`, `bip-display tabular-nums` on StatCard values, momentum gradient on WinProbabilityChart, animated Ticker on MVP composite scores, ported brand primitives (Kicker/Pill/Button/Stat/Icon/Hardwood/Reveal/Ticker) and chart components (WinProbability/StandingsLadder/BoxScoreTable) into reusable directories.
 - Verified with **360 backend tests** (no count change — same suite as Sprint 77, with the storyline test patched to mock the live CDN), `npx tsc --noEmit` clean, `npm run lint` shows the 7 pre-existing warnings unchanged. Closeout: `specs/sprint-77c-closeout.md`.
 
-### Sprint 77 — Broadsheet Playoff Home + Game Detail Deep-Dive
-
-- Two-team parallel sprint shipping the broadsheet/newsprint Playoff Home (replaces Sprint 73's carousel + slate sections during the playoff window) and the Game Detail deep-dive page with 12 new modules above the existing box-score sections. Driven by a fresh design tarball that introduced the broadsheet visual direction + the Mode toggle (Playoff / Regular / Offseason).
-- **Stream A — game data foundation:** new `services/game_trajectory_service.py` (closed-form WP trajectory + per-minute lead-tracker derived from PBP), `services/possession_diary_service.py` (24-row top-impact possession diary + per-quarter player +/- via PBP substitution walk), `services/game_detail_assembler.py` (single resilient entry point that wraps box-score + 4 derived components with try/except + logger.warning), `services/playoff_simulator_service.py` extended with `compute_series_odds_history` (post-game series WP snapshots via Sprint 75 simulator overrides), `services/playoff_leaders_service.py` (new `/api/playoffs/leaders` endpoint with trend symbols + 5-game grades), and `services/playoff_bracket_service.py` extended with `compute_game_storyline` (headline_storyline copy on `/api/playoffs/today`). Frontend: new `useViewMode` hook (auto-detect via useSeasonPhase + localStorage override).
-- **Stream B — broadsheet screens:** new `frontend/src/components/broadsheet/` directory with the playoff home stack (BroadsheetMasthead + ModeToggle + BroadsheetHero + TodaysSlate + BroadsheetGameCard + SeriesTrackerStrip + BracketStrip + NarrativeLeaders + StoryRail) plus offseason content (ArchiveVault + TipOffAgenda). New `frontend/src/components/broadsheet/game-detail/` with 15 components composing the broadsheet game-detail page (GameStateBanner + BroadsheetHeadline + BroadsheetScoreBanner + ScoreboardChrome alternative + GameVariantToggle + the 12 module bodies: WP hero, lead tracker, dual shot charts, lineup grid, player impact cards, possession diary, coaching log, hustle stats, series odds card, quote ribbon, plus BroadsheetGameDetail wrapper and SharedGameModules). Auto-pick scoreboard chrome for live/halftime games, broadsheet for finals + pre-game; manual toggle persists in localStorage. Existing `/games/[gameId]` box-score / PBP feed / 3D-visualizer / score timeline / top-players sections preserved below the new modules under `#legacy-game-explorer` anchor.
-- All broadsheet UI gated by `useViewMode` so toggle-back to `regular_season` or `offseason` renders the existing Sprint 73 home cleanly under the same masthead chrome. Sprint 73's `<DailyPlayoffSlate>` + `<SeriesNarrative>` self-gate to render only when `viewMode !== "playoff"` so they don't double-render.
-- Architecture used `Architect → 8 parallel Engineers (4+4) → Reviewer → Optimizer` per CLAUDE.md two-team parallel pattern. Stream A merged first; Stream B branched off A's tip. Reviewer signed off no-blockers; Optimizer addressed 3 cheap concerns (live-state inference tightened to require both scores null AND game date today/past, LeadTracker + PossessionDiary memoized, WCAG AA contrast fix on impact tags).
-- Verified with **360 backend tests** (was 346 + 14 new from EA1×4, EA2×3, EA3×4, EA4×3), `npm run build` + `npm run lint` clean (7 pre-existing `usePlayerStats.ts` warnings unchanged). Closeout: `specs/sprint-77-closeout.md`.
-
-*Sprint 76 and older moved to `specs/sprint-history.md`.*
+*Sprint 77 and older moved to `specs/sprint-history.md`.*
 
 ---
 
@@ -314,6 +324,17 @@ CourtVue Labs uses a hybrid sprint model: major feature sprints typically run as
 | `feature/sprint-77a-game-data-foundation` | Claude | Merged to master |
 | `feature/sprint-77b-broadsheet-screens` | Claude | Merged to master |
 | `feature/sprint-77c-broadsheet-live-data` | Claude | Merged to master |
+| `feature/sprint-78-phase0-schemas` | Claude | Merged to master |
+| `feature/sprint-78-fo1-trade-machine` | Claude | Merged to master |
+| `feature/sprint-78-fo2-free-agency` | Claude | Merged to master |
+| `feature/sprint-78-fo3-draft-prospects` | Claude | Merged to master |
+| `feature/sprint-78-fo4-team-arc` | Claude | Merged to master |
+| `feature/sprint-78-fo5-injury-impact` | Claude | Merged to master |
+| `feature/sprint-78-cf1-share-cards` | Claude | Merged to master |
+| `feature/sprint-78-cf2-bracket-pickem` | Claude | Merged to master |
+| `feature/sprint-78-cf3-career-hof-view` | Claude | Merged to master |
+| `feature/sprint-78-cf4-game-story-mode` | Claude | Merged to master |
+| `feature/sprint-78-cf5-streaks-milestones` | Claude | Merged to master |
 
 Sprint branches are created at kickoff and listed in `AGENTS.md`.
 

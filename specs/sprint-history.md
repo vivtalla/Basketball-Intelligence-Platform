@@ -1,9 +1,31 @@
 # Sprint History Archive
 
-Archived sprint summaries through Sprint 77c. The two most recent sprint summaries also stay inline in `CLAUDE.md` under "Recent Sprints".
+Archived sprint summaries through Sprint 78. The most recent sprint summary also stays inline in `CLAUDE.md` under "Recent Sprints".
 
 For detailed per-sprint records, see the individual closeout files in this directory where available:
 `specs/sprint-09-closeout.md` through `specs/sprint-59-closeout.md`, plus `specs/sprint-62-closeout.md` and `specs/sprint-67-closeout.md` onward.
+
+---
+
+### Sprint 78 — 10-Team Parallel Sprint: Front Office + Casual Fan
+**Branches:** `feature/sprint-78-phase0-schemas` + 10 feature branches (Claude, two streams of 5 teams)
+
+- Largest sprint to date. **10 parallel feature teams** running the standard `Architect → Engineer → Reviewer → Optimizer` pipeline scaled up from Sprint 77's 8. Two streams of five — Front Office (NBA exec) features and Casual Fan engagement features. Three teams (FO1, FO3, FO5) got expanded engineering allocation for live-data ingestion.
+- Phase 0 schema kickoff landed 8 new tables on `master` ahead of any team architect (player_contracts, draft_prospects + stats + measurements, draft_pick_assets, player_injury_history, player_streaks, milestone_snapshots) so 10 concurrent architects could spec services against stable types without colliding on `models.py`. Alembic migration `0013_sprint78_phase0_schemas` is idempotent.
+- **Stream A — Front Office:**
+  - **FO1 Trade Machine** with salary ingestion (seed CSV + stubbed Spotrac interface), ±125% salary-matching for up to 4-team packages with tax/apron/BYC/TPE flagged-not-enforced, trade impact via `lineup_impact_service`, new `/trade-machine` route.
+  - **FO2 Free Agency Workspace** with tier bucketing + per-FA top-10 team fits via existing `team_fit_service`, new `/free-agency` route.
+  - **FO3 Draft Prospect Workspace** with NCAA-pace → NBA-pace per-100 translation (confidence-scored), 5-NBA-comp grid via `similarity_service`, seed CSV + stubbed Sports Reference interface, new `/draft` board + `/draft/[prospectId]` detail.
+  - **FO4 Multi-Year Team Arc** with position-bucketed empirical aging curves + 3-year roster projection layered with `PlayerContract` cap state + `DraftPickAsset` overlay + decision-lever sliders, new "Arc" tab on `/teams/[abbr]`.
+  - **FO5 Injury Impact** with tiered (body_part × age × recurrence) duration distributions + hardcoded prior fallback + extended `team_availability_service` for rotation re-projection, seed CSV + stubbed ProSportsTransactions interface, new player-profile + team panels.
+- **Stream B — Casual Fan:**
+  - **CF1 Shareable Story Cards** — Pillow-based 1200×630 PNG renderer with broadsheet aesthetic, `/api/share/{type}/{id}.png` endpoints, `<ShareCardButton>` mounted on player / game / series surfaces, OG metadata wired.
+  - **CF2 Bracket Pick'em** — localStorage-only single-user "you vs CourtVue's model" picks with model bracket comparison via `playoff_simulator_service`, new `/picks` route.
+  - **CF3 Career Hall of Fame** — era-adjusted PPG (pace ratio) + TS%-vs-league delta + 12-milestone catalog + cross-era similarity peers + composite HOF projection, new "Legacy" tab on player profile.
+  - **CF4 Game Story Mode** — frontend-led `<GameStoryTimeline>` reusing existing WP swing events + possession-diary + scoring events (`narrative_score = |wp_delta|*100 + lead_impact*0.5`), no new backend service.
+  - **CF5 Streaks & Milestones** — 5-streak detection + 12-milestone proximity + percentile-ranked signature performances, new `/milestones` route + player streak chips + story-rail tile + nightly snapshot in `daily_sync.sh`.
+- All 10 agents worked in dedicated git worktrees to avoid main-checkout contention. File-lock discipline was strict-additive only; merge coordinator resolved conflicts at integration time using a small Python `merge_resolve.py` helper for the "additive both sides" pattern.
+- Verified with **397 backend tests** (was 360, +37 net new), `npx tsc --noEmit` clean, lint shows only the 8 pre-existing warnings unchanged. Closeout: `specs/sprint-78-closeout.md`.
 
 ---
 
