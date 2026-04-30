@@ -24,6 +24,7 @@ import PerformanceCalendar from "./PerformanceCalendar";
 import PlayerGravityPanel from "./PlayerGravityPanel";
 import MvpPlayerCaseEmbed from "./MvpPlayerCaseEmbed";
 import LegacyTab from "./career/LegacyTab";
+import PlayerInjuryPanel from "./PlayerInjuryPanel";
 
 interface PlayerDashboardProps {
   playerId: number;
@@ -157,6 +158,8 @@ export default function PlayerDashboard({ playerId }: PlayerDashboardProps) {
       {tab === "profile" ? (
         <>
       <PlayerSettingsDrawer playerId={playerId} season={effectiveSeasonStr} />
+
+      <PlayerInjuryPanel playerId={playerId} />
 
       <ScoutingBrief playerId={playerId} season={effectiveSeasonStr} />
 

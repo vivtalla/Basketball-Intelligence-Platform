@@ -127,6 +127,7 @@ if [ "$DRY_RUN" = "1" ]; then
     echo "would run: queue_season_shot_charts"
     echo "would run: warehouse_jobs"
     echo "would run: sync_injuries"
+    echo "would run: sync_injury_history seed_csv"
     echo "would run: materialize_standings"
     echo "would run: sync_official_season_stats"
     echo "would run: sync_official_team_season_stats"
@@ -239,6 +240,22 @@ db = SessionLocal()
 try:
     result = sync_injuries(db, season=season)
     print("sync_injuries:", result)
+finally:
+    db.close()
+PYEOF
+
+# 3b. Historical injury history seed — Sprint 78 FO5. Idempotent upsert from
+# the seeded CSV; rows for unknown player_ids are skipped automatically.
+# Runs after the live injuries sync so the duration model always has a
+# populated cohort table.
+"$PYTHON_BIN" - <<'PYEOF' >> "$LOG" 2>&1
+import sys, os
+sys.path.insert(0, os.getcwd())
+from db.database import SessionLocal
+from data.sync_injury_history import upsert_seed_csv
+db = SessionLocal()
+try:
+    print("sync_injury_history seed:", upsert_seed_csv(db, verbose=False))
 finally:
     db.close()
 PYEOF
