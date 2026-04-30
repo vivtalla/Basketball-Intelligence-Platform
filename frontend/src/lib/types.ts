@@ -4371,3 +4371,108 @@ export interface GameDetailResponse {
   player_quarter_impact?: PlayerQuarterImpact[] | null;
   series_odds_history?: SeriesOddsPoint[] | null;
 }
+
+// ── Sprint 78 / FO3 — Draft Prospect Workspace ──────────────────────────────
+
+export interface DraftProspectSummary {
+  prospect_id: number;
+  external_id: string;
+  full_name: string;
+  draft_year: number;
+  age_on_draft_day: number | null;
+  height_inches: number | null;
+  weight_lbs: number | null;
+  primary_position: string | null;
+  school: string | null;
+  school_type: string | null;
+  consensus_rank: number | null;
+  headshot_url: string | null;
+  archetype_label: string | null;
+  pts_pg: number | null;
+  reb_pg: number | null;
+  ast_pg: number | null;
+  ts_pct: number | null;
+  usg_pct: number | null;
+}
+
+export interface ProspectBoardResponse {
+  draft_year: number;
+  count: number;
+  prospects: DraftProspectSummary[];
+}
+
+export interface CollegeStatLine {
+  season: string;
+  league: string;
+  team_name: string | null;
+  gp: number | null;
+  min_pg: number | null;
+  pts_pg: number | null;
+  reb_pg: number | null;
+  ast_pg: number | null;
+  stl_pg: number | null;
+  blk_pg: number | null;
+  tov_pg: number | null;
+  fg_pct: number | null;
+  fg3_pct: number | null;
+  ft_pct: number | null;
+  ts_pct: number | null;
+  usg_pct: number | null;
+  pace: number | null;
+}
+
+export interface NbaTranslation {
+  source_season: string;
+  source_league: string;
+  college_pace: number;
+  nba_pace: number;
+  pace_multiplier: number;
+  projected_pts_per100: number | null;
+  projected_reb_per100: number | null;
+  projected_ast_per100: number | null;
+  projected_stl_per100: number | null;
+  projected_blk_per100: number | null;
+  projected_tov_per100: number | null;
+  projected_ts_pct: number | null;
+  projected_usg_pct: number | null;
+  translation_confidence: number;
+  confidence_factors: string[];
+}
+
+export interface NbaComp {
+  player_id: number;
+  player_name: string;
+  headshot_url: string | null;
+  season: string;
+  team_abbreviation: string | null;
+  similarity_score: number;
+  archetype_label: string | null;
+  rationale: string;
+  pts_pg: number | null;
+  reb_pg: number | null;
+  ast_pg: number | null;
+  ts_pct: number | null;
+  usg_pct: number | null;
+}
+
+export interface MeasurementPanel {
+  height_no_shoes: number | null;
+  height_with_shoes: number | null;
+  weight: number | null;
+  wingspan: number | null;
+  standing_reach: number | null;
+  standing_vert: number | null;
+  max_vert: number | null;
+  lane_agility_seconds: number | null;
+  three_quarter_sprint_seconds: number | null;
+  source: string | null;
+}
+
+export interface ProspectDetail {
+  summary: DraftProspectSummary;
+  bio: string | null;
+  college_stats: CollegeStatLine[];
+  translation: NbaTranslation | null;
+  measurement: MeasurementPanel | null;
+  nba_comps: NbaComp[];
+}

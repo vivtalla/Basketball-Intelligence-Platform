@@ -287,4 +287,8 @@ if [ "$IS_PLAYOFFS" = "1" ]; then
   PYTHONPATH=. "$PYTHON_BIN" scripts/sync_playoff_full.py "$SEASON" >> "$LOG" 2>&1 || true
 fi
 
+# 7. Draft prospect seed (Sprint 78 / FO3) — idempotent CSV upsert. Cheap
+#    and safe to run every tick; powers the /draft board + detail surface.
+PYTHONPATH=. "$PYTHON_BIN" data/sync_draft_prospects.py --source seed_csv >> "$LOG" 2>&1 || true
+
 echo "[$(date -u +%Y-%m-%dT%H:%M:%SZ)] daily_sync complete season=$SEASON post_game=$POST_GAME_MODE is_playoffs=$IS_PLAYOFFS" >> "$LOG"

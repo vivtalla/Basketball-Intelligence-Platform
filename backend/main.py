@@ -18,6 +18,7 @@ from routers import (
     metrics,
     methodology,
     mvp,
+    draft,
     players,
     playoffs,
     pre_read,
@@ -78,6 +79,7 @@ app.include_router(query.router, prefix="/api/query", tags=["query"])
 app.include_router(mvp.router, prefix="/api/mvp", tags=["mvp"])
 app.include_router(season_phase.router, prefix="/api/season-phase", tags=["season-phase"])
 app.include_router(playoffs.router, prefix="/api/playoffs", tags=["playoffs"])
+app.include_router(draft.router, prefix="/api/draft", tags=["draft"])
 
 
 @app.on_event("startup")

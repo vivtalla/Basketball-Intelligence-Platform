@@ -43,6 +43,9 @@ export default function NavLinks() {
       <Link href="/teams" className="text-xs text-[var(--muted)] whitespace-nowrap bip-link">
         Teams
       </Link>
+      <Link href="/draft" className="text-xs text-[var(--muted)] whitespace-nowrap bip-link">
+        Draft
+      </Link>
       {isPlayoffs && (
         <Link href="/bracket" className="text-xs text-[var(--muted)] whitespace-nowrap bip-link">
           Bracket
