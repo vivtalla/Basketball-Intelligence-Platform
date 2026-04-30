@@ -11,6 +11,7 @@ from routers import (
     career,
     compare,
     decision,
+    free_agency,
     gamelogs,
     games,
     injuries,
@@ -86,6 +87,7 @@ app.include_router(share.router, prefix="/api/share", tags=["share"])
 app.include_router(career.router, prefix="/api/players", tags=["career"])
 app.include_router(milestones.router, prefix="/api/milestones", tags=["milestones"])
 app.include_router(trade.router, prefix="/api/trade", tags=["trade"])
+app.include_router(free_agency.router, prefix="/api/free-agency", tags=["free-agency"])
 
 
 @app.on_event("startup")
