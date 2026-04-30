@@ -35,6 +35,7 @@ from routers import (
     styles,
     team_fit,
     teams,
+    trade,
     trends,
     warehouse,
 )
@@ -84,6 +85,7 @@ app.include_router(playoffs.router, prefix="/api/playoffs", tags=["playoffs"])
 app.include_router(share.router, prefix="/api/share", tags=["share"])
 app.include_router(career.router, prefix="/api/players", tags=["career"])
 app.include_router(milestones.router, prefix="/api/milestones", tags=["milestones"])
+app.include_router(trade.router, prefix="/api/trade", tags=["trade"])
 
 
 @app.on_event("startup")

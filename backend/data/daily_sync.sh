@@ -300,4 +300,9 @@ fi
 # /milestones page tolerates stale snapshots.
 PYTHONPATH=. "$PYTHON_BIN" data/sync_streaks_milestones.py --season "$SEASON" >> "$LOG" 2>&1 || true
 
+# Sprint 78 FO1 — refresh player_contracts from the seed CSV. Idempotent
+# upsert; safe to re-run nightly. Spotrac/HoopsHype branches will plug
+# into the same CLI when those scrapers are built.
+PYTHONPATH=. "$PYTHON_BIN" data/sync_salaries.py --source seed_csv >> "$LOG" 2>&1 || true
+
 echo "[$(date -u +%Y-%m-%dT%H:%M:%SZ)] daily_sync complete season=$SEASON post_game=$POST_GAME_MODE is_playoffs=$IS_PLAYOFFS" >> "$LOG"

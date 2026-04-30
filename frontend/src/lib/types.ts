@@ -4536,3 +4536,93 @@ export interface SignaturePerformancesResponse {
   date?: string | null;
   performances: SignaturePerformance[];
 }
+
+// ── Sprint 78 (FO1) — Trade Machine ─────────────────────────────────────────
+export interface TradePlayerEntry {
+  player_id: number;
+  player_name: string;
+  salary: number;
+  contract_type?: string | null;
+  years_remaining?: number | null;
+  is_player_option: boolean;
+  is_team_option: boolean;
+}
+
+export interface TradePackage {
+  team_abbr: string;
+  outgoing_player_ids: number[];
+  incoming_player_ids: number[];
+}
+
+export interface TradeWarning {
+  team_abbr: string;
+  rule: string;
+  severity: "info" | "warning" | "hard_block";
+  message: string;
+  detail?: Record<string, unknown> | null;
+}
+
+export interface TeamSalaryLine {
+  team_abbr: string;
+  outgoing_salary: number;
+  incoming_salary: number;
+  delta: number;
+  salary_match_ratio?: number | null;
+  outgoing_players: TradePlayerEntry[];
+  incoming_players: TradePlayerEntry[];
+}
+
+export interface TradeValidationResult {
+  valid: boolean;
+  team_count: number;
+  team_salary_lines: TeamSalaryLine[];
+  warnings: TradeWarning[];
+  summary?: string | null;
+}
+
+export interface ArchetypeGap {
+  archetype: string;
+  direction: "added" | "lost" | "shifted";
+  note: string;
+}
+
+export interface TeamImpactProjection {
+  team_abbr: string;
+  confidence: "ready" | "thin_sample" | "no_data";
+  baseline_net_rating?: number | null;
+  projected_net_rating?: number | null;
+  net_rating_delta?: number | null;
+  rotation_health_score?: number | null;
+  archetype_gaps: ArchetypeGap[];
+  notes: string[];
+}
+
+export interface TradeImpactResult {
+  season: string;
+  teams: TeamImpactProjection[];
+  methodology_version: string;
+}
+
+export interface TradeRequest {
+  season: string;
+  packages: TradePackage[];
+}
+
+export interface TeamContractEntry {
+  player_id: number;
+  player_name: string;
+  team_abbr: string;
+  season: string;
+  salary: number;
+  years_remaining?: number | null;
+  is_player_option: boolean;
+  is_team_option: boolean;
+  contract_type?: string | null;
+}
+
+export interface TeamContractsResponse {
+  team_abbr: string;
+  season: string;
+  total_salary: number;
+  contracts: TeamContractEntry[];
+}
