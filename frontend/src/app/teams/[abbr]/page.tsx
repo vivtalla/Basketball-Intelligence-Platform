@@ -32,6 +32,7 @@ import { getBracket } from "@/lib/api";
 import OpponentLineupMatchupMatrix from "@/components/playoffs/OpponentLineupMatchupMatrix";
 import type { PlayoffBracketResponse, PlayoffSeriesResponse } from "@/lib/types";
 import AvailabilitySummaryCard from "@/components/AvailabilitySummaryCard";
+import TeamAvailabilityImpactPanel from "@/components/TeamAvailabilityImpactPanel";
 import TeamAnalyticsPanel from "@/components/TeamAnalyticsPanel";
 import TeamDefenseShotLab from "@/components/TeamDefenseShotLab";
 import TeamIntelligencePanel from "@/components/TeamIntelligencePanel";
@@ -933,6 +934,12 @@ export default function TeamDetailPage() {
               <AvailabilitySummaryCard availability={availability} />
             </section>
           )}
+          <section className="mb-4">
+            <TeamAvailabilityImpactPanel
+              teamAbbreviation={teamAbbreviation ?? roster.abbreviation}
+              season={effectiveSeason}
+            />
+          </section>
 
           <section className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
             {leaders.map((leader) => (

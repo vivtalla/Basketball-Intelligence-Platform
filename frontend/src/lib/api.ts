@@ -799,6 +799,29 @@ export async function getPlayerInjuries(
   return fetchApi<InjuryEntry[]>(`/api/injuries/player/${playerId}${qs}`);
 }
 
+// Sprint 78 FO5 — Injury duration estimate + team availability impact
+
+export async function getInjuryDurationEstimate(
+  playerId: number,
+  bodyPart?: string
+): Promise<import("./types").PlayerDurationEstimateResponse> {
+  const params = new URLSearchParams();
+  if (bodyPart) params.set("body_part", bodyPart);
+  const qs = params.toString() ? `?${params.toString()}` : "";
+  return fetchApi<import("./types").PlayerDurationEstimateResponse>(
+    `/api/injuries/${playerId}/duration-estimate${qs}`
+  );
+}
+
+export async function getTeamAvailabilityImpact(
+  teamAbbr: string,
+  season: string
+): Promise<import("./types").TeamAvailabilityImpact> {
+  return fetchApi<import("./types").TeamAvailabilityImpact>(
+    `/api/injuries/team/${encodeURIComponent(teamAbbr)}/availability-impact?season=${encodeURIComponent(season)}`
+  );
+}
+
 export async function getTeamAvailability(
   teamAbbreviation: string,
   season: string

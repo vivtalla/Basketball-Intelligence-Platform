@@ -10,9 +10,34 @@ from sqlalchemy.orm import Session
 
 from db.database import get_db
 from db.models import InjurySyncUnresolved, Player, PlayerInjury, Team
+from models.injury import (
+    PlayerDurationEstimateResponse,
+    TeamAvailabilityImpact,
+)
+from services.availability_impact_service import (
+    _normalize_body_part as _normalize_body_part_text,
+    compute_team_availability_impact_by_abbr,
+)
+from services.injury_duration_model import (
+    expected_duration,
+    find_similar_past_injuries,
+    player_age,
+    player_recurrence_for_body_part,
+)
 from services.sync_service import sync_injuries
 
 router = APIRouter()
+
+
+# `_normalize_body_part_text` is reused so the duration-estimate endpoint
+# and the team panel agree on body-part labels (knee, hamstring, etc.).
+
+
+_DURATION_METHODOLOGY_NOTE = (
+    "Empirical median / interquartile range computed from the player_injury_history "
+    "table, filtered to the same body part and a +/-3y age band. Falls back to a "
+    "hardcoded prior when fewer than 5 comparable historical injuries are available."
+)
 
 
 class InjuryEntry(BaseModel):
@@ -233,6 +258,111 @@ def resolve_unresolved_injury(
         "player_name": player.full_name,
         "report_date": str(unresolved.report_date),
     }
+
+
+@router.get(
+    "/{player_id}/duration-estimate",
+    response_model=PlayerDurationEstimateResponse,
+)
+def get_player_duration_estimate(
+    player_id: int,
+    body_part: Optional[str] = Query(
+        None,
+        description=(
+            "Override body-part keyword. Defaults to the latest injury report's "
+            "injury_type/detail mapped to the model vocabulary."
+        ),
+    ),
+    db: Session = Depends(get_db),
+):
+    """Empirical injury-duration estimate + similar past injuries for a player.
+
+    Sprint 78 FO5. Backs the player-profile injury panel.
+    """
+    player = db.query(Player).filter(Player.id == player_id).first()
+    if not player:
+        raise HTTPException(status_code=404, detail="Player {0} not found.".format(player_id))
+
+    latest_injury = (
+        db.query(PlayerInjury)
+        .filter(PlayerInjury.player_id == player_id)
+        .order_by(PlayerInjury.report_date.desc())
+        .first()
+    )
+
+    resolved_body_part = (body_part or "").strip().lower() or None
+    if not resolved_body_part and latest_injury is not None:
+        resolved_body_part = _normalize_body_part_text(
+            latest_injury.injury_type, latest_injury.detail
+        )
+
+    if not resolved_body_part:
+        # Fall back to the most-frequent historical body part for this player so
+        # the panel always renders something reasonable.
+        from db.models import PlayerInjuryHistory
+
+        common = (
+            db.query(PlayerInjuryHistory.body_part)
+            .filter(PlayerInjuryHistory.player_id == player_id)
+            .all()
+        )
+        if common:
+            counts = {}
+            for row in common:
+                counts[row[0]] = counts.get(row[0], 0) + 1
+            resolved_body_part = max(counts, key=counts.get)
+
+    if not resolved_body_part:
+        # Last resort: report a generic prior so downstream UI doesn't crash.
+        resolved_body_part = "ankle"
+
+    age = player_age(player)
+    is_recurring = player_recurrence_for_body_part(db, player_id, resolved_body_part)
+    estimate = expected_duration(
+        db,
+        body_part=resolved_body_part,
+        age=age,
+        is_recurring=is_recurring,
+    )
+    similar = find_similar_past_injuries(
+        db,
+        body_part=resolved_body_part,
+        age=age,
+        limit=3,
+        exclude_player_id=player_id,
+    )
+
+    return PlayerDurationEstimateResponse(
+        player_id=player.id,
+        player_name=player.full_name,
+        body_part=resolved_body_part,
+        severity=(latest_injury.injury_status if latest_injury else None),
+        age=age,
+        is_recurring=is_recurring,
+        current_injury_status=latest_injury.injury_status if latest_injury else None,
+        current_injury_detail=latest_injury.detail if latest_injury else None,
+        current_injury_report_date=latest_injury.report_date if latest_injury else None,
+        current_injury_return_date=latest_injury.return_date if latest_injury else None,
+        estimate=estimate,
+        similar_past_injuries=similar,
+        methodology_note=_DURATION_METHODOLOGY_NOTE,
+    )
+
+
+@router.get(
+    "/team/{team_abbr}/availability-impact",
+    response_model=TeamAvailabilityImpact,
+)
+def get_team_availability_impact(
+    team_abbr: str,
+    season: str = Query("2024-25", description="Season string e.g. 2024-25"),
+    db: Session = Depends(get_db),
+):
+    """Project the net-rating + rotation impact of currently-sidelined players.
+
+    Sprint 78 FO5. Backs the team page Availability Impact panel.
+    """
+    return compute_team_availability_impact_by_abbr(db, team_abbr=team_abbr, season=season)
 
 
 @router.delete("/unresolved/{row_id}")

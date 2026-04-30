@@ -23,6 +23,7 @@ import ChartStatusBadge from "./ChartStatusBadge";
 import PerformanceCalendar from "./PerformanceCalendar";
 import PlayerGravityPanel from "./PlayerGravityPanel";
 import MvpPlayerCaseEmbed from "./MvpPlayerCaseEmbed";
+import PlayerInjuryPanel from "./PlayerInjuryPanel";
 
 interface PlayerDashboardProps {
   playerId: number;
@@ -121,6 +122,8 @@ export default function PlayerDashboard({ playerId }: PlayerDashboardProps) {
       <PlayerHeader profile={profile} currentSeason={currentSeason} priorSeason={priorSeason} />
 
       <PlayerSettingsDrawer playerId={playerId} season={effectiveSeasonStr} />
+
+      <PlayerInjuryPanel playerId={playerId} />
 
       <ScoutingBrief playerId={playerId} season={effectiveSeasonStr} />
 

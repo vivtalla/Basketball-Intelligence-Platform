@@ -1901,6 +1901,97 @@ export interface InjuryReportResponse {
   injuries: InjuryEntry[];
 }
 
+// Sprint 78 FO5 — Injury duration model + team availability impact
+
+export interface DurationEstimate {
+  body_part: string;
+  sample_size: number;
+  median_games: number;
+  p25_games: number;
+  p75_games: number;
+  mean_games: number;
+  is_fallback: boolean;
+  fallback_reason: string | null;
+  cohort_age_low: number | null;
+  cohort_age_high: number | null;
+  cohort_recurrence: boolean | null;
+}
+
+export interface SimilarPastInjury {
+  player_id: number;
+  player_name: string;
+  season: string | null;
+  body_part: string;
+  severity: string | null;
+  started_on: string;
+  resolved_on: string | null;
+  games_missed: number | null;
+  age_at_start: number | null;
+  is_recurring: boolean;
+}
+
+export interface PlayerDurationEstimateResponse {
+  player_id: number;
+  player_name: string;
+  body_part: string | null;
+  severity: string | null;
+  age: number | null;
+  is_recurring: boolean | null;
+  current_injury_status: string | null;
+  current_injury_detail: string | null;
+  current_injury_report_date: string | null;
+  current_injury_return_date: string | null;
+  estimate: DurationEstimate;
+  similar_past_injuries: SimilarPastInjury[];
+  methodology_note: string;
+}
+
+export interface PlayerAvailabilityProjection {
+  player_id: number;
+  player_name: string;
+  position: string;
+  injury_status: string | null;
+  injury_type: string | null;
+  detail: string | null;
+  body_part: string | null;
+  season_pts_pg: number | null;
+  season_min_pg: number | null;
+  season_bpm: number | null;
+  on_off_net: number | null;
+  expected_duration: DurationEstimate | null;
+  impact_label: string;
+  impact_score: number;
+}
+
+export interface RotationReplacement {
+  out_player_id: number;
+  out_player_name: string;
+  out_min_pg: number | null;
+  replacement_player_id: number | null;
+  replacement_player_name: string | null;
+  replacement_min_pg: number | null;
+  additional_minutes: number | null;
+  note: string;
+}
+
+export interface TeamAvailabilityImpact {
+  team_id: number;
+  abbreviation: string;
+  name: string;
+  season: string;
+  report_date: string | null;
+  out_count: number;
+  questionable_count: number;
+  sidelined_minutes_per_game: number;
+  sidelined_pts_per_game: number;
+  net_rating_delta: number | null;
+  healthy_net_rating: number | null;
+  projected_net_rating: number | null;
+  sidelined_players: PlayerAvailabilityProjection[];
+  rotation_replacements: RotationReplacement[];
+  summary: string;
+}
+
 export interface StyleComparisonResponse {
   season: string;
   entity_a: StyleComparisonEntity;
