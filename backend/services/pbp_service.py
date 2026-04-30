@@ -47,10 +47,11 @@ class EventStreamStatus:
 def describe_event_stream_for_game(db, game_id: str, warehouse_game=None) -> EventStreamStatus:
     """Summarize the current event-stream state for a game.
 
-    `play_by_play_events` is the canonical warehouse representation.
-    `play_by_play` is retained as a legacy fallback during migration.
+    `play_by_play_events` is the canonical warehouse representation. The
+    legacy `play_by_play` table was retired in Sprint 81; ``legacy_event_count``
+    remains in the response shape for backward compatibility but is always 0.
     """
-    from db.models import PlayByPlay, PlayByPlayEvent, WarehouseGame
+    from db.models import PlayByPlayEvent, WarehouseGame
 
     game = warehouse_game
     if game is None:
@@ -61,13 +62,9 @@ def describe_event_stream_for_game(db, game_id: str, warehouse_game=None) -> Eve
         .filter(PlayByPlayEvent.game_id == game_id)
         .count()
     )
+    # Sprint 81: legacy `play_by_play` table retired. Field kept in the
+    # response shape (always 0) so external callers don't break.
     legacy_event_count = 0
-    if canonical_event_count == 0:
-        legacy_event_count = (
-            db.query(PlayByPlay)
-            .filter(PlayByPlay.game_id == game_id)
-            .count()
-        )
 
     last_synced_at = (
         game.last_pbp_sync_at.isoformat()
@@ -95,16 +92,6 @@ def describe_event_stream_for_game(db, game_id: str, warehouse_game=None) -> Eve
             legacy_event_count=legacy_event_count,
         )
 
-    if legacy_event_count > 0:
-        return EventStreamStatus(
-            data_status="ready",
-            completeness_status="legacy",
-            canonical_source="legacy-play-by-play",
-            last_synced_at=last_synced_at,
-            canonical_event_count=canonical_event_count,
-            legacy_event_count=legacy_event_count,
-        )
-
     return EventStreamStatus(
         data_status="missing",
         completeness_status="missing",
@@ -116,13 +103,13 @@ def describe_event_stream_for_game(db, game_id: str, warehouse_game=None) -> Eve
 
 
 def load_pbp_events_for_game(db, game_id: str) -> List[dict]:
-    """Load canonical PBP events for a game, falling back to legacy rows.
+    """Load canonical PBP events for a game.
 
-    Canonical `play_by_play_events` is the warehouse source of truth once a game
-    has been migrated. Legacy `play_by_play` remains as a fallback during the
-    migration window.
+    Sprint 81: legacy ``play_by_play`` table retired. ``play_by_play_events``
+    is the only source. Returns an empty list when the game hasn't been
+    synced yet.
     """
-    from db.models import PlayByPlay, PlayByPlayEvent
+    from db.models import PlayByPlayEvent
 
     canonical_rows = (
         db.query(PlayByPlayEvent)
@@ -130,50 +117,27 @@ def load_pbp_events_for_game(db, game_id: str) -> List[dict]:
         .order_by(PlayByPlayEvent.order_index.asc())
         .all()
     )
-    if canonical_rows:
-        events: List[dict] = []
-        for row in canonical_rows:
-            raw_event = row.raw_event or {}
-            events.append(
-                {
-                    "actionNumber": row.action_number or row.order_index,
-                    "actionId": row.source_event_id,
-                    "period": row.period,
-                    "clock": row.clock,
-                    "teamId": row.team_id,
-                    "personId": row.player_id,
-                    "actionType": row.action_type,
-                    "subType": row.sub_type,
-                    "description": row.description,
-                    "scoreHome": row.score_home,
-                    "scoreAway": row.score_away,
-                    "incomingPlayerName": raw_event.get("incomingPlayerName", ""),
-                    "outgoingPlayerName": raw_event.get("outgoingPlayerName", ""),
-                }
-            )
-        return events
-
-    legacy_rows = (
-        db.query(PlayByPlay)
-        .filter_by(game_id=game_id)
-        .order_by(PlayByPlay.action_number.asc())
-        .all()
-    )
-    return [
-        {
-            "actionNumber": row.action_number,
-            "period": row.period,
-            "clock": row.clock,
-            "teamId": row.team_id,
-            "personId": row.player_id,
-            "actionType": row.action_type,
-            "subType": row.sub_type,
-            "description": row.description,
-            "scoreHome": row.score_home,
-            "scoreAway": row.score_away,
-        }
-        for row in legacy_rows
-    ]
+    events: List[dict] = []
+    for row in canonical_rows:
+        raw_event = row.raw_event or {}
+        events.append(
+            {
+                "actionNumber": row.action_number or row.order_index,
+                "actionId": row.source_event_id,
+                "period": row.period,
+                "clock": row.clock,
+                "teamId": row.team_id,
+                "personId": row.player_id,
+                "actionType": row.action_type,
+                "subType": row.sub_type,
+                "description": row.description,
+                "scoreHome": row.score_home,
+                "scoreAway": row.score_away,
+                "incomingPlayerName": raw_event.get("incomingPlayerName", ""),
+                "outgoingPlayerName": raw_event.get("outgoingPlayerName", ""),
+            }
+        )
+    return events
 
 
 # ---------------------------------------------------------------------------

@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session
 
 from data.nba_client import _active_nba_season
 from db.database import get_db
-from db.models import Player
+from db.models import PlayTypeStat, Player, PlayerSplitStat
 from models.mvp import MvpGravityProfile
 from models.analysis_context import (
     AnalysisContextCreate,
@@ -171,6 +171,105 @@ def get_player_trend_report(
         raise HTTPException(status_code=404, detail=f"Player {player_id} not found in local warehouse.")
 
     return build_player_trend_report(db=db, player=player, season=season)
+
+
+@router.get("/{player_id}/splits")
+def get_player_splits(
+    player_id: int,
+    season: str = Query("2024-25"),
+    is_playoff: bool = Query(False),
+    db: Session = Depends(get_db),
+):
+    """Sprint 81: PlayerSplitStat rows grouped by split family.
+
+    Returns ``{ player_id, season, families: { family: [rows...] } }``. Empty
+    families return an empty list rather than 404 — the frontend can decide
+    whether to render a "no data" state.
+    """
+    player = db.query(Player).filter(Player.id == player_id).first()
+    if not player:
+        raise HTTPException(status_code=404, detail=f"Player {player_id} not found.")
+
+    rows = (
+        db.query(PlayerSplitStat)
+        .filter(
+            PlayerSplitStat.player_id == player_id,
+            PlayerSplitStat.season == season,
+            PlayerSplitStat.is_playoff == is_playoff,
+        )
+        .order_by(PlayerSplitStat.split_family, PlayerSplitStat.split_value)
+        .all()
+    )
+
+    families: dict = {}
+    for row in rows:
+        families.setdefault(row.split_family, []).append({
+            "split_value": row.split_value,
+            "label": row.label,
+            "gp": row.gp, "w": row.w, "l": row.l, "w_pct": row.w_pct,
+            "min": row.min, "pts": row.pts, "reb": row.reb, "ast": row.ast,
+            "tov": row.tov, "stl": row.stl, "blk": row.blk,
+            "fg_pct": row.fg_pct, "fg3_pct": row.fg3_pct, "ft_pct": row.ft_pct,
+            "ts_pct": row.ts_pct, "usg_pct": row.usg_pct,
+            "plus_minus": row.plus_minus,
+        })
+    return {
+        "player_id": player_id,
+        "season": season,
+        "is_playoff": is_playoff,
+        "families": families,
+    }
+
+
+@router.get("/{player_id}/play-types")
+def get_player_play_types(
+    player_id: int,
+    season: str = Query("2024-25"),
+    is_playoff: bool = Query(False),
+    db: Session = Depends(get_db),
+):
+    """Sprint 81: PlayTypeStat rows for a player, sorted by possession volume.
+
+    Returns ``{ player_id, season, play_types: [...] }``. Each row carries the
+    Synergy possession + efficiency triplet (poss, ppp, percentile).
+    """
+    player = db.query(Player).filter(Player.id == player_id).first()
+    if not player:
+        raise HTTPException(status_code=404, detail=f"Player {player_id} not found.")
+
+    rows = (
+        db.query(PlayTypeStat)
+        .filter(
+            PlayTypeStat.player_id == player_id,
+            PlayTypeStat.season == season,
+            PlayTypeStat.is_playoff == is_playoff,
+        )
+        .order_by(PlayTypeStat.poss.desc())
+        .all()
+    )
+    return {
+        "player_id": player_id,
+        "season": season,
+        "is_playoff": is_playoff,
+        "play_types": [
+            {
+                "play_type": row.play_type,
+                "play_role": row.play_role,
+                "gp": row.gp,
+                "poss": row.poss,
+                "poss_pct": row.poss_pct,
+                "pts": row.pts,
+                "fg_pct": row.fg_pct,
+                "efg_pct": row.efg_pct,
+                "ts_pct": row.ts_pct,
+                "ppp": row.ppp,
+                "percentile": row.percentile,
+                "score_freq_pct": row.score_freq_pct,
+                "tov_freq_pct": row.tov_freq_pct,
+            }
+            for row in rows
+        ],
+    }
 
 
 @router.get("/{player_id}/analysis-contexts", response_model=AnalysisContextListResponse)

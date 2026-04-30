@@ -30,7 +30,7 @@ import time
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from db.database import SessionLocal
-from db.models import GameLog, PlayByPlay
+from db.models import GameLog, PlayByPlayEvent
 from data.nba_client import get_game_box_score, get_play_by_play
 from services.pbp_sync_service import (
     _ensure_box_score_entities,
@@ -90,7 +90,7 @@ def main() -> None:
         for idx, game in enumerate(playoff_games, start=1):
             game_id = game.game_id
             existing = (
-                db.query(PlayByPlay.id).filter_by(game_id=game_id).first()
+                db.query(PlayByPlayEvent.id).filter_by(game_id=game_id).first()
             )
             if existing and not args.force_refresh:
                 log.info("[%d/%d] %s already has PBP — skipping", idx, total, game_id)

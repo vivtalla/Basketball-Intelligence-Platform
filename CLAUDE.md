@@ -262,6 +262,18 @@ CourtVue Labs uses a hybrid sprint model: major feature sprints typically run as
 
 > Full history → `specs/sprint-history.md`
 
+### Sprint 81 — Data Foundation Closeout
+
+- **Two-stream parallel sprint** replacing seed-CSV stubs with live data, retiring legacy architecture, activating calibrated MVP weights, and adding two new official data domains. 464 backend tests (was 415, +49 net new). `npx tsc --noEmit` clean.
+- **Stream A — Real Data Scrapers** (Spotrac salaries, ProSportsTransactions injuries, Sports Reference draft prospects): all share `backend/data/scrapers/_base.py` (`HttpScraper`, `ScraperError`, user-agent rotation, 2s rate-limit, retry/backoff). All three fall back transparently to the existing seed CSV on any failure (network, anti-bot, parse error) so dependent surfaces never go dark. `salary_source` field flips from `"estimated"` → `"spotrac"` for resolved rows.
+- **Stream B1 — Legacy `play_by_play` retirement.** Migrated 9 service/router files (`pbp_service`, `pbp_sync_service`, `warehouse_service`, `game_trajectory_service`, `possession_diary_service`, `game_detail_assembler`, `team_intelligence_service`, `shot_lab_service`, `routers/advanced`) + 2 sync scripts to `PlayByPlayEvent`. Halted dual-writes from `warehouse_service` and `pbp_sync_service`. Removed `PlayByPlay` ORM model + `GameLog.play_by_play` relationship. Migration `0018_sprint81_drop_legacy_pbp` drops the table (~677 MB, ~30% of DB). New CI guard test `test_no_legacy_pbp_imports.py` fails CI if anyone re-imports the retired model. 6 fixture-using test files migrated to seed `WarehouseGame` + `PlayByPlayEvent` with `season` + `order_index`. Three legacy-fallback tests deleted (tested behavior that no longer exists).
+- **Stream B2 — `mvp_case_v5` activation.** New table `award_case_candidates` (migration `0019_sprint81_award_case_candidates`) holds Basketball Value + 5-pillar modifier vectors per (player, season). New `data/materialize_award_modifiers.py` populates from `season_stats` + `team_season_stats` (joined through `Team` for abbreviation). `award_calibration_service.calibrate_award_case_weights()` now runs LOO-CV when ≥5 seasons available, applies ±0.04 drift cap per pillar, and only flips `calibration_pending=False` when LOO-CV Spearman ≥ 0.7 — otherwise surfaces the gating reason and keeps priors.
+- **Stream B3 — New official data domains.** Two new tables (migration `0020_sprint81_player_splits_play_types`):
+  - `player_split_stats` — per-player Location / W-L / Days Rest / Month / Pre-Post All-Star slices via `playerdashboardbygeneralsplits`. New endpoint `GET /api/players/{id}/splits` returns rows grouped by family.
+  - `play_type_stats` — per-player Synergy archetype rows (Isolation, Transition, PRBallHandler, PRRollMan, Postup, Spotup, Handoff, Cut, OffScreen, Putbacks, Misc). New endpoint `GET /api/players/{id}/play-types` returns rows sorted by possession volume.
+  - Frontend rendering deferred to Sprint 82.
+- `daily_sync.sh` wired with three new scrapers + materializer + two new domain syncs in correct order. Dry-run validated end-to-end. Cron picks up changes on next git pull on `5.78.114.15`. Closeout: `specs/sprint-81-closeout.md`.
+
 ### Sprint 80 — Cloud Migration: Database + Cron Off the Laptop
 
 - **Single-stream infrastructure sprint** migrating Postgres and the daily sync cron from Vivek's MacBook to a Hetzner CX22 VM (`5.78.114.15`, Ashburn VA) at ~$5/month. Cloudflare R2 free tier for nightly pg_dump backups. FastAPI deploy deferred to Sprint 81.
@@ -275,16 +287,7 @@ CourtVue Labs uses a hybrid sprint model: major feature sprints typically run as
 - **Firewall:** Hetzner Cloud Firewall applied — port 5432 locked to laptop IP `97.115.178.47` only.
 - No test count change (infra-only sprint). `npx tsc --noEmit` clean. Backend smoke-tested against Hetzner DB: `/api/leaderboards/teams`, `/api/trade/contracts/BOS`, `/api/playoffs/today` all return 200 OK.
 
-### Sprint 79 — Data Foundation: Playoff PBP Fix + Methodology Unblocks
-
-- **2-stream parallel sprint** targeting three items: a live credibility bug in the Playoff Command Center, `opportunity_v2` role-expansion uplift, and `mvp_case_v5` voter-calibration scaffolding.
-- **Stream B — Playoff PBP Derivations:** Fixed `_upsert_lineup` bug in `pbp_sync_service.py` where `filter_by(lineup_key=lineup_key, season=season)` was missing `is_playoff`, which would have silently clobbered regular-season lineup rows. Added `is_playoff: bool = False` cascade to five helpers (`_clear_player_outputs`, `_clear_season_outputs`, `_update_season_stats`, `_upsert_on_off`, `_upsert_lineup`) and through `_sync_games()`. Added `sync_pbp_for_playoffs_from_db()` top-level function. Fixed `bulk_sync_service.py` which hardcoded `"Regular Season"` in two places (lines 372, 424) — now accepts a `season_type` parameter. Wired `sync_playoff_pbp.py` into `daily_sync.sh` playoff block. Migration `0014_sprint79_playoff_indexes` adds `ix_lineup_stats_playoff_team` and `ix_player_on_off_playoff` indexes + NULL backfills. Added `get_playoff_game_ids()` to `nba_client.py`.
-- **Stream A2 — `opportunity_v2` (Role Expansion Uplift):** Materialized `role_expansion_observations` from `season_stats` — 286 observations from 1,063 players (qualifying pairs: `usg_pct` delta ≥ 3pp, both seasons GP ≥ 40). GP-weighted aggregation for traded players. New `opportunity_uplift_service.py`: shrunk-Mahalanobis KNN (K=20) over `(usg_delta, pre_ts_pct, pre_ast_rate, pre_obpm, pre_age)` within archetype bucket; auto-falls back to weighted Euclidean on singular covariance. `OpportunityUplift` attached as sibling `OpportunityRow.uplift` field — no breaking change. Batch archetype lookup via `classify_many()` before row-build loop. Migration `0015_sprint79_role_expansion`. Registry bumped `opportunity_v1 → v2`.
-- **Stream A1 — `mvp_case_v5` (Award Voting Calibration):** Seeded `award_voting` table with 57 ballot rows across 13 MVP races (2012-13 through 2024-25). New `award_calibration_service.py`: coordinate-descent fitter with constraints (`W >= 0`, `Σ W_j ≤ 0.40`), drift cap (±0.04 per pillar), and leave-one-season-out cross-validation. Ships `calibration_pending=True` until historical Basketball Value + modifier vectors are retroactively materialized (future sprint). `mvp_service.py` now imports `CALIBRATED_AWARD_CASE_WEIGHTS` instead of hardcoded floats. Migration `0016_sprint79_award_voting`. Registry bumped `mvp_case_v4 → v5`.
-- **Bugs fixed during sprint:** `0013_sprint78_phase0_schemas.py` had `sa.text("0")`/`sa.text("1")` boolean defaults rejected by Postgres — fixed to `sa.text("false")`/`sa.text("true")`. `salary_ingestion_service.py` bulk rollback on first unique violation — fixed with per-row `db.flush()` + try/except before final `db.commit()`. Alembic revision name 33 chars (over varchar(32) limit) — trimmed to 29.
-- Verified with **415 backend tests** (was 397, +18 new: 3 playoff PBP, 6 role expansion, 6 opportunity uplift, 14 award calibration, extended schema migration assertions). No frontend changes. Closeout: `specs/sprint-79-closeout.md`.
-
-*Sprint 78 and older moved to `specs/sprint-history.md`.*
+*Sprint 79 and older moved to `specs/sprint-history.md`.*
 
 ---
 

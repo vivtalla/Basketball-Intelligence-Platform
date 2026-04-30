@@ -15,7 +15,7 @@ from data.nba_client import (
     get_team_season_game_ids,
 )
 from db.database import SessionLocal
-from db.models import GameLog, LineupStats, PlayByPlay, Player, PlayerOnOff, SeasonStat, Team
+from db.models import GameLog, LineupStats, PlayByPlayEvent, Player, PlayerOnOff, SeasonStat, Team
 from services.pbp_service import (
     build_stints,
     compute_clutch_stats,
@@ -162,13 +162,23 @@ def _ensure_box_score_entities(db: Session, box_score: dict) -> None:
 def _store_pbp_events(
     db: Session,
     game_id: str,
+    season: str,
     events: list[dict],
     valid_player_ids: set[int] | None = None,
 ) -> None:
+    """Sprint 81: writes go to ``play_by_play_events`` (legacy table retired)."""
     existing = {
         row.action_number
-        for row in db.query(PlayByPlay.action_number).filter_by(game_id=game_id)
+        for row in db.query(PlayByPlayEvent.action_number).filter_by(game_id=game_id)
+        if row.action_number is not None
     }
+
+    # Determine the next order_index so re-runs append cleanly.
+    next_order = (
+        db.query(PlayByPlayEvent)
+        .filter_by(game_id=game_id)
+        .count()
+    )
 
     for event in events:
         action_num = event.get("actionId") or event.get("actionNumber")
@@ -184,10 +194,16 @@ def _store_pbp_events(
         raw_player_id = event.get("personId") or None
         player_id = raw_player_id if valid_player_ids is None or raw_player_id in valid_player_ids else None
 
+        next_order += 1
+        action_num_int = action_num if isinstance(action_num, int) else next_order
+
         db.add(
-            PlayByPlay(
+            PlayByPlayEvent(
                 game_id=game_id,
-                action_number=action_num,
+                season=season,
+                source_event_id=str(action_num) if action_num is not None else str(next_order),
+                action_number=action_num_int,
+                order_index=next_order,
                 period=event.get("period"),
                 clock=event.get("clock", ""),
                 team_id=event.get("teamId") or None,
@@ -197,6 +213,7 @@ def _store_pbp_events(
                 description=(event.get("description") or "")[:500],
                 score_home=score_home,
                 score_away=score_away,
+                raw_event=event,
             )
         )
 
@@ -204,18 +221,19 @@ def _store_pbp_events(
 def _replace_pbp_events(
     db: Session,
     game_id: str,
+    season: str,
     events: list[dict],
     valid_player_ids: set[int] | None = None,
 ) -> None:
-    db.query(PlayByPlay).filter_by(game_id=game_id).delete(synchronize_session=False)
-    _store_pbp_events(db, game_id, events, valid_player_ids=valid_player_ids)
+    db.query(PlayByPlayEvent).filter_by(game_id=game_id).delete(synchronize_session=False)
+    _store_pbp_events(db, game_id, season, events, valid_player_ids=valid_player_ids)
 
 
 def _load_stored_pbp_events(db: Session, game_id: str) -> list[dict]:
     rows = (
-        db.query(PlayByPlay)
+        db.query(PlayByPlayEvent)
         .filter_by(game_id=game_id)
-        .order_by(PlayByPlay.action_number.asc())
+        .order_by(PlayByPlayEvent.order_index.asc())
         .all()
     )
     return [
@@ -402,7 +420,7 @@ def _sync_games(
                     if not players_in_game:
                         continue
 
-                existing_raw = db.query(PlayByPlay.id).filter_by(game_id=game_id).first()
+                existing_raw = db.query(PlayByPlayEvent.id).filter_by(game_id=game_id).first()
                 if existing_raw and not force_refresh:
                     pbp_events = _load_stored_pbp_events(db, game_id)
                     games_reused += 1
@@ -419,6 +437,7 @@ def _sync_games(
                         _replace_pbp_events(
                             db,
                             game_id,
+                            season,
                             pbp_events,
                             valid_player_ids=valid_player_ids,
                         )
@@ -426,6 +445,7 @@ def _sync_games(
                         _store_pbp_events(
                             db,
                             game_id,
+                            season,
                             pbp_events,
                             valid_player_ids=valid_player_ids,
                         )

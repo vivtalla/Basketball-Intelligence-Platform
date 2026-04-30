@@ -21,7 +21,6 @@ from sqlalchemy.orm import Session
 
 from db.models import (
     GameLog,
-    PlayByPlay,
     PlayByPlayEvent,
     Player,
     PlayerGameLog,
@@ -96,11 +95,11 @@ def _iter_events(db: Session, game_id: str) -> List[object]:
         return list(canonical)
 
     legacy = (
-        db.query(PlayByPlay)
+        db.query(PlayByPlayEvent)
         .filter_by(game_id=game_id)
         .order_by(
-            PlayByPlay.period.asc(),
-            PlayByPlay.action_number.asc(),
+            PlayByPlayEvent.period.asc(),
+            PlayByPlayEvent.order_index.asc(),
         )
         .all()
     )

@@ -22,7 +22,7 @@ from typing import List, Optional, Tuple
 
 from sqlalchemy.orm import Session
 
-from db.models import PlayByPlay
+from db.models import PlayByPlayEvent
 from models.game import LeadPoint, WinProbPoint
 
 
@@ -202,9 +202,9 @@ def compute_win_probability(db: Session, game_id: str) -> List[WinProbPoint]:
     >=12pp are tagged via the ``event`` field.
     """
     rows = (
-        db.query(PlayByPlay)
-        .filter(PlayByPlay.game_id == game_id)
-        .order_by(PlayByPlay.action_number.asc())
+        db.query(PlayByPlayEvent)
+        .filter(PlayByPlayEvent.game_id == game_id)
+        .order_by(PlayByPlayEvent.order_index.asc())
         .all()
     )
     if not rows:
@@ -293,9 +293,9 @@ def compute_lead_tracker(db: Session, game_id: str) -> List[LeadPoint]:
     etc.). The first entry is always ``minute=0, home_lead=0``.
     """
     rows = (
-        db.query(PlayByPlay)
-        .filter(PlayByPlay.game_id == game_id)
-        .order_by(PlayByPlay.action_number.asc())
+        db.query(PlayByPlayEvent)
+        .filter(PlayByPlayEvent.game_id == game_id)
+        .order_by(PlayByPlayEvent.order_index.asc())
         .all()
     )
     if not rows:

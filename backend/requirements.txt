@@ -8,3 +8,8 @@ sqlalchemy==2.0.36
 psycopg2-binary==2.9.10
 alembic==1.14.1
 pypdf==5.4.0
+# Sprint 81 — Spotrac / PST / Sports Reference scrapers depend directly on
+# requests + beautifulsoup4. Both were transitive deps via nba_api but the
+# scrapers should pin them explicitly.
+requests==2.32.4
+beautifulsoup4==4.12.3

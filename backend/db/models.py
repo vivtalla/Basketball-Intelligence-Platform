@@ -159,31 +159,12 @@ class GameLog(Base):
     series_game_num = Column(Integer, nullable=True)
     playoff_seed = Column(Integer, nullable=True)
 
-    play_by_play = relationship("PlayByPlay", back_populates="game", cascade="all, delete-orphan")
+    # Sprint 81: legacy `play_by_play` relationship retired. PlayByPlayEvent
+    # is the canonical PBP table. The `games` table (WarehouseGame) is the
+    # canonical parent for play_by_play_events; `game_logs` carries no PBP rows.
 
 
-class PlayByPlay(Base):
-    __tablename__ = "play_by_play"
-    __table_args__ = (
-        UniqueConstraint("game_id", "action_number", name="uq_pbp_game_action"),
-        Index("ix_pbp_player_game", "player_id", "game_id"),
-        Index("ix_pbp_game_action_type", "game_id", "action_type"),
-    )
-
-    id = Column(Integer, primary_key=True, autoincrement=True)
-    game_id = Column(String(10), ForeignKey("game_logs.game_id"), nullable=False)
-    action_number = Column(Integer, nullable=False)
-    period = Column(Integer)
-    clock = Column(String(20))      # e.g. "PT05M30.00S"
-    team_id = Column(Integer, ForeignKey("teams.id"), nullable=True)
-    player_id = Column(Integer, ForeignKey("players.id"), nullable=True)
-    action_type = Column(String(50))   # "2pt", "3pt", "rebound", "substitution", etc.
-    sub_type = Column(String(50))      # "missed", "made", "offensive", "defensive", etc.
-    description = Column(String(500))
-    score_home = Column(Integer)
-    score_away = Column(Integer)
-
-    game = relationship("GameLog", back_populates="play_by_play")
+# Sprint 81: legacy `PlayByPlay` model removed. Use `PlayByPlayEvent` instead.
 
 
 class PlayerOnOff(Base):
@@ -839,6 +820,111 @@ class TeamSplitStat(Base):
     plus_minus = Column(Float)
     updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
 
+    team = relationship("Team")
+
+
+# ----------------------------------------------------------------------------
+# Sprint 81 — Player split dashboards (LeagueDashPlayerStats split families).
+# Mirrors team_split_stats but per-player. Daily sync writes Location, W/L,
+# Days Rest, Month, Pre/Post All-Star, Clutch slices.
+# ----------------------------------------------------------------------------
+class PlayerSplitStat(Base):
+    __tablename__ = "player_split_stats"
+    __table_args__ = (
+        UniqueConstraint(
+            "player_id",
+            "season",
+            "is_playoff",
+            "split_family",
+            "split_value",
+            name="uq_player_split_stat",
+        ),
+        Index("ix_player_split_stats_player_season", "player_id", "season"),
+        Index("ix_player_split_stats_family", "split_family"),
+    )
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    player_id = Column(Integer, ForeignKey("players.id"), nullable=False)
+    team_id = Column(Integer, ForeignKey("teams.id"), nullable=True)
+    season = Column(String(10), nullable=False)
+    is_playoff = Column(Boolean, nullable=False, default=False)
+    split_family = Column(String(50), nullable=False)
+    split_value = Column(String(80), nullable=False)
+    label = Column(String(120), nullable=False)
+    source = Column(String(70), nullable=False, default="stats.nba.com/player-general-splits")
+    gp = Column(Integer, default=0)
+    w = Column(Integer, default=0)
+    l = Column(Integer, default=0)
+    w_pct = Column(Float, default=0)
+    min = Column(Float)
+    pts = Column(Float)
+    reb = Column(Float)
+    ast = Column(Float)
+    tov = Column(Float)
+    stl = Column(Float)
+    blk = Column(Float)
+    fg_pct = Column(Float)
+    fg3_pct = Column(Float)
+    ft_pct = Column(Float)
+    ts_pct = Column(Float)
+    usg_pct = Column(Float)
+    plus_minus = Column(Float)
+    updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
+
+    player = relationship("Player")
+    team = relationship("Team")
+
+
+# ----------------------------------------------------------------------------
+# Sprint 81 — Play type stats. Per-player by archetype: isolation, transition,
+# pick-and-roll ball handler/roll man, post-up, spot-up, hand-off, cut,
+# off-screen, putback, miscellaneous. Powers scouting and style classification.
+# ----------------------------------------------------------------------------
+class PlayTypeStat(Base):
+    __tablename__ = "play_type_stats"
+    __table_args__ = (
+        UniqueConstraint(
+            "player_id",
+            "season",
+            "is_playoff",
+            "play_type",
+            "play_role",
+            name="uq_play_type_stat",
+        ),
+        Index("ix_play_type_stats_player_season", "player_id", "season"),
+        Index("ix_play_type_stats_play_type", "play_type"),
+    )
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    player_id = Column(Integer, ForeignKey("players.id"), nullable=False)
+    team_id = Column(Integer, ForeignKey("teams.id"), nullable=True)
+    season = Column(String(10), nullable=False)
+    is_playoff = Column(Boolean, nullable=False, default=False)
+    play_type = Column(String(40), nullable=False)
+    # play_role distinguishes Pick-and-Roll Ball Handler vs Roll Man, etc.
+    # Single-role play types (Isolation, Transition) just store "primary".
+    play_role = Column(String(40), nullable=False, default="primary")
+    source = Column(String(70), nullable=False, default="stats.nba.com/playtype")
+    gp = Column(Integer, default=0)
+    poss = Column(Integer, default=0)
+    poss_pct = Column(Float)        # share of player's total possessions
+    pts = Column(Float)
+    fgm = Column(Float)
+    fga = Column(Float)
+    fg_pct = Column(Float)
+    efg_pct = Column(Float)
+    ts_pct = Column(Float)
+    ftm = Column(Float)
+    fta = Column(Float)
+    ft_pct = Column(Float)
+    ppp = Column(Float)             # points per possession
+    percentile = Column(Float)      # league percentile rank
+    score_freq_pct = Column(Float)  # % of possessions ending in score
+    sf_freq_pct = Column(Float)     # % drawing shooting fouls
+    tov_freq_pct = Column(Float)    # turnover rate
+    updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
+
+    player = relationship("Player")
     team = relationship("Team")
 
 
@@ -1529,6 +1615,40 @@ class AwardVote(Base):
     total_award_points = Column(Float, nullable=False)      # published point share
     source = Column(String(40), default="basketball_reference")
     created_at = Column(DateTime, server_default=func.now())
+
+    player = relationship("Player")
+
+
+# ----------------------------------------------------------------------------
+# Sprint 81 — historical Basketball Value + 5-pillar modifier vectors for
+# every (player, season) in award_voting. Powers award_calibration_service:
+# without these vectors the LOO-CV harness cannot fit calibrated weights, so
+# `mvp_case_v5` ships with `calibration_pending=True` until this table is
+# populated. Re-runnable via data/materialize_award_modifiers.py.
+# ----------------------------------------------------------------------------
+class AwardCaseCandidate(Base):
+    __tablename__ = "award_case_candidates"
+    __table_args__ = (
+        UniqueConstraint(
+            "player_id", "season", "award_type",
+            name="uq_award_case_candidate",
+        ),
+        Index("ix_award_case_candidates_season", "season"),
+    )
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    player_id = Column(Integer, ForeignKey("players.id"), nullable=False)
+    season = Column(String(10), nullable=False)
+    award_type = Column(String(10), nullable=False, default="MVP")
+    basketball_value = Column(Float, nullable=False)
+    # Five modifier dimensions in this fixed order:
+    # team_framing, eligibility_pressure, clutch, momentum, signature_games.
+    modifier_team_framing = Column(Float, nullable=False, default=0.0)
+    modifier_eligibility_pressure = Column(Float, nullable=False, default=0.0)
+    modifier_clutch = Column(Float, nullable=False, default=0.0)
+    modifier_momentum = Column(Float, nullable=False, default=0.0)
+    modifier_signature_games = Column(Float, nullable=False, default=0.0)
+    last_synced_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
 
     player = relationship("Player")
 

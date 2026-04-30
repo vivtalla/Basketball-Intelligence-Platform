@@ -12,15 +12,19 @@ from data.nba_client import (
     get_injuries_payload,
     get_league_dash_player_stats,
     get_player_advanced_stats_from_league,
+    get_player_general_splits,
     get_player_info,
+    get_synergy_player_play_types,
     get_team_general_splits,
     get_team_shooting_splits,
     get_team_stats,
     search_players,
 )
 from db.models import (
+    PlayTypeStat,
     Player,
     PlayerInjury,
+    PlayerSplitStat,
     SeasonStat,
     Team,
     TeamSeasonStat,
@@ -714,6 +718,219 @@ def sync_official_team_shooting_splits(
         "split_rows_synced": updated_rows,
         "split_rows_created": created_rows,
         "split_rows_deleted": deleted_rows,
+    }
+
+
+# ---------------------------------------------------------------------------
+# Sprint 81 — Player split dashboards + Play type stats
+# ---------------------------------------------------------------------------
+
+
+def sync_official_player_general_splits(
+    db: Session,
+    season: str,
+    player_ids: Optional[Sequence[int]] = None,
+    is_playoff: bool = False,
+) -> dict:
+    """Mirror of ``sync_official_team_general_splits`` for per-player slices.
+
+    Iterates through ``player_ids`` (or every player with a current SeasonStat
+    row for ``season`` if not provided), fetches PlayerDashboardByGeneralSplits
+    once per player, and upserts per-(family, value) rows into player_split_stats.
+    """
+    season_type = "Playoffs" if is_playoff else "Regular Season"
+    logger.info("Syncing official player general splits for %s (%s)", season, season_type)
+
+    if player_ids is None:
+        rows = (
+            db.query(SeasonStat.player_id)
+            .filter(SeasonStat.season == season, SeasonStat.is_playoff == is_playoff)
+            .distinct()
+            .all()
+        )
+        target_player_ids = [int(row[0]) for row in rows]
+    else:
+        target_player_ids = [int(pid) for pid in player_ids]
+
+    if not target_player_ids:
+        return {
+            "status": "ok",
+            "season": season,
+            "is_playoff": is_playoff,
+            "players_synced": 0,
+            "split_rows_synced": 0,
+        }
+
+    persisted_by_key = {
+        (row.player_id, row.split_family, row.split_value): row
+        for row in db.query(PlayerSplitStat).filter(
+            PlayerSplitStat.season == season,
+            PlayerSplitStat.is_playoff == is_playoff,
+            PlayerSplitStat.player_id.in_(target_player_ids),
+        )
+    }
+
+    players_synced = 0
+    rows_upserted = 0
+    rows_created = 0
+    refreshed_keys: set = set()
+
+    for player_id in target_player_ids:
+        try:
+            split_rows = get_player_general_splits(season, player_id, season_type=season_type)
+        except Exception as exc:  # noqa: BLE001 — keep partial progress on per-player failure
+            logger.warning("Player split fetch failed for %s: %s", player_id, exc)
+            continue
+        if not split_rows:
+            continue
+        players_synced += 1
+        for payload in split_rows:
+            family = payload.get("split_family")
+            value = payload.get("split_value")
+            if not family or not value:
+                continue
+            payload["is_playoff"] = is_playoff
+            key = (player_id, family, value)
+            row = persisted_by_key.get(key)
+            if row is None:
+                row = PlayerSplitStat(
+                    player_id=player_id,
+                    season=season,
+                    is_playoff=is_playoff,
+                    split_family=family,
+                    split_value=value,
+                    label=payload.get("label") or value,
+                )
+                db.add(row)
+                persisted_by_key[key] = row
+                rows_created += 1
+            for field, val in payload.items():
+                if field in {"player_id", "season", "is_playoff"}:
+                    continue
+                setattr(row, field, val)
+            refreshed_keys.add(key)
+            rows_upserted += 1
+
+    db.commit()
+    logger.info(
+        "Player general split sync complete: players=%s rows=%s created=%s",
+        players_synced, rows_upserted, rows_created,
+    )
+    return {
+        "status": "ok",
+        "season": season,
+        "is_playoff": is_playoff,
+        "players_synced": players_synced,
+        "split_rows_synced": rows_upserted,
+        "split_rows_created": rows_created,
+    }
+
+
+# Synergy play-type vocabulary as exposed by stats.nba.com.
+_PLAY_TYPE_FAMILIES = (
+    "Isolation", "Transition", "PRBallHandler", "PRRollMan", "Postup",
+    "Spotup", "Handoff", "Cut", "OffScreen", "Putbacks", "Misc",
+)
+
+
+def _synergy_row_to_play_type_stat_payload(
+    row: dict, season: str, play_type: str
+) -> Optional[dict]:
+    player_id = row.get("PLAYER_ID")
+    if not player_id:
+        return None
+    poss = row.get("POSS") or 0
+    return {
+        "player_id": int(player_id),
+        "team_id": int(row["TEAM_ID"]) if row.get("TEAM_ID") else None,
+        "season": season,
+        "is_playoff": False,
+        "play_type": play_type,
+        "play_role": "primary",
+        "gp": int(row.get("GP") or 0),
+        "poss": int(poss),
+        "poss_pct": float(row["POSS_PCT"]) if row.get("POSS_PCT") is not None else None,
+        "pts": float(row["PTS"]) if row.get("PTS") is not None else None,
+        "fgm": float(row["FGM"]) if row.get("FGM") is not None else None,
+        "fga": float(row["FGA"]) if row.get("FGA") is not None else None,
+        "fg_pct": float(row["FG_PCT"]) if row.get("FG_PCT") is not None else None,
+        "efg_pct": float(row["EFG_PCT"]) if row.get("EFG_PCT") is not None else None,
+        "ts_pct": float(row["TS_PCT"]) if row.get("TS_PCT") is not None else None,
+        "ftm": float(row["FTM"]) if row.get("FTM") is not None else None,
+        "fta": float(row["FTA"]) if row.get("FTA") is not None else None,
+        "ft_pct": float(row["FT_PCT"]) if row.get("FT_PCT") is not None else None,
+        "ppp": float(row["PPP"]) if row.get("PPP") is not None else None,
+        "percentile": float(row["PERCENTILE"]) if row.get("PERCENTILE") is not None else None,
+        "score_freq_pct": float(row["SCORE_FREQUENCY"]) if row.get("SCORE_FREQUENCY") is not None else None,
+        "sf_freq_pct": float(row["SF_FREQUENCY"]) if row.get("SF_FREQUENCY") is not None else None,
+        "tov_freq_pct": float(row["TOV_FREQUENCY"]) if row.get("TOV_FREQUENCY") is not None else None,
+        "source": "stats.nba.com/playtype",
+    }
+
+
+def sync_official_play_type_stats(
+    db: Session,
+    season: str,
+    play_types: Optional[Sequence[str]] = None,
+    is_playoff: bool = False,
+) -> dict:
+    """Iterate Synergy play-type families, upserting one row per (player, type)."""
+    season_type = "Playoffs" if is_playoff else "Regular Season"
+    targets = list(play_types) if play_types else list(_PLAY_TYPE_FAMILIES)
+    logger.info("Syncing %d play-type families for %s (%s)", len(targets), season, season_type)
+
+    rows_upserted = 0
+    rows_created = 0
+    families_synced = 0
+
+    for family in targets:
+        try:
+            raw_rows = get_synergy_player_play_types(
+                season=season,
+                season_type=season_type,
+                play_type=family,
+                type_grouping="offensive",
+            )
+        except Exception as exc:  # noqa: BLE001
+            logger.warning("Synergy fetch failed for %s: %s", family, exc)
+            continue
+        if not raw_rows:
+            continue
+        families_synced += 1
+
+        for raw in raw_rows:
+            payload = _synergy_row_to_play_type_stat_payload(raw, season, family)
+            if payload is None:
+                continue
+            payload["is_playoff"] = is_playoff
+            existing = (
+                db.query(PlayTypeStat)
+                .filter(
+                    PlayTypeStat.player_id == payload["player_id"],
+                    PlayTypeStat.season == season,
+                    PlayTypeStat.is_playoff == is_playoff,
+                    PlayTypeStat.play_type == family,
+                    PlayTypeStat.play_role == payload["play_role"],
+                )
+                .first()
+            )
+            if existing is None:
+                row = PlayTypeStat(**payload)
+                db.add(row)
+                rows_created += 1
+            else:
+                for field, value in payload.items():
+                    setattr(existing, field, value)
+            rows_upserted += 1
+
+    db.commit()
+    return {
+        "status": "ok",
+        "season": season,
+        "is_playoff": is_playoff,
+        "families_synced": families_synced,
+        "rows_upserted": rows_upserted,
+        "rows_created": rows_created,
     }
 
 

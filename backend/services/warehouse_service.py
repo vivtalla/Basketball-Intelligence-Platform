@@ -34,7 +34,6 @@ from db.models import (
     PlayerGameLog,
     PlayerShotChart,
     PlayerOnOff,
-    PlayByPlay,
     PlayByPlayEvent,
     RawGamePayload,
     RawSchedulePayload,
@@ -718,7 +717,7 @@ def sync_game_pbp(db: Session, game_id: str) -> dict:
         warehouse_game.pbp_source = "cdn_pbp"
         warehouse_game.last_pbp_sync_at = _utcnow()
 
-        db.query(PlayByPlay).filter_by(game_id=game_id).delete(synchronize_session=False)
+        # Sprint 81: legacy `play_by_play` table retired. Only write to PlayByPlayEvent.
         db.query(PlayByPlayEvent).filter_by(game_id=game_id).delete(synchronize_session=False)
 
         for idx, event in enumerate(normalized_events, start=1):
@@ -746,21 +745,6 @@ def sync_game_pbp(db: Session, game_id: str) -> dict:
                     score_home=_to_int(event.get("scoreHome")),
                     score_away=_to_int(event.get("scoreAway")),
                     raw_event=event,
-                )
-            )
-            db.add(
-                PlayByPlay(
-                    game_id=game_id,
-                    action_number=action_number if isinstance(action_number, int) else idx,
-                    period=event.get("period"),
-                    clock=event.get("clock"),
-                    team_id=event.get("teamId"),
-                    player_id=event.get("personId"),
-                    action_type=action_type,
-                    sub_type=sub_type,
-                    description=(event.get("description") or "")[:500],
-                    score_home=_to_int(event.get("scoreHome")),
-                    score_away=_to_int(event.get("scoreAway")),
                 )
             )
 
@@ -2028,11 +2012,8 @@ def get_completeness_summary(db: Session, season: str, season_type: str = "Regul
         elif game.has_pbp_payload:
             event_counts["partial"] += 1
         else:
-            legacy_rows = db.query(PlayByPlay).filter(PlayByPlay.game_id == game.game_id).count()
-            if legacy_rows > 0:
-                event_counts["legacy"] += 1
-            else:
-                event_counts["missing"] += 1
+            # Sprint 81: legacy `play_by_play` table retired. No legacy bucket.
+            event_counts["missing"] += 1
 
     def _pct(ready: int, partial: int, total: int) -> float:
         if total <= 0:

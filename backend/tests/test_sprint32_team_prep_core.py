@@ -12,7 +12,6 @@ from db.models import (  # noqa: E402
     GameLog,
     GameTeamStat,
     LineupStats,
-    PlayByPlay,
     PlayByPlayEvent,
     Player,
     PlayerInjury,
@@ -228,10 +227,15 @@ def seed_historical_context(session):
             away_score=101,
         )
     )
+    if not session.query(WarehouseGame).filter_by(game_id="9000000001").first():
+        session.add(WarehouseGame(game_id="9000000001", season="2023-24"))
+        session.flush()
     session.add(
-        PlayByPlay(
+        PlayByPlayEvent(
             game_id="9000000001",
+            season="2023-24",
             action_number=1,
+            order_index=1,
             period=1,
             team_id=atl.id,
             player_id=701,

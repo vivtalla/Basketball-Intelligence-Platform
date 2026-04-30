@@ -128,14 +128,19 @@ if [ "$DRY_RUN" = "1" ]; then
     echo "would run: queue_season_shot_charts"
     echo "would run: warehouse_jobs"
     echo "would run: sync_injuries"
-    echo "would run: sync_injury_history seed_csv"
+    echo "would run: sync_injury_history prosportstransactions (S81; falls back to seed CSV)"
     echo "would run: materialize_standings"
     echo "would run: sync_official_season_stats"
     echo "would run: sync_official_team_season_stats"
     echo "would run: sync_official_team_general_splits"
     echo "would run: sync_official_team_shooting_splits"
+    echo "would run: sync_official_player_general_splits (S81 B3)"
+    echo "would run: sync_official_play_type_stats (S81 B3)"
     echo "would run: sync_role_expansion (S79 A2 — opportunity_v2 uplift dataset)"
     echo "would run: sync_streaks_milestones (CF5 nightly snapshot)"
+    echo "would run: sync_salaries spotrac (S81 A1; falls back to seed CSV)"
+    echo "would run: sync_draft_prospects sportsreference (S81 A3; falls back to seed CSV)"
+    echo "would run: materialize_award_modifiers (S81 B2 — activates mvp_case_v5)"
     if [ "$IS_PLAYOFFS" = "1" ]; then
       echo "would run: ingest today's playoff finals from CDN scoreboard"
       echo "would run: playoff sync_official_season_stats is_playoff=True"
@@ -330,13 +335,44 @@ PYTHONPATH=. "$PYTHON_BIN" data/sync_role_expansion.py >> "$LOG" 2>&1 || true
 # /milestones page tolerates stale snapshots.
 PYTHONPATH=. "$PYTHON_BIN" data/sync_streaks_milestones.py --season "$SEASON" >> "$LOG" 2>&1 || true
 
-# Sprint 78 FO1 — refresh player_contracts from the seed CSV. Idempotent
-# upsert; safe to re-run nightly. Spotrac/HoopsHype branches will plug
-# into the same CLI when those scrapers are built.
-PYTHONPATH=. "$PYTHON_BIN" data/sync_salaries.py --source seed_csv >> "$LOG" 2>&1 || true
+# Sprint 81 — Spotrac salary scraper with seed_csv fallback.
+# When Spotrac blocks (anti-bot) or any parse error occurs, sync_salary_data
+# transparently falls back to data/seed/contracts_2025_26.csv so Trade Machine
+# never goes dark. Logs include `fallback_used=true` when the fallback fired.
+PYTHONPATH=. "$PYTHON_BIN" data/sync_salaries.py --source spotrac --season "$SEASON" >> "$LOG" 2>&1 || true
 
-# Sprint 78 FO3 — draft prospect seed CSV upsert. Idempotent and cheap;
-# powers the /draft board + detail surface.
-PYTHONPATH=. "$PYTHON_BIN" data/sync_draft_prospects.py --source seed_csv >> "$LOG" 2>&1 || true
+# Sprint 81 — ProSportsTransactions injury history scraper. Falls back to
+# the synthetic seed CSV on any failure so the Injury Impact panel stays
+# functional. PST is not rate-limited aggressively but we run nightly only.
+PYTHONPATH=. "$PYTHON_BIN" data/sync_injury_history.py --source prosportstransactions >> "$LOG" 2>&1 || true
+
+# Sprint 81 — Sports Reference college basketball draft prospects scraper.
+# Falls back to seed CSV on any failure.
+PYTHONPATH=. "$PYTHON_BIN" data/sync_draft_prospects.py --source sportsreference --year 2026 --season "$SEASON" >> "$LOG" 2>&1 || true
+
+# Sprint 81 B2 — materialize Basketball Value + 5-modifier vectors per
+# (player, season) referenced by award_voting. Activates mvp_case_v5
+# calibrated weights once the cohort is large enough (>= 5 seasons).
+PYTHONPATH=. "$PYTHON_BIN" data/materialize_award_modifiers.py >> "$LOG" 2>&1 || true
+
+# Sprint 81 B3 — sync new official data domains (player splits + play types)
+# inline as Python so we share a single SessionLocal instead of paying the
+# venv startup cost twice.
+"$PYTHON_BIN" - <<'PYEOF' >> "$LOG" 2>&1 || true
+import os, sys
+sys.path.insert(0, os.getcwd())
+from db.database import SessionLocal
+from services.sync_service import (
+    sync_official_player_general_splits,
+    sync_official_play_type_stats,
+)
+season = os.environ.get("SEASON", "2024-25")
+db = SessionLocal()
+try:
+    print("sync_official_player_general_splits:", sync_official_player_general_splits(db, season=season))
+    print("sync_official_play_type_stats:", sync_official_play_type_stats(db, season=season))
+finally:
+    db.close()
+PYEOF
 
 echo "[$(date -u +%Y-%m-%dT%H:%M:%SZ)] daily_sync complete season=$SEASON post_game=$POST_GAME_MODE is_playoffs=$IS_PLAYOFFS" >> "$LOG"

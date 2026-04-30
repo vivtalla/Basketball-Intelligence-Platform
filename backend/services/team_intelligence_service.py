@@ -10,7 +10,6 @@ from sqlalchemy.orm import Session
 from db.models import (
     GameLog,
     LineupStats,
-    PlayByPlay,
     PlayByPlayEvent,
     Player,
     PlayerOnOff,
@@ -357,8 +356,8 @@ def build_team_intelligence(db: Session, abbr: str, season: str) -> TeamIntellig
         synced_games = 0
         if team_game_ids:
             synced_games = (
-                db.query(func.count(func.distinct(PlayByPlay.game_id)))
-                .filter(PlayByPlay.game_id.in_(team_game_ids))
+                db.query(func.count(func.distinct(PlayByPlayEvent.game_id)))
+                .filter(PlayByPlayEvent.game_id.in_(team_game_ids))
                 .scalar()
                 or 0
             )

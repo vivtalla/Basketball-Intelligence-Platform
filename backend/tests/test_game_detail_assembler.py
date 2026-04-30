@@ -24,12 +24,13 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from db.database import Base  # noqa: E402
 from db.models import (  # noqa: E402
     GameLog,
-    PlayByPlay,
+    PlayByPlayEvent,
     Player,
     PlayerGameLog,
     PlayoffSeries,
     Team,
     TeamSeasonStat,
+    WarehouseGame,
 )
 from services.game_detail_assembler import assemble_game_detail  # noqa: E402
 
@@ -129,11 +130,13 @@ def _scoring_pbp(
     points: int,
     score_home: int,
     score_away: int,
-) -> PlayByPlay:
+) -> PlayByPlayEvent:
     action_type = "3pt" if points == 3 else "2pt"
-    return PlayByPlay(
+    return PlayByPlayEvent(
         game_id=game_id,
+        season="2025-26",
         action_number=action_number,
+        order_index=action_number,
         period=period,
         clock=clock,
         team_id=team_id,
@@ -190,6 +193,8 @@ def test_assembler_returns_all_fields_for_playoff_game():
                 series_game_num=1,
             )
         )
+        # Sprint 81: PBP rows now hang off WarehouseGame, not GameLog.
+        session.add(WarehouseGame(game_id=game_id, season=season))
         session.commit()
 
         # Player game logs so _resolve_starters' primary path activates.
@@ -225,7 +230,7 @@ def test_assembler_returns_all_fields_for_playoff_game():
         # so per-quarter +/- picks up real deltas and possession_diary has
         # several scoring events. Two periods (Q1, Q2) so the WP curve has
         # multiple boundary points.
-        pbp_rows: List[PlayByPlay] = []
+        pbp_rows: List[PlayByPlayEvent] = []
         action_no = 1
         score_home = 0
         score_away = 0

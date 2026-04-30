@@ -14,7 +14,7 @@ from db.models import (
     LineupStats,
     Player,
     Team,
-    PlayByPlay,
+    PlayByPlayEvent,
     GamePlayerStat,
     WarehouseGame,
 )
@@ -394,8 +394,8 @@ def get_pbp_coverage(
             or 0
         )
         legacy_games = (
-            db.query(func.count(func.distinct(PlayByPlay.game_id)))
-            .filter(PlayByPlay.game_id.in_(player_game_ids))
+            db.query(func.count(func.distinct(PlayByPlayEvent.game_id)))
+            .filter(PlayByPlayEvent.game_id.in_(player_game_ids))
             .scalar()
             or 0
         )

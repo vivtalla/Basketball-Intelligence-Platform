@@ -24,6 +24,7 @@ from nba_api.stats.endpoints import (
     leaguedashteamstats,
     leaguegamelog,
     leaguestandings,
+    playerdashboardbygeneralsplits,
     playergamelog,
     playbyplayv3,
     playercareerstats,
@@ -1563,6 +1564,92 @@ def _team_general_split_row(dataset_name: str, row: dict, season: str, team_id: 
         "plus_minus": _safe_float(row.get("PLUS_MINUS")),
         "source": "stats.nba.com/team-general-splits",
     }
+
+
+PLAYER_GENERAL_SPLIT_DATASETS = (
+    "LocationPlayerDashboard",
+    "WinsLossesPlayerDashboard",
+    "DaysRestPlayerDashboard",
+    "MonthPlayerDashboard",
+    "PrePostAllStarPlayerDashboard",
+)
+
+PLAYER_GENERAL_SPLIT_LABEL_FIELDS = {
+    "LocationPlayerDashboard": "PLAYER_GAME_LOCATION",
+    "WinsLossesPlayerDashboard": "GAME_RESULT",
+    "DaysRestPlayerDashboard": "PLAYER_DAYS_REST_RANGE",
+    "MonthPlayerDashboard": "SEASON_MONTH_NAME",
+    "PrePostAllStarPlayerDashboard": "SEASON_SEGMENT",
+}
+
+
+def _player_general_split_row(
+    dataset_name: str, row: dict, season: str, player_id: int
+) -> Optional[dict]:
+    label_field = PLAYER_GENERAL_SPLIT_LABEL_FIELDS.get(dataset_name)
+    raw_label = row.get(label_field) if label_field else None
+    label = str(raw_label or row.get("GROUP_VALUE") or "").strip()
+    if not label:
+        return None
+
+    return {
+        "player_id": int(player_id),
+        "season": season,
+        "is_playoff": False,
+        "split_family": dataset_name,
+        "split_value": label,
+        "label": label,
+        "gp": _safe_int(row.get("GP")),
+        "w": _safe_int(row.get("W")),
+        "l": _safe_int(row.get("L")),
+        "w_pct": _safe_float(row.get("W_PCT")) or 0.0,
+        "min": _safe_float(row.get("MIN")),
+        "pts": _safe_float(row.get("PTS")),
+        "reb": _safe_float(row.get("REB")),
+        "ast": _safe_float(row.get("AST")),
+        "tov": _safe_float(row.get("TOV")),
+        "stl": _safe_float(row.get("STL")),
+        "blk": _safe_float(row.get("BLK")),
+        "fg_pct": _safe_float(row.get("FG_PCT")),
+        "fg3_pct": _safe_float(row.get("FG3_PCT")),
+        "ft_pct": _safe_float(row.get("FT_PCT")),
+        "ts_pct": _safe_float(row.get("TS_PCT")),
+        "usg_pct": _safe_float(row.get("USG_PCT")),
+        "plus_minus": _safe_float(row.get("PLUS_MINUS")),
+        "source": "stats.nba.com/player-general-splits",
+    }
+
+
+def get_player_general_splits(
+    season: str,
+    player_id: int,
+    season_type: str = "Regular Season",
+) -> list[dict]:
+    """Fetch official player general splits for one player and season."""
+    cache_key = f"player_general_splits_{player_id}_{season}_{season_type}"
+    cached = CacheManager.get(cache_key)
+    if cached and isinstance(cached.get("rows"), list):
+        return cached["rows"]
+
+    _rate_limit()
+    dash = playerdashboardbygeneralsplits.PlayerDashboardByGeneralSplits(
+        player_id=player_id,
+        season=season,
+        per_mode_detailed="PerGame",
+        season_type_playoffs=season_type,
+        timeout=NBA_API_TIMEOUT,
+    )
+    data = dash.get_normalized_dict()
+    is_playoff = season_type == "Playoffs"
+    splits: list[dict] = []
+    for dataset_name in PLAYER_GENERAL_SPLIT_DATASETS:
+        for row in data.get(dataset_name, []):
+            normalized = _player_general_split_row(dataset_name, row, season, player_id)
+            if normalized:
+                normalized["is_playoff"] = is_playoff
+                splits.append(normalized)
+    CacheManager.set(cache_key, {"rows": splits}, _cache_ttl_for_season(season))
+    return splits
 
 
 def get_team_general_splits(

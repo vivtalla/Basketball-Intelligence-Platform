@@ -1,9 +1,21 @@
 # Sprint History Archive
 
-Archived sprint summaries through Sprint 80. The two most recent sprints also stay inline in `CLAUDE.md` under "Recent Sprints".
+Archived sprint summaries through Sprint 81. The two most recent sprints also stay inline in `CLAUDE.md` under "Recent Sprints".
 
 For detailed per-sprint records, see the individual closeout files in this directory where available:
 `specs/sprint-09-closeout.md` through `specs/sprint-59-closeout.md`, plus `specs/sprint-62-closeout.md` and `specs/sprint-67-closeout.md` onward.
+
+---
+
+### Sprint 81 — Data Foundation Closeout
+**Branch:** `master` (two-stream sprint, sequential commits on master)
+
+- Two-stream parallel sprint replacing seed-CSV stubs with live data, retiring legacy `play_by_play` table, activating calibrated `mvp_case_v5` weights, and adding two new official data domains. 415 → 464 backend tests (+49 net new).
+- **Stream A — Real Data Scrapers:** Spotrac salary scraper (replaces 490 estimated contracts in Trade Machine), ProSportsTransactions injury history scraper (replaces 220 synthetic rows), Sports Reference draft prospect scraper (replaces 30 hand-entered prospects). All three share `backend/data/scrapers/_base.py` (`HttpScraper` + `ScraperError`) with user-agent rotation, 2s rate-limit, retry/backoff. All three fall back transparently to the existing seed CSV on any failure so dependent surfaces never go dark.
+- **Stream B1 — Legacy `play_by_play` retirement:** Migrated 9 service/router files + 2 sync scripts to `PlayByPlayEvent`. Halted dual-writes from `warehouse_service` and `pbp_sync_service`. Removed `PlayByPlay` ORM model + `GameLog.play_by_play` relationship. Migration `0018_sprint81_drop_legacy_pbp` drops the table (frees ~677 MB, 30% of DB). New CI guard test fails CI if anyone re-imports the retired model.
+- **Stream B2 — `mvp_case_v5` calibration activation:** New table `award_case_candidates` (migration `0019`); new `data/materialize_award_modifiers.py` populates Basketball Value + 5-modifier vectors from `season_stats` + `team_season_stats`. `award_calibration_service.calibrate_award_case_weights()` now runs LOO-CV with ±0.04 drift cap, only flips `calibration_pending=False` when LOO-CV Spearman ≥ 0.7.
+- **Stream B3 — New official data domains:** `player_split_stats` (per-player Location / W-L / Days Rest / Month / Pre-Post All-Star) and `play_type_stats` (Synergy archetype rows: Isolation / Transition / PRBallHandler / PRRollMan / Postup / Spotup / Handoff / Cut / OffScreen / Putbacks / Misc). Migration `0020`. Endpoints: `/api/players/{id}/splits` and `/api/players/{id}/play-types`. Frontend rendering deferred to Sprint 82.
+- `daily_sync.sh` wired with three new scrapers + materializer + two new domain syncs. Closeout: `specs/sprint-81-closeout.md`.
 
 ---
 

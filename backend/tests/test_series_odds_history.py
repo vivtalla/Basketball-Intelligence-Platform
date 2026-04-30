@@ -24,10 +24,11 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from db.database import Base  # noqa: E402
 from db.models import (  # noqa: E402
     GameLog,
-    PlayByPlay,
+    PlayByPlayEvent,
     PlayoffSeries,
     Team,
     TeamSeasonStat,
+    WarehouseGame,
 )
 from services.game_detail_assembler import assemble_game_detail  # noqa: E402
 from services.playoff_simulator_service import (  # noqa: E402
@@ -185,11 +186,16 @@ def _add_game(
 def _add_minimal_pbp(session, game_id: str) -> None:
     """Insert a couple of PBP rows so the assembler can find a play-by-play
     stream and not 404 on the base builder."""
+    if not session.query(WarehouseGame).filter_by(game_id=game_id).first():
+        session.add(WarehouseGame(game_id=game_id, season="2024-25"))
+        session.flush()
     session.add_all(
         [
-            PlayByPlay(
+            PlayByPlayEvent(
                 game_id=game_id,
+                season="2024-25",
                 action_number=1,
+                order_index=1,
                 period=1,
                 clock="PT12M00.00S",
                 action_type="period",
@@ -197,9 +203,11 @@ def _add_minimal_pbp(session, game_id: str) -> None:
                 score_home=0,
                 score_away=0,
             ),
-            PlayByPlay(
+            PlayByPlayEvent(
                 game_id=game_id,
+                season="2024-25",
                 action_number=2,
+                order_index=2,
                 period=1,
                 clock="PT11M30.00S",
                 action_type="2pt",

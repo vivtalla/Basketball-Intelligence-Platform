@@ -15,7 +15,7 @@ from sqlalchemy.orm import sessionmaker
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from db.database import Base  # noqa: E402
-from db.models import GameLog, PlayByPlay, Team  # noqa: E402
+from db.models import GameLog, PlayByPlayEvent, Team, WarehouseGame  # noqa: E402
 from services.game_trajectory_service import (  # noqa: E402
     compute_lead_tracker,
     compute_win_probability,
@@ -71,10 +71,16 @@ def _add_event(
     sub_type: str = "made",
     team_id: int = 1610612737,
 ) -> None:
+    # Sprint 81: warehouse-only — seed a WarehouseGame row first if needed.
+    if not session.query(WarehouseGame).filter_by(game_id=game_id).first():
+        session.add(WarehouseGame(game_id=game_id, season="2024-25"))
+        session.flush()
     session.add(
-        PlayByPlay(
+        PlayByPlayEvent(
             game_id=game_id,
+            season="2024-25",
             action_number=action_number,
+            order_index=action_number,
             period=period,
             clock=clock,
             team_id=team_id,

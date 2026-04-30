@@ -15,60 +15,58 @@ Guidelines:
 
 ---
 
-## Sprint 81 Candidates
+## Sprint 82 Candidates
 
 ### Public Hosting — FastAPI deploy + Vercel frontend + Cloudflare CDN
 Why it matters:
-Sprint 80 lands the data layer in the cloud (Hetzner CX22 Postgres + cron) but the FastAPI backend and Next.js frontend still only run locally on Vivek's laptop. Once the laptop is closed, the platform is unreachable. To make CourtVue Labs a real product that anyone can use — portfolio piece, shareable link, eventually paid tier — the web stack also needs to live online.
-
-The Sprint 80 architecture intentionally provisions a CX22 with headroom to host the FastAPI backend on the same VM as Postgres (4 GB RAM is plenty for both at single-user-to-low-thousands-of-users scale). Vercel's free tier hosts Next.js natively. Cloudflare's free tier handles DNS + CDN + DDoS protection. Total marginal cost for the full public stack: ~$1/month (just a domain).
+Sprint 80 landed the data layer in the cloud (Hetzner CX22 Postgres + cron) and Sprint 81 closed out the data foundation. The FastAPI backend and Next.js frontend still only run locally on Vivek's laptop — once the laptop is closed, the platform is unreachable. To make CourtVue Labs a real product that anyone can use — portfolio piece, shareable link, eventually paid tier — the web stack also needs to live online.
 
 Likely shape:
 - **FastAPI on Hetzner**: Caddy reverse proxy (auto-HTTPS via Let's Encrypt), systemd unit for uvicorn (2 workers), tighter CORS allowlist, basic rate limiting (slowapi or Caddy-side), `gunicorn -k uvicorn.workers.UvicornWorker` for production-grade worker management
-- **Frontend on Vercel**: GitHub-integrated auto-deploy on push to master; `NEXT_PUBLIC_API_URL` pointed at the Hetzner backend; image-optimization on (Vercel handles this for free)
-- **Cloudflare in front**: proxy DNS, default cache rules tuned for our API response patterns (most NBA data is cacheable for 1-6 hours), WAF rules against common abuse patterns
-- **Domain**: register `courtvue.app` or similar (~$12/year via Cloudflare Registrar at cost), add DNS records pointing api.→Hetzner and apex/www→Vercel
-- **Observability**: structured request logging on the FastAPI side (currently print-style), uptime monitoring (UptimeRobot free tier or Cloudflare Workers Cron pinging /health)
-- **Auth question**: decide whether the platform is fully public (read-only, no login) or gated (login required for some features). Today there's no auth model at all — the codebase assumes a single trusted user. Public hosting forces the question.
+- **Frontend on Vercel**: GitHub-integrated auto-deploy on push to master; `NEXT_PUBLIC_API_URL` pointed at the Hetzner backend
+- **Cloudflare in front**: proxy DNS, default cache rules tuned for API patterns (1-6 hours TTL), WAF rules
+- **Domain**: register `courtvue.app` or similar (~$12/year via Cloudflare Registrar)
+- **Observability**: structured request logging, uptime monitoring (UptimeRobot or Cloudflare Workers Cron pinging /health)
+- **Auth question**: decide whether the platform is fully public (read-only, no login) or gated. Today there's no auth model — public hosting forces the question.
 
-Capacity headroom for this on the same CX22:
-- Postgres: ~1 GB RAM (shared_buffers + working set)
-- FastAPI (2 uvicorn workers): ~400-600 MB RAM
-- Caddy + OS + cron: ~200 MB
-- Total: ~2 GB used; 4 GB available — comfortable
-- Network: Hetzner gives 20 TB egress/month, more than any hobby project will use
-- Concurrent traffic: ~100-400 req/s sustained per worker; Cloudflare CDN absorbs 80%+ via cache. Ample for thousands of MAU.
+CX22 capacity headroom: Postgres ~1 GB + FastAPI ~600 MB + Caddy/cron ~200 MB = ~2 GB used of 4 GB. Comfortable.
 
-Trigger to upgrade Hetzner tier (CX22 → CX32 at €7.44/mo): DB exceeds ~20 GB OR concurrent uncached traffic exceeds ~50 req/s sustained. Both are likely 12+ months out.
-
-### Legacy `play_by_play` Table Retirement
+### Frontend rendering for player splits + play types
 Why it matters:
-The legacy `play_by_play` table (677 MB / 2.77 M rows) is still actively read by 11+ services (`possession_diary_service`, `pbp_service`, `warehouse_service`, `game_detail_assembler`, `shot_lab_service`, `pbp_sync_service`, `game_trajectory_service`, `team_intelligence_service`, `routers/advanced.py`, `sync_today_playoff_finals`, `sync_playoff_pbp`). Sprint 77's PBP rewrite introduced `play_by_play_events` as the cleaner schema but the legacy table was never retired. It accounts for ~30% of total DB storage and complicates every migration / backup operation.
+Sprint 81 shipped the `player_split_stats` and `play_type_stats` tables + sync + endpoints (`/api/players/{id}/splits`, `/api/players/{id}/play-types`) but no UI surface yet. The data is read-ready and refreshes nightly.
 
 Likely shape:
-- audit which services genuinely still need legacy `play_by_play` vs which can read `play_by_play_events` instead
-- migrate readers one-by-one to `play_by_play_events`, behind a feature-flag column comparison
-- once all readers are migrated, drop the legacy table in an Alembic migration with full row-count assertion before drop
-- saves ~677 MB of storage; speeds up nightly `pg_dump` backups; simplifies the data foundation story
+- **PlayerSplitsPanel** on the player profile page — mirror of `TeamSplitsPanel` from Sprint 47 with stat-table grid + family selector
+- **PlayTypeRadial** — Synergy-style possession share + percentile bars per archetype
+- Extend `lib/types.ts` and `lib/api.ts` to mirror the new endpoint shapes
+- Frontend tests are deferred until the Sprint 82 candidate "Frontend component-logic test infrastructure" lands
 
-### Spotrac Salary Scraper
+### Tracking / Hustle / Passing dashboards
 Why it matters:
-Trade Machine (FO1, Sprint 78) currently works from an estimated salary seed CSV (~514 contracts; only 24 known-exact). Real front-office use requires live contract data. Deferred from Sprint 79 due to anti-bot friction. Sprint 80's Hetzner VM gives this a stable cron host — once the migration ships, scraper work can begin.
+Sprint 81 closed two of the four high-priority data domain gaps from `specs/official-data-source-matrix.md`. The remaining three families — `LeagueDashPtStats` tracking endpoints, `LeagueHustleStatsPlayer`, and pass/contest tracking — would unlock deeper style classification, defensive context, and matchup-aware scouting.
 
 Likely shape:
-- rate-limited scraper with respectful delays and robots.txt compliance
-- idempotent upsert into `player_contracts` table (already exists from Sprint 78 Phase 0; `salary_source` field added in Sprint 80 to distinguish actual/estimated rows)
-- nightly refresh in `daily_sync.sh` on the Hetzner VM
-- fallback to seed CSV on fetch failure so Trade Machine stays functional
+- mirror the Sprint 81 B3 pattern: new tables + sync_service functions + `/api/players/{id}/tracking` + `/api/players/{id}/hustle` endpoints
+- prefer one family per sprint; the data-shape variance across these endpoints is real
+- frontend can wait until at least two families ship
 
-### Historical Modifier Materialization — activates `mvp_case_v5` live weights
+### Spotrac scraper hardening
 Why it matters:
-`award_calibration_service.calibrate_award_case_weights()` returns `calibration_pending=True` because it needs historical Basketball Value + modifier vectors per candidate-season. The calibration harness, fitted weights path, and all tests are already in place — this is purely a data-generation step.
+Sprint 81 shipped the Spotrac scraper with seed CSV fallback, but the current implementation uses plain `requests` + UA rotation. Spotrac sits behind Cloudflare and may serve JS challenges that defeat this approach in production. The fallback keeps Trade Machine functional, but we'd like real data, not seed estimates.
 
 Likely shape:
-- run `mvp_service.py` scoring logic against the 13 seeded MVP seasons (2012-13 through 2024-25) for each ballot candidate, writing `(player_id, season, bv_score, modifier_vector)` rows
-- call `calibrate_award_case_weights(db)` — it will fit and return real weights, flipping `calibration_pending=False`
-- extend `award_voting_seed.csv` backward to 2008-09 (+4 seasons, ~20 rows) for a wider LOO-CV set
+- monitor `bip-scrape.log` for `fallback_used=true` markers in production
+- if fallbacks fire >50% of the time, add `cloudscraper` or move to a Playwright-based scraper that runs once nightly
+- consider a Spotrac premium API license if the scrape becomes truly impossible
+
+### Award calibration cohort expansion
+Why it matters:
+Sprint 81 shipped the `mvp_case_v5` calibration activation, but it requires LOO-CV Spearman ≥ 0.7 to flip `calibration_pending=False`. The seeded `award_voting` table has 57 rows across 13 seasons. If LOO-CV in production fails to clear the bar, the next move is more historical data.
+
+Likely shape:
+- extend `award_voting_seed.csv` backward to 2008-09 (+4 seasons, ~20 more rows) for a wider LOO-CV set
+- add DPOY / MIP / 6MOY ballot rows — same code path, different `award_type` filter
+- iterate on the modifier proxies in `materialize_award_modifiers.py` (especially `_clutch_proxy` and `_signature_games_proxy`) as PBP-derived clutch + signature-game data becomes available for older seasons
 
 ---
 

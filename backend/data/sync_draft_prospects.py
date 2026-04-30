@@ -1,23 +1,25 @@
-"""Sprint 78 / FO3 — Draft Prospect ingestion CLI.
+"""Sprint 78 / FO3 + Sprint 81 — Draft Prospect ingestion CLI.
 
-Loads a curated seed CSV of draft-eligible prospects (no live Sports
-Reference scraping in this sprint) and upserts them into:
+Sources:
+- ``--source sportsreference`` (default, Sprint 81): live scrape of
+  Sports Reference College Basketball per-game stats; falls back to
+  seed_csv on any failure.
+- ``--source seed_csv``: offline read of
+  ``backend/data/seed/draft_prospects_2026.csv``.
 
+Upserts into:
 - ``draft_prospects`` (one row per prospect)
 - ``draft_prospect_stats`` (one row per prospect-season-league)
-- ``draft_prospect_measurements`` (one lightweight row per prospect, derived
-  from listed height/weight + the optional ``wingspan`` column)
+- ``draft_prospect_measurements`` (one lightweight row per prospect)
 
 Usage::
 
+    python data/sync_draft_prospects.py --source sportsreference --year 2026
     python data/sync_draft_prospects.py --source seed_csv
-    python data/sync_draft_prospects.py --source seed_csv --year 2026
-    python data/sync_draft_prospects.py --source seed_csv \
-        --csv-path data/seed/draft_prospects_2026.csv
 
 The script is idempotent — re-running it updates fields in place rather than
-creating duplicates. ``daily_sync.sh`` invokes the seed-CSV path so the board
-populates after a fresh DB.
+creating duplicates. ``daily_sync.sh`` invokes the SR path; failure falls
+back transparently.
 """
 from __future__ import annotations
 
@@ -109,7 +111,14 @@ def _upsert_prospect(db: Session, row: dict, draft_year: int) -> DraftProspect:
     return prospect
 
 
-def _upsert_stat(db: Session, prospect: DraftProspect, row: dict, season: str) -> DraftProspectStat:
+def _upsert_stat(
+    db: Session,
+    prospect: DraftProspect,
+    row: dict,
+    season: str,
+    *,
+    source: str = "seed_csv",
+) -> DraftProspectStat:
     school_type = prospect.school_type or "ncaa"
     league = LEAGUE_LABEL_MAP.get(school_type, "NCAA D-I")
     pace = LEAGUE_PACE_MAP.get(school_type, DEFAULT_NCAA_PACE)
@@ -132,8 +141,10 @@ def _upsert_stat(db: Session, prospect: DraftProspect, row: dict, season: str) -
         db.add(stat)
 
     stat.team_name = prospect.school
-    stat.gp = 30  # plausible NCAA-D1 sample; seed CSV omits raw counts
-    stat.min_pg = 30.0
+    # Live Sports Reference data has real gp/min_pg; seed CSV omits them so we
+    # fall back to plausible NCAA-D1 defaults.
+    stat.gp = _to_int(row.get("gp")) or 30
+    stat.min_pg = _to_float(row.get("min_pg")) or 30.0
     stat.pts_pg = _to_float(row.get("ppg"))
     stat.reb_pg = _to_float(row.get("rpg"))
     stat.ast_pg = _to_float(row.get("apg"))
@@ -142,7 +153,7 @@ def _upsert_stat(db: Session, prospect: DraftProspect, row: dict, season: str) -
     stat.ts_pct = _to_float(row.get("ts_pct"))
     stat.usg_pct = _to_float(row.get("usg_pct"))
     stat.pace = pace
-    stat.source = "seed_csv"
+    stat.source = source
     db.flush()
     return stat
 
@@ -182,14 +193,14 @@ def sync_seed_csv(db: Session, csv_path: str, draft_year: int, season: str) -> d
     if not os.path.exists(csv_path):
         raise FileNotFoundError(f"Seed CSV not found: {csv_path}")
 
-    counts = {"prospects": 0, "stats": 0, "measurements": 0}
+    counts = {"prospects": 0, "stats": 0, "measurements": 0, "source": "seed_csv"}
     with open(csv_path, "r", encoding="utf-8") as fh:
         reader = csv.DictReader(fh)
         for raw in reader:
             row = {k: (v.strip() if isinstance(v, str) else v) for k, v in raw.items()}
             prospect = _upsert_prospect(db, row, draft_year)
             counts["prospects"] += 1
-            _upsert_stat(db, prospect, row, season)
+            _upsert_stat(db, prospect, row, season, source="seed_csv")
             counts["stats"] += 1
             if _upsert_measurement(db, prospect, row) is not None:
                 counts["measurements"] += 1
@@ -198,23 +209,86 @@ def sync_seed_csv(db: Session, csv_path: str, draft_year: int, season: str) -> d
     return counts
 
 
+def _fetch_sportsreference_rows(season_year: int, top_n: int = 100):
+    """Live SR scrape; raises ScraperError on failure."""
+    from data.scrapers.sportsreference_cbb import SportsReferenceCBBScraper
+
+    return SportsReferenceCBBScraper().fetch_top_prospects(
+        season_year=season_year, top_n=top_n
+    )
+
+
+def sync_sportsreference(
+    db: Session,
+    *,
+    draft_year: int,
+    season: str,
+    top_n: int = 100,
+    fallback_csv_path: str = DEFAULT_CSV_PATH,
+) -> dict:
+    """Live-scrape Sports Reference and upsert; falls back to seed CSV on failure."""
+    try:
+        raw_rows = _fetch_sportsreference_rows(season_year=draft_year, top_n=top_n)
+    except Exception as exc:  # noqa: BLE001 — fall back on any failure
+        logger.warning("sportsreference scrape failed (%s) — falling back to seed CSV", exc)
+        result = sync_seed_csv(db, fallback_csv_path, draft_year, season)
+        result["fallback_used"] = True
+        result["source"] = "seed_csv"
+        result["sr_error"] = str(exc)
+        return result
+
+    if not raw_rows:
+        logger.warning("sportsreference returned 0 rows — falling back to seed CSV")
+        result = sync_seed_csv(db, fallback_csv_path, draft_year, season)
+        result["fallback_used"] = True
+        result["source"] = "seed_csv"
+        return result
+
+    counts = {"prospects": 0, "stats": 0, "measurements": 0, "source": "sportsreference",
+              "fallback_used": False}
+    for row in raw_rows:
+        prospect = _upsert_prospect(db, row, draft_year)
+        counts["prospects"] += 1
+        _upsert_stat(db, prospect, row, season, source="sportsreference")
+        counts["stats"] += 1
+        if _upsert_measurement(db, prospect, row) is not None:
+            counts["measurements"] += 1
+    db.commit()
+    return counts
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--source", choices=["seed_csv"], default="seed_csv",
-                        help="Ingestion source (only seed_csv is wired this sprint).")
+    parser.add_argument(
+        "--source",
+        choices=["seed_csv", "sportsreference"],
+        default="sportsreference",
+        help="Ingestion source. Defaults to live SR scrape (falls back to seed_csv on error).",
+    )
     parser.add_argument("--csv-path", default=DEFAULT_CSV_PATH,
                         help="Path to seed CSV (relative to backend/).")
     parser.add_argument("--year", type=int, default=2026,
-                        help="Draft year (default: 2026).")
+                        help="Draft year (default: 2026). Also used as SR season-end year.")
     parser.add_argument("--season", default="2025-26",
                         help="Pre-draft season string for stat rows.")
+    parser.add_argument("--top-n", type=int, default=100,
+                        help="Cap on SR top-PPG prospects (default 100).")
     args = parser.parse_args()
 
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
 
     db = SessionLocal()
     try:
-        counts = sync_seed_csv(db, args.csv_path, args.year, args.season)
+        if args.source == "seed_csv":
+            counts = sync_seed_csv(db, args.csv_path, args.year, args.season)
+        else:
+            counts = sync_sportsreference(
+                db,
+                draft_year=args.year,
+                season=args.season,
+                top_n=args.top_n,
+                fallback_csv_path=args.csv_path,
+            )
         logger.info("draft prospect sync complete: %s", counts)
         print(f"sync_draft_prospects: {counts}")
         return 0

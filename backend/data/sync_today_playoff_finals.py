@@ -30,7 +30,7 @@ from datetime import datetime
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from db.database import SessionLocal
-from db.models import GameLog, PlayByPlay
+from db.models import GameLog, PlayByPlayEvent
 from data.nba_client import (
     get_game_box_score,
     get_play_by_play,
@@ -166,14 +166,14 @@ def main():
         # populated. Skip if --skip-pbp.
         if not args.skip_pbp:
             for game_id in new_game_ids:
-                already_have_pbp = db.query(PlayByPlay.id).filter_by(game_id=game_id).first()
+                already_have_pbp = db.query(PlayByPlayEvent.id).filter_by(game_id=game_id).first()
                 if already_have_pbp:
                     log.info("%s already has PBP — skipping fetch", game_id)
                     continue
                 try:
                     time.sleep(PBP_REQUEST_DELAY)
                     pbp_events = get_play_by_play(game_id)
-                    _store_pbp_events(db, game_id, pbp_events)
+                    _store_pbp_events(db, game_id, args.season, pbp_events)
                     db.commit()
                     log.info("%s PBP synced — %d events", game_id, len(pbp_events))
                 except Exception as exc:

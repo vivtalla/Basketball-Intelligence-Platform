@@ -39,7 +39,7 @@ from typing import Dict, List, Optional, Tuple
 
 from sqlalchemy.orm import Session
 
-from db.models import AwardVote
+from db.models import AwardCaseCandidate, AwardVote
 
 log = logging.getLogger(__name__)
 
@@ -241,8 +241,50 @@ def _enforce_drift_cap(
 # Public API — invoked at module import in mvp_service when the data lands.
 # ---------------------------------------------------------------------------
 
+def _load_calibration_dataset(
+    db: Session, award_type: str = "MVP"
+) -> Dict[str, List[Dict[str, object]]]:
+    """Join award_voting × award_case_candidates → per-season candidate lists.
+
+    Returns ``{season: [{basketball_value, modifier_vector, observed_share}, ...]}``.
+    Only candidates with both an observed vote share AND a materialized
+    modifier vector are included.
+    """
+    vote_index: Dict[Tuple[int, str], float] = {}
+    for vote in db.query(AwardVote).filter(AwardVote.award_type == award_type).all():
+        vote_index[(vote.player_id, vote.season)] = float(vote.total_award_points or 0.0)
+
+    out: Dict[str, List[Dict[str, object]]] = {}
+    for cand in (
+        db.query(AwardCaseCandidate)
+        .filter(AwardCaseCandidate.award_type == award_type)
+        .all()
+    ):
+        share = vote_index.get((cand.player_id, cand.season))
+        if share is None:
+            continue
+        out.setdefault(cand.season, []).append({
+            "basketball_value": float(cand.basketball_value),
+            "modifier_vector": [
+                float(cand.modifier_team_framing),
+                float(cand.modifier_eligibility_pressure),
+                float(cand.modifier_clutch),
+                float(cand.modifier_momentum),
+                float(cand.modifier_signature_games),
+            ],
+            "observed_share": share,
+        })
+    return out
+
+
 def calibrate_award_case_weights(db: Session) -> Dict[str, object]:
     """Run leave-one-season-out coordinate-descent fit; return a result envelope.
+
+    Sprint 81: uses the materialized ``award_case_candidates`` table when
+    populated. If the candidate set is too thin (< MIN_FOLDS_REQUIRED seasons)
+    or LOO-CV Spearman misses ``SPEARMAN_TARGET``, returns the hand-tuned
+    defaults with ``calibration_pending=True`` and surfaces the failure in
+    notes. The drift cap keeps calibrated weights within ±0.04 of the priors.
 
     Returns a dict containing:
         weights: dict[str, float] keyed by modifier name
@@ -263,32 +305,80 @@ def calibrate_award_case_weights(db: Session) -> Dict[str, object]:
             "notes": ["award_voting table is empty; using hand-tuned default weights"],
         }
 
-    # Sprint 79 ships the calibration pipeline + math but historical modifier
-    # vectors per candidate are not yet materialized. The award_voting table
-    # carries observed point shares, but the matched basketball_value + modifier
-    # vector for the same player-season requires retroactive mvp_service runs.
-    # Until that materializer lands, we return the hand-tuned defaults so the
-    # mvp_service.py call site doesn't break, and flag calibration_pending=True
-    # in the response envelope so the registry shows the gating reason.
     last_season = (
         db.query(AwardVote.season)
         .order_by(AwardVote.season.desc())
         .limit(1)
         .scalar()
     )
+
+    candidate_count = db.query(AwardCaseCandidate).count()
+    if candidate_count == 0:
+        return {
+            "weights": dict(DEFAULT_AWARD_CASE_WEIGHTS),
+            "cross_validated_spearman": 0.0,
+            "fold_count": 0,
+            "last_calibrated_season": last_season,
+            "calibration_pending": True,
+            "notes": [
+                "award_voting populated ({0} rows) but award_case_candidates is empty.".format(vote_count),
+                "Run `python data/materialize_award_modifiers.py` to populate Basketball Value + modifier vectors.",
+            ],
+        }
+
+    candidates_by_season = _load_calibration_dataset(db)
+    season_count = len(candidates_by_season)
+    if season_count < MIN_FOLDS_REQUIRED:
+        return {
+            "weights": dict(DEFAULT_AWARD_CASE_WEIGHTS),
+            "cross_validated_spearman": 0.0,
+            "fold_count": season_count,
+            "last_calibrated_season": last_season,
+            "calibration_pending": True,
+            "notes": [
+                "Only {0} season(s) of materialized candidates; LOO-CV requires >= {1}.".format(
+                    season_count, MIN_FOLDS_REQUIRED
+                ),
+                "Add more seasons to award_voting + re-run materialize_award_modifiers.py.",
+            ],
+        }
+
+    mean_weights, mean_spearman, fold_count = leave_one_season_out_cv(candidates_by_season)
+    if mean_spearman < SPEARMAN_TARGET:
+        return {
+            "weights": dict(DEFAULT_AWARD_CASE_WEIGHTS),
+            "cross_validated_spearman": float(mean_spearman),
+            "fold_count": fold_count,
+            "last_calibrated_season": last_season,
+            "calibration_pending": True,
+            "notes": [
+                "LOO-CV Spearman {0:.3f} < target {1:.2f}; calibrated weights would not improve on priors.".format(
+                    mean_spearman, SPEARMAN_TARGET
+                ),
+                "Returning hand-tuned defaults until calibration cohort is richer or proxies improve.",
+            ],
+        }
+
+    prior_weights = [DEFAULT_AWARD_CASE_WEIGHTS[k] for k in MODIFIER_KEYS]
+    capped = _enforce_drift_cap(mean_weights, prior_weights)
+
     return {
-        "weights": dict(DEFAULT_AWARD_CASE_WEIGHTS),
-        "cross_validated_spearman": 0.0,
-        "fold_count": 0,
+        "weights": {k: float(capped[i]) for i, k in enumerate(MODIFIER_KEYS)},
+        "cross_validated_spearman": float(mean_spearman),
+        "fold_count": fold_count,
         "last_calibrated_season": last_season,
-        "calibration_pending": True,
+        "calibration_pending": False,
         "notes": [
-            "award_voting table is populated ({0} rows) but historical Basketball Value + modifier vectors per candidate are not yet materialized.".format(vote_count),
-            "Calibration math + LOO-CV harness is shipped and unit-tested. Returning hand-tuned default weights until historical mvp_service runs are backfilled.",
+            "Calibrated against {0} candidate-seasons; LOO-CV Spearman = {1:.3f}.".format(
+                sum(len(v) for v in candidates_by_season.values()), mean_spearman
+            ),
+            "Drift cap (+/-0.04 per pillar) applied; weights tune the hand-tuned priors rather than replace them.",
         ],
     }
 
 
 # Module-level constant consumed by mvp_service.py at import.
 # Until calibration_pending is False, this matches DEFAULT_AWARD_CASE_WEIGHTS.
+# At runtime, mvp_service can call calibrate_award_case_weights(db) to fetch
+# live-fit weights from the materialized table.
 CALIBRATED_AWARD_CASE_WEIGHTS = dict(DEFAULT_AWARD_CASE_WEIGHTS)

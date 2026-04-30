@@ -31,7 +31,7 @@ from typing import Dict, List, Optional
 from fastapi import HTTPException
 from sqlalchemy.orm import Session
 
-from db.models import GameLog, PlayByPlay, PlayByPlayEvent, Player, Team
+from db.models import GameLog, PlayByPlayEvent, Player, Team
 from models.game import (
     GameDetailResponse,
     GameEvent,
@@ -79,15 +79,7 @@ def _build_base_game_detail(db: Session, game_id: str) -> GameDetailResponse:
         .order_by(PlayByPlayEvent.order_index.asc())
         .all()
     )
-    using_warehouse_events = True
-    if not events:
-        using_warehouse_events = False
-        events = (
-            db.query(PlayByPlay)
-            .filter_by(game_id=game_id)
-            .order_by(PlayByPlay.action_number.asc())
-            .all()
-        )
+    using_warehouse_events = bool(events)
     # When PBP hasn't been synced yet, we still want to render the base
     # game card (score, teams, date, series context) instead of 404'ing
     # the whole page. Returning an empty-PBP response lets the frontend

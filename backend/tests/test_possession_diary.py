@@ -21,7 +21,7 @@ from sqlalchemy.orm import sessionmaker
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from db.database import Base  # noqa: E402
-from db.models import GameLog, PlayByPlay, Player, Team  # noqa: E402
+from db.models import GameLog, PlayByPlayEvent, Player, Team, WarehouseGame  # noqa: E402
 from services.possession_diary_service import (  # noqa: E402
     compute_player_quarter_plus_minus,
     compute_possession_diary,
@@ -100,10 +100,15 @@ def _add_pbp_row(
     score_home: int,
     score_away: int,
 ) -> None:
+    if not session.query(WarehouseGame).filter_by(game_id=game_id).first():
+        session.add(WarehouseGame(game_id=game_id, season="2024-25"))
+        session.flush()
     session.add(
-        PlayByPlay(
+        PlayByPlayEvent(
             game_id=game_id,
+            season="2024-25",
             action_number=action_number,
+            order_index=action_number,
             period=period,
             clock=clock,
             team_id=team_id,

@@ -1,6 +1,6 @@
 # CourtVue Labs — Data Architecture
 
-**Last updated: 2026-04-30 (Sprint 80 — cloud migration complete).**
+**Last updated: 2026-04-30 (Sprint 81 — data foundation closeout).**
 
 This document is the canonical reference for the platform's data architecture: where data comes from, what gets stored, what is derived, what each product surface reads, and where the system is going.
 
@@ -147,10 +147,14 @@ award_voting_seed.csv    → award_voting          (one-time; does not re-run ni
 Derived tables rebuilt after each daily sync:
 
 ```
-season_stats + player profiles → role_expansion_observations  (opportunity_v2 KNN dataset)
-game_logs + season_stats       → player_streaks + milestone_snapshots  (CF5 leaderboard)
-season_stats + award_voting    → mvp_case_v5 calibrated weights  (award_calibration_service.py)
-season_stats                   → team_standings  (materialize_standings)
+season_stats + player profiles      → role_expansion_observations  (opportunity_v2 KNN dataset)
+game_logs + season_stats            → player_streaks + milestone_snapshots  (CF5 leaderboard)
+season_stats + award_voting         → award_case_candidates → mvp_case_v5 calibrated weights
+                                      (data/materialize_award_modifiers.py +
+                                       services/award_calibration_service.py)
+season_stats                        → team_standings  (materialize_standings)
+playerdashboardbygeneralsplits      → player_split_stats  (sync_official_player_general_splits)
+synergyplaytypes                    → play_type_stats     (sync_official_play_type_stats)
 ```
 
 ### Pipeline G — Playoff Slice (Conditional)
@@ -201,7 +205,7 @@ CDN scoreboard → sync_today_playoff_finals.py  (final-status game ingestion)
 | `season_stats` | `SeasonStat` | **Shared** | Fed by both pipelines. 50+ columns. Read target for season-level player stats. |
 | `player_game_logs` | `PlayerGameLog` | **Persisted legacy-backed** | Per-game player stats. Queued enrichment. Overlaps with `game_player_stats`. |
 | `game_logs` | `GameLog` | **Deprecated-in-place** | Game metadata. Overlaps with `warehouse_games`. Keep for PBP FK compat. |
-| `play_by_play` | `PlayByPlay` | **Deprecated-in-place** | Legacy PBP table. ~2.77M rows / 677 MB. 11+ active readers — retirement deferred to Sprint 81. |
+| ~~`play_by_play`~~ | ~~`PlayByPlay`~~ | **Retired (Sprint 81)** | Legacy PBP table dropped via migration `0018_sprint81_drop_legacy_pbp`. All 11+ readers migrated to `play_by_play_events`. ~677 MB freed. |
 | `player_on_off` | `PlayerOnOff` | Shared | Written by pbp_sync (is_playoff-aware as of Sprint 79) and warehouse. |
 | `lineup_stats` | `LineupStats` | Shared | Same. Warehouse version authoritative for modern seasons. |
 
@@ -230,12 +234,15 @@ CDN scoreboard → sync_today_playoff_finals.py  (final-status game ingestion)
 | `player_streaks` | `PlayerStreak` | Active streak tracking (CF5 nightly snapshot). |
 | `milestone_snapshots` | `MilestoneSnapshot` | Career milestone proximity snapshots (CF5 nightly). |
 
-#### Analytics / ML Tables (Sprint 78–79)
+#### Analytics / ML Tables (Sprint 78–81)
 
 | Table | Model | Notes |
 |-------|-------|-------|
-| `award_voting` | `AwardVoting` | Historical MVP ballot data (57 rows, 13 races). Feeds award calibration. |
+| `award_voting` | `AwardVote` | Historical MVP ballot data (57 rows, 13 races). Feeds award calibration. |
 | `role_expansion_observations` | `RoleExpansionObservation` | 286 player-season pairs for opportunity_v2 KNN. Nightly materialization. |
+| `award_case_candidates` | `AwardCaseCandidate` | **Sprint 81.** Materialized Basketball Value + 5-pillar modifier vectors per (player, season). Activates `mvp_case_v5` calibrated weights when LOO-CV Spearman ≥ 0.7. |
+| `player_split_stats` | `PlayerSplitStat` | **Sprint 81.** Per-player Location / W-L / Days Rest / Month / Pre-Post All-Star slices. |
+| `play_type_stats` | `PlayTypeStat` | **Sprint 81.** Per-player Synergy archetype rows (11 families). |
 
 #### Operational Tables
 
@@ -332,8 +339,11 @@ All jobs run as root. Each sources `/etc/bip/env` before executing.
 | `0015_sprint79_role_expansion` | `role_expansion_observations` table |
 | `0016_sprint79_award_voting` | `award_voting` table |
 | `0017_sprint80_raw_payload_ttl` | TTL `raw_game_payloads` rows older than 30 days (freed 184 MB) |
+| `0018_sprint81_drop_legacy_pbp` | **Sprint 81.** Drop legacy `play_by_play` table (frees ~677 MB). |
+| `0019_sprint81_award_case_candidates` | **Sprint 81.** `award_case_candidates` table for `mvp_case_v5` calibration. |
+| `0020_sprint81_player_splits_play_types` | **Sprint 81.** `player_split_stats` + `play_type_stats` tables. |
 
-**Head revision:** `0017_sprint80_raw_payload_ttl`
+**Head revision:** `0020_sprint81_player_splits_play_types`
 
 **Run migrations:**
 ```bash
@@ -351,7 +361,7 @@ cd backend && python -m alembic upgrade head
 | Warehouse box scores (`game_team_stats`, `game_player_stats`) | Done |
 | Warehouse PBP events (`play_by_play_events`) | Done |
 | Warehouse-fed season aggregates (`season_stats`) | Partial (warehouse materializes into it) |
-| `play_by_play` legacy table retirement | **Sprint 81** — 11+ active readers; requires service-by-service migration |
+| `play_by_play` legacy table retirement | **Done (Sprint 81)** — all 11+ readers migrated, table dropped, CI guard locks in retirement |
 | `game_logs` legacy table retirement | **Sprint 81** — route reads to `warehouse_games` |
 | `player_game_logs` → `game_player_stats` | Future |
 | Standings from materialized table | Done (Sprint 26) |
@@ -364,15 +374,19 @@ cd backend && python -m alembic upgrade head
 
 ---
 
-## 9. Sprint 81+ Roadmap (Infrastructure / Data)
+## 9. Sprint 82+ Roadmap (Infrastructure / Data)
 
 | Item | Notes |
 |------|-------|
-| `play_by_play` legacy table retirement | Drop after migrating 11+ service readers to `play_by_play_events` |
-| FastAPI public deploy | Render / Railway / fly.io — same `DATABASE_URL` env-var pattern, no code changes |
-| Frontend public deploy (Vercel + Cloudflare) | `NEXT_PUBLIC_API_URL` → hosted FastAPI URL |
-| Custom domain (courtvuelabs.com) | Cloudflare DNS, SSL termination |
-| Spotrac salary scraper | Replace estimated contracts with live data; `salary_source = "actual"` |
-| Hetzner logical replication read replica | Only if >200ms p95 query latency becomes problematic |
-| Postgres 17 upgrade | In-place via `pg_upgrade`, ~30 min downtime |
-| VM → CX32 upgrade | One-click in Hetzner console when DB exceeds 30 GB |
+| Frontend rendering for `player_splits` + `play_types` | Endpoints shipped in Sprint 81; UI components deferred. |
+| FastAPI public deploy | Render / Railway / fly.io — same `DATABASE_URL` env-var pattern, no code changes. |
+| Frontend public deploy (Vercel + Cloudflare) | `NEXT_PUBLIC_API_URL` → hosted FastAPI URL. |
+| Custom domain (courtvuelabs.com) | Cloudflare DNS, SSL termination. |
+| Tracking / hustle / passing dashboards | Deferred from Sprint 81 to keep scope sane. |
+| Cloudscraper / Playwright fallback for Spotrac | Only if Sprint 81's basic scraper fails repeatedly in production. |
+| `game_logs` legacy table retirement | Lower urgency than `play_by_play`; needs separate audit pass. |
+| `player_game_logs` → `game_player_stats` migration | Not blocking. |
+| DPOY / MIP / 6MOY award calibration | Same code path as MVP — extend `award_voting` seed to other award types. |
+| Hetzner logical replication read replica | Only if >200ms p95 query latency becomes problematic. |
+| Postgres 17 upgrade | In-place via `pg_upgrade`, ~30 min downtime. |
+| VM → CX32 upgrade | One-click in Hetzner console when DB exceeds 30 GB. |

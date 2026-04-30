@@ -7,7 +7,7 @@ from typing import Dict, List, Optional, Sequence, Tuple
 from fastapi import HTTPException
 from sqlalchemy.orm import Session
 
-from db.models import GamePlayerStat, PlayByPlay, PlayByPlayEvent, PlayerShotChart, ShotLabSnapshot, Team, WarehouseGame
+from db.models import GamePlayerStat, PlayByPlayEvent, PlayerShotChart, ShotLabSnapshot, Team, WarehouseGame
 from models.shotchart import (
     ShotCompletenessDomain,
     ShotCompletenessEntity,
@@ -422,8 +422,8 @@ def get_shot_completeness_report(
     legacy_game_ids = {
         row[0]
         for row in (
-            db.query(PlayByPlay.game_id)
-            .filter(PlayByPlay.game_id.in_([game.game_id for game in games]))
+            db.query(PlayByPlayEvent.game_id)
+            .filter(PlayByPlayEvent.game_id.in_([game.game_id for game in games]))
             .distinct()
             .all()
         )
