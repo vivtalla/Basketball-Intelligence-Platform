@@ -1982,3 +1982,27 @@ export async function getFreeAgentFits(
     `/api/free-agency/${playerId}/fits${suffix}`
   );
 }
+
+// ── Sprint 78 / FO3 — Draft Prospect Workspace ──────────────────────────────
+export async function getDraftBoard(
+  year = 2026,
+  options: { limit?: number; position?: string; schoolType?: string } = {}
+): Promise<import("./types").ProspectBoardResponse> {
+  const params = new URLSearchParams({
+    year: String(year),
+    limit: String(options.limit ?? 60),
+  });
+  if (options.position) params.set("position", options.position);
+  if (options.schoolType) params.set("school_type", options.schoolType);
+  return fetchApi<import("./types").ProspectBoardResponse>(
+    `/api/draft/board?${params.toString()}`
+  );
+}
+
+export async function getProspectDetail(
+  prospectId: number
+): Promise<import("./types").ProspectDetail> {
+  return fetchApi<import("./types").ProspectDetail>(
+    `/api/draft/prospects/${prospectId}`
+  );
+}

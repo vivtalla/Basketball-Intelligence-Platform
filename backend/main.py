@@ -21,6 +21,7 @@ from routers import (
     methodology,
     milestones,
     mvp,
+    draft,
     players,
     playoffs,
     pre_read,
@@ -88,6 +89,7 @@ app.include_router(career.router, prefix="/api/players", tags=["career"])
 app.include_router(milestones.router, prefix="/api/milestones", tags=["milestones"])
 app.include_router(trade.router, prefix="/api/trade", tags=["trade"])
 app.include_router(free_agency.router, prefix="/api/free-agency", tags=["free-agency"])
+app.include_router(draft.router, prefix="/api/draft", tags=["draft"])
 
 
 @app.on_event("startup")

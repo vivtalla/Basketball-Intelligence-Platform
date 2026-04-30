@@ -1,0 +1,31 @@
+external_id,full_name,age,height_inches,weight_lbs,primary_position,school,school_type,consensus_rank,ppg,rpg,apg,fg_pct,fg3_pct,ts_pct,usg_pct,wingspan
+ncaa-2026-001,Cooper Castellan,18.7,80,210,SF,Duke,ncaa,1,18.4,7.2,3.8,0.512,0.391,0.612,26.4,84.0
+ncaa-2026-002,Jaden Roussel,19.2,78,205,PG,Kentucky,ncaa,2,17.9,4.1,6.5,0.461,0.376,0.581,28.1,80.5
+ncaa-2026-003,Marcus Adigwe,19.5,82,235,PF,Auburn,ncaa,3,15.6,9.4,2.1,0.557,0.342,0.594,24.8,86.5
+ncaa-2026-004,Tyrese Wilkerson,18.9,76,190,SG,Kansas,ncaa,4,19.8,3.9,3.4,0.471,0.412,0.598,27.6,79.0
+ncaa-2026-005,Devon Arokoyu,19.8,84,250,C,Houston,ncaa,5,12.4,10.6,1.8,0.604,0.118,0.621,21.7,89.0
+intl-2026-006,Luca Ferraro,18.3,79,200,SF,Real Madrid,international,6,11.2,4.8,2.6,0.488,0.401,0.578,22.3,82.5
+ncaa-2026-007,Aiden Mbatha,19.1,81,215,PF,UConn,ncaa,7,14.3,7.8,2.2,0.531,0.358,0.589,23.5,85.0
+ncaa-2026-008,Trevor Halsted,19.6,75,185,PG,Arizona,ncaa,8,16.2,3.4,7.1,0.448,0.387,0.572,26.9,78.5
+ncaa-2026-009,Jordan Okwuosa,19.0,83,240,C,Tennessee,ncaa,9,11.8,9.2,1.4,0.612,0.000,0.624,20.4,87.5
+ncaa-2026-010,Brayden Esposito,18.8,77,195,SG,Gonzaga,ncaa,10,15.7,3.8,2.9,0.456,0.422,0.602,24.1,80.0
+gleague-2026-011,Khalil Bashir,19.4,79,205,SF,G League Ignite,g_league,11,14.1,5.2,3.7,0.452,0.351,0.554,25.8,82.0
+ncaa-2026-012,Nate Vandenberg,19.7,78,200,SG,North Carolina,ncaa,12,14.6,4.1,3.1,0.471,0.395,0.588,23.4,80.5
+ncaa-2026-013,Isaiah Adebayo,19.2,82,220,PF,Michigan State,ncaa,13,12.9,8.1,2.3,0.519,0.318,0.566,21.9,85.0
+intl-2026-014,Mateo Kowalski,19.0,84,245,C,Žalgiris Kaunas,international,14,10.8,7.9,1.6,0.598,0.250,0.612,19.8,88.0
+ncaa-2026-015,Quincy Tatehouse,19.3,76,188,PG,Baylor,ncaa,15,15.3,3.2,5.8,0.434,0.371,0.561,25.2,78.0
+ncaa-2026-016,Carson Holdsworth,19.8,80,210,SF,Florida,ncaa,16,13.8,5.6,3.1,0.479,0.382,0.581,22.7,82.5
+ncaa-2026-017,Anthony Boudreau,19.5,77,198,SG,UCLA,ncaa,17,14.2,3.7,3.3,0.461,0.378,0.575,23.1,80.0
+ncaa-2026-018,Darius Quanstrom,19.1,81,225,PF,Alabama,ncaa,18,11.6,7.4,2.0,0.508,0.301,0.555,20.8,84.0
+ncaa-2026-019,Eli Saito,18.6,78,195,SG,Texas,ncaa,19,16.8,3.6,2.7,0.455,0.408,0.591,25.4,80.0
+gleague-2026-020,Ronnie Plimpton,19.6,82,215,SF,G League Ignite,g_league,20,12.2,5.8,3.5,0.441,0.348,0.541,23.8,84.5
+ncaa-2026-021,Mason Brouwer,19.2,76,182,PG,Marquette,ncaa,21,13.9,3.1,6.2,0.428,0.362,0.548,24.6,77.5
+ncaa-2026-022,Christian Onuegbu,19.4,83,238,C,Indiana,ncaa,22,9.8,8.6,1.2,0.589,0.000,0.601,18.9,87.0
+ncaa-2026-023,Patrick Vukovic,19.7,80,208,SF,Oregon,ncaa,23,12.4,4.9,2.8,0.467,0.376,0.572,21.6,82.0
+ncaa-2026-024,Wesley Hartwell,19.3,77,192,SG,Creighton,ncaa,24,13.6,3.4,3.0,0.452,0.391,0.578,22.4,79.5
+intl-2026-025,Stefan Vidović,18.8,82,220,PF,Partizan Belgrade,international,25,10.9,6.8,1.9,0.521,0.331,0.561,20.2,85.0
+ncaa-2026-026,Ezra Goldfarb,19.5,75,180,PG,Iowa State,ncaa,26,12.8,2.9,5.4,0.418,0.358,0.539,23.9,77.0
+ncaa-2026-027,Tyrell Achimugu,19.0,81,218,PF,Arkansas,ncaa,27,11.4,7.1,1.8,0.498,0.292,0.548,20.5,84.0
+ncaa-2026-028,Bryce Lindenmuth,19.6,78,200,SG,Michigan,ncaa,28,12.9,3.5,2.8,0.448,0.379,0.567,21.8,80.0
+ncaa-2026-029,Levi Tjoelker,19.4,84,248,C,Purdue,ncaa,29,9.4,8.2,1.0,0.581,0.000,0.594,18.4,87.5
+ncaa-2026-030,Saul Berkovich,19.1,79,202,SF,Villanova,ncaa,30,11.7,4.6,2.6,0.463,0.371,0.561,20.9,81.5
