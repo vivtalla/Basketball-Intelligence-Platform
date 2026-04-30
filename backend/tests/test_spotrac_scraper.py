@@ -110,16 +110,16 @@ def test_parser_extracts_active_roster_only() -> None:
     assert not any(r["player_name"] == "Bygone Player" for r in rows)
 
 
-def test_fetch_contracts_raises_when_team_page_lacks_table() -> None:
-    """Anti-bot challenge page should bubble up as ScraperError."""
+def test_fetch_contracts_raises_when_all_teams_lack_table() -> None:
+    """Anti-bot challenge page on every team should bubble up as ScraperError."""
     scraper = SpotracScraper()
     with patch.object(scraper, "get", return_value=_FIXTURE_NO_TABLE):
         with pytest.raises(ScraperError):
             scraper.fetch_contracts(season="2025-26")
 
 
-def test_fetch_contracts_raises_on_empty_team_page() -> None:
-    """Empty roster (no <tr> rows) treated as parse failure to avoid wiping data."""
+def test_fetch_contracts_raises_when_all_teams_empty() -> None:
+    """Empty roster on every team treated as full failure → fallback."""
     empty_table = """
     <html><body><table>
         <thead><tr><th>Player</th><th>Salary</th></tr></thead>
@@ -130,6 +130,24 @@ def test_fetch_contracts_raises_on_empty_team_page() -> None:
     with patch.object(scraper, "get", return_value=empty_table):
         with pytest.raises(ScraperError):
             scraper.fetch_contracts(season="2025-26")
+
+
+def test_fetch_contracts_tolerates_a_few_team_failures() -> None:
+    """Per-team partial failure (e.g. one 404) keeps the rest of the data."""
+    call_count = {"n": 0}
+
+    def _flaky_get(path):
+        call_count["n"] += 1
+        if call_count["n"] == 5:  # one team 404s
+            raise ScraperError("HTTP 404 from " + path)
+        return _FIXTURE_TEAM_PAGE
+
+    scraper = SpotracScraper()
+    with patch.object(scraper, "get", side_effect=_flaky_get):
+        rows = scraper.fetch_contracts(season="2025-26")
+
+    # 29 successful teams × 4 rows from the fixture = 116
+    assert len(rows) == 29 * 4
 
 
 # ---------------------------------------------------------------------------

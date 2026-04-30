@@ -40,7 +40,7 @@ _TEAM_SLUGS: Dict[str, str] = {
     "GSW": "golden-state-warriors",
     "HOU": "houston-rockets",
     "IND": "indiana-pacers",
-    "LAC": "los-angeles-clippers",
+    "LAC": "la-clippers",
     "LAL": "los-angeles-lakers",
     "MEM": "memphis-grizzlies",
     "MIA": "miami-heat",
@@ -109,33 +109,52 @@ class SpotracScraper(HttpScraper):
     BASE_URL = "https://www.spotrac.com"
     DELAY_SECONDS = 2.0
 
-    def fetch_contracts(self, season: str) -> List[Dict[str, Any]]:
-        """Fetch contracts for ``season`` (e.g. ``"2025-26"``) across all teams.
+    # Below this fraction of teams scraping successfully, give up and let the
+    # ingestion service fall back to the seed CSV. 50% is the line where it's
+    # better to take the full seed snapshot than to mix scraped + estimated.
+    MIN_TEAM_SUCCESS_RATIO = 0.5
 
-        Raises ``ScraperError`` on any team page failure to keep the per-night
-        cron behavior all-or-nothing — we don't want partial DB updates that
-        leave half the league on stale rows.
+    def fetch_contracts(self, season: str) -> List[Dict[str, Any]]:
+        """Fetch contracts for ``season`` across all teams, tolerating per-team failures.
+
+        Per-team errors (404, parse failure, empty page) are logged and the
+        team is skipped. The overall scrape succeeds if at least
+        ``MIN_TEAM_SUCCESS_RATIO`` of teams returned data; otherwise we raise
+        ``ScraperError`` so the caller falls back to the seed CSV cleanly.
         """
         all_rows: List[Dict[str, Any]] = []
+        successes = 0
+        failures: List[str] = []
+
         for team_abbr, slug in _TEAM_SLUGS.items():
             try:
                 html = self.get("/nba/{0}/cap".format(slug))
                 team_rows = self._parse_team_page(html, team_abbr=team_abbr, season=season)
-            except ScraperError:
-                raise
-            except Exception as exc:  # noqa: BLE001 — convert anything to ScraperError
-                raise ScraperError(
-                    "spotrac parse failed for {0}: {1}".format(team_abbr, exc)
-                ) from exc
+            except Exception as exc:  # noqa: BLE001 — log and continue
+                failures.append("{0} ({1})".format(team_abbr, exc.__class__.__name__))
+                logger.warning("spotrac: skipping %s — %s", team_abbr, exc)
+                continue
+
             if not team_rows:
-                # An empty team page is suspicious — Spotrac always lists at
-                # least the rookie scale. Treat as a parse failure so we fall
-                # back rather than wiping rows.
-                raise ScraperError(
-                    "spotrac returned 0 contracts for {0} — anti-bot or schema change suspected".format(team_abbr)
-                )
+                failures.append("{0} (empty)".format(team_abbr))
+                logger.warning("spotrac: 0 contracts parsed for %s — skipping", team_abbr)
+                continue
+
             all_rows.extend(team_rows)
+            successes += 1
             logger.info("spotrac: fetched %d contracts for %s", len(team_rows), team_abbr)
+
+        success_ratio = successes / float(len(_TEAM_SLUGS))
+        if success_ratio < self.MIN_TEAM_SUCCESS_RATIO:
+            raise ScraperError(
+                "spotrac: only {0}/{1} teams scraped ({2:.0%}) — failures: {3}".format(
+                    successes, len(_TEAM_SLUGS), success_ratio, ", ".join(failures)
+                )
+            )
+
+        if failures:
+            logger.warning("spotrac: %d teams failed but %d succeeded — proceeding with partial data: %s",
+                          len(failures), successes, ", ".join(failures))
 
         return all_rows
 
