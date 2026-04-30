@@ -1867,3 +1867,32 @@ export type {
   PlayerQuarterImpact as GamePlayerQuarterImpact,
   SeriesOddsPoint as GameSeriesOddsPoint,
 } from "./types";
+
+// ── Sprint 78 FO4 — Multi-Year Team Arc + Aging Curves ───────────────────────
+export async function getTeamArc(
+  abbr: string,
+  years = 3,
+  season?: string,
+): Promise<import("./types").TeamArcResponse> {
+  const params = new URLSearchParams({ years: String(years) });
+  if (season) {
+    params.set("season", season);
+  }
+  return fetchApi<import("./types").TeamArcResponse>(
+    `/api/teams/${encodeURIComponent(abbr)}/arc?${params.toString()}`
+  );
+}
+
+export async function getTeamArcWithLevers(
+  abbr: string,
+  body: { years?: number; levers?: import("./types").TeamArcLevers },
+): Promise<import("./types").TeamArcResponse> {
+  return fetchApi<import("./types").TeamArcResponse>(
+    `/api/teams/${encodeURIComponent(abbr)}/arc`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ years: body.years ?? 3, levers: body.levers ?? null }),
+    },
+  );
+}

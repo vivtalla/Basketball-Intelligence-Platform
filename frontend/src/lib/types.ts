@@ -4371,3 +4371,68 @@ export interface GameDetailResponse {
   player_quarter_impact?: PlayerQuarterImpact[] | null;
   series_odds_history?: SeriesOddsPoint[] | null;
 }
+
+// ── Sprint 78 FO4 — Multi-Year Team Trajectory + Aging Curves ────────────────
+export interface TeamArcRosterSummary {
+  player_id: number;
+  player_name: string;
+  age: number;
+  position?: string | null;
+  projected_pts_pg?: number | null;
+  projected_ts_pct?: number | null;
+  projected_min_pg?: number | null;
+  projected_win_share?: number | null;
+  salary?: number | null;
+  contract_status?: string | null;
+}
+
+export interface TeamArcYear {
+  year_offset: number;
+  season_label: string;
+  projected_off_rtg?: number | null;
+  projected_def_rtg?: number | null;
+  projected_net_rtg?: number | null;
+  win_share_total?: number | null;
+  projected_wins?: number | null;
+  roster_summary: TeamArcRosterSummary[];
+}
+
+export interface TeamArcCapState {
+  season: string;
+  total_committed: number;
+  contracts_counted: number;
+  expiring_count: number;
+  has_data: boolean;
+}
+
+export interface TeamArcIncomingPick {
+  draft_year: number;
+  round: number;
+  expected_slot_low?: number | null;
+  expected_slot_high?: number | null;
+  projected_position?: string | null;
+}
+
+export interface TeamArcIncomingSigning {
+  player_id: number;
+  salary?: number | null;
+  years?: number;
+}
+
+export interface TeamArcLevers {
+  incoming_picks?: TeamArcIncomingPick[];
+  incoming_signings?: TeamArcIncomingSigning[];
+  outgoing_releases?: number[];
+}
+
+export interface TeamArcResponse {
+  team_id: number;
+  team_abbreviation: string;
+  team_name: string;
+  base_season: string;
+  years: TeamArcYear[];
+  cap_state: TeamArcCapState[];
+  levers_applied: string[];
+  methodology_version: string;
+  warnings: string[];
+}
