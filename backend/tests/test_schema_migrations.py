@@ -143,7 +143,7 @@ def test_upgrade_database_stamps_legacy_sqlite_schema_and_applies_drift_columns(
             assert "context_type" in context_columns
             assert "applies_to" in context_columns
 
-            assert alembic_revision == "0020_sprint81_player_splits_play_types"
+            assert alembic_revision == "0020_sprint81_pl_splits_pt"
             assert snapshot_date == "2025-12-01"
         finally:
             engine.dispose()

@@ -15,7 +15,7 @@ from alembic import op
 from sqlalchemy import inspect
 
 
-revision = "0019_sprint81_award_case_candidates"
+revision = "0019_sprint81_award_cands"
 down_revision = "0018_sprint81_drop_legacy_pbp"
 branch_labels = None
 depends_on = None
