@@ -51,6 +51,7 @@ Examples:
     parser.add_argument("--pbp-only", action="store_true", help="Sync only play-by-play + derived metrics")
     parser.add_argument("--shot-charts", action="store_true", help="Bulk-populate shot chart coords from stats.nba.com")
     parser.add_argument("--season-type", default="Regular Season", choices=["Regular Season", "Playoffs"], help="Season type for shot charts (default: Regular Season)")
+    parser.add_argument("--playoff", action="store_true", help="Run game-logs and pbp paths against playoff games (Sprint 79 Stream B)")
     parser.add_argument("--status", action="store_true", help="Show sync status and exit")
     parser.add_argument("--force", action="store_true", help="Re-fetch data even if already synced")
     args = parser.parse_args()
@@ -122,14 +123,33 @@ Examples:
         print(f"  Done: {result.get('players_synced', 0)} players, {result.get('teams_synced', 0)} teams\n")
 
     if do_game_logs:
-        print("[2/3] Syncing player game logs...")
-        result = sync_all_game_logs(season, progress_callback=_print_progress)
+        if args.playoff:
+            print("[2/3] Syncing player game logs (Playoffs)...")
+            result = sync_all_game_logs(
+                season,
+                progress_callback=_print_progress,
+                season_type="Playoffs",
+            )
+        else:
+            print("[2/3] Syncing player game logs...")
+            result = sync_all_game_logs(season, progress_callback=_print_progress)
         print(f"  Done: {result.get('game_logs_synced', 0)} game logs\n")
 
     if do_pbp:
-        print("[3/3] Syncing play-by-play data + derived metrics...")
-        result = sync_all_pbp(season, force=args.force, progress_callback=_print_progress)
-        print(f"  Done: {result.get('games_processed', 0)} games, {result.get('players_updated', 0)} players updated\n")
+        if args.playoff:
+            print("[3/3] Syncing playoff PBP events + deriving on/off + lineups...")
+            from db.database import SessionLocal
+            from services.pbp_sync_service import sync_pbp_for_playoffs_from_db
+            db = SessionLocal()
+            try:
+                result = sync_pbp_for_playoffs_from_db(db, season, force_refresh=args.force)
+            finally:
+                db.close()
+            print(f"  Done: {result.get('games_processed', 0)} games, {result.get('players_updated', 0)} players updated\n")
+        else:
+            print("[3/3] Syncing play-by-play data + derived metrics...")
+            result = sync_all_pbp(season, force=args.force, progress_callback=_print_progress)
+            print(f"  Done: {result.get('games_processed', 0)} games, {result.get('players_updated', 0)} players updated\n")
 
     elapsed = time.time() - start
     mins = int(elapsed // 60)

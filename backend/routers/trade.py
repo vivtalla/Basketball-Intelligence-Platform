@@ -79,6 +79,7 @@ def get_team_contracts(
             is_player_option=bool(contract.is_player_option),
             is_team_option=bool(contract.is_team_option),
             contract_type=contract.contract_type,
+            salary_source=contract.source or "estimated",
         )
         for contract, player in rows
     ]

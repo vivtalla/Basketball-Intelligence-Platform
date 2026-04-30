@@ -15,6 +15,63 @@ Guidelines:
 
 ---
 
+## Sprint 81 Candidates
+
+### Public Hosting — FastAPI deploy + Vercel frontend + Cloudflare CDN
+Why it matters:
+Sprint 80 lands the data layer in the cloud (Hetzner CX22 Postgres + cron) but the FastAPI backend and Next.js frontend still only run locally on Vivek's laptop. Once the laptop is closed, the platform is unreachable. To make CourtVue Labs a real product that anyone can use — portfolio piece, shareable link, eventually paid tier — the web stack also needs to live online.
+
+The Sprint 80 architecture intentionally provisions a CX22 with headroom to host the FastAPI backend on the same VM as Postgres (4 GB RAM is plenty for both at single-user-to-low-thousands-of-users scale). Vercel's free tier hosts Next.js natively. Cloudflare's free tier handles DNS + CDN + DDoS protection. Total marginal cost for the full public stack: ~$1/month (just a domain).
+
+Likely shape:
+- **FastAPI on Hetzner**: Caddy reverse proxy (auto-HTTPS via Let's Encrypt), systemd unit for uvicorn (2 workers), tighter CORS allowlist, basic rate limiting (slowapi or Caddy-side), `gunicorn -k uvicorn.workers.UvicornWorker` for production-grade worker management
+- **Frontend on Vercel**: GitHub-integrated auto-deploy on push to master; `NEXT_PUBLIC_API_URL` pointed at the Hetzner backend; image-optimization on (Vercel handles this for free)
+- **Cloudflare in front**: proxy DNS, default cache rules tuned for our API response patterns (most NBA data is cacheable for 1-6 hours), WAF rules against common abuse patterns
+- **Domain**: register `courtvue.app` or similar (~$12/year via Cloudflare Registrar at cost), add DNS records pointing api.→Hetzner and apex/www→Vercel
+- **Observability**: structured request logging on the FastAPI side (currently print-style), uptime monitoring (UptimeRobot free tier or Cloudflare Workers Cron pinging /health)
+- **Auth question**: decide whether the platform is fully public (read-only, no login) or gated (login required for some features). Today there's no auth model at all — the codebase assumes a single trusted user. Public hosting forces the question.
+
+Capacity headroom for this on the same CX22:
+- Postgres: ~1 GB RAM (shared_buffers + working set)
+- FastAPI (2 uvicorn workers): ~400-600 MB RAM
+- Caddy + OS + cron: ~200 MB
+- Total: ~2 GB used; 4 GB available — comfortable
+- Network: Hetzner gives 20 TB egress/month, more than any hobby project will use
+- Concurrent traffic: ~100-400 req/s sustained per worker; Cloudflare CDN absorbs 80%+ via cache. Ample for thousands of MAU.
+
+Trigger to upgrade Hetzner tier (CX22 → CX32 at €7.44/mo): DB exceeds ~20 GB OR concurrent uncached traffic exceeds ~50 req/s sustained. Both are likely 12+ months out.
+
+### Legacy `play_by_play` Table Retirement
+Why it matters:
+The legacy `play_by_play` table (677 MB / 2.77 M rows) is still actively read by 11+ services (`possession_diary_service`, `pbp_service`, `warehouse_service`, `game_detail_assembler`, `shot_lab_service`, `pbp_sync_service`, `game_trajectory_service`, `team_intelligence_service`, `routers/advanced.py`, `sync_today_playoff_finals`, `sync_playoff_pbp`). Sprint 77's PBP rewrite introduced `play_by_play_events` as the cleaner schema but the legacy table was never retired. It accounts for ~30% of total DB storage and complicates every migration / backup operation.
+
+Likely shape:
+- audit which services genuinely still need legacy `play_by_play` vs which can read `play_by_play_events` instead
+- migrate readers one-by-one to `play_by_play_events`, behind a feature-flag column comparison
+- once all readers are migrated, drop the legacy table in an Alembic migration with full row-count assertion before drop
+- saves ~677 MB of storage; speeds up nightly `pg_dump` backups; simplifies the data foundation story
+
+### Spotrac Salary Scraper
+Why it matters:
+Trade Machine (FO1, Sprint 78) currently works from an estimated salary seed CSV (~514 contracts; only 24 known-exact). Real front-office use requires live contract data. Deferred from Sprint 79 due to anti-bot friction. Sprint 80's Hetzner VM gives this a stable cron host — once the migration ships, scraper work can begin.
+
+Likely shape:
+- rate-limited scraper with respectful delays and robots.txt compliance
+- idempotent upsert into `player_contracts` table (already exists from Sprint 78 Phase 0; `salary_source` field added in Sprint 80 to distinguish actual/estimated rows)
+- nightly refresh in `daily_sync.sh` on the Hetzner VM
+- fallback to seed CSV on fetch failure so Trade Machine stays functional
+
+### Historical Modifier Materialization — activates `mvp_case_v5` live weights
+Why it matters:
+`award_calibration_service.calibrate_award_case_weights()` returns `calibration_pending=True` because it needs historical Basketball Value + modifier vectors per candidate-season. The calibration harness, fitted weights path, and all tests are already in place — this is purely a data-generation step.
+
+Likely shape:
+- run `mvp_service.py` scoring logic against the 13 seeded MVP seasons (2012-13 through 2024-25) for each ballot candidate, writing `(player_id, season, bv_score, modifier_vector)` rows
+- call `calibrate_award_case_weights(db)` — it will fit and return real weights, flipping `calibration_pending=False`
+- extend `award_voting_seed.csv` backward to 2008-09 (+4 seasons, ~20 rows) for a wider LOO-CV set
+
+---
+
 ## Now — Shot/Data Platform
 
 ### Canonical Event Completeness and Backfill
@@ -203,18 +260,15 @@ Likely shape:
 - broaden official play-type/tracking/hustle refresh coverage and improve coverage health explanations per candidate
 - add lineup-with/without teammate context and dated on/off history so Team Impact explains why a candidate's team changes when he sits or plays
 
-### MVP Award Case Voter Calibration (`mvp_case_v5`) — blocked on data
+### MVP Award Case Voter Calibration — activate fitted weights (`mvp_case_v5` follow-on)
 Why it matters:
-The Award Case composite uses hand-tuned modifier weights (`team_framing 0.08`, `eligibility_pressure 0.08`, `clutch 0.06`, `momentum 0.05`, `signature_games 0.05`) added on top of Basketball Value. They're defensible expert priors but not calibrated against actual voting outcomes. The registry's `mvp_case_v4` policy explicitly notes this gap. Sprint 76 design memo: `specs/methodology-future-modeling.md#1-mvp-award-case-voter-calibration-mvp_case_v5`.
+Sprint 79 shipped `award_calibration_service.py` with the full coordinate-descent + LOO-CV harness, seeded `award_voting` with 57 ballot rows (13 seasons), and wired `CALIBRATED_AWARD_CASE_WEIGHTS` into `mvp_service.py`. However the calibration returns `calibration_pending=True` because the fitting step needs historical Basketball Value + modifier vectors materialized per candidate-season. The math, constraints, registry bump (`mvp_case_v4 → v5`), and tests all shipped; only the data-materializartion step remains.
 
-Blocker: needs an `award_voting` table (player_id, season, ballot_position, voter_count, total_award_points) covering at least the last 15 MVP seasons. Source: scrape Basketball-Reference's `awards_share` table or load a one-time CSV under `backend/data/`.
-
-Likely shape (full design in the memo):
-- materialize `award_voting` from the published Basketball-Reference data; commit as a CSV-backed loader, no scheduled job needed
-- fit modifier weights with constrained coordinate-descent against historical point shares; report leave-one-season-out Spearman
-- replace the hand-tuned weights at `mvp_service.py` line ~1920 with the calibrated weights at module import — no schema change
-- add `MvpCalibration` sidecar model + `MvpRaceResponse.calibration` optional field documenting fold count and held-out Spearman
-- bump registry `mvp_case_v4 → v5`; new `mvp_award_case_voter_calibration` validation fixture asserts Spearman ≥ 0.7 on held-out seasons
+Likely shape:
+- retroactively run `mvp_service.py` scoring logic against past seasons (2012-13 through 2024-25) to produce one `(player_id, season, bv_score, modifier_vector[5])` row per ballot candidate
+- call `calibrate_award_case_weights(db)` — it will find the `award_voting` rows + new vectors and return real fitted weights instead of `calibration_pending=True`
+- extend `award_voting_seed.csv` to cover 2008-09 through 2011-12 (+4 seasons, ~20 more rows) to push LOO-CV fold count from 13 to 17 and strengthen Spearman stability
+- add DPOY / MIP / 6MOY seeds and extend the calibration harness to those award types (same code path, different `award_type` filter)
 
 ### Gravity Calibration and Official Coverage
 Why it matters:
@@ -267,19 +321,15 @@ Likely shape:
 - keep tuning directional hints and confidence labels against real roster cases
 - lift `_position_bucket` out of `opportunity_service.py` into a shared helper and switch `trajectory_service` plus any future callers, so bucket rules cannot drift between surfaces
 
-### Opportunity Uplift Modeling (`opportunity_v2`) — blocked on data materialization
+### Opportunity Uplift — held-out backtest + UI surface (`opportunity_v2` follow-on)
 Why it matters:
-The current Opportunity composite blends five capped z-scores into a directional 0-100 score. The registry policy notes the planned upgrade: an interpretable uplift model that estimates whether per-possession efficiency historically survives a usage bump for comparable players. Sprint 76 design memo: `specs/methodology-future-modeling.md#2-opportunity-uplift-modeling-opportunity_v2`.
+Sprint 79 shipped `opportunity_v2`: 286 role-expansion observations materialized, KNN service wired, `OpportunityRow.uplift` sibling field live. The acceptance criteria included a held-out 2024-25 backtest (train on ≤2023-24 neighbors, predict 2024-25 ts_delta, target MAE ≤ 0.025) that was deferred because the observation set at 286 rows makes for a thin held-out cohort. Also, the frontend doesn't yet render the `uplift` field.
 
-Blocker: needs a `role_expansion_observations` table materialized from existing `season_stats` rows (every player-season pair where usg_pct grows by ≥ 3 percentage points year-over-year, joined with pre/post TS%, age, archetype). The data exists in latent form — the blocker is the materialization script, not a new ingestion path.
-
-Likely shape (full design in the memo):
-- write a one-time materialization that scans `season_stats` for qualifying (player_id, from_season, to_season) pairs and writes pre/post TS% + covariates to `role_expansion_observations`
-- estimate per-target uplift via shrunk-Mahalanobis KNN (similarity_v3 primitive) over (usg_delta, pre_ts_pct, pre_ast_rate, pre_obpm, pre_age) within the subject's archetype bucket
-- report `mean_uplift`, 25/75 percentile bands, neighbor count, and an evidence_confidence label; fall back to None below 5 comparables
-- attach as a sibling `OpportunityRow.uplift: Optional[OpportunityUplift]` field — no breaking schema change
-- bump registry `opportunity_v1 → v2`; new `opportunity_role_expansion_uplift` validation fixture covers clear-fit and thin-comp cases
-- KNN uplift is descriptive ("comparable historical players who took on more usage tended to lose 1.5 TS%") not causal — the UI copy must say "historically comparable cases", not "expected outcome"
+Likely shape:
+- run the held-out backtest once 2025-26 mid-season data is available to add a full new training season and a cleaner hold-out set
+- surface `uplift.mean_uplift` and the IQR band as a compact evidence card inside `<OpportunityRow>` (the backend already returns it)
+- show `evidence_confidence` as a color-coded pill (high=green, medium=amber, low=gray) with neighbor count tooltip
+- show top-3 named comparables (`uplift.top_comparables`) as expandable chips with from_season and ts_delta
 
 ### Pre-Read Deck Follow-Ons
 Why it matters:
@@ -343,8 +393,8 @@ Likely shape:
 - **Full visual bracket tree on mobile** — Sprint 75 made the Command Center mobile-first, but the old pure bracket-tree view still needs a dedicated compact mobile visualization if it returns as a secondary view.
 - **`nba_client.py` lowercase-generic typing cleanup** — file uses `from __future__ import annotations` so `list[dict]` runtime subscripts are safe (stringified), but worth normalizing to `typing.Dict[]`/`List[]` in a sweep for consistency with the rest of the backend.
 - **Print stylesheet for `/insights/trajectory` and `/insights/x-ray`** — Sprint 72 added Pre-Read print rules; carry the pattern across so coaches can print other surfaces too.
-- **Playoff PBP-derived tables** — `player_on_off`, `lineup_stats` with `is_playoff=True`, and `player_clutch_stats` with `season_type=Playoffs` are not yet refreshed in the daily playoff cron. The `bulk_sync_service` PBP path is hardcoded to "Regular Season"; needs a parallel playoff-aware ingest. These power the OpponentLineupMatchupMatrix and the clutch modifier of the MVP composite.
-- **`bulk_sync_service` season-type pass-through** — the service hardcodes `season_type="Regular Season"` in two places (~lines 372, 424) when persisting PlayerGameLog from box scores. Sprint 73 hotfix worked around this with a separate `scripts/sync_playoff_full.py` ingest path; folding the playoff path into bulk_sync would unify the two pipelines.
+- **Playoff PBP-derived tables** — ~~`player_on_off`, `lineup_stats` with `is_playoff=True` not yet refreshed~~ **Shipped Sprint 79** (Stream B): `is_playoff` cascade, `_upsert_lineup` bug fix, `sync_pbp_for_playoffs_from_db()`, migration 0014 indexes, daily_sync.sh wiring.
+- **`bulk_sync_service` season-type pass-through** — ~~hardcoded "Regular Season"~~ **Shipped Sprint 79**: `season_type` parameter added at lines 372, 424; `sync_type` disambiguated for unique-constraint safety.
 
 ### Frontend component-logic test infrastructure
 Why it matters:
@@ -428,17 +478,6 @@ Likely shape:
 - evaluate storing shot-level `game_id`, game date, period/clock, and richer context fields when upstream data supports it
 - decide whether those enrichments should live in the existing JSON payload or a more structured summary table
 - keep the first follow-on targeted to real product use cases instead of collecting fields speculatively
-
-### Sync Hosting — move daily / post-game cron off the laptop
-Why it matters:
-The Sprint 77 broadsheet relies on a 6am-UTC daily sync and a 30-min post-game refresh (`backend/data/daily_sync.sh`, plus the `sync_today_playoff_finals.py` ingest path) to keep the bracket and game-detail surfaces honest. Today both run on Vivek's laptop via `crontab`, which means scheduled ticks are silently skipped whenever the Mac is off or asleep — most painfully the 6am UTC daily run when the laptop is closed overnight. The post-game ticks recover on next wake (the script is idempotent), but the daily pipeline is a real gap.
-
-Likely shape:
-- stand up a small always-on host (Raspberry Pi, $5/mo VPS, or existing infra) with DB connectivity
-- migrate the two cron entries (`daily_sync.sh` and `daily_sync.sh --post-game`) to that host
-- keep MAILTO behavior + log path conventions the same so existing dashboards / log greps keep working
-- when the migration ships, remove the laptop cron entries to avoid double-runs
-- as a cheap interim if the server move is delayed, an `~/Library/LaunchAgents/` plist with `StartCalendarInterval` would give catch-up semantics on wake (launchd recovers missed runs; cron does not)
 
 ---
 

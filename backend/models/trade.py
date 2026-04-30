@@ -112,6 +112,7 @@ class TeamContractEntry(BaseModel):
     is_player_option: bool = False
     is_team_option: bool = False
     contract_type: Optional[str] = None
+    salary_source: str = "estimated"  # "actual" | "seed_csv" | "estimated"
 
 
 class TeamContractsResponse(BaseModel):

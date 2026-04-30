@@ -323,28 +323,42 @@ def sync_all_players(
 def sync_all_game_logs(
     season: str,
     progress_callback: Callable[[str], None] | None = None,
+    season_type: str = "Regular Season",
 ) -> dict:
     """Sync per-game player stats for all games in a season from CDN box scores.
 
     Iterates all games and inserts PlayerGameLog rows from CDN data.
     No stats.nba.com calls needed.
+
+    Sprint 79 Stream B: ``season_type`` defaults to "Regular Season" so existing
+    callers are unchanged. Pass ``season_type="Playoffs"`` to ingest playoff
+    box scores tagged correctly downstream (PlayerGameLog.season_type, idempotency
+    key, sync_status row).
     """
+    if season_type not in ("Regular Season", "Playoffs"):
+        raise ValueError(f"Unsupported season_type: {season_type}")
+
     db = SessionLocal()
     try:
         if progress_callback:
-            progress_callback("Fetching season schedule from CDN...")
-        game_ids = _retry(get_season_game_ids, season)
+            progress_callback(f"Fetching {season_type} schedule from CDN...")
+        if season_type == "Playoffs":
+            from data.nba_client import get_playoff_game_ids
+            game_ids = _retry(get_playoff_game_ids, season)
+        else:
+            game_ids = _retry(get_season_game_ids, season)
 
         if not game_ids:
             if progress_callback:
                 progress_callback(f"No games found for season {season}")
             return {"status": "skipped", "reason": "no games found"}
 
-        status = _mark_running(db, "game_logs", season, total=len(game_ids))
+        sync_type = "game_logs_playoffs" if season_type == "Playoffs" else "game_logs"
+        status = _mark_running(db, sync_type, season, total=len(game_ids))
         db.commit()
 
         if progress_callback:
-            progress_callback(f"Syncing game logs for {len(game_ids)} games...")
+            progress_callback(f"Syncing {season_type} game logs for {len(game_ids)} games...")
 
         games_done = 0
         total_logs = 0
@@ -369,7 +383,7 @@ def sync_all_game_logs(
                     existing = db.query(PlayerGameLog).filter_by(
                         player_id=pid,
                         game_id=game_id,
-                        season_type="Regular Season",
+                        season_type=season_type,
                     ).first()
                     if existing:
                         continue
@@ -421,7 +435,7 @@ def sync_all_game_logs(
                         player_id=pid,
                         game_id=game_id,
                         season=season,
-                        season_type="Regular Season",
+                        season_type=season_type,
                         game_date=game_date,
                         matchup=matchup,
                         wl="W" if won else "L",

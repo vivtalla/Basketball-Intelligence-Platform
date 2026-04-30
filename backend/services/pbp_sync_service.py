@@ -254,44 +254,47 @@ def _accumulate_pbp_stats(all_pbp: dict[int, dict], game_pbp: dict[int, dict], a
         acc["fast_break_pts"] = acc.get("fast_break_pts", 0) + stats.get("fast_break_pts", 0)
 
 
-def _clear_player_outputs(db: Session, player_ids: set[int], season: str) -> None:
+def _clear_player_outputs(db: Session, player_ids: set[int], season: str, is_playoff: bool = False) -> None:
     db.query(PlayerOnOff).filter(
         PlayerOnOff.player_id.in_(player_ids),
         PlayerOnOff.season == season,
-        PlayerOnOff.is_playoff == False,
+        PlayerOnOff.is_playoff == is_playoff,
     ).delete(synchronize_session=False)
 
     rows = db.query(SeasonStat).filter(
         SeasonStat.player_id.in_(player_ids),
         SeasonStat.season == season,
-        SeasonStat.is_playoff == False,
+        SeasonStat.is_playoff == is_playoff,
     ).all()
     for row in rows:
         for field in PBP_SEASON_FIELDS:
             setattr(row, field, None)
 
 
-def _clear_season_outputs(db: Session, season: str) -> None:
+def _clear_season_outputs(db: Session, season: str, is_playoff: bool = False) -> None:
     db.query(PlayerOnOff).filter(
         PlayerOnOff.season == season,
-        PlayerOnOff.is_playoff == False,
+        PlayerOnOff.is_playoff == is_playoff,
     ).delete(synchronize_session=False)
-    db.query(LineupStats).filter(LineupStats.season == season).delete(synchronize_session=False)
+    db.query(LineupStats).filter(
+        LineupStats.season == season,
+        LineupStats.is_playoff == is_playoff,
+    ).delete(synchronize_session=False)
 
     rows = db.query(SeasonStat).filter(
         SeasonStat.season == season,
-        SeasonStat.is_playoff == False,
+        SeasonStat.is_playoff == is_playoff,
     ).all()
     for row in rows:
         for field in PBP_SEASON_FIELDS:
             setattr(row, field, None)
 
 
-def _update_season_stats(db: Session, season: str, player_id: int, stats: dict) -> bool:
+def _update_season_stats(db: Session, season: str, player_id: int, stats: dict, is_playoff: bool = False) -> bool:
     rows = db.query(SeasonStat).filter_by(
         player_id=player_id,
         season=season,
-        is_playoff=False,
+        is_playoff=is_playoff,
     ).all()
     for row in rows:
         for column, value in stats.items():
@@ -300,14 +303,14 @@ def _update_season_stats(db: Session, season: str, player_id: int, stats: dict) 
     return bool(rows)
 
 
-def _upsert_on_off(db: Session, player_id: int, season: str, data: dict) -> None:
+def _upsert_on_off(db: Session, player_id: int, season: str, data: dict, is_playoff: bool = False) -> None:
     row = db.query(PlayerOnOff).filter_by(
         player_id=player_id,
         season=season,
-        is_playoff=False,
+        is_playoff=is_playoff,
     ).first()
     if not row:
-        row = PlayerOnOff(player_id=player_id, season=season, is_playoff=False)
+        row = PlayerOnOff(player_id=player_id, season=season, is_playoff=is_playoff)
         db.add(row)
 
     row.on_minutes = data.get("on_minutes")
@@ -321,10 +324,16 @@ def _upsert_on_off(db: Session, player_id: int, season: str, data: dict) -> None
     row.off_drtg = data.get("off_drtg")
 
 
-def _upsert_lineup(db: Session, lineup_key: str, season: str, team_id: int | None, acc) -> None:
-    row = db.query(LineupStats).filter_by(lineup_key=lineup_key, season=season).first()
+def _upsert_lineup(db: Session, lineup_key: str, season: str, team_id: int | None, acc, is_playoff: bool = False) -> None:
+    # Sprint 79 Stream B fix: filter_by must include is_playoff or playoff derivations
+    # silently overwrite regular-season lineup rows for any shared lineup_key.
+    row = db.query(LineupStats).filter_by(
+        lineup_key=lineup_key,
+        season=season,
+        is_playoff=is_playoff,
+    ).first()
     if not row:
-        row = LineupStats(lineup_key=lineup_key, season=season, team_id=team_id)
+        row = LineupStats(lineup_key=lineup_key, season=season, team_id=team_id, is_playoff=is_playoff)
         db.add(row)
 
     possessions = acc.possessions
@@ -358,6 +367,7 @@ def _sync_games(
     target_player_ids: set[int] | None = None,
     force_refresh: bool = False,
     include_lineups: bool = False,
+    is_playoff: bool = False,
 ) -> dict:
     db = SessionLocal()
 
@@ -495,9 +505,9 @@ def _sync_games(
                 continue
 
         if target_player_ids is None:
-            _clear_season_outputs(db, season)
+            _clear_season_outputs(db, season, is_playoff=is_playoff)
         else:
-            _clear_player_outputs(db, target_player_ids, season)
+            _clear_player_outputs(db, target_player_ids, season, is_playoff=is_playoff)
 
         for player_id, stats in clutch_season.items():
             fga = stats.get("clutch_fga", 0)
@@ -511,12 +521,13 @@ def _sync_games(
                     "clutch_fga": fga if fga > 0 else None,
                     "clutch_fg_pct": round(fgm / fga, 3) if fga > 0 else None,
                 },
+                is_playoff=is_playoff,
             )
             if updated:
                 players_updated.add(player_id)
 
         for player_id, stats in pbp_season.items():
-            updated = _update_season_stats(db, season, player_id, stats)
+            updated = _update_season_stats(db, season, player_id, stats, is_playoff=is_playoff)
             if updated:
                 players_updated.add(player_id)
 
@@ -555,6 +566,7 @@ def _sync_games(
                     "off_ortg": _ortg(acc["off_team_pts"], off_poss),
                     "off_drtg": _drtg(acc["off_opp_pts"], off_poss),
                 },
+                is_playoff=is_playoff,
             )
             players_updated.add(player_id)
 
@@ -565,7 +577,7 @@ def _sync_games(
                     (team_id for team_id, roster in season_team_players.items() if first_player in roster),
                     None,
                 )
-                _upsert_lineup(db, lineup_key, season, team_id, acc)
+                _upsert_lineup(db, lineup_key, season, team_id, acc, is_playoff=is_playoff)
 
         db.commit()
         return {
@@ -627,4 +639,28 @@ def sync_pbp_for_season(season: str, force_refresh: bool = False) -> dict:
         target_player_ids=None,
         force_refresh=force_refresh,
         include_lineups=True,
+    )
+
+
+def sync_pbp_for_playoffs_from_db(db_session: Session, season: str, force_refresh: bool = False) -> dict:
+    """Derive on/off + lineups + clutch for playoff games already stored in GameLog.
+
+    Sprint 79 Stream B: uses DB-stored playoff game IDs (not the live API) so derivations
+    only run against fully-stored games. Writes rows with is_playoff=True; regular-season
+    rows are not touched.
+    """
+    game_ids = [
+        row.game_id
+        for row in db_session.query(GameLog.game_id)
+        .filter(GameLog.season == season, GameLog.season_type == "Playoffs")
+        .order_by(GameLog.game_date.asc())
+        .all()
+    ]
+    return _sync_games(
+        season,
+        game_ids,
+        target_player_ids=None,
+        force_refresh=force_refresh,
+        include_lineups=True,
+        is_playoff=True,
     )

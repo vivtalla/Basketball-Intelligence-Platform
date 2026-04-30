@@ -32,6 +32,26 @@ def test_upgrade_database_creates_fresh_schema_from_migrations():
             assert "team_standings" in tables
             assert "shot_lab_snapshots" in tables
             assert "alembic_version" in tables
+
+            # Sprint 79 Stream B: playoff PBP derivation indexes
+            lineup_indexes = {idx["name"] for idx in inspector.get_indexes("lineup_stats")}
+            assert "ix_lineup_stats_playoff_team" in lineup_indexes
+            on_off_indexes = {idx["name"] for idx in inspector.get_indexes("player_on_off")}
+            assert "ix_player_on_off_playoff" in on_off_indexes
+
+            # Sprint 79 Stream A2: role_expansion_observations table
+            assert "role_expansion_observations" in tables
+            role_exp_columns = {column["name"] for column in inspector.get_columns("role_expansion_observations")}
+            assert "usg_delta" in role_exp_columns
+            assert "ts_delta" in role_exp_columns
+            assert "pre_role_archetype" in role_exp_columns
+
+            # Sprint 79 Stream A1: award_voting table
+            assert "award_voting" in tables
+            award_columns = {column["name"] for column in inspector.get_columns("award_voting")}
+            assert "ballot_position" in award_columns
+            assert "voter_count" in award_columns
+            assert "total_award_points" in award_columns
         finally:
             engine.dispose()
 
@@ -123,7 +143,7 @@ def test_upgrade_database_stamps_legacy_sqlite_schema_and_applies_drift_columns(
             assert "context_type" in context_columns
             assert "applies_to" in context_columns
 
-            assert alembic_revision == "0013_sprint78_phase0_schemas"
+            assert alembic_revision == "0017_sprint80_raw_payload_ttl"
             assert snapshot_date == "2025-12-01"
         finally:
             engine.dispose()

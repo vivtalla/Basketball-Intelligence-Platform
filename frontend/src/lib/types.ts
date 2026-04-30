@@ -4702,6 +4702,7 @@ export interface TeamContractEntry {
   is_player_option: boolean;
   is_team_option: boolean;
   contract_type?: string | null;
+  salary_source: "actual" | "seed_csv" | "estimated";
 }
 
 export interface TeamContractsResponse {

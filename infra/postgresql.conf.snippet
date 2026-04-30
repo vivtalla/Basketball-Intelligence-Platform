@@ -1,0 +1,53 @@
+# CourtVue Labs — Postgres tuning for Hetzner CX22 (2 vCPU / 4 GB RAM / 40 GB NVMe).
+#
+# Usage:
+#   sudo nano /etc/postgresql/16/main/postgresql.conf
+#   # paste the values below at the bottom (they override the defaults above)
+#   sudo systemctl restart postgresql
+#
+# Tuning rationale:
+# - shared_buffers = 25% of RAM is the standard recommendation for dedicated DB hosts.
+# - effective_cache_size = 50-75% of RAM, tells the planner how much OS cache it can rely on.
+# - work_mem applies per-sort/per-hash, so keep modest with potentially many concurrent
+#   connections — 16 MB is comfortable for our query shapes (small joins, group bys).
+# - maintenance_work_mem benefits VACUUM, CREATE INDEX, ALTER TABLE; bumping it
+#   speeds up nightly maintenance on the larger PBP/lineup tables.
+# - max_connections = 30 is enough for one FastAPI app + cron jobs; smaller values
+#   leave more RAM per connection.
+# - random_page_cost = 1.1 reflects NVMe SSD (default 4.0 assumes spinning disk).
+
+# ── Connections ───────────────────────────────────────────────────────────────
+listen_addresses = '*'
+max_connections = 30
+password_encryption = scram-sha-256
+
+# ── Memory ────────────────────────────────────────────────────────────────────
+shared_buffers = 1GB
+effective_cache_size = 3GB
+work_mem = 16MB
+maintenance_work_mem = 256MB
+
+# ── Storage / IO ──────────────────────────────────────────────────────────────
+random_page_cost = 1.1
+effective_io_concurrency = 200
+wal_compression = on
+checkpoint_completion_target = 0.9
+
+# ── WAL / Durability ──────────────────────────────────────────────────────────
+# Keep fsync on (default). synchronous_commit can be relaxed to 'off' for higher
+# throughput at the cost of losing the last few committed transactions on crash —
+# acceptable for our use case but stay conservative until cutover is stable.
+synchronous_commit = on
+wal_buffers = 16MB
+
+# ── Logging (helpful for the first weeks of operation) ────────────────────────
+log_min_duration_statement = 1000   # log queries >1s — catch regressions
+log_checkpoints = on
+log_connections = off
+log_disconnections = off
+log_line_prefix = '%t [%p]: db=%d,user=%u '
+
+# ── Autovacuum ────────────────────────────────────────────────────────────────
+# Defaults are reasonable for our write volume (~37k rows/day); tighten if
+# bloat creeps up on play_by_play_events / lineup_stats.
+autovacuum = on

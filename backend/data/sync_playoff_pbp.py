@@ -1,18 +1,23 @@
 #!/usr/bin/env python3
 """Targeted PBP sync for playoff games.
 
-The general-purpose `pbp_import.py` runs the full `_sync_games` flow which
-also writes regular-season aggregate tables (clutch / on-off / lineup) with
-`is_playoff=False`. Running it against playoff game IDs would corrupt those
-regular-season aggregates with playoff numbers.
+Sprint 79 Stream B: the prior version of this script intentionally skipped the
+derivation pipeline (PlayerOnOff / LineupStats / SeasonStat clutch_*) because
+``_sync_games`` hardcoded ``is_playoff=False`` and would have corrupted
+regular-season aggregates. With the ``is_playoff`` cascade fixed, we now run
+the derivations with ``is_playoff=True`` after the per-game event fetch
+completes. Regular-season rows are not touched.
 
-This script does just the per-game work — fetch box score + PBP, store the
-events in `play_by_play`, ensure team/player entities exist — without any
-aggregate computation. Safe to run against playoff games.
+Two phases per run:
+    1. Fetch box score + PBP for every playoff game in GameLog, store the
+       events in ``play_by_play``, ensure team/player entities exist.
+    2. Run ``sync_pbp_for_playoffs_from_db`` to derive on/off + lineups +
+       SeasonStat.clutch_* fields for those games. Non-fatal if it fails.
 
 Usage:
     python data/sync_playoff_pbp.py --season 2025-26
     python data/sync_playoff_pbp.py --season 2025-26 --force-refresh
+    python data/sync_playoff_pbp.py --season 2025-26 --skip-derivations
 """
 from __future__ import annotations
 
@@ -32,6 +37,7 @@ from services.pbp_sync_service import (
     _get_or_create_game_log,
     _store_pbp_events,
     _replace_pbp_events,
+    sync_pbp_for_playoffs_from_db,
 )
 
 logging.basicConfig(
@@ -50,6 +56,11 @@ def main() -> None:
         "--force-refresh",
         action="store_true",
         help="Re-fetch and replace PBP even if events already exist",
+    )
+    parser.add_argument(
+        "--skip-derivations",
+        action="store_true",
+        help="Only fetch+store events. Skip the on/off + lineup derivation phase.",
     )
     args = parser.parse_args()
 
@@ -117,9 +128,25 @@ def main() -> None:
                 )
 
         log.info(
-            "Done. fetched=%d reused=%d failed=%d total=%d",
+            "Event fetch done. fetched=%d reused=%d failed=%d total=%d",
             fetched, reused, failed, total,
         )
+
+        if args.skip_derivations:
+            log.info("--skip-derivations: not running on/off + lineup derivations")
+        else:
+            log.info("Running playoff PBP derivations (on/off + lineups + clutch)...")
+            try:
+                result = sync_pbp_for_playoffs_from_db(
+                    db, args.season, force_refresh=args.force_refresh
+                )
+                log.info(
+                    "Derivations done. games_processed=%d players_updated=%d",
+                    result.get("games_processed", 0),
+                    result.get("players_updated", 0),
+                )
+            except Exception as exc:
+                log.warning("Playoff PBP derivations failed: %s", exc)
     finally:
         db.close()
 

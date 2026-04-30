@@ -1,0 +1,38 @@
+# CourtVue Labs — VM-side crontab (Hetzner CX22).
+#
+# Deploy with:
+#   crontab /home/ubuntu/bip/infra/cron.txt
+#
+# Inspect with:
+#   crontab -l
+#
+# Logs at /var/log/bip-sync.log and /var/log/bip-backup.log (logrotate
+# config at /etc/logrotate.d/bip-sync handles rotation/compression).
+
+MAILTO=vivtalla@gmail.com
+SHELL=/bin/bash
+PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+PYTHON_BIN=/home/ubuntu/bip/backend/venv/bin/python
+
+# ── Backups ──────────────────────────────────────────────────────────────────
+# 4am UTC nightly pg_dump → Cloudflare R2 (runs BEFORE the 6am sync so we
+# always have a snapshot of "yesterday" before today's writes start).
+0 4 * * *    . /etc/bip/env && /home/ubuntu/bip/infra/bip-backup.sh >> /var/log/bip-backup.log 2>&1
+
+# ── Daily full sync ──────────────────────────────────────────────────────────
+# 6am UTC — picks up yesterday's late finals + runs the full pipeline
+# (warehouse jobs, standings, season dashboards, playoff slice when in season,
+# role_expansion materialization, milestone snapshots).
+0 6 * * *    . /etc/bip/env && cd /home/ubuntu/bip/backend && bash data/daily_sync.sh >> /var/log/bip-sync.log 2>&1
+
+# ── Post-game refresh ────────────────────────────────────────────────────────
+# Every 30 min — cheap, self-gates on season phase. Outside the playoff
+# window it's near-zero work. During the postseason it ingests today's
+# final-status games from the live CDN scoreboard, recomputes the bracket,
+# and refreshes injuries + splits.
+*/30 * * * * . /etc/bip/env && cd /home/ubuntu/bip/backend && bash data/daily_sync.sh --post-game >> /var/log/bip-sync.log 2>&1
+
+# ── Weekly backup verification ───────────────────────────────────────────────
+# Sunday 5am UTC: restore the latest R2 dump into a scratch DB and diff
+# row counts against production. Emails on failure via MAILTO.
+0 5 * * 0    . /etc/bip/env && /home/ubuntu/bip/infra/bip-backup-verify.sh >> /var/log/bip-backup.log 2>&1

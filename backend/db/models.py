@@ -1503,3 +1503,63 @@ class MilestoneSnapshot(Base):
     computed_at = Column(DateTime, server_default=func.now())
 
     player = relationship("Player")
+
+
+# ----------------------------------------------------------------------------
+# Sprint 79 Stream A1 — historical award voting outcomes for mvp_case_v5
+# voter calibration. One row per (player, season, award, ballot_position).
+# Methodology: specs/methodology-future-modeling.md#1.
+# ----------------------------------------------------------------------------
+class AwardVote(Base):
+    __tablename__ = "award_voting"
+    __table_args__ = (
+        UniqueConstraint(
+            "player_id", "season", "award_type", "ballot_position",
+            name="uq_award_voting",
+        ),
+        Index("ix_award_voting_season_award", "season", "award_type"),
+    )
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    player_id = Column(Integer, ForeignKey("players.id"), nullable=False)
+    season = Column(String(10), nullable=False)
+    award_type = Column(String(10), nullable=False)        # MVP, DPOY, MIP, 6MOY
+    ballot_position = Column(Integer, nullable=True)        # NULL = not on ballot
+    voter_count = Column(Integer, nullable=False)
+    total_award_points = Column(Float, nullable=False)      # published point share
+    source = Column(String(40), default="basketball_reference")
+    created_at = Column(DateTime, server_default=func.now())
+
+    player = relationship("Player")
+
+
+# ----------------------------------------------------------------------------
+# Sprint 79 Stream A2 — role expansion observations for opportunity_v2 uplift.
+# Materialized from season_stats nightly via sync_role_expansion.py.
+# Methodology: specs/methodology-future-modeling.md#2.
+# ----------------------------------------------------------------------------
+class RoleExpansionObservation(Base):
+    __tablename__ = "role_expansion_observations"
+    __table_args__ = (
+        UniqueConstraint(
+            "player_id", "from_season", "to_season",
+            name="uq_role_expansion_pair",
+        ),
+        Index("ix_role_expansion_archetype", "pre_role_archetype", "pre_ts_pct"),
+    )
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    player_id = Column(Integer, ForeignKey("players.id"), nullable=False)
+    from_season = Column(String(10), nullable=False)
+    to_season = Column(String(10), nullable=False)
+    usg_delta = Column(Float, nullable=False)
+    pre_ts_pct = Column(Float, nullable=False)
+    post_ts_pct = Column(Float, nullable=False)
+    ts_delta = Column(Float, nullable=False)
+    pre_ast_rate = Column(Float, nullable=True)  # ast per 36 min, derived from ast_pg/min_pg*36
+    pre_obpm = Column(Float, nullable=True)
+    pre_age = Column(Integer, nullable=True)
+    pre_role_archetype = Column(String(40), nullable=True)
+    computed_at = Column(DateTime, server_default=func.now())
+
+    player = relationship("Player")

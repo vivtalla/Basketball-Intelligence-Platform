@@ -125,6 +125,31 @@ class OpportunityRoleFit(BaseModel):
     tov_bucket_avg: Optional[float] = None
 
 
+# Sprint 79 Stream A2 — opportunity_v2 uplift sibling field.
+# Methodology: specs/methodology-future-modeling.md#2.
+class OpportunityUpliftComparable(BaseModel):
+    """One historical role-expansion case the KNN drew from."""
+    player_name: str
+    from_season: str
+    to_season: str
+    usg_delta: float
+    ts_delta: float
+
+
+class OpportunityUplift(BaseModel):
+    """Historical TS% change for players similar to T who took on more usage.
+
+    Reads from role_expansion_observations. Descriptive ("players like T historically
+    moved by X TS%"), not causal. UI must render copy accordingly.
+    """
+    mean_uplift: float
+    uplift_band_lower: float
+    uplift_band_upper: float
+    neighbor_count: int
+    evidence_confidence: str  # "high" (>=15) | "medium" (>=8) | "low" (>=5)
+    comparable_examples: List[OpportunityUpliftComparable] = []
+
+
 class OpportunityCompareHandoff(BaseModel):
     """Sprint 65: pre-selected positional peers for a Compare launch from Opportunity."""
     pinned_player_id: int
@@ -178,6 +203,10 @@ class OpportunityPlayerRow(BaseModel):
 
     # Sprint 65: pre-computed peer set so Compare launches do not re-query
     compare_handoff: Optional[OpportunityCompareHandoff] = None
+
+    # Sprint 79 Stream A2: opportunity_v2 uplift evidence band.
+    # Sibling field; clients tolerate None and existing payload contract is unchanged.
+    uplift: Optional[OpportunityUplift] = None
 
 
 class OpportunityMethodology(BaseModel):

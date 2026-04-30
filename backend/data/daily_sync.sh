@@ -2,20 +2,21 @@
 #
 # CourtVue Labs — daily / post-game data sync orchestrator.
 #
-# Recommended cron lines (replace /path/to/repo with the absolute repo path):
+# As of Sprint 80 this runs from the Hetzner production VM, not the laptop.
+# The canonical crontab lives in `infra/cron.txt` (committed). Operational
+# runbook: `specs/db-hosting.md`. To install on a fresh VM:
 #
-#   # Daily full sync — 6am UTC. Picks up yesterday's late finals + runs the
-#   # full pipeline (warehouse jobs, standings, season dashboards, playoff
-#   # slice when in season).
-#   0 6 * * * /path/to/repo/backend/data/daily_sync.sh
+#   crontab /home/ubuntu/bip/infra/cron.txt
 #
-#   # Post-game refresh — every 30 minutes. Cheap. Self-gates on the season
-#   # phase, so outside the playoff window it's near-zero work. During the
-#   # postseason it ingests today's final-status games from the live CDN
-#   # scoreboard, recomputes the bracket, and refreshes injuries + splits.
-#   */30 * * * * /path/to/repo/backend/data/daily_sync.sh --post-game
+# That installs:
+#   - daily full sync at 6am UTC
+#   - post-game refresh every 30 min (self-gates on season phase)
+#   - nightly pg_dump → R2 backup at 4am UTC
+#   - weekly backup-restore verification on Sunday 5am UTC
 #
-# Manual usage:
+# Logs land in /var/log/bip-sync.log on the VM (logrotate keeps 14 days).
+#
+# Manual usage (any environment — laptop dev or VM ops):
 #   ./daily_sync.sh                  # full daily run, current season auto-detected
 #   ./daily_sync.sh --post-game      # lightweight refresh
 #   ./daily_sync.sh --dry-run        # print intended actions, do nothing
@@ -133,6 +134,7 @@ if [ "$DRY_RUN" = "1" ]; then
     echo "would run: sync_official_team_season_stats"
     echo "would run: sync_official_team_general_splits"
     echo "would run: sync_official_team_shooting_splits"
+    echo "would run: sync_role_expansion (S79 A2 — opportunity_v2 uplift dataset)"
     echo "would run: sync_streaks_milestones (CF5 nightly snapshot)"
     if [ "$IS_PLAYOFFS" = "1" ]; then
       echo "would run: ingest today's playoff finals from CDN scoreboard"
@@ -140,6 +142,7 @@ if [ "$DRY_RUN" = "1" ]; then
       echo "would run: playoff sync_official_team_general_splits is_playoff=True"
       echo "would run: playoff sync_official_team_shooting_splits is_playoff=True"
       echo "would run: bracket refreshed"
+      echo "would run: sync_playoff_pbp (events + on/off + lineup derivations)"
     fi
   fi
   echo "daily_sync dry-run complete: series_refreshed=$SERIES_REFRESHED games_refreshed=$GAMES_REFRESHED"
@@ -310,7 +313,17 @@ PYEOF
 if [ "$IS_PLAYOFFS" = "1" ]; then
   PYTHONPATH=. "$PYTHON_BIN" data/sync_today_playoff_finals.py --season "$SEASON" >> "$LOG" 2>&1 || true
   PYTHONPATH=. "$PYTHON_BIN" scripts/sync_playoff_full.py "$SEASON" >> "$LOG" 2>&1 || true
+  # Sprint 79 Stream B — playoff PBP events + on/off + lineup derivations.
+  # sync_playoff_full above does NOT touch PBP events or PlayerOnOff/LineupStats;
+  # this run fills that gap so the Playoff Command Center stops rendering
+  # against regular-season fallbacks.
+  PYTHONPATH=. "$PYTHON_BIN" data/sync_playoff_pbp.py --season "$SEASON" >> "$LOG" 2>&1 || true
 fi
+
+# Sprint 79 Stream A2 — re-materialize role_expansion_observations after
+# season_stats sync completes. Powers the opportunity_v2 uplift KNN. Idempotent
+# upsert on (player_id, from_season, to_season).
+PYTHONPATH=. "$PYTHON_BIN" data/sync_role_expansion.py >> "$LOG" 2>&1 || true
 
 # Sprint 78 CF5 — recompute active streaks + milestone snapshots once the
 # canonical season-stats + game-log data is up-to-date. Non-fatal: the

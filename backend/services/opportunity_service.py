@@ -35,6 +35,8 @@ from models.insights import (
     OpportunityTeammate,
     OpportunityTeamRollup,
 )
+from services.opportunity_uplift_service import compute_uplift
+from services.player_archetype_service import classify_many, parse_age_as_of_season
 from services.reliability_service import (
     confidence_from_reliability,
     reliability_score,
@@ -42,7 +44,14 @@ from services.reliability_service import (
 )
 
 
-METHODOLOGY_VERSION = "opportunity_v1"
+# Sprint 79 Stream A2: opportunity_v2 attaches uplift evidence bands per row.
+# Composite formula and signal weights are unchanged; uplift travels as a sibling field.
+METHODOLOGY_VERSION = "opportunity_v2"
+
+# Standard role-expansion magnitude for the uplift KNN. Spec: +5pp usage bump
+# (specs/methodology-future-modeling.md#2). Held constant across all rows so the
+# KNN is comparing every candidate against the same hypothetical move.
+UPLIFT_PROJECTED_USG_DELTA = 0.05
 
 # Sprint 65: in-process TTL cache. The `team=ALL` whole-league traversal is the hot path
 # (scouting boards iterating every team) and it re-does ~30 lineup+on/off queries per call.
@@ -374,6 +383,7 @@ def build_opportunity_report(
             "Directional hints require high or medium confidence AND concurrent efficiency-load + team-impact signals.",
             "Shot-profile role fit uses 3PA rate, free-throw rate, and eFG% deltas vs the player's position bucket.",
             "Lineup synergy requires at least {0} possessions per qualifying lineup.".format(MIN_LINEUP_POSSESSIONS),
+            "v2: per-row uplift estimates the historical TS% range when comparable players took on +5pp usage. Descriptive evidence band, not causal projection.",
         ],
     )
 
@@ -444,6 +454,11 @@ def build_opportunity_report(
     # Synergy-lift cohort stats (pool-wide, computed once).
     synergy_raw = [v for _, v in synergy_map.values() if v is not None]
     synergy_m, synergy_s = _cohort_stats(synergy_raw) if synergy_raw else (0.0, 1.0)
+
+    # Sprint 79 Stream A2: batch-classify archetypes once for the whole pool so
+    # the per-row uplift call doesn't re-warm the season frame each iteration.
+    pool_player_ids = [p.id for _, p in pool]
+    archetype_lookup = classify_many(db, pool_player_ids, season, season_type="Regular Season")
 
     rows: List[OpportunityPlayerRow] = []
     driver_tally: Dict[str, int] = defaultdict(int)
@@ -588,6 +603,28 @@ def build_opportunity_report(
             tov_bucket_avg=round(tov_m, 2),
         )
 
+        # Sprint 79 Stream A2: opportunity_v2 uplift evidence band.
+        # KNN over role_expansion_observations conditioned on archetype + ts_pct.
+        # Returns None when fewer than 5 comparable cases exist — the UI suppresses
+        # the band so we never present a misleading single number.
+        archetype_result = archetype_lookup.get(player.id)
+        target_archetype = archetype_result.archetype_key if archetype_result else None
+        target_age = parse_age_as_of_season(player.birth_date, season) if player.birth_date else None
+        target_ast_rate = (
+            float(stat.ast_pg) / float(stat.min_pg) * 36.0
+            if stat.ast_pg is not None and stat.min_pg and stat.min_pg > 0
+            else None
+        )
+        uplift = compute_uplift(
+            db,
+            target_archetype=target_archetype,
+            target_ts_pct=float(stat.ts_pct) if stat.ts_pct is not None else None,
+            target_usg_delta=UPLIFT_PROJECTED_USG_DELTA,
+            target_ast_rate=target_ast_rate,
+            target_obpm=float(stat.obpm) if stat.obpm is not None else None,
+            target_age=target_age,
+        )
+
         row = OpportunityPlayerRow(
             player_id=player.id,
             player_name=player.full_name,
@@ -620,6 +657,7 @@ def build_opportunity_report(
             directional_hint=hint,
             hint_basis=hint_basis,
             top_driver=top_driver,
+            uplift=uplift,
         )
         rows.append(row)
 

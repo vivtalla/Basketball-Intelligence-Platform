@@ -1113,6 +1113,42 @@ def get_season_game_ids(season: str, timeout: int = NBA_API_TIMEOUT) -> list[str
     return ids
 
 
+def get_playoff_game_ids(season: str, timeout: int = NBA_API_TIMEOUT) -> list[str]:
+    """Return all playoff game IDs for a season (e.g. '2024-25').
+
+    Sprint 79 Stream B: powers playoff PBP derivations and bulk_import --playoff.
+    Uses LeagueGameLog with season_type_all_star='Playoffs' since the schedule
+    feeds don't carry season_type partitioning.
+    """
+    cache_key = f"playoff_game_ids:{season}"
+    cached = CacheManager.get(cache_key)
+    if cached and isinstance(cached.get("ids"), list):
+        return [str(game_id) for game_id in cached["ids"]]
+
+    _rate_limit()
+    log = leaguegamelog.LeagueGameLog(
+        season=season,
+        player_or_team_abbreviation="T",
+        season_type_all_star="Playoffs",
+        timeout=timeout,
+    )
+    data = log.get_normalized_dict()
+    rows = data.get("LeagueGameLog", [])
+    seen: set[str] = set()
+    ids: list[str] = []
+    for row in rows:
+        gid = str(row.get("GAME_ID", ""))
+        if gid and gid not in seen:
+            seen.add(gid)
+            ids.append(gid)
+    CacheManager.set(
+        cache_key,
+        {"ids": ids, "source": "leaguegamelog_playoffs"},
+        _cache_ttl_for_season(season),
+    )
+    return ids
+
+
 def get_team_season_game_ids(
     season: str,
     team_id: int,

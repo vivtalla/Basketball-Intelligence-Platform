@@ -219,6 +219,19 @@ function TeamSlot({
 
       {teamAbbr && contracts.length > 0 && (
         <>
+          {contracts.some((c) => c.salary_source === "estimated") && (
+            <p
+              className="text-[11px] px-2 py-1.5 rounded-md"
+              style={{
+                background: "rgba(200,150,20,0.08)",
+                color: "var(--signal)",
+                fontFamily: "var(--font-display)",
+                borderLeft: "2px solid var(--signal)",
+              }}
+            >
+              Some salaries are estimates based on playing time — not official contract data.
+            </p>
+          )}
           <div className="flex items-center justify-between text-xs">
             <span className="text-[var(--muted)] uppercase tracking-wider">
               Outgoing — pick players to send
@@ -255,8 +268,21 @@ function TeamSlot({
                         )}
                       </span>
                     </span>
-                    <span className="tabular-nums text-sm text-[var(--muted)] shrink-0">
+                    <span className="flex items-center gap-1 tabular-nums text-sm text-[var(--muted)] shrink-0">
                       {formatUsd(c.salary)}
+                      {c.salary_source === "estimated" && (
+                        <span
+                          className="text-[9px] font-bold uppercase px-1 rounded"
+                          style={{
+                            background: "rgba(200,150,20,0.12)",
+                            color: "var(--signal)",
+                            letterSpacing: "0.04em",
+                          }}
+                          title="Salary estimated from playing time — not official contract data"
+                        >
+                          est.
+                        </span>
+                      )}
                     </span>
                   </label>
                 </li>

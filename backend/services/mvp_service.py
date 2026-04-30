@@ -68,6 +68,7 @@ from models.mvp import (
     MvpVoterRoomCategory,
     MvpVoterRoomResponse,
 )
+from services.award_calibration_service import CALIBRATED_AWARD_CASE_WEIGHTS
 from services.gravity_service import build_gravity_profile
 from services.reliability_service import weight_sensitivity_analysis
 
@@ -1917,13 +1918,19 @@ def _build_ranked_candidates(
         sum(REFINED_VALUE_WEIGHTS[key] * pillars.get(key, 0.0) for key in REFINED_VALUE_WEIGHTS)
         for pillars in value_pillar_raw
     ]
+    # Sprint 79 Stream A1 — modifier weights now sourced from
+    # award_calibration_service.CALIBRATED_AWARD_CASE_WEIGHTS. Defaults match
+    # the original hand-tuned priors (0.08/0.08/0.06/0.05/0.05); when historical
+    # mvp_service runs are backfilled and calibrate_award_case_weights flips
+    # ``calibration_pending`` to False, these become evidence-fit weights
+    # without code changes here.
     award_case_raw_scores = [
         basketball_value_raw_scores[index]
-        + 0.08 * award_modifier_raw[index]["team_framing"]
-        + 0.08 * award_modifier_raw[index]["eligibility_pressure"]
-        + 0.06 * award_modifier_raw[index]["clutch"]
-        + 0.05 * award_modifier_raw[index]["momentum"]
-        + 0.05 * award_modifier_raw[index]["signature_games"]
+        + CALIBRATED_AWARD_CASE_WEIGHTS["team_framing"] * award_modifier_raw[index]["team_framing"]
+        + CALIBRATED_AWARD_CASE_WEIGHTS["eligibility_pressure"] * award_modifier_raw[index]["eligibility_pressure"]
+        + CALIBRATED_AWARD_CASE_WEIGHTS["clutch"] * award_modifier_raw[index]["clutch"]
+        + CALIBRATED_AWARD_CASE_WEIGHTS["momentum"] * award_modifier_raw[index]["momentum"]
+        + CALIBRATED_AWARD_CASE_WEIGHTS["signature_games"] * award_modifier_raw[index]["signature_games"]
         for index in range(len(stat_rows))
     ]
     raw_scores_by_profile["basketball_value"] = basketball_value_raw_scores

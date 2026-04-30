@@ -65,6 +65,7 @@ def _read_seed_rows(path: str) -> List[Dict[str, Any]]:
                 "is_player_option": _coerce_bool(raw.get("is_player_option")),
                 "is_team_option": _coerce_bool(raw.get("is_team_option")),
                 "contract_type": (raw.get("contract_type") or "").strip() or None,
+                "source": (raw.get("source") or "estimated").strip() or "estimated",
             })
     return rows
 
@@ -128,6 +129,8 @@ def sync_salary_data(
             .first()
         )
 
+        row_source = entry.get("source") or source
+
         if existing is None:
             row = PlayerContract(
                 player_id=player_id,
@@ -138,7 +141,7 @@ def sync_salary_data(
                 is_player_option=bool(entry.get("is_player_option")),
                 is_team_option=bool(entry.get("is_team_option")),
                 contract_type=entry.get("contract_type"),
-                source=source,
+                source=row_source,
                 last_synced_at=now,
             )
             db.add(row)
@@ -149,10 +152,16 @@ def sync_salary_data(
             existing.is_player_option = bool(entry.get("is_player_option"))
             existing.is_team_option = bool(entry.get("is_team_option"))
             existing.contract_type = entry.get("contract_type")
-            existing.source = source
+            existing.source = row_source
             existing.last_synced_at = now
 
-        rows_upserted += 1
+        try:
+            db.flush()
+            rows_upserted += 1
+        except Exception:
+            db.rollback()
+            rows_skipped += 1
+            continue
 
     db.commit()
     return {
