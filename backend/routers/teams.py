@@ -10,6 +10,7 @@ SeasonType = Literal["Regular Season", "Playoffs"]
 
 from db.database import get_db
 from db.models import Player, SeasonStat, Team, TeamSeasonStat, TeamShootingSplitStat, TeamSplitStat
+from models.team_arc import TeamArcLeversRequest, TeamArcResponse
 from models.team import (
     BenchAnalyticsResponse,
     TeamAvailabilityResponse,
@@ -36,6 +37,7 @@ from services.team_intelligence_service import build_team_intelligence
 from services.team_net_rating_service import build_team_rolling_net_rating
 from services.team_period_service import build_team_period_scoring
 from services.team_prep_service import build_team_prep_queue
+from services.team_arc_projection_service import project_team_arc
 from services.team_rotation_service import build_team_rotation_report
 from services.team_focus_service import build_team_focus_levers_report
 
@@ -411,3 +413,48 @@ def team_bench_analytics(
     db: Session = Depends(get_db),
 ):
     return build_bench_analytics(db=db, team_abbr=abbr.upper(), season=season, min_possessions=min_possessions)
+
+
+# ── Sprint 78 FO4 — Multi-Year Team Arc + Aging Curves ───────────────────────
+@router.get("/{abbr}/arc", response_model=TeamArcResponse)
+def team_arc(
+    abbr: str,
+    years: int = Query(3, ge=0, le=6),
+    season: Optional[str] = Query(None, description="Override the baseline season."),
+    db: Session = Depends(get_db),
+):
+    """Multi-year team trajectory projection with empirical aging curves.
+
+    Year 0 is the baseline season; subsequent years apply position-bucketed
+    aging-curve deltas to each rostered player and aggregate to team-level
+    expected outcomes (proxy off / def / net rating, total win shares,
+    projected wins).
+    """
+    try:
+        return project_team_arc(
+            db=db,
+            team_abbr=abbr.upper(),
+            n_years=years,
+            base_season=season,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail=str(exc))
+
+
+@router.post("/{abbr}/arc", response_model=TeamArcResponse)
+def team_arc_with_levers(
+    abbr: str,
+    request: TeamArcLeversRequest,
+    db: Session = Depends(get_db),
+):
+    """Team arc projection with what-if levers (incoming picks / signings /
+    releases). Same shape as ``GET /{abbr}/arc``."""
+    try:
+        return project_team_arc(
+            db=db,
+            team_abbr=abbr.upper(),
+            n_years=request.years,
+            levers=request.levers,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail=str(exc))

@@ -47,6 +47,7 @@ import TeamClutchCard from "@/components/TeamClutchCard";
 import TeamNetRatingChart from "@/components/TeamNetRatingChart";
 import TeamPeriodScoringPanel from "@/components/TeamPeriodScoringPanel";
 import TeamBenchAnalyticsPanel from "@/components/TeamBenchAnalyticsPanel";
+import TeamArcPanel from "@/components/team-arc/TeamArcPanel";
 import type { TeamPrepQueueItem, TeamRosterPlayer } from "@/lib/types";
 
 const DEFAULT_SEASON = "2024-25";
@@ -61,7 +62,7 @@ function coverageTone(status: "none" | "partial" | "ready") {
   return "bg-[var(--surface-alt)] text-[var(--muted)]";
 }
 
-type Tab = "decision" | "prep" | "intelligence" | "roster" | "analytics" | "splits" | "lineups" | "opponent_matchup";
+type Tab = "decision" | "prep" | "intelligence" | "roster" | "analytics" | "splits" | "lineups" | "opponent_matchup" | "arc";
 
 const ALL_TABS: Tab[] = [
   "decision",
@@ -71,6 +72,7 @@ const ALL_TABS: Tab[] = [
   "analytics",
   "splits",
   "lineups",
+  "arc",
   "opponent_matchup",
 ];
 
@@ -861,6 +863,13 @@ export default function TeamDetailPage() {
           {splitView === "shooting" && teamShootingSplits && !shootingSplitsLoading && (
             <TeamShootingSplitsPanel splits={teamShootingSplits} />
           )}
+        </section>
+      )}
+
+      {/* Arc tab — Sprint 78 FO4 */}
+      {activeTab === "arc" && teamAbbreviation && (
+        <section>
+          <TeamArcPanel teamAbbreviation={teamAbbreviation} baseSeason={effectiveSeason} />
         </section>
       )}
 
