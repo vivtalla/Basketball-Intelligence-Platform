@@ -1867,3 +1867,40 @@ export type {
   PlayerQuarterImpact as GamePlayerQuarterImpact,
   SeriesOddsPoint as GameSeriesOddsPoint,
 } from "./types";
+
+// ── Sprint 78 (FO1) — Trade Machine ──────────────────────────────────────────
+export async function validateTrade(
+  request: import("./types").TradeRequest
+): Promise<import("./types").TradeValidationResult> {
+  return fetchApi<import("./types").TradeValidationResult>(
+    `/api/trade/validate`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(request),
+    }
+  );
+}
+
+export async function getTradeImpact(
+  request: import("./types").TradeRequest
+): Promise<import("./types").TradeImpactResult> {
+  return fetchApi<import("./types").TradeImpactResult>(
+    `/api/trade/impact`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(request),
+    }
+  );
+}
+
+export async function getTeamContracts(
+  teamAbbr: string,
+  season: string = "2025-26"
+): Promise<import("./types").TeamContractsResponse> {
+  const params = new URLSearchParams({ season });
+  return fetchApi<import("./types").TeamContractsResponse>(
+    `/api/trade/contracts/${encodeURIComponent(teamAbbr)}?${params.toString()}`
+  );
+}
