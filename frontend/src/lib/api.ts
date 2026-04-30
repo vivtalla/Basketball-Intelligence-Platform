@@ -1867,3 +1867,31 @@ export type {
   PlayerQuarterImpact as GamePlayerQuarterImpact,
   SeriesOddsPoint as GameSeriesOddsPoint,
 } from "./types";
+
+// ── Sprint 78 (FO2) — Free Agency Workspace ──────────────────────────────────
+export async function getFreeAgents(
+  filters: import("./types").FreeAgencyFilters = {}
+): Promise<import("./types").FreeAgencyResponse> {
+  const params = new URLSearchParams();
+  if (filters.season) params.set("season", filters.season);
+  if (filters.tier) params.set("tier", filters.tier);
+  if (filters.position) params.set("position", filters.position);
+  if (filters.age_max != null) params.set("age_max", String(filters.age_max));
+  const suffix = params.toString() ? `?${params.toString()}` : "";
+  return fetchApi<import("./types").FreeAgencyResponse>(
+    `/api/free-agency${suffix}`
+  );
+}
+
+export async function getFreeAgentFits(
+  playerId: number,
+  options: { season?: string; k?: number } = {}
+): Promise<import("./types").FreeAgentFitsResponse> {
+  const params = new URLSearchParams();
+  if (options.season) params.set("season", options.season);
+  if (options.k != null) params.set("k", String(options.k));
+  const suffix = params.toString() ? `?${params.toString()}` : "";
+  return fetchApi<import("./types").FreeAgentFitsResponse>(
+    `/api/free-agency/${playerId}/fits${suffix}`
+  );
+}

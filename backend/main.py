@@ -10,6 +10,7 @@ from routers import (
     archetype,
     compare,
     decision,
+    free_agency,
     gamelogs,
     games,
     injuries,
@@ -78,6 +79,7 @@ app.include_router(query.router, prefix="/api/query", tags=["query"])
 app.include_router(mvp.router, prefix="/api/mvp", tags=["mvp"])
 app.include_router(season_phase.router, prefix="/api/season-phase", tags=["season-phase"])
 app.include_router(playoffs.router, prefix="/api/playoffs", tags=["playoffs"])
+app.include_router(free_agency.router, prefix="/api/free-agency", tags=["free-agency"])
 
 
 @app.on_event("startup")

@@ -4371,3 +4371,96 @@ export interface GameDetailResponse {
   player_quarter_impact?: PlayerQuarterImpact[] | null;
   series_odds_history?: SeriesOddsPoint[] | null;
 }
+
+// ── Sprint 78 — FO2 Free Agency Workspace ────────────────────────────────────
+export type FreeAgentTier =
+  | "max"
+  | "above_mid"
+  | "mid_level"
+  | "minimum"
+  | "two_way";
+
+export interface ExpiringContract {
+  player_id: number;
+  player_name: string;
+  team_abbreviation: string | null;
+  team_id: number | null;
+  position: string | null;
+  age: number | null;
+
+  season: string;
+  salary: number | null;
+  years_remaining: number | null;
+  is_player_option: boolean;
+  is_team_option: boolean;
+  is_non_guaranteed: boolean;
+  no_trade_clause: boolean;
+  contract_type: string | null;
+  expires_on: string | null;
+
+  tier: FreeAgentTier;
+
+  stat_season: string | null;
+  gp: number | null;
+  min_pg: number | null;
+  pts_pg: number | null;
+  reb_pg: number | null;
+  ast_pg: number | null;
+  ts_pct: number | null;
+  usg_pct: number | null;
+  net_rating: number | null;
+
+  source: string | null;
+}
+
+export interface FitRationaleChip {
+  label: string;
+  detail: string | null;
+  contribution: number | null;
+}
+
+export interface TeamFitForPlayer {
+  rank: number;
+  team_abbreviation: string;
+  team_name: string | null;
+  fit_score: number;
+  skill_supply_score: number | null;
+  roster_need_score: number | null;
+  role_competition_score: number | null;
+  confidence: string | null;
+  summary: string | null;
+  rationale_chips: FitRationaleChip[];
+}
+
+export interface FreeAgencyMethodology {
+  version: string;
+  tier_thresholds_usd: Record<string, number>;
+  notes: string[];
+}
+
+export interface FreeAgencyResponse {
+  season: string;
+  total_count: number;
+  filtered_count: number;
+  contracts: ExpiringContract[];
+  available_tiers: FreeAgentTier[];
+  methodology: FreeAgencyMethodology;
+  is_empty_dataset: boolean;
+  warnings: string[];
+}
+
+export interface FreeAgentFitsResponse {
+  player_id: number;
+  player_name: string;
+  season: string;
+  contract: ExpiringContract | null;
+  fits: TeamFitForPlayer[];
+  warnings: string[];
+}
+
+export interface FreeAgencyFilters {
+  season?: string;
+  tier?: FreeAgentTier | null;
+  position?: string | null;
+  age_max?: number | null;
+}
