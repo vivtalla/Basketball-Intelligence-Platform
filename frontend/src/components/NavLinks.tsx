@@ -48,6 +48,9 @@ export default function NavLinks() {
           Bracket
         </Link>
       )}
+      <Link href="/picks" className="text-xs text-[var(--muted)] whitespace-nowrap bip-link">
+        Picks
+      </Link>
       <Link href="/coverage" className="text-xs text-[var(--muted)] whitespace-nowrap bip-link">
         Coverage
       </Link>
