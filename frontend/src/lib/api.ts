@@ -2053,5 +2053,22 @@ export async function getTeamArcWithLevers(
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ years: body.years ?? 3, levers: body.levers ?? null }),
     },
+// ── Sprint 78 (CF2) — Bracket Pick'em ────────────────────────────────────────
+export async function scorePicks(
+  userPicks: import("./types").UserPicks
+): Promise<import("./types").PicksScorecard> {
+  return fetchApi<import("./types").PicksScorecard>("/api/picks/score", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(userPicks),
+  });
+}
+
+export async function getModelPicks(
+  season: string
+): Promise<import("./types").ModelPicks> {
+  const params = new URLSearchParams({ season });
+  return fetchApi<import("./types").ModelPicks>(
+    `/api/picks/model?${params.toString()}`
   );
 }

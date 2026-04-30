@@ -4971,4 +4971,92 @@ export interface TeamArcResponse {
   levers_applied: string[];
   methodology_version: string;
   warnings: string[];
+// ── Sprint 78 (CF2) — Bracket Pick'em + Model Comparison ─────────────────────
+export type PicksAward = "mvp" | "coy" | "dpoy" | "roy";
+export type PickStatus = "correct" | "incorrect" | "pending" | "missing";
+
+export interface SeriesPick {
+  series_id: string;
+  winner_team_abbr: string;
+  games?: number | null;
+}
+
+export interface AwardPick {
+  award: PicksAward;
+  player_id?: number | null;
+  player_name?: string | null;
+}
+
+export interface UserPicks {
+  season: string;
+  series_picks: SeriesPick[];
+  award_picks: AwardPick[];
+}
+
+export interface SeriesPickResult {
+  series_id: string;
+  round: number;
+  user_winner_abbr: string | null;
+  user_games: number | null;
+  actual_winner_abbr: string | null;
+  actual_games: number | null;
+  model_winner_abbr: string | null;
+  model_games: number | null;
+  winner_status: PickStatus;
+  games_status: PickStatus;
+  points: number;
+  points_possible: number;
+}
+
+export interface AwardPickResult {
+  award: string;
+  user_player_id: number | null;
+  user_player_name: string | null;
+  actual_player_id: number | null;
+  actual_player_name: string | null;
+  model_player_id: number | null;
+  model_player_name: string | null;
+  status: PickStatus;
+  points: number;
+  points_possible: number;
+}
+
+export interface PicksHeadToHead {
+  user_points: number;
+  model_points: number;
+  user_correct: number;
+  model_correct: number;
+  delta_points: number;
+  delta_correct: number;
+}
+
+export interface PicksScorecard {
+  season: string;
+  series_results: SeriesPickResult[];
+  award_results: AwardPickResult[];
+  total_points: number;
+  total_points_possible: number;
+  accuracy_pct: number;
+  head_to_head: PicksHeadToHead;
+}
+
+export interface ModelSeriesPick {
+  series_id: string;
+  round: number;
+  winner_team_abbr: string | null;
+  games: number | null;
+  confidence: number | null;
+}
+
+export interface ModelAwardPick {
+  award: string;
+  player_id: number | null;
+  player_name: string | null;
+  rationale: string | null;
+}
+
+export interface ModelPicks {
+  season: string;
+  series_picks: ModelSeriesPick[];
+  award_picks: ModelAwardPick[];
 }
