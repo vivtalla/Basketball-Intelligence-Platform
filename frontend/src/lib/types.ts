@@ -4971,6 +4971,8 @@ export interface TeamArcResponse {
   levers_applied: string[];
   methodology_version: string;
   warnings: string[];
+}
+
 // ── Sprint 78 (CF2) — Bracket Pick'em + Model Comparison ─────────────────────
 export type PicksAward = "mvp" | "coy" | "dpoy" | "roy";
 export type PickStatus = "correct" | "incorrect" | "pending" | "missing";

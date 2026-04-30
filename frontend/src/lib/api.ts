@@ -2027,6 +2027,9 @@ export async function getProspectDetail(
 ): Promise<import("./types").ProspectDetail> {
   return fetchApi<import("./types").ProspectDetail>(
     `/api/draft/prospects/${prospectId}`
+  );
+}
+
 // ── Sprint 78 FO4 — Multi-Year Team Arc + Aging Curves ───────────────────────
 export async function getTeamArc(
   abbr: string,
@@ -2053,6 +2056,9 @@ export async function getTeamArcWithLevers(
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ years: body.years ?? 3, levers: body.levers ?? null }),
     },
+  );
+}
+
 // ── Sprint 78 (CF2) — Bracket Pick'em ────────────────────────────────────────
 export async function scorePicks(
   userPicks: import("./types").UserPicks
