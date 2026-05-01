@@ -12,11 +12,20 @@ from __future__ import annotations
 import logging
 import random
 import time
-from typing import Any, Dict, Optional
+from typing import Any, Dict, List, Optional
 
 import requests
 
 logger = logging.getLogger(__name__)
+
+try:
+    from playwright.sync_api import sync_playwright as _sync_playwright
+    from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
+    _PLAYWRIGHT_AVAILABLE = True
+except ImportError:
+    _sync_playwright = None  # type: ignore[assignment]
+    PlaywrightTimeoutError = Exception  # type: ignore[assignment,misc]
+    _PLAYWRIGHT_AVAILABLE = False
 
 
 class ScraperError(Exception):
@@ -129,3 +138,90 @@ class HttpScraper:
                 self.MAX_RETRIES, url, last_exc
             )
         )
+
+
+class PlaywrightScraper:
+    """Headless Chromium fetch for sites behind Cloudflare JS challenges.
+
+    Uses playwright.sync_api (blocking — safe for cron, no asyncio required).
+    Subclasses override scrape() exactly as with HttpScraper.
+
+    One-time VM setup:
+        venv/bin/pip install "playwright>=1.40.0"
+        venv/bin/playwright install chromium --with-deps
+    """
+
+    BASE_URL: str = ""
+    DELAY_SECONDS: float = 3.0
+    BROWSER_TIMEOUT_MS: int = 30_000
+
+    _USER_AGENTS = [
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+        "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+        "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+    ]
+
+    def __init__(self) -> None:
+        if not _PLAYWRIGHT_AVAILABLE:
+            raise ScraperError(
+                "playwright package not installed. Run: "
+                "pip install 'playwright>=1.40.0' && playwright install chromium --with-deps"
+            )
+        self._last_request_at: float = 0.0
+        self._ua_index: int = 0
+
+    def _sleep_for_rate_limit(self) -> None:
+        elapsed = time.monotonic() - self._last_request_at
+        if elapsed < self.DELAY_SECONDS:
+            time.sleep(self.DELAY_SECONDS - elapsed)
+        self._last_request_at = time.monotonic()
+
+    def _next_user_agent(self) -> str:
+        ua = self._USER_AGENTS[self._ua_index % len(self._USER_AGENTS)]
+        self._ua_index += 1
+        return ua
+
+    def get(self, path_or_url: str, params: Optional[Dict[str, Any]] = None) -> str:
+        url = path_or_url
+        if not url.startswith("http"):
+            url = self.BASE_URL.rstrip("/") + "/" + path_or_url.lstrip("/")
+        if params:
+            from urllib.parse import urlencode
+            sep = "&" if "?" in url else "?"
+            url = url + sep + urlencode(params)
+
+        self._sleep_for_rate_limit()
+
+        browser = None
+        try:
+            with _sync_playwright() as pw:
+                browser = pw.chromium.launch(headless=True)
+                page = browser.new_page(
+                    user_agent=self._next_user_agent(),
+                    viewport={"width": 1280, "height": 800},
+                )
+                page.goto(url, timeout=self.BROWSER_TIMEOUT_MS, wait_until="networkidle")
+                content = page.content()
+                browser.close()
+                browser = None
+                return content
+        except PlaywrightTimeoutError as exc:
+            if browser is not None:
+                browser.close()
+            raise ScraperError(
+                "Playwright timeout ({0}ms) fetching {1}: {2}".format(
+                    self.BROWSER_TIMEOUT_MS, url, exc
+                )
+            )
+        except Exception as exc:  # noqa: BLE001
+            if browser is not None:
+                try:
+                    browser.close()
+                except Exception:
+                    pass
+            raise ScraperError(
+                "Playwright fetch failed for {0}: {1}".format(url, exc)
+            )
+
+    def scrape(self) -> List[Dict[str, Any]]:
+        raise NotImplementedError
