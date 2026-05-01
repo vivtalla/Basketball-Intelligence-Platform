@@ -1,0 +1,43 @@
+{
+    email vivtalla@gmail.com
+}
+
+api.courtvue.app {
+    # HTTP Basic Auth gate — shared FO credential, bcrypt hashed.
+    # Generate hash: caddy hash-password --plaintext 'YOUR_PASSWORD'
+    # Replace <BCRYPT_HASH_PLACEHOLDER> with the output before deploying.
+    basicauth /* {
+        courtvue <BCRYPT_HASH_PLACEHOLDER>
+    }
+
+    # Health check bypasses auth so UptimeRobot can ping without credentials.
+    @health path /api/health
+    handle @health {
+        reverse_proxy 127.0.0.1:8000
+    }
+
+    # All other requests: proxy to uvicorn.
+    reverse_proxy 127.0.0.1:8000 {
+        header_up X-Real-IP {remote_host}
+        header_up X-Forwarded-For {remote_host}
+        header_up X-Forwarded-Proto {scheme}
+    }
+
+    # Security headers.
+    header {
+        Strict-Transport-Security "max-age=31536000; includeSubDomains"
+        X-Content-Type-Options "nosniff"
+        X-Frame-Options "DENY"
+        Referrer-Policy "strict-origin-when-cross-origin"
+        -Server
+    }
+
+    # Structured JSON logs, rotate at 50 MB, keep 5.
+    log {
+        output file /var/log/caddy/bip-api.log {
+            roll_size 50mb
+            roll_keep 5
+        }
+        format json
+    }
+}
