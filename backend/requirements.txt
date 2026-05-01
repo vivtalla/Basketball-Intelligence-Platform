@@ -1,5 +1,6 @@
 fastapi==0.115.6
 uvicorn[standard]==0.33.0
+gunicorn==23.0.0
 nba_api==1.5.2
 pandas>=2.2.0,<3.0  # 2.0.3 fails to build on Python 3.12 (pkg_resources missing)
 pydantic==2.10.4
