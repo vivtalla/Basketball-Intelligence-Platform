@@ -105,7 +105,18 @@ if [ -z "$IS_PLAYOFFS" ]; then
 fi
 export IS_PLAYOFFS
 
-LOG="$HOME/Library/Logs/bip_sync.log"
+# Pick a writable log path. Honor BIP_SYNC_LOG when set; otherwise prefer
+# /var/log/bip-sync.log on Linux (where cron also redirects to), fall back
+# to the macOS user logs dir for local manual runs, and /tmp as a last resort.
+if [ -n "${BIP_SYNC_LOG:-}" ]; then
+  LOG="$BIP_SYNC_LOG"
+elif [ -w "/var/log/bip-sync.log" ] || { [ -d "/var/log" ] && [ -w "/var/log" ]; }; then
+  LOG="/var/log/bip-sync.log"
+elif [ -d "$HOME/Library/Logs" ]; then
+  LOG="$HOME/Library/Logs/bip_sync.log"
+else
+  LOG="/tmp/bip-sync.log"
+fi
 
 # Track summary counters for the closing log line.
 SERIES_REFRESHED="${SERIES_REFRESHED:-0}"
