@@ -10,6 +10,12 @@ import {
   useCustomMetric,
   type CustomMetricComponentInput,
 } from "@/hooks/useCustomMetric";
+import {
+  isExternalMetric,
+  getMetricMeta,
+  metricTooltipText as metricTooltipForStat,
+} from "@/lib/external-metrics";
+import ExternalMetricsAttribution from "./ExternalMetricsAttribution";
 
 const STAT_GROUPS = [
   {
@@ -285,6 +291,14 @@ export function CustomMetricBuilder() {
 
   const totalWeight = useMemo(
     () => components.reduce((sum, component) => sum + Number(component.weight || 0), 0),
+    [components]
+  );
+
+  const externalKeysInUse = useMemo(
+    () =>
+      components
+        .map((c) => c.stat_id)
+        .filter((id): id is string => Boolean(id) && isExternalMetric(id)),
     [components]
   );
 
@@ -643,6 +657,13 @@ export function CustomMetricBuilder() {
                 )}
               </div>
 
+              {externalKeysInUse.length > 0 ? (
+                <ExternalMetricsAttribution
+                  keys={externalKeysInUse}
+                  variant="banner"
+                />
+              ) : null}
+
               <div className="rounded-[1.5rem] border border-[var(--border)] bg-[rgba(255,255,255,0.72)] p-4">
                 <div className="mb-3 flex items-center justify-between gap-3">
                   <div>
@@ -679,14 +700,29 @@ export function CustomMetricBuilder() {
                           })
                         }
                         className="bip-input rounded-2xl px-4 py-3 text-sm"
+                        title={
+                          isExternalMetric(component.stat_id)
+                            ? metricTooltipForStat(component.stat_id)
+                            : undefined
+                        }
                       >
                         {STAT_GROUPS.map((group) => (
                           <optgroup key={group.label} label={group.label}>
-                            {group.options.map((option) => (
-                              <option key={option.key} value={option.key}>
-                                {option.label}
-                              </option>
-                            ))}
+                            {group.options.map((option) => {
+                              const meta = getMetricMeta(option.key);
+                              const display = meta
+                                ? `${option.label} · ${meta.source}`
+                                : option.label;
+                              return (
+                                <option
+                                  key={option.key}
+                                  value={option.key}
+                                  title={meta ? metricTooltipForStat(option.key) : undefined}
+                                >
+                                  {display}
+                                </option>
+                              );
+                            })}
                           </optgroup>
                         ))}
                       </select>

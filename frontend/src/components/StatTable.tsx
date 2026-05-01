@@ -2,6 +2,8 @@
 
 import { useState, useMemo } from "react";
 import type { SeasonStats } from "@/lib/types";
+import { isExternalMetric, metricTooltipText, EXTERNAL_METRIC_KEYS } from "@/lib/external-metrics";
+import ExternalMetricsAttribution from "./ExternalMetricsAttribution";
 
 interface StatTableProps {
   seasons: SeasonStats[];
@@ -324,14 +326,26 @@ export default function StatTable({ seasons, careerTotals, playoffSeasons = [] }
         <table className="w-full text-sm">
           <thead>
             <tr className="bip-table-head">
-              {columns.map((col) => (
-                <th
-                  key={col.key}
-                  className="whitespace-nowrap px-3 py-3 text-left text-xs font-medium uppercase tracking-wider"
-                >
-                  {col.label}
-                </th>
-              ))}
+              {columns.map((col) => {
+                const ext = isExternalMetric(col.key);
+                return (
+                  <th
+                    key={col.key}
+                    title={ext ? metricTooltipText(col.key) : undefined}
+                    className="whitespace-nowrap px-3 py-3 text-left text-xs font-medium uppercase tracking-wider"
+                  >
+                    {col.label}
+                    {ext ? (
+                      <sup
+                        aria-hidden="true"
+                        className="ml-0.5 text-[var(--muted)]"
+                      >
+                        °
+                      </sup>
+                    ) : null}
+                  </th>
+                );
+              })}
             </tr>
           </thead>
           <tbody className="divide-y divide-[var(--border)] text-[var(--foreground)]">
@@ -408,6 +422,17 @@ export default function StatTable({ seasons, careerTotals, playoffSeasons = [] }
           <span>▲ / ▼ vs. prior season</span>
           <span className="text-emerald-500 dark:text-emerald-400">▲ improvement</span>
           <span className="text-red-500 dark:text-red-400">▼ decline</span>
+        </div>
+      )}
+
+      {/* External metric attribution — only when Advanced view shows external columns */}
+      {view === "advanced" && (
+        <div className="border-t border-[var(--border)] px-6 py-3">
+          <ExternalMetricsAttribution
+            keys={columns.map((c) => c.key).filter((k) => EXTERNAL_METRIC_KEYS.includes(k))}
+            variant="footer"
+            className="mt-0"
+          />
         </div>
       )}
     </div>
