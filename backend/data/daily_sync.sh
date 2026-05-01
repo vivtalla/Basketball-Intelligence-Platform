@@ -52,8 +52,14 @@ done
 # system `python` or `python3` so manual / dry-run invocations succeed in
 # minimal environments.
 if [ -z "${PYTHON_BIN:-}" ]; then
+  # Script just `cd "$(dirname $0)/.."`-ed up one level (now at backend/), so
+  # backend/venv lives at ./venv. The Hetzner VM cwd is /home/ubuntu/bip/backend
+  # at this point — same shape. Fall back to ./backend/venv for older laptop
+  # layouts where someone invoked the script from the repo root.
   if [ -x "./venv/bin/python" ]; then
     PYTHON_BIN="./venv/bin/python"
+  elif [ -x "./backend/venv/bin/python" ]; then
+    PYTHON_BIN="./backend/venv/bin/python"
   elif command -v python >/dev/null 2>&1; then
     PYTHON_BIN="python"
   else
