@@ -2,24 +2,16 @@
     email vivtalla@gmail.com
 }
 
+# Sprint 82d — public mode. No auth gate; the API is fully open.
+# Cloudflare WAF (free tier) handles rate limiting and bot mitigation.
+# api.courtvue.app should be ORANGE-CLOUD (proxied) at Cloudflare so the WAF
+# rules apply and the origin IP stays hidden.
 api.courtvue.app {
-    # HTTP Basic Auth gate — shared FO credential, bcrypt hashed.
-    # Generate hash: caddy hash-password --plaintext 'YOUR_PASSWORD'
-    # Replace <BCRYPT_HASH_PLACEHOLDER> with the output before deploying.
-    basicauth /* {
-        courtvue <BCRYPT_HASH_PLACEHOLDER>
-    }
-
-    # Health check bypasses auth so UptimeRobot can ping without credentials.
-    @health path /api/health
-    handle @health {
-        reverse_proxy 127.0.0.1:8000
-    }
-
-    # All other requests: proxy to uvicorn.
+    # Trust Cloudflare's CF-Connecting-IP header for real client IP in logs.
+    # Backend reads this via X-Real-IP for rate-limit attribution.
     reverse_proxy 127.0.0.1:8000 {
-        header_up X-Real-IP {remote_host}
-        header_up X-Forwarded-For {remote_host}
+        header_up X-Real-IP {http.request.header.CF-Connecting-IP}
+        header_up X-Forwarded-For {http.request.header.CF-Connecting-IP}
         header_up X-Forwarded-Proto {scheme}
     }
 

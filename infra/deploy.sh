@@ -35,7 +35,7 @@ systemctl restart bip-api
 echo "[deploy] Waiting for health check..."
 sleep 4
 
-# Health check via localhost (bypasses basicauth — direct to uvicorn port)
+# Health check via localhost (direct to uvicorn loopback port)
 HTTP_STATUS=$(curl -so /dev/null -w "%{http_code}" --max-time 10 http://127.0.0.1:8000/api/health || echo "000")
 if [ "$HTTP_STATUS" = "200" ]; then
     echo "[deploy] Health check PASSED (HTTP $HTTP_STATUS)"
