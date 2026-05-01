@@ -21,8 +21,10 @@ to two tiles rather than failing the whole rail:
 """
 from __future__ import annotations
 
+from datetime import date
 from typing import Dict, List, Optional
 
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from db.models import Player, PlayerGameLog, SeasonStat
@@ -101,7 +103,6 @@ def _heat_check(db: Session, season: str, rows: List[SeasonStat]) -> Optional[Pl
         headline=headline,
         subhead=subhead,
         href="/players/{0}".format(int(best_row.player_id)),
-        read_time="Live · refreshes nightly",
     )
 
 
@@ -141,7 +142,6 @@ def _efficiency_desk(db: Session, rows: List[SeasonStat]) -> Optional[PlayoffSto
         headline=headline,
         subhead=subhead,
         href="/players/{0}".format(int(best_row.player_id)),
-        read_time="Updated nightly",
     )
 
 
@@ -185,7 +185,6 @@ def _x_factor(db: Session, rows: List[SeasonStat]) -> Optional[PlayoffStoryTile]
         headline=headline,
         subhead=subhead,
         href="/players/{0}".format(int(best_row.player_id)),
-        read_time="Updated nightly",
     )
 
 
@@ -242,7 +241,6 @@ def _streaks_and_milestones_tile(db: Session, season: str) -> Optional[PlayoffSt
             headline=headline,
             subhead=subhead,
             href="/players/{0}".format(int(streak["player_id"])),
-            read_time="Updated nightly",
         )
 
     if milestone is not None:
@@ -261,7 +259,6 @@ def _streaks_and_milestones_tile(db: Session, season: str) -> Optional[PlayoffSt
             headline=headline,
             subhead=subhead,
             href="/players/{0}".format(int(milestone["player_id"])),
-            read_time="Updated nightly",
         )
 
     return None
@@ -312,4 +309,30 @@ def compute_story_rail(db: Session, season: str) -> List[PlayoffStoryTile]:
     return tiles
 
 
-__all__ = ["compute_story_rail"]
+def compute_data_as_of(db: Session, season: str) -> Optional[date]:
+    """Latest game date the story rail's underlying data reflects.
+
+    Surfaces real freshness so the UI can render "Through Apr 30" instead of
+    relying on the misleading hardcoded "Updated nightly" copy on each tile.
+    Prefers the playoff slice (Heat Check / Efficiency Desk / X-Factor all
+    read playoff rows); falls back to the regular-season slice so the
+    streak/milestone tile still has a freshness anchor outside the playoffs.
+    """
+    playoff_max = (
+        db.query(func.max(PlayerGameLog.game_date))
+        .filter(
+            PlayerGameLog.season == season,
+            PlayerGameLog.season_type == "Playoffs",
+        )
+        .scalar()
+    )
+    if playoff_max is not None:
+        return playoff_max
+    return (
+        db.query(func.max(PlayerGameLog.game_date))
+        .filter(PlayerGameLog.season == season)
+        .scalar()
+    )
+
+
+__all__ = ["compute_story_rail", "compute_data_as_of"]

@@ -5,7 +5,7 @@ series simulator response.
 """
 from __future__ import annotations
 
-from datetime import date as _date
+from datetime import date as _date, datetime
 from typing import List, Literal, Optional
 
 from pydantic import BaseModel, Field
@@ -268,3 +268,5 @@ class PlayoffStoryTile(BaseModel):
 class PlayoffStoryRailResponse(BaseModel):
     season: str
     tiles: List[PlayoffStoryTile] = Field(default_factory=list)
+    data_as_of: Optional[_date] = None
+    computed_at: Optional[datetime] = None

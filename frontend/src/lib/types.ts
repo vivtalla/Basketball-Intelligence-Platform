@@ -4402,6 +4402,8 @@ export interface PlayoffStoryTile {
 export interface PlayoffStoryRailResponse {
   season: string;
   tiles: PlayoffStoryTile[];
+  data_as_of?: string | null;
+  computed_at?: string | null;
 }
 
 // ── Sprint 77 (Stream A) — Game-detail enrichment fields ────────────────────

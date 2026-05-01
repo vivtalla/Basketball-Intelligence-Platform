@@ -13,6 +13,7 @@ import {
 } from "@/hooks/usePlayerStats";
 import type { LeaderboardEntry } from "@/lib/types";
 import { getAvailableSeasons, syncSeasonPbp, getLeaderboardTeams } from "@/lib/api";
+import { GravityMethodologyModal } from "@/components/GravityMethodologyModal";
 
 // ─── Stat definitions ────────────────────────────────────────────────────────
 
@@ -318,6 +319,7 @@ function PlayerStatsPageContent() {
   const [newStat, setNewStat] = useState("ts_pct");
   const [newOp, setNewOp] = useState<Operator>("gte");
   const [newVal, setNewVal] = useState("");
+  const [isGravityExplainerOpen, setIsGravityExplainerOpen] = useState(false);
 
   useEffect(() => {
     getAvailableSeasons()
@@ -978,7 +980,21 @@ function PlayerStatsPageContent() {
                         color: accent.text,
                       }}
                     >
-                      {group.label}
+                      <span className="inline-flex items-center gap-1.5">
+                        {group.label}
+                        {group.label === "Gravity" && (
+                          <button
+                            type="button"
+                            onClick={() => setIsGravityExplainerOpen(true)}
+                            aria-label="How is Gravity calculated?"
+                            title="How is Gravity calculated?"
+                            className="inline-flex h-4 w-4 items-center justify-center rounded-full border border-current text-[10px] font-bold leading-none opacity-70 transition hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-offset-1"
+                            style={{ borderColor: accent.text, color: accent.text }}
+                          >
+                            i
+                          </button>
+                        )}
+                      </span>
                     </th>
                   );
                 })}
@@ -1339,6 +1355,11 @@ function PlayerStatsPageContent() {
           ? "On/Off depends on local play-by-play-derived coverage and the minimum on-court minutes threshold."
           : "Lineup ratings are possession-based and filtered by minimum lineup minutes."}
       </p>
+
+      <GravityMethodologyModal
+        open={isGravityExplainerOpen}
+        onClose={() => setIsGravityExplainerOpen(false)}
+      />
     </div>
   );
 }

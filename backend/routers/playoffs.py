@@ -40,7 +40,7 @@ from services.playoff_bracket_service import compute_game_storyline
 from services.playoff_leaders_service import compute_playoff_leaders
 from services.playoff_series_intelligence_service import build_playoff_series_intelligence
 from services.playoff_simulator_service import simulate_series
-from services.story_rail_service import compute_story_rail
+from services.story_rail_service import compute_data_as_of, compute_story_rail
 
 logger = logging.getLogger(__name__)
 
@@ -584,4 +584,6 @@ def get_story_rail(
     return PlayoffStoryRailResponse(
         season=season,
         tiles=compute_story_rail(db, season),
+        data_as_of=compute_data_as_of(db, season),
+        computed_at=datetime.utcnow(),
     )

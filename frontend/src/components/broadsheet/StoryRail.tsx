@@ -24,6 +24,43 @@ import type {
 
 const ACTIVE_SEASON_FALLBACK = "2025-26";
 
+function formatFreshness(
+  dataAsOf?: string | null,
+  computedAt?: string | null,
+): { label: string; title: string } | null {
+  if (!dataAsOf && !computedAt) return null;
+
+  const parts: string[] = [];
+  let title = "";
+
+  if (dataAsOf) {
+    const d = new Date(`${dataAsOf}T00:00:00Z`);
+    if (!isNaN(d.getTime())) {
+      const month = d.toLocaleString("en-US", { month: "short", timeZone: "UTC" });
+      const day = d.getUTCDate();
+      parts.push(`Through ${month} ${day}`);
+      title += `Stories reflect playoff games through ${dataAsOf}.`;
+    }
+  }
+
+  if (computedAt) {
+    const ms = Date.parse(computedAt);
+    if (!isNaN(ms)) {
+      const ageMin = Math.max(0, Math.round((Date.now() - ms) / 60_000));
+      let rel: string;
+      if (ageMin < 1) rel = "just now";
+      else if (ageMin < 60) rel = `${ageMin} min ago`;
+      else if (ageMin < 60 * 24) rel = `${Math.round(ageMin / 60)}h ago`;
+      else rel = `${Math.round(ageMin / (60 * 24))}d ago`;
+      parts.push(rel);
+      title += ` Recomputed ${rel}.`;
+    }
+  }
+
+  if (parts.length === 0) return null;
+  return { label: parts.join(" · "), title: title.trim() };
+}
+
 function StoryTile({ tile }: { tile: PlayoffStoryTile }) {
   return (
     <Link
@@ -84,11 +121,21 @@ export default function StoryRail() {
   );
 
   const tiles = data?.tiles ?? [];
+  const freshness = formatFreshness(data?.data_as_of, data?.computed_at);
 
   return (
     <section>
-      <header className="mb-3 px-1">
+      <header className="mb-3 px-1 flex items-baseline justify-between gap-3">
         <p className="bip-kicker">Story Rail</p>
+        {freshness && (
+          <p
+            className="text-[10px] tracking-[0.14em] uppercase text-[var(--muted)] tabular-nums"
+            style={{ fontFamily: "var(--font-geist-mono)" }}
+            title={freshness.title}
+          >
+            {freshness.label}
+          </p>
+        )}
       </header>
 
       {isLoading && (
