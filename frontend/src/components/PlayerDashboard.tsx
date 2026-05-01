@@ -18,6 +18,8 @@ import { BriefSourceBanner } from "./scouting-brief/BriefSourceBanner";
 import { TeamFitPanel } from "./team-fit/TeamFitPanel";
 import { PlayerSettingsDrawer } from "./player-settings/PlayerSettingsDrawer";
 import SeasonSplits from "./SeasonSplits";
+import PlayerSplitsPanel from "./PlayerSplitsPanel";
+import PlayTypePanel from "./PlayTypePanel";
 import ExternalMetricsPanel from "./ExternalMetricsPanel";
 import ChartStatusBadge from "./ChartStatusBadge";
 import PerformanceCalendar from "./PerformanceCalendar";
@@ -293,6 +295,13 @@ export default function PlayerDashboard({ playerId }: PlayerDashboardProps) {
       {/* Season splits — regular season only, needs game log data */}
       {!isPlayoffs && effectiveSeasonStr && (
         <SeasonSplits playerId={playerId} season={effectiveSeasonStr} />
+      )}
+
+      {!isPlayoffs && effectiveSeasonStr && (
+        <PlayerSplitsPanel playerId={playerId} season={effectiveSeasonStr} />
+      )}
+      {!isPlayoffs && effectiveSeasonStr && (
+        <PlayTypePanel playerId={playerId} season={effectiveSeasonStr} />
       )}
 
       {/* Performance Calendar — game-by-game heatmap for current season */}
