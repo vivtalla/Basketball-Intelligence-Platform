@@ -13,3 +13,4 @@ pypdf==5.4.0
 # scrapers should pin them explicitly.
 requests==2.32.4
 beautifulsoup4==4.12.3
+playwright>=1.40.0

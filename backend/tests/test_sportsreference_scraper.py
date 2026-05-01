@@ -45,8 +45,37 @@ def test_normalize_position() -> None:
 # Page parsing — fixture-based
 # ---------------------------------------------------------------------------
 
-# Realistic-ish per-game stats table fixture. We use the actual Sports
-# Reference data-stat attributes so the parser exercises its real path.
+# Leaders-page fixture exercising the live `_parse_leaders_page` path.
+_FIXTURE_LEADERS_PAGE = """
+<html><body>
+<div id="leaders_pts_per_g">
+  <span class="who">
+    <a href="/cbb/players/cooper-flagg-1.html">Cooper Flagg</a>
+    <small>Duke</small>
+  </span>
+  <span class="value">19.2</span>
+  <span class="who">
+    <a href="/cbb/players/dylan-harper-1.html">Dylan Harper</a>
+    <small>Rutgers</small>
+  </span>
+  <span class="value">19.4</span>
+  <span class="who">
+    <a href="/cbb/players/low-scorer-1.html">Low Scorer</a>
+    <small>State</small>
+  </span>
+  <span class="value">8.1</span>
+</div>
+</body></html>
+"""
+
+_FIXTURE_LEADERS_PAGE_COMMENT_WRAPPED = (
+    "<html><body><div><!--" + _FIXTURE_LEADERS_PAGE + "--></div></body></html>"
+)
+
+
+# Legacy per-game stats fixture — exercises the retained `_parse_per_game_page`
+# back-compat path. We use the actual Sports Reference data-stat attributes so
+# the parser exercises its real path.
 _FIXTURE_PAGE = """
 <html><body>
 <table id="per_game_stats">
@@ -141,7 +170,13 @@ def test_parser_extracts_top_scorers_and_filters_low_ppg() -> None:
 def test_fetch_top_prospects_filters_to_high_ppg() -> None:
     """fetch_top_prospects() should drop the <10 PPG walk-on row."""
     scraper = SportsReferenceCBBScraper()
-    with patch.object(scraper, "get", return_value=_FIXTURE_PAGE):
+
+    def _side_effect(url, **kwargs):
+        if "leaders" in url:
+            return _FIXTURE_LEADERS_PAGE
+        return "<html><body></body></html>"
+
+    with patch.object(scraper, "get", side_effect=_side_effect):
         rows = scraper.fetch_top_prospects(season_year=2026, top_n=10)
 
     assert len(rows) == 2  # Flagg + Harper, walk-on filtered out
@@ -152,7 +187,7 @@ def test_fetch_top_prospects_filters_to_high_ppg() -> None:
 
 
 def test_fetch_raises_when_table_missing() -> None:
-    """No per_game_stats table = ScraperError = upstream fallback."""
+    """No leaders div = ScraperError = upstream fallback."""
     scraper = SportsReferenceCBBScraper()
     bad_html = "<html><body><p>blocked</p></body></html>"
     with patch.object(scraper, "get", return_value=bad_html):
@@ -163,12 +198,52 @@ def test_fetch_raises_when_table_missing() -> None:
 def test_fetch_handles_html_comment_wrapped_table() -> None:
     """SR sometimes wraps tables in HTML comments as anti-scrape; we should still parse."""
     scraper = SportsReferenceCBBScraper()
-    inner_table = _FIXTURE_PAGE
-    wrapped = f"<html><body><div><!--{inner_table}--></div></body></html>"
-    with patch.object(scraper, "get", return_value=wrapped):
+
+    def _side_effect(url, **kwargs):
+        if "leaders" in url:
+            return _FIXTURE_LEADERS_PAGE_COMMENT_WRAPPED
+        return "<html><body></body></html>"
+
+    with patch.object(scraper, "get", side_effect=_side_effect):
         rows = scraper.fetch_top_prospects(season_year=2026, top_n=10)
     assert len(rows) >= 2
     assert any(r["full_name"] == "Cooper Flagg" for r in rows)
+
+
+def test_parse_leaders_page_extracts_names_and_ppg() -> None:
+    from data.scrapers.sportsreference_cbb import SportsReferenceCBBScraper
+    scraper = SportsReferenceCBBScraper()
+    entries = scraper._parse_leaders_page(_FIXTURE_LEADERS_PAGE)
+    assert len(entries) == 3
+    names = [e[0] for e in entries]
+    assert "Cooper Flagg" in names
+    assert "Dylan Harper" in names
+    ppg_map = {e[0]: e[2] for e in entries}
+    assert ppg_map["Cooper Flagg"] == pytest.approx(19.2, abs=0.01)
+
+
+def test_parse_leaders_page_handles_comment_wrapping() -> None:
+    from data.scrapers.sportsreference_cbb import SportsReferenceCBBScraper
+    scraper = SportsReferenceCBBScraper()
+    entries = scraper._parse_leaders_page(_FIXTURE_LEADERS_PAGE_COMMENT_WRAPPED)
+    assert len(entries) == 3
+
+
+def test_fetch_top_prospects_filters_low_ppg() -> None:
+    from data.scrapers.sportsreference_cbb import SportsReferenceCBBScraper
+    scraper = SportsReferenceCBBScraper()
+
+    def _side_effect(url, **kwargs):
+        if "leaders" in url:
+            return _FIXTURE_LEADERS_PAGE
+        return "<html><body></body></html>"
+
+    with patch.object(scraper, "get", side_effect=_side_effect):
+        rows = scraper.fetch_top_prospects(season_year=2026)
+
+    names = [r["full_name"] for r in rows]
+    assert "Low Scorer" not in names
+    assert len(rows) == 2
 
 
 # ---------------------------------------------------------------------------

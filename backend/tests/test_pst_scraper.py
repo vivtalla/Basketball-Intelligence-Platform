@@ -4,7 +4,7 @@ from __future__ import annotations
 import os
 import sys
 from datetime import date
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 import pytest
 
@@ -20,6 +20,27 @@ from data.scrapers.prosportstransactions import (  # noqa: E402
     _parse_pst_date,
     _season_for,
 )
+
+
+def _make_playwright_mock(html_content: str):
+    """Returns a context-manager mock for sync_playwright() that yields html_content."""
+    page_mock = MagicMock()
+    page_mock.content.return_value = html_content
+
+    browser_mock = MagicMock()
+    browser_mock.new_page.return_value = page_mock
+
+    chromium_mock = MagicMock()
+    chromium_mock.launch.return_value = browser_mock
+
+    pw_mock = MagicMock()
+    pw_mock.chromium = chromium_mock
+
+    cm_mock = MagicMock()
+    cm_mock.__enter__ = MagicMock(return_value=pw_mock)
+    cm_mock.__exit__ = MagicMock(return_value=False)
+
+    return cm_mock
 
 
 def test_body_part_classification() -> None:
@@ -234,3 +255,59 @@ def test_pst_ingestion_falls_back_to_seed_on_scrape_error(in_memory_db, tmp_path
 
     assert result["fallback_used"] is True
     assert result["inserted"] == 1
+
+
+# ---------------------------------------------------------------------------
+# Playwright integration — mocked browser, no network
+# ---------------------------------------------------------------------------
+
+
+def test_playwright_fetch_success_returns_html() -> None:
+    """PlaywrightScraper.get() returns HTML content from mocked browser."""
+    scraper = ProSportsTransactionsScraper()
+    mock_cm = _make_playwright_mock("<html><body>Test content</body></html>")
+    with patch("data.scrapers._base._sync_playwright", return_value=mock_cm):
+        with patch.object(scraper, "_sleep_for_rate_limit"):
+            result = scraper.get("https://prosportstransactions.com/basketball/Search/test")
+    assert "Test content" in result
+
+
+def test_playwright_timeout_raises_scraper_error() -> None:
+    """PlaywrightScraper.get() wraps PlaywrightTimeoutError in ScraperError."""
+    from data.scrapers._base import PlaywrightTimeoutError as PTError
+    scraper = ProSportsTransactionsScraper()
+
+    page_mock = MagicMock()
+    page_mock.goto.side_effect = PTError("timed out")
+
+    browser_mock = MagicMock()
+    browser_mock.new_page.return_value = page_mock
+
+    pw_mock = MagicMock()
+    pw_mock.chromium.launch.return_value = browser_mock
+
+    cm_mock = MagicMock()
+    cm_mock.__enter__ = MagicMock(return_value=pw_mock)
+    cm_mock.__exit__ = MagicMock(return_value=False)
+
+    with patch("data.scrapers._base._sync_playwright", return_value=cm_mock):
+        with patch.object(scraper, "_sleep_for_rate_limit"):
+            with pytest.raises(ScraperError, match="(?i)timeout"):
+                scraper.get("https://prosportstransactions.com/basketball/Search/test")
+
+
+def test_playwright_generic_exception_raises_scraper_error() -> None:
+    """PlaywrightScraper.get() wraps any unexpected exception in ScraperError."""
+    scraper = ProSportsTransactionsScraper()
+
+    pw_mock = MagicMock()
+    pw_mock.chromium.launch.side_effect = RuntimeError("browser crash")
+
+    cm_mock = MagicMock()
+    cm_mock.__enter__ = MagicMock(return_value=pw_mock)
+    cm_mock.__exit__ = MagicMock(return_value=False)
+
+    with patch("data.scrapers._base._sync_playwright", return_value=cm_mock):
+        with patch.object(scraper, "_sleep_for_rate_limit"):
+            with pytest.raises(ScraperError):
+                scraper.get("https://prosportstransactions.com/basketball/Search/test")

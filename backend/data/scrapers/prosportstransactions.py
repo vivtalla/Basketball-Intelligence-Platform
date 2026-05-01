@@ -22,7 +22,7 @@ from typing import Any, Dict, List, Optional, Tuple
 
 from bs4 import BeautifulSoup
 
-from data.scrapers._base import HttpScraper, ScraperError
+from data.scrapers._base import PlaywrightScraper, ScraperError
 
 logger = logging.getLogger(__name__)
 
@@ -93,7 +93,7 @@ def _age_at(birth_date: Optional[date], event: date) -> Optional[float]:
     return round(delta.days / 365.25, 1)
 
 
-class ProSportsTransactionsScraper(HttpScraper):
+class ProSportsTransactionsScraper(PlaywrightScraper):
     """Scrapes the PST injury archive in date-windowed chunks."""
 
     BASE_URL = "https://prosportstransactions.com"
