@@ -25,6 +25,12 @@
 set -e
 cd "$(dirname "$0")/.."
 
+# Sprint 82d — cron context explicitly allows live NBA API calls. Public-mode
+# user-facing requests run with NBA_API_USER_FETCH_DISABLED=true so they only
+# read the cache; this export guarantees the nightly sync still fetches live,
+# regardless of what /etc/bip/env sets globally.
+export NBA_API_USER_FETCH_DISABLED=false
+
 # ---------------------------------------------------------------------------
 # Argument parsing — `--post-game` runs the lightweight playoff-night refresh
 # (game logs, brackets, splits, injuries) and exits. `--dry-run` just prints

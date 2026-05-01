@@ -8,6 +8,8 @@ import DualCareerArcChart from "./DualCareerArcChart";
 import HeroHardwood from "./HeroHardwood";
 import InjuryStatusBadge from "./InjuryStatusBadge";
 import ShotIdentityBadges from "./ShotIdentityBadges";
+import ExternalMetricsAttribution from "./ExternalMetricsAttribution";
+import { isExternalMetric, metricTooltipText } from "@/lib/external-metrics";
 
 interface PlayerData {
   profile: PlayerProfile;
@@ -60,9 +62,9 @@ const ADVANCED_ROWS: StatRow[] = [
   { key: "net_rating",  label: "Net Rating",      higherBetter: true              },
   { key: "pie",         label: "PIE",             higherBetter: true,  pct: true  },
   { key: "darko",       label: "DARKO",           higherBetter: true,  decimals: 2},
-  { key: "epm",         label: "EPM*",            higherBetter: true              },
-  { key: "raptor",      label: "RAPTOR*",         higherBetter: true              },
-  { key: "pipm",        label: "PIPM*",           higherBetter: true              },
+  { key: "epm",         label: "EPM",             higherBetter: true              },
+  { key: "raptor",      label: "RAPTOR",          higherBetter: true              },
+  { key: "pipm",        label: "PIPM",            higherBetter: true              },
 ];
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -214,8 +216,14 @@ function StatRowItem({
       >
         {formatVal(valA, row)}
       </span>
-      <span className="min-w-[120px] whitespace-nowrap px-2 text-center text-xs text-[var(--muted)]">
+      <span
+        className="min-w-[120px] whitespace-nowrap px-2 text-center text-xs text-[var(--muted)]"
+        title={isExternalMetric(row.key as string) ? metricTooltipText(row.key as string) : undefined}
+      >
         {row.label}
+        {isExternalMetric(row.key as string) ? (
+          <sup aria-hidden="true" className="ml-0.5">°</sup>
+        ) : null}
       </span>
       <span
         className={`text-left font-semibold tabular-nums text-lg ${
@@ -252,7 +260,15 @@ function PercentileRowItem({
 
   return (
     <div className="border-b border-[var(--border)] py-2.5 last:border-0">
-      <div className="mb-1.5 text-center text-xs text-[var(--muted)]">{row.label}</div>
+      <div
+        className="mb-1.5 text-center text-xs text-[var(--muted)]"
+        title={isExternalMetric(row.key as string) ? metricTooltipText(row.key as string) : undefined}
+      >
+        {row.label}
+        {isExternalMetric(row.key as string) ? (
+          <sup aria-hidden="true" className="ml-0.5">°</sup>
+        ) : null}
+      </div>
       <div className="space-y-1">
         {/* Player A bar */}
         <div className="flex items-center gap-2">
@@ -650,9 +666,11 @@ export default function ComparisonView({ playerA, playerB, availabilityA, availa
           <p className="text-center text-xs text-[var(--accent)]">
             Forest = better value
           </p>
-          <p className="text-center text-xs text-[var(--muted)]">
-            * External metric — not platform-original (EPM: Dunks & Threes · RAPTOR: FiveThirtyEight · PIPM: Basketball Index)
-          </p>
+          <ExternalMetricsAttribution
+            keys={["epm", "raptor", "pipm", "lebron", "rapm"]}
+            variant="footer"
+            className="text-center"
+          />
         </>
       )}
     </div>

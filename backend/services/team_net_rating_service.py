@@ -4,7 +4,7 @@ from typing import List
 
 from sqlalchemy.orm import Session
 
-from data.nba_client import get_team_game_log
+from data.nba_client import LiveFetchBlockedError, get_team_game_log
 from db.models import Team
 from models.team import TeamNetRatingGame, TeamNetRatingSeriesResponse
 
@@ -28,7 +28,19 @@ def build_team_rolling_net_rating(
                 data_status="unavailable",
             )
 
-        rows = get_team_game_log(team.nba_team_id, season)
+        try:
+            rows = get_team_game_log(team.nba_team_id, season)
+        except LiveFetchBlockedError:
+            # Sprint 82d public-mode: no cached game log yet. Return empty
+            # series with the same "unavailable" status the no-rows path
+            # uses so the UI renders a degraded state rather than a 500.
+            return TeamNetRatingSeriesResponse(
+                team_abbr=team_abbr,
+                season=season,
+                window=window,
+                games=[],
+                data_status="unavailable",
+            )
 
         if not rows:
             return TeamNetRatingSeriesResponse(

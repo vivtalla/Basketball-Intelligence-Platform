@@ -35,3 +35,9 @@ DATABASE_URL = os.getenv("DATABASE_URL", "postgresql://localhost/bip")
 # Playoff cache override (drops below CURRENT_SEASON_CACHE_TTL during the
 # postseason window so live brackets stay fresh during games).
 PLAYOFF_CACHE_TTL = 7200  # 2 hours during playoff window
+
+# Sprint 82d — Public hosting safety flag.
+# When True, nba_client raises LiveFetchBlockedError on cache miss instead of
+# calling stats.nba.com. Cron scripts (daily_sync.sh) explicitly opt into live
+# fetches via NBA_API_USER_FETCH_DISABLED=false in their environment.
+NBA_API_USER_FETCH_DISABLED = os.getenv("NBA_API_USER_FETCH_DISABLED", "false").lower() == "true"
