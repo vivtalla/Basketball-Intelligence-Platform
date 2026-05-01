@@ -50,14 +50,17 @@ Likely shape:
 - prefer one family per sprint; the data-shape variance across these endpoints is real
 - frontend can wait until at least two families ship
 
-### Spotrac scraper hardening
+### Scraper hardening — PST + Sports Reference (Spotrac is shipped)
 Why it matters:
-Sprint 81 shipped the Spotrac scraper with seed CSV fallback, but the current implementation uses plain `requests` + UA rotation. Spotrac sits behind Cloudflare and may serve JS challenges that defeat this approach in production. The fallback keeps Trade Machine functional, but we'd like real data, not seed estimates.
+Sprint 81 shipped three scrapers; production testing on the Hetzner VM (commit e81a57f) found:
+- **Spotrac:** ✅ working. 29/30 teams scrape successfully each run; 339 of 526 contracts in production now have `source='spotrac'` (~65% coverage including all rotation players + stars). Diacritic-name resolution (Jokić, Dončić) and per-team partial-failure tolerance landed in fix commits.
+- **ProSportsTransactions:** ❌ blocked. PST sits behind Cloudflare's "Just a moment" JS challenge. Plain `requests`, `cloudscraper`, and `curl_cffi` (TLS impersonation) all return HTTP 403. Bypass requires real JS execution via Playwright. Falls back cleanly to seed CSV — the synthetic 220-row cohort still drives the Injury Duration Model.
+- **Sports Reference:** ❌ URL/structure mismatch. `/cbb/seasons/men/{year}-per-game.html` returns 404; the actual page is `/cbb/seasons/men/{year}-leaders.html` with `<div>`-based leader blocks, not the `<table id="per_game_stats">` my parser targets. Falls back to the 30-row hand-curated seed CSV.
 
-Likely shape:
-- monitor `bip-scrape.log` for `fallback_used=true` markers in production
-- if fallbacks fire >50% of the time, add `cloudscraper` or move to a Playwright-based scraper that runs once nightly
-- consider a Spotrac premium API license if the scrape becomes truly impossible
+Likely shape (Sprint 82):
+- **PST:** add Playwright as a dependency, run once nightly via cron with a `--headless --no-sandbox` flag. ~250 MB browser binary on the VM is fine (CX22 has 40 GB SSD); ~200 MB peak RSS per run is fine (4 GB total RAM).
+- **SR:** rewrite `_parse_per_game_page()` to target the leaders page's `<div id="leaders_pts_per_g">` structure. Each block has `<span class="who"><a href='/cbb/players/...'>Name</a> <small>School</small></span><span class="value">23.3</span>`. For full stat lines, follow each top-N player's profile link. ~50 prospects × 3s delay = ~3 min added to nightly cron.
+- **Spotrac stretch:** the LAL/CHI pages return empty intermittently (mid-run rate-limit suspected). Add retry-on-empty for known-good slugs, or re-fetch failed teams at the end of the run with longer delay.
 
 ### Award calibration cohort expansion
 Why it matters:
