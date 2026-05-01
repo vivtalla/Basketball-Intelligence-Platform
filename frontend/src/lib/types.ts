@@ -5065,3 +5065,57 @@ export interface ModelPicks {
   series_picks: ModelSeriesPick[];
   award_picks: ModelAwardPick[];
 }
+
+// ── Sprint 82 — Player Splits + Play Types ────────────────────────────────────
+
+export interface PlayerSplitRow {
+  split_value: string;
+  label: string;
+  gp: number;
+  w: number;
+  l: number;
+  w_pct: number;
+  min: number | null;
+  pts: number | null;
+  reb: number | null;
+  ast: number | null;
+  tov: number | null;
+  stl: number | null;
+  blk: number | null;
+  fg_pct: number | null;
+  fg3_pct: number | null;
+  ft_pct: number | null;
+  ts_pct: number | null;
+  usg_pct: number | null;
+  plus_minus: number | null;
+}
+
+export interface PlayerSplitsResponse {
+  player_id: number;
+  season: string;
+  is_playoff: boolean;
+  families: Record<string, PlayerSplitRow[]>;
+}
+
+export interface PlayTypeRow {
+  play_type: string;
+  play_role: string;
+  gp: number;
+  poss: number;
+  poss_pct: number;
+  pts: number | null;
+  fg_pct: number | null;
+  efg_pct: number | null;
+  ts_pct: number | null;
+  ppp: number | null;
+  percentile: number | null;
+  score_freq_pct: number | null;
+  tov_freq_pct: number | null;
+}
+
+export interface PlayTypeResponse {
+  player_id: number;
+  season: string;
+  is_playoff: boolean;
+  play_types: PlayTypeRow[];
+}

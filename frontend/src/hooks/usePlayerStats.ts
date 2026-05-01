@@ -70,6 +70,8 @@ import type {
   MatchupFlagsResponse,
   FollowThroughResponse,
   TeamSplitsResponse,
+  PlayerSplitsResponse,
+  PlayTypeResponse,
   MvpCandidateCaseResponse,
   MvpContextMapResponse,
   MvpGravityLeaderboardResponse,
@@ -174,6 +176,8 @@ import {
   getTeamNetRatingSeries,
   getTeamPeriodScoring,
   getTeamBenchAnalytics,
+  getPlayerSplits,
+  getPlayerPlayTypes,
 } from "@/lib/api";
 
 const DEFAULT_SHOT_LAB_FILTERS: ShotLabFilters = {
@@ -1335,5 +1339,19 @@ export function useLeaderboardTrends(
   return useSWR<LeaderboardTrendResponse>(
     key,
     () => getLeaderboardTrends(stat!, sortedIds, season!, window)
+  );
+}
+
+export function usePlayerSplits(playerId: number | null, season: string | null) {
+  return useSWR<PlayerSplitsResponse>(
+    playerId && season ? `player-splits-${playerId}-${season}` : null,
+    () => getPlayerSplits(playerId!, season!)
+  );
+}
+
+export function usePlayerPlayTypes(playerId: number | null, season: string | null) {
+  return useSWR<PlayTypeResponse>(
+    playerId && season ? `player-play-types-${playerId}-${season}` : null,
+    () => getPlayerPlayTypes(playerId!, season!)
   );
 }

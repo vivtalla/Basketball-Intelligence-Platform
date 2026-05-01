@@ -2078,3 +2078,23 @@ export async function getModelPicks(
     `/api/picks/model?${params.toString()}`
   );
 }
+
+// ── Sprint 82 — Player Splits + Play Types ────────────────────────────────────
+
+export async function getPlayerSplits(
+  playerId: number,
+  season: string
+): Promise<import("./types").PlayerSplitsResponse> {
+  return fetchApi<import("./types").PlayerSplitsResponse>(
+    `/api/players/${playerId}/splits?season=${encodeURIComponent(season)}&is_playoff=false`
+  );
+}
+
+export async function getPlayerPlayTypes(
+  playerId: number,
+  season: string
+): Promise<import("./types").PlayTypeResponse> {
+  return fetchApi<import("./types").PlayTypeResponse>(
+    `/api/players/${playerId}/play-types?season=${encodeURIComponent(season)}&is_playoff=false`
+  );
+}
