@@ -41,7 +41,13 @@ from nba_api.live.nba.endpoints import boxscore as live_boxscore
 from nba_api.stats.static import players as static_players
 from nba_api.stats.static import teams as static_teams
 
-from config import NBA_API_DELAY, NBA_API_TIMEOUT, PLAYOFF_CACHE_TTL
+from config import (
+    CACHE_TTL_CAREER_STATS,
+    CACHE_TTL_PLAYER_BIO,
+    NBA_API_DELAY,
+    NBA_API_TIMEOUT,
+    PLAYOFF_CACHE_TTL,
+)
 from data.cache import CacheManager
 from db.database import SessionLocal
 from db.models import ApiRequestState
@@ -250,6 +256,31 @@ def _cache_ttl_for_season(season: str) -> int:
             return PLAYOFF_CACHE_TTL
         return CURRENT_SEASON_CACHE_TTL
     return HISTORICAL_SEASON_CACHE_TTL
+
+
+class LiveFetchBlockedError(RuntimeError):
+    """Raised when a user-facing context tries to hit stats.nba.com on cache miss.
+
+    Caught by user-facing routers/services and rendered as graceful "data not
+    cached" responses. Cron scripts run with NBA_API_USER_FETCH_DISABLED=false
+    so they never see this.
+    """
+
+
+def _block_live_fetch_if_user_mode(method_name: str, cache_key: str) -> None:
+    """Raise LiveFetchBlockedError if NBA_API_USER_FETCH_DISABLED is on.
+
+    Call this AFTER checking the cache and BEFORE _rate_limit() / network IO.
+    No-op when the flag is off (cron context).
+    """
+    import config  # late import: avoid circular and pick up monkeypatched values
+    if getattr(config, "NBA_API_USER_FETCH_DISABLED", False):
+        raise LiveFetchBlockedError(
+            "{0}: cache miss for '{1}' and NBA_API_USER_FETCH_DISABLED=true. "
+            "Pre-populate cache via daily_sync.sh or wait for next nightly run.".format(
+                method_name, cache_key
+            )
+        )
 
 
 def _fetch_nba_json(base_url: str, path: str, timeout: int = NBA_API_TIMEOUT) -> dict:
@@ -977,6 +1008,13 @@ def search_players(query: str) -> list[dict]:
 
 def get_player_info(player_id: int) -> dict:
     """Fetch player bio/profile from NBA.com."""
+    cache_key = "player_info:{0}".format(player_id)
+    cached = CacheManager.get(cache_key)
+    if cached:
+        return cached
+
+    _block_live_fetch_if_user_mode("get_player_info", cache_key)
+
     _rate_limit()
     info = commonplayerinfo.CommonPlayerInfo(
         player_id=player_id, timeout=NBA_API_TIMEOUT
@@ -984,7 +1022,7 @@ def get_player_info(player_id: int) -> dict:
     data = info.get_normalized_dict()
     player = data["CommonPlayerInfo"][0]
 
-    return {
+    result = {
         "id": player_id,
         "full_name": player.get("DISPLAY_FIRST_LAST", ""),
         "first_name": player.get("FIRST_NAME", ""),
@@ -1006,22 +1044,34 @@ def get_player_info(player_id: int) -> dict:
         "to_year": player.get("TO_YEAR"),
         "headshot_url": f"https://cdn.nba.com/headshots/nba/latest/1040x760/{player_id}.png",
     }
+    # Player bio rarely changes — reuse the long static-players TTL.
+    CacheManager.set(cache_key, result, CACHE_TTL_PLAYER_BIO)
+    return result
 
 
 def get_career_stats(player_id: int) -> dict:
     """Fetch career stats (season-by-season + career totals)."""
+    cache_key = "player_career_stats:{0}".format(player_id)
+    cached = CacheManager.get(cache_key)
+    if cached:
+        return cached
+
+    _block_live_fetch_if_user_mode("get_career_stats", cache_key)
+
     _rate_limit()
     career = playercareerstats.PlayerCareerStats(
         player_id=player_id, timeout=NBA_API_TIMEOUT
     )
     data = career.get_normalized_dict()
 
-    return {
+    result = {
         "season_totals": data.get("SeasonTotalsRegularSeason", []),
         "career_totals": data.get("CareerTotalsRegularSeason", []),
         "post_season_totals": data.get("SeasonTotalsPostSeason", []),
         "post_career_totals": data.get("CareerTotalsPostSeason", []),
     }
+    CacheManager.set(cache_key, result, CACHE_TTL_CAREER_STATS)
+    return result
 
 
 def get_league_dash_player_stats(
@@ -2130,6 +2180,8 @@ def get_team_game_log(
     cached = CacheManager.get(cache_key)
     if cached and isinstance(cached.get("rows"), list):
         return cached["rows"]
+
+    _block_live_fetch_if_user_mode("get_team_game_log", cache_key)
 
     _rate_limit()
     response = teamgamelog.TeamGameLog(

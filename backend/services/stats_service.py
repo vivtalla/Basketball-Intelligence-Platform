@@ -5,6 +5,7 @@ import logging
 
 from data.cache import CacheManager
 from data.nba_client import (
+    LiveFetchBlockedError,
     get_career_stats,
     get_league_dash_player_stats,
     get_player_advanced_stats_from_league,
@@ -65,6 +66,20 @@ def _get_league_advanced_cached(season: str) -> list[dict]:
     return data
 
 
+def _empty_career_response(player_id: int, player_name: str = "") -> dict:
+    """Graceful empty career payload used when live NBA fetches are blocked
+    (Sprint 82d public-mode) and no cached career exists yet. Matches the
+    success-path response shape so the frontend renders an empty state instead
+    of a 500."""
+    return {
+        "player_id": player_id,
+        "player_name": player_name,
+        "seasons": [],
+        "career_totals": None,
+        "playoff_seasons": [],
+    }
+
+
 def get_player_career_stats(player_id: int, player_name: str = "") -> dict:
     """Get full career stats with advanced metrics for a player."""
     # Check cache
@@ -73,7 +88,18 @@ def get_player_career_stats(player_id: int, player_name: str = "") -> dict:
     if cached:
         return cached
 
-    raw = get_career_stats(player_id)
+    try:
+        raw = get_career_stats(player_id)
+    except LiveFetchBlockedError:
+        # Public-hosting mode: data not yet cached. Return an empty payload
+        # so the UI renders a "career data not yet synced" state rather than
+        # a 500. Do NOT cache the empty response — the next nightly sync
+        # should populate the real cache.
+        logger.info(
+            "career stats blocked for player %s (public-mode cache miss)",
+            player_id,
+        )
+        return _empty_career_response(player_id, player_name)
 
     # Transform regular season stats
     seasons = []
