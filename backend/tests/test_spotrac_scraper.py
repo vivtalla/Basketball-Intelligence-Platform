@@ -253,6 +253,38 @@ def test_sync_uses_spotrac_when_scrape_succeeds(in_memory_db, tmp_path) -> None:
     assert contract.salary == 38_000_000
 
 
+def test_sync_resolves_names_with_diacritics(in_memory_db) -> None:
+    """Spotrac strips diacritics ('Jokic') but our DB stores Unicode ('Jokić'). Resolver must match."""
+    from services.salary_ingestion_service import sync_salary_data
+    from db.models import Player, Team, PlayerContract
+
+    in_memory_db.add(Team(id=1610612743, abbreviation="DEN", name="Denver Nuggets"))
+    in_memory_db.add(Player(id=203999, full_name="Nikola Jokić", first_name="Nikola", last_name="Jokić"))
+    in_memory_db.commit()
+
+    fake_rows = [{
+        "player_name": "Nikola Jokic",  # ASCII — what Spotrac actually emits
+        "team_abbr": "DEN",
+        "season": "2025-26",
+        "salary": 55000000,
+        "years_remaining": 5,
+        "is_player_option": False,
+        "is_team_option": False,
+        "contract_type": "max",
+        "source": "spotrac",
+    }]
+
+    with patch("services.salary_ingestion_service._fetch_spotrac_rows", return_value=fake_rows):
+        result = sync_salary_data(in_memory_db, source="spotrac", season="2025-26")
+
+    assert result["fallback_used"] is False
+    assert result["rows_upserted"] == 1
+    contract = in_memory_db.query(PlayerContract).filter_by(player_id=203999).first()
+    assert contract is not None
+    assert contract.source == "spotrac"
+    assert contract.salary == 55000000
+
+
 def test_sync_idempotent_on_rerun(in_memory_db, tmp_path) -> None:
     """Re-running the same source should upsert in place, not duplicate rows."""
     from services.salary_ingestion_service import sync_salary_data

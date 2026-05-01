@@ -18,10 +18,19 @@ from __future__ import annotations
 import csv
 import logging
 import os
+import unicodedata
 from datetime import datetime
 from typing import Any, Dict, List, Optional
 
 from sqlalchemy.orm import Session
+
+
+def _ascii_fold(name: str) -> str:
+    """Lowercase + strip diacritics so 'Nikola Jokić' matches Spotrac's 'Nikola Jokic'."""
+    if not name:
+        return ""
+    decomposed = unicodedata.normalize("NFKD", name)
+    return "".join(ch for ch in decomposed if not unicodedata.combining(ch)).strip().lower()
 
 from db.models import Player, PlayerContract, Team
 
@@ -72,19 +81,20 @@ def _read_seed_rows(path: str) -> List[Dict[str, Any]]:
 
 
 def _build_name_index(db: Session) -> Dict[str, int]:
-    """Lowercase full-name → player_id lookup for Spotrac name resolution.
+    """ASCII-folded lowercase full-name → player_id lookup for Spotrac name resolution.
 
     Spotrac doesn't expose ``nba_player_id`` directly; the table column we
-    parse is the player's display name, so we resolve through the ``players``
-    table. Multi-name collisions (e.g., Marcus Morris Sr./Jr.) currently
-    resolve to whichever row sorts later — acceptable as a best-effort, and
-    unresolved names just get skipped.
+    parse is the player's display name. Our DB stores Unicode names
+    (e.g. 'Nikola Jokić') while Spotrac strips diacritics ('Nikola Jokic'),
+    so we ascii-fold both sides before matching. Multi-name collisions
+    (e.g., Marcus Morris Sr./Jr.) resolve to whichever row sorts later —
+    acceptable as a best-effort, and unresolved names just get skipped.
     """
     index: Dict[str, int] = {}
     for player in db.query(Player).all():
-        full_name = (player.full_name or "").strip().lower()
-        if full_name:
-            index[full_name] = player.id
+        folded = _ascii_fold(player.full_name or "")
+        if folded:
+            index[folded] = player.id
     return index
 
 
@@ -108,7 +118,7 @@ def _resolve_spotrac_rows(
     """
     resolved: List[Dict[str, Any]] = []
     for row in raw_rows:
-        name = (row.get("player_name") or "").strip().lower()
+        name = _ascii_fold(row.get("player_name") or "")
         nba_player_id = name_index.get(name)
         if nba_player_id is None:
             logger.debug("spotrac: no player_id for name=%s", name)
