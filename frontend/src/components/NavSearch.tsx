@@ -69,7 +69,7 @@ export default function NavSearch() {
         </div>
 
         {showDropdown && (
-          <div className="absolute top-full left-0 right-0 mt-2 bip-panel overflow-hidden rounded-2xl z-50">
+          <div className="absolute top-full left-0 right-0 mt-2 bip-panel overflow-y-auto max-h-[60vh] rounded-2xl z-50">
             {results.length === 0 && !isLoading ? (
               <div className="px-4 py-3 text-[var(--muted)] text-sm">No players found</div>
             ) : (
