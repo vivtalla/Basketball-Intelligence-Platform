@@ -248,11 +248,22 @@ function RegularHome() {
             <span className="text-[var(--accent)]">in full view.</span>
           </h1>
           <p
-            className="text-lg text-[var(--muted)] mb-8 max-w-2xl mx-auto leading-8 animate-fade-up"
+            className="text-lg text-[var(--muted)] mb-6 max-w-2xl mx-auto leading-8 animate-fade-up"
             style={{ animationDelay: "160ms" }}
           >
-            The basketball-IQ lab where strategy, analytics, and decisions are built and tested.
+            Search any NBA player, compare careers head-to-head, track team rotations, and build your own metrics. Built for front offices and serious fans.
           </p>
+
+          <ul
+            className="mb-8 flex flex-wrap items-center justify-center gap-x-3 gap-y-1 text-xs sm:text-sm text-[var(--muted-strong)] animate-fade-up"
+            style={{ animationDelay: "200ms" }}
+          >
+            <li>Instant player leaders &amp; advanced stats</li>
+            <li aria-hidden className="text-[var(--muted)]">·</li>
+            <li>Career-arc &amp; head-to-head comparisons</li>
+            <li aria-hidden className="text-[var(--muted)]">·</li>
+            <li>Custom metrics &amp; methodology you can read</li>
+          </ul>
 
           <div className="mb-8 animate-fade-up" style={{ animationDelay: "240ms" }}>
             <StatCounter target={4892} label="players tracked" />
@@ -288,7 +299,10 @@ function RegularHome() {
               <h2 className="bip-display mt-3 text-2xl font-semibold text-[var(--foreground)]">
                 {area.title}
               </h2>
-              <p className="mt-3 text-sm leading-6 text-[var(--muted)]">
+              {/* Sprint 83 (B8): hide jargon-heavy descriptions below sm so
+                  phones get a clean icon + title scan. Tablets and up still
+                  see the full description. */}
+              <p className="mt-3 hidden sm:block text-sm leading-6 text-[var(--muted)]">
                 {area.description}
               </p>
               <div className="mt-6 text-sm font-medium text-[var(--accent)] group-hover:text-[var(--accent-strong)] transition-colors">

@@ -236,12 +236,23 @@ export default function HomeLeagueLeaders() {
   // Sample-size caveat: read the scoring leaderboard's first-place gp under the
   // current toggle. Empty/loading → no caveat. The hook is allocated
   // unconditionally to keep hook order stable.
-  const { data: caveatData } = useLeaderboard("pts_pg", SEASON, seasonType);
+  const { data: caveatData, isLoading: caveatLoading } = useLeaderboard(
+    "pts_pg",
+    SEASON,
+    seasonType
+  );
   const showLimitedSampleCaveat =
     seasonType === "Playoffs" &&
     caveatData != null &&
     caveatData.entries.length > 0 &&
     (caveatData.entries[0]?.gp ?? 0) < 3;
+
+  // Sprint 83 (B6): offseason empty-state. The scoring leaderboard is the
+  // proxy for "the season has produced any data" — if it resolves with zero
+  // entries, all four columns will too. Use it as the trigger to swap the
+  // grid for a between-seasons CTA instead of rendering empty columns.
+  const isEmpty =
+    !caveatLoading && caveatData != null && caveatData.entries.length === 0;
 
   return (
     <div>
@@ -269,12 +280,35 @@ export default function HomeLeagueLeaders() {
           Limited playoff sample — leaders shown reflect very few games played.
         </p>
       )}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <LeaderColumn stat="pts_pg" label="Scoring" seasonType={seasonType} />
-        <LeaderColumn stat="ast_pg" label="Assists" seasonType={seasonType} />
-        <LeaderColumn stat="reb_pg" label="Rebounds" seasonType={seasonType} />
-        <LeaderColumn stat="per" label="PER" seasonType={seasonType} />
-      </div>
+      {isEmpty ? (
+        <div className="bip-panel rounded-[1.8rem] p-8 text-center">
+          <p className="bip-kicker">Between seasons</p>
+          <p className="mt-3 text-sm text-[var(--muted-strong)]">
+            The 2025-26 season tips off in October. Until then, explore{" "}
+            <Link
+              href="/milestones"
+              className="text-[var(--accent)] hover:underline"
+            >
+              historical records
+            </Link>{" "}
+            or check the{" "}
+            <Link
+              href="/draft"
+              className="text-[var(--accent)] hover:underline"
+            >
+              incoming prospects
+            </Link>
+            .
+          </p>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          <LeaderColumn stat="pts_pg" label="Scoring" seasonType={seasonType} />
+          <LeaderColumn stat="ast_pg" label="Assists" seasonType={seasonType} />
+          <LeaderColumn stat="reb_pg" label="Rebounds" seasonType={seasonType} />
+          <LeaderColumn stat="per" label="PER" seasonType={seasonType} />
+        </div>
+      )}
     </div>
   );
 }

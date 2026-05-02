@@ -79,11 +79,9 @@ export default function LiveTicker() {
     { refreshInterval: 60_000, revalidateOnFocus: true }
   );
 
-  const games = useMemo<TickerGame[]>(() => {
-    const live = mapPlayoffGames(today);
-    if (live.length > 0) return live;
-    return DEMO_GAMES;
-  }, [today]);
+  const liveGames = useMemo<TickerGame[]>(() => mapPlayoffGames(today), [today]);
+  const games = liveGames.length > 0 ? liveGames : DEMO_GAMES;
+  const isDemo = liveGames.length === 0;
 
   // Double the games array so the marquee scrolls seamlessly.
   const doubled = [...games, ...games];
@@ -107,6 +105,41 @@ export default function LiveTicker() {
         .cv-ticker-track:hover { animation-play-state: paused; }
         .cv-live-dot { animation: cv-live-pulse 1.4s ease-in-out infinite; }
       `}</style>
+
+      {/* Sprint 83 (B7): leftmost context kicker so the ticker isn't a wall
+          of unlabeled scores. Sits above the marquee with a soft fade so
+          the scrolling games slide cleanly behind it. */}
+      <div
+        style={{
+          position: "absolute",
+          top: 0,
+          left: 0,
+          height: "100%",
+          display: "flex",
+          alignItems: "center",
+          paddingLeft: 14,
+          paddingRight: 22,
+          zIndex: 1,
+          background:
+            "linear-gradient(90deg, #1d1612 0%, #1d1612 70%, rgba(29,22,18,0) 100%)",
+          pointerEvents: "none",
+        }}
+      >
+        <span
+          style={{
+            fontSize: 10,
+            fontWeight: 700,
+            letterSpacing: "0.18em",
+            textTransform: "uppercase",
+            color: "#b4893d",
+            fontFamily: "var(--font-geist-mono)",
+            whiteSpace: "nowrap",
+          }}
+        >
+          {isDemo ? "Demo · Live scores" : "Today's slate"}
+        </span>
+      </div>
+
       <div
         className="cv-ticker-track"
         style={{ display: "flex", whiteSpace: "nowrap", height: "100%", alignItems: "center", width: "fit-content" }}
