@@ -1,26 +1,50 @@
 "use client";
 
 import Link from "next/link";
+import { useEffect, useRef, useState } from "react";
 import { useSeasonPhase } from "@/hooks/useSeasonPhase";
 
 /**
  * Sprint 73: client-side nav links so the conditional "Bracket" item can
  * read `useSeasonPhase()` without forcing the entire layout.tsx to become
  * a client component.
+ *
+ * Sprint 83a (A2/B5): Above `sm` we render the top 5 nav items inline plus a
+ * "More" dropdown for the rest. Sub-`sm` viewports use MobileNav (hamburger);
+ * this component is hidden via `hidden sm:flex`.
  */
 export default function NavLinks() {
   const { isPlayoffs } = useSeasonPhase();
+  const [moreOpen, setMoreOpen] = useState(false);
+  const moreRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    if (!moreOpen) return;
+    function onClick(e: MouseEvent) {
+      if (moreRef.current && !moreRef.current.contains(e.target as Node)) {
+        setMoreOpen(false);
+      }
+    }
+    function onKey(e: KeyboardEvent) {
+      if (e.key === "Escape") setMoreOpen(false);
+    }
+    document.addEventListener("mousedown", onClick);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("mousedown", onClick);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [moreOpen]);
+
+  const closeMore = () => setMoreOpen(false);
+
+  const moreItemClass =
+    "block rounded-md px-3 py-2 text-sm text-[var(--muted-strong)] hover:bg-[var(--surface-alt)] hover:text-[var(--foreground)] transition-colors whitespace-nowrap";
 
   return (
-    <div className="hidden md:flex items-center gap-3">
+    <div className="hidden sm:flex items-center gap-3">
       <Link href="/playoffs" className="text-sm font-medium text-[var(--accent)] whitespace-nowrap bip-link">
         Playoffs
-      </Link>
-      <Link href="/ask" className="text-xs text-[var(--muted)] whitespace-nowrap bip-link">
-        Ask
-      </Link>
-      <Link href="/mvp" className="text-xs text-[var(--muted)] whitespace-nowrap bip-link">
-        MVP Race
       </Link>
       <Link href="/player-stats" className="text-xs text-[var(--muted)] whitespace-nowrap bip-link">
         Player Stats
@@ -28,47 +52,76 @@ export default function NavLinks() {
       <Link href="/standings" className="text-xs text-[var(--muted)] whitespace-nowrap bip-link">
         Standings
       </Link>
-      <Link href="/insights" className="text-xs text-[var(--muted)] whitespace-nowrap bip-link">
-        Insights
-      </Link>
-      <Link href="/metrics" className="text-xs text-[var(--muted)] whitespace-nowrap bip-link">
-        Metrics
-      </Link>
       <Link href="/compare" className="text-xs text-[var(--muted)] whitespace-nowrap bip-link">
         Compare
-      </Link>
-      <Link href="/pre-read" className="text-xs text-[var(--muted)] whitespace-nowrap bip-link">
-        Pre-Read
-      </Link>
-      <Link href="/teams" className="text-xs text-[var(--muted)] whitespace-nowrap bip-link">
-        Teams
-      </Link>
-      <Link href="/trade-machine" className="text-xs text-[var(--muted)] whitespace-nowrap bip-link">
-        Trade Machine
-      </Link>
-      <Link href="/free-agency" className="text-xs text-[var(--muted)] whitespace-nowrap bip-link">
-        Free Agency
-      </Link>
-      <Link href="/draft" className="text-xs text-[var(--muted)] whitespace-nowrap bip-link">
-        Draft
-      </Link>
-      {isPlayoffs && (
-        <Link href="/bracket" className="text-xs text-[var(--muted)] whitespace-nowrap bip-link">
-          Bracket
-        </Link>
-      )}
-      <Link href="/picks" className="text-xs text-[var(--muted)] whitespace-nowrap bip-link">
-        Picks
-      </Link>
-      <Link href="/coverage" className="text-xs text-[var(--muted)] whitespace-nowrap bip-link">
-        Coverage
-      </Link>
-      <Link href="/milestones" className="text-xs text-[var(--muted)] whitespace-nowrap bip-link">
-        Milestones
       </Link>
       <Link href="/learn" className="text-xs text-[var(--muted)] whitespace-nowrap bip-link">
         Learn
       </Link>
+
+      <div ref={moreRef} className="relative">
+        <button
+          type="button"
+          aria-haspopup="menu"
+          aria-expanded={moreOpen}
+          onClick={() => setMoreOpen((o) => !o)}
+          className="text-xs text-[var(--muted)] whitespace-nowrap bip-link inline-flex items-center gap-1"
+        >
+          More
+          <svg width="10" height="10" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+            <polyline points="3 4.5 6 8 9 4.5" />
+          </svg>
+        </button>
+        {moreOpen && (
+          <div
+            role="menu"
+            aria-label="More navigation"
+            className="absolute right-0 top-full mt-2 w-48 max-h-[70vh] overflow-y-auto rounded-xl border border-[var(--border)] bg-[var(--surface)] shadow-lg p-1.5 z-50"
+          >
+            <Link href="/ask" onClick={closeMore} className={moreItemClass}>
+              Ask
+            </Link>
+            <Link href="/mvp" onClick={closeMore} className={moreItemClass}>
+              MVP Race
+            </Link>
+            <Link href="/insights" onClick={closeMore} className={moreItemClass}>
+              Insights
+            </Link>
+            <Link href="/metrics" onClick={closeMore} className={moreItemClass}>
+              Metrics
+            </Link>
+            <Link href="/pre-read" onClick={closeMore} className={moreItemClass}>
+              Pre-Read
+            </Link>
+            <Link href="/teams" onClick={closeMore} className={moreItemClass}>
+              Teams
+            </Link>
+            <Link href="/trade-machine" onClick={closeMore} className={moreItemClass}>
+              Trade Machine
+            </Link>
+            <Link href="/free-agency" onClick={closeMore} className={moreItemClass}>
+              Free Agency
+            </Link>
+            <Link href="/draft" onClick={closeMore} className={moreItemClass}>
+              Draft
+            </Link>
+            {isPlayoffs && (
+              <Link href="/bracket" onClick={closeMore} className={moreItemClass}>
+                Bracket
+              </Link>
+            )}
+            <Link href="/picks" onClick={closeMore} className={moreItemClass}>
+              Picks
+            </Link>
+            <Link href="/coverage" onClick={closeMore} className={moreItemClass}>
+              Coverage
+            </Link>
+            <Link href="/milestones" onClick={closeMore} className={moreItemClass}>
+              Milestones
+            </Link>
+          </div>
+        )}
+      </div>
     </div>
   );
 }
