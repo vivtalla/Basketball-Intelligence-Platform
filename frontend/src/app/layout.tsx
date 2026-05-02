@@ -9,10 +9,9 @@ import "./globals.css";
 
 // Sprint 83 (B2): root metadata used as the default + home-page OG/Twitter
 // card. Per-route layouts (e.g. `/playoffs/layout.tsx`) override these for
-// their own surfaces. The /og-home.png asset is a 1200x630 placeholder that
-// needs a real export in a follow-up — the metadata wiring is the priority
-// so launch-time crawlers see correct tags.
-// TODO(sprint-83 followup): replace /og-home.png with a final 1200x630 card.
+// their own surfaces. The /og endpoint is a dynamic Next.js ImageResponse
+// (see frontend/src/app/og/route.tsx) — generates a 1200x630 PNG using the
+// same brand mark + palette as the site nav.
 export const metadata: Metadata = {
   metadataBase: new URL("https://courtvue.app"),
   title: "CourtVue Labs — NBA basketball intelligence",
@@ -27,7 +26,7 @@ export const metadata: Metadata = {
     siteName: "CourtVue Labs",
     images: [
       {
-        url: "/og-home.png",
+        url: "/og",
         width: 1200,
         height: 630,
         alt: "CourtVue Labs — NBA basketball intelligence",
@@ -39,7 +38,7 @@ export const metadata: Metadata = {
     title: "CourtVue Labs — NBA basketball intelligence",
     description:
       "Search any NBA player, compare careers, track team rotations, and build your own metrics. Built for front offices and serious fans.",
-    images: ["/og-home.png"],
+    images: ["/og"],
   },
 };
 
