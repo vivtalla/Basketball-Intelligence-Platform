@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import NavSearch from "@/components/NavSearch";
 import NavLinks from "@/components/NavLinks";
+import MobileNav from "@/components/MobileNav";
 import LiveTicker from "@/components/LiveTicker";
 import "./globals.css";
 
@@ -36,6 +37,7 @@ export default function RootLayout({
             </Link>
             <NavSearch />
             <NavLinks />
+            <MobileNav />
           </div>
         </nav>
 

@@ -92,8 +92,34 @@ function LeaderboardsPageInner() {
   );
 
   if (isLoading || !isPlayoffs) {
-    // Spinner-free placeholder while we resolve season phase or redirect.
-    return null;
+    // Skeleton placeholder while we resolve season phase or redirect — keeps
+    // the page from flashing blank for public visitors during the SWR fetch.
+    return (
+      <div className="space-y-10 animate-pulse" aria-hidden="true">
+        <section>
+          <div className="mb-4 flex items-end justify-between gap-4">
+            <div className="space-y-3">
+              <div className="h-3 w-28 rounded bg-[var(--surface-alt)]" />
+              <div className="h-8 w-72 rounded bg-[var(--surface-alt)]" />
+              <div className="h-4 w-64 rounded bg-[var(--surface-alt)]" />
+            </div>
+            <div className="flex items-center gap-3 shrink-0">
+              <div className="h-8 w-44 rounded-full bg-[var(--surface-alt)]" />
+              <div className="hidden sm:block h-4 w-32 rounded bg-[var(--surface-alt)]" />
+            </div>
+          </div>
+          <div className="h-12 rounded-[1.4rem] bg-[var(--surface-alt)]" />
+        </section>
+        <section>
+          <div className="h-8 w-48 rounded bg-[var(--surface-alt)] mb-4" />
+          <div className="space-y-2">
+            {Array.from({ length: 8 }).map((_, i) => (
+              <div key={i} className="h-12 rounded-xl bg-[var(--surface-alt)]" />
+            ))}
+          </div>
+        </section>
+      </div>
+    );
   }
 
   return (

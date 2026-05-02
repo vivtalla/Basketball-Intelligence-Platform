@@ -83,7 +83,7 @@ function PlayerSlot({ slotLabel, selectedId, onSelect, onClear }: PlayerSlotProp
       </div>
 
       {showDropdown ? (
-        <div className="bip-panel absolute left-0 right-0 top-full z-50 mt-1 overflow-hidden rounded-xl">
+        <div className="bip-panel absolute left-0 right-0 top-full z-50 mt-1 overflow-y-auto max-h-[60vh] rounded-xl">
           {results.length === 0 && !isLoading ? (
             <div className="px-4 py-3 text-sm text-[var(--muted)]">No players found</div>
           ) : (

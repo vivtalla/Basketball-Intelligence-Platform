@@ -22,7 +22,12 @@ function load(): FavoritePlayer[] {
 }
 
 function save(players: FavoritePlayer[]): void {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(players));
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(players));
+  } catch {
+    // Private-browsing mode or quota exceeded — silently ignore so the UI
+    // state still updates even if persistence fails.
+  }
 }
 
 export function useFavorites() {
