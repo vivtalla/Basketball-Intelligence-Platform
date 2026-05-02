@@ -1,6 +1,6 @@
 # Agent Coordination
 
-Last updated: 2026-05-02 by Claude (Sprint 84 closeout — production deploy + new workflow)
+Last updated: 2026-05-02 by Claude (Sprint 85 kickoff — bracket auto-advance + per-series detail + tracking/hustle + lint cleanup)
 
 > Both agents read this file before touching code at the start of every session.
 > The canonical source of truth is the clean `master` checkout at `/Users/viv/Documents/Basketball Intelligence Platform`.
@@ -15,14 +15,15 @@ Last updated: 2026-05-02 by Claude (Sprint 84 closeout — production deploy + n
 | Field | Value |
 |-------|-------|
 | Sprint | 85 |
-| Goal | TBD — awaiting Vivek's sprint kickoff |
-| Started | TBD |
-| Target merge | TBD |
-| Sprint shape | TBD |
-| Branch | `master` until Sprint 85 kickoff |
-| Worker policy | No active sprint; set at kickoff |
+| Goal | Bracket auto-advancement + per-series detail page + tracking/hustle dashboards + lint cleanup |
+| Started | 2026-05-02 |
+| Target merge | 2026-05-03 |
+| Sprint shape | 4 parallel streams (D first as warm-up; A/B/C in parallel; merge order D→A→B→C) |
+| Branch | `feature/sprint-85a-bracket-advance`, `feature/sprint-85b-per-series-detail`, `feature/sprint-85c-tracking-hustle`, `feature/sprint-85d-lint-cleanup` |
+| Worker policy | One worker per stream; main session integrates + runs QA + deploys |
+| Plan file | `~/.claude/plans/zazzy-swimming-pebble.md` |
 
-**Production status:** CourtVue Labs is publicly live at `https://courtvue.app` (Vercel) + `https://api.courtvue.app` (Hetzner CPX11, `ubuntu@5.78.114.15`). The Sprint 82+83 VM deploy hangover was executed in Sprint 84.
+**Production status:** CourtVue Labs is publicly live at `https://courtvue.app` (Vercel) + `https://api.courtvue.app` (Hetzner CPX11, `ubuntu@5.78.114.15`). Sprint 85 is the first sprint exercising the new 8-phase workflow end-to-end (Stream A's migration tests `--migrate` deploy flow).
 
 ---
 
@@ -183,12 +184,12 @@ If repo state, sprint numbering, or shipped features appear to disagree across l
 ## Current Assignments
 
 ### Claude
-- Branch: TBD at kickoff
-- Scope: No active sprint assignment
-- Status: Not started
+- Branch: all 4 streams (`feature/sprint-85a-bracket-advance`, `feature/sprint-85b-per-series-detail`, `feature/sprint-85c-tracking-hustle`, `feature/sprint-85d-lint-cleanup`)
+- Scope: All 4 Sprint 85 streams (see plan file)
+- Status: Kickoff — Stream D first, then A/B/C in parallel via subagents
 
 ### Codex
-- Branch: TBD at kickoff
+- Branch: TBD
 - Scope: No active sprint assignment
 - Status: Not started
 
@@ -203,7 +204,10 @@ Claim a shared file here before editing. If a file is already claimed, read that
 
 | File | Claimed by | Purpose |
 |------|------------|---------|
-| — | — | No active claims; claim here at the next sprint kickoff before editing shared files |
+| `backend/models/playoffs.py` | Streams 85a + 85b (joint, append-only) | A adds Optional fields to PlayoffSeriesResponse; B appends new SeriesPlayerLogs models. A merges first. |
+| `backend/routers/playoffs.py` | Streams 85a + 85b (joint, append-only) | A's bracket logic + B's new `/series/{id}/player-logs` endpoint. A merges first. |
+| `frontend/src/lib/api.ts` | Streams 85b + 85c (append-only) | New API call functions for both streams |
+| `frontend/src/lib/types.ts` | Streams 85b + 85c (append-only) | New TypeScript interface mirrors |
 
 ---
 
@@ -225,17 +229,23 @@ Specs or review notes written by one stream for another. Check this before start
 
 ## Merge Order
 
-TBD at kickoff. Next sprint branch/worktree is created at kickoff and merges back to `master` at closeout.
+Sprint 85: **D → A → B → C**. Rationale:
+- D is small (~1-2 hr) and removes lint noise so subsequent streams' Pre-merge checks are clean
+- A defines schema shape (`Optional` fields on `PlayoffSeriesResponse`) that B's new models append to
+- B and C are independent of each other; B merges before C only because B touches the shared `playoffs.py` shared file
+
+Each merge triggers a Vercel auto-deploy of the frontend (~2 min). Backend deploy happens after Stream A merges (`--migrate` flag for the new bracket-advancement migration) and again after the final merge.
 
 ---
 
 ## Sprint Work Allocation
 
-Sprint 85 allocation — TBD at kickoff.
-
-| Area | Files | Owner |
-|------|-------|-------|
-| — | — | — |
+| Stream | Goal | Branch | Owner | Files |
+|--------|------|--------|-------|-------|
+| 85d | Lint cleanup + flaky test investigation | `feature/sprint-85d-lint-cleanup` | Claude (main) | 5 frontend |
+| 85a | Bracket auto-advancement (migration + service + frontend TBD) | `feature/sprint-85a-bracket-advance` | Claude (worker) | 6 backend + frontend |
+| 85b | Per-series detail page (backend endpoint + new `/playoff-series/[id]` route) | `feature/sprint-85b-per-series-detail` | Claude (worker) | 9 backend + frontend |
+| 85c | Tracking + Hustle dashboards (services + endpoints + panels) | `feature/sprint-85c-tracking-hustle` | Claude (worker) | 10 backend + frontend |
 
 ---
 
