@@ -17,6 +17,19 @@ Guidelines:
 
 ## Sprint 83 Candidates
 
+### Polish the home OG image (Sprint 83 followup)
+Why it matters:
+Sprint 83 shipped a code-generated OG image at `/og` (file: `frontend/src/app/og/route.tsx`) so the home page has *some* social-share preview, but the result is workmanlike — the brand mark + wordmark layout + Satori-default typography read as adequate, not designed. Public launch deserves better. This is the first thing anyone tweeting `courtvue.app` sees in their preview card.
+
+Likely shape:
+- **Typography**: load the actual site display font into Satori (the existing `next/og` route uses Inter by default). Match the home hero's typeface so the OG card visually rhymes with the site visitors land on. Reference `frontend/src/app/layout.tsx` font imports.
+- **Composition**: consider stat callouts ("4,892 players · 1.2M games · 30 teams"), a faint half-court silhouette behind the wordmark, or a small cluster of mini bar/sparkline glyphs to signal "analytics platform" at a glance. The current card reads "newsletter" more than "data tool."
+- **Mark + wordmark scale**: the 220px mark beside the 130px wordmark looks visually balanced but the green "LABS" subhead under "CourtVue" reads stacked rather than integrated. Try the mark INSIDE the wordmark (e.g., the C of CourtVue), or move LABS to a baseline kicker.
+- **Per-page OG cards**: extend the same `/og` route pattern to take query params (`/og?type=player&id=2544`) for player share cards, team share cards, MVP race cards. Reuses the same composition primitives. Pairs with Sprint 78 CF1 share-cards work that already shipped on the backend.
+- **Static fallback**: if dynamic OG generation gets slow under load, generate the home card once at build time and ship as a static PNG. Easy fallback if Vercel edge caching isn't sufficient.
+
+Effort estimate: 1-2 hours for the home polish, +2-3 hours for parameterized per-page cards.
+
 ### Execute the pending VM deploy (Sprint 82 hangover)
 Why it matters:
 Sprint 82 merged all the public-hosting infra (Caddyfile, systemd unit, install + deploy scripts, runbook, public-mode env flags, NBA-API-isolation guard, full external metric attribution) but Vivek paused the VM execution after hitting a Hetzner Cloud Console password issue. The platform is fully ready to go live but isn't actually serving traffic yet.
