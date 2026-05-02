@@ -56,27 +56,24 @@ export default function DraftWorkspacePage() {
   const [position, setPosition] = useState<string>("");
   const [schoolType, setSchoolType] = useState<string>("");
   const [sortKey, setSortKey] = useState<SortKey>("consensus_rank");
-  const [board, setBoard] = useState<ProspectBoardResponse | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  const [isLoading, setIsLoading] = useState(false);
+  const [state, setState] = useState<{
+    board: ProspectBoardResponse | null;
+    error: string | null;
+    isLoading: boolean;
+  }>({ board: null, error: null, isLoading: true });
+  const { board, error, isLoading } = state;
 
   useEffect(() => {
     let cancelled = false;
-    setIsLoading(true);
-    setError(null);
     getDraftBoard(year, { limit: 60, position: position || undefined, schoolType: schoolType || undefined })
       .then((data) => {
-        if (!cancelled) setBoard(data);
+        if (!cancelled) setState({ board: data, error: null, isLoading: false });
       })
       .catch((err: unknown) => {
         if (!cancelled) {
           const message = err instanceof Error ? err.message : String(err);
-          setError(message);
-          setBoard(null);
+          setState({ board: null, error: message, isLoading: false });
         }
-      })
-      .finally(() => {
-        if (!cancelled) setIsLoading(false);
       });
     return () => {
       cancelled = true;

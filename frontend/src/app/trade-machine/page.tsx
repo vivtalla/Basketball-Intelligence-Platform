@@ -121,7 +121,7 @@ function MethodologyTooltip() {
             remaining post-trade. Below 0.6 is a roster flag.
           </li>
           <li>
-            <strong>Confidence:</strong> "thin_sample" when on/off rows are
+            <strong>Confidence:</strong> &quot;thin_sample&quot; when on/off rows are
             missing for some players.
           </li>
         </ul>

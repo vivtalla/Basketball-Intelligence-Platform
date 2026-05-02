@@ -143,16 +143,6 @@ function WinBar({ series }: { series: PlayoffSeriesResponse }) {
     }
   }
 
-  function cellColor(idx: number): string {
-    const game = gameByNum.get(idx + 1);
-    if (game?.winner_team_id == null) return "var(--surface-alt)";
-    // Winner color depends on whether the winner is the top seed.
-    // We don't have top_seed_team_id at this nesting, so we fall back
-    // to home/away comparison via series.top_wins/bottom_wins counters.
-    // Simpler: count played top-wins encountered so far.
-    return ""; // computed in render loop below
-  }
-
   // Walk the games in order and decide colors based on cumulative top/bot
   // win count, which is consistent with the existing visual.
   let topSoFar = 0;

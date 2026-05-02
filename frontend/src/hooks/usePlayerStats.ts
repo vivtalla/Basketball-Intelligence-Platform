@@ -82,13 +82,6 @@ import type {
   MvpSnapshotFreshness,
   MvpTimelineResponse,
   MvpVoterRoomResponse,
-  OpponentPlayTypeResponse,
-  H2HResponse,
-  PaceEdge,
-  TeamClutchResponse,
-  TeamNetRatingSeriesResponse,
-  TeamPeriodScoringResponse,
-  BenchAnalyticsResponse,
 } from "@/lib/types";
 import {
   getPlayerProfile,

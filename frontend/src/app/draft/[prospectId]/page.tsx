@@ -84,21 +84,23 @@ function CompCard({ comp }: { comp: NbaComp }) {
 export default function ProspectDetailPage() {
   const params = useParams<{ prospectId: string }>();
   const prospectId = Number(params?.prospectId);
-  const [detail, setDetail] = useState<ProspectDetail | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  const [state, setState] = useState<{ detail: ProspectDetail | null; error: string | null }>({
+    detail: null,
+    error: null,
+  });
+  const { detail, error } = state;
 
   useEffect(() => {
     if (!Number.isFinite(prospectId)) return;
     let cancelled = false;
-    setError(null);
     getProspectDetail(prospectId)
       .then((data) => {
-        if (!cancelled) setDetail(data);
+        if (!cancelled) setState({ detail: data, error: null });
       })
       .catch((err: unknown) => {
         if (!cancelled) {
           const message = err instanceof Error ? err.message : String(err);
-          setError(message);
+          setState({ detail: null, error: message });
         }
       });
     return () => {
