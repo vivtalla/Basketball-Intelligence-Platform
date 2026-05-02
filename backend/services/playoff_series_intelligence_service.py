@@ -165,7 +165,14 @@ def _build_metric_edges(
     season: str,
     top_team: Optional[Team],
     bottom_team: Optional[Team],
-) -> List[PlayoffMetricEdge]:
+) -> Tuple[List[PlayoffMetricEdge], bool, bool]:
+    """Compute four-factor edge cards for a playoff series.
+
+    Returns ``(metrics, top_using_regular_baseline, bottom_using_regular_baseline)``.
+    When the playoff TeamSeasonStat row is not yet synced, the function falls
+    back to the regular-season row so the cards still render with meaningful
+    numbers; the caller surfaces a warning per affected team.
+    """
     top_playoff = _team_season_stat(db, top_team.id if top_team else None, season, True)
     bottom_playoff = _team_season_stat(db, bottom_team.id if bottom_team else None, season, True)
     top_regular = _team_season_stat(db, top_team.id if top_team else None, season, False)
@@ -174,6 +181,16 @@ def _build_metric_edges(
     bottom_po_agg = _team_player_aggregate(_team_player_rows(db, _team_abbr(bottom_team), season, True))
     top_reg_agg = _team_player_aggregate(_team_player_rows(db, _team_abbr(top_team), season, False))
     bottom_reg_agg = _team_player_aggregate(_team_player_rows(db, _team_abbr(bottom_team), season, False))
+
+    # Sprint 83c: when a team has no playoff TeamSeasonStat row yet (early in a
+    # series, before the nightly playoff sync runs), fall back to the
+    # regular-season row + roster-derived aggregate so the cards render.
+    top_using_regular_baseline = top_playoff is None and top_regular is not None
+    bottom_using_regular_baseline = bottom_playoff is None and bottom_regular is not None
+    top_primary_stat = top_playoff if top_playoff is not None else top_regular
+    bottom_primary_stat = bottom_playoff if bottom_playoff is not None else bottom_regular
+    top_primary_agg = top_po_agg if top_playoff is not None else top_reg_agg
+    bottom_primary_agg = bottom_po_agg if bottom_playoff is not None else bottom_reg_agg
 
     specs = [
         ("net_rating", "Net rating", "rating", True),
@@ -188,10 +205,31 @@ def _build_metric_edges(
 
     metrics: List[PlayoffMetricEdge] = []
     for key, label, unit, higher_is_better in specs:
-        top_value = _metric_value(key, top_playoff, top_po_agg)
-        bottom_value = _metric_value(key, bottom_playoff, bottom_po_agg)
+        top_value = _metric_value(key, top_primary_stat, top_primary_agg)
+        bottom_value = _metric_value(key, bottom_primary_stat, bottom_primary_agg)
         top_regular_value = _metric_value(key, top_regular, top_reg_agg)
         bottom_regular_value = _metric_value(key, bottom_regular, bottom_reg_agg)
+        # Deltas vs regular-season are only meaningful when we actually have a
+        # playoff sample to compare; fall through to None when using the
+        # regular-season row as the primary value.
+        top_delta = (
+            top_value - top_regular_value
+            if (
+                top_playoff is not None
+                and top_value is not None
+                and top_regular_value is not None
+            )
+            else None
+        )
+        bottom_delta = (
+            bottom_value - bottom_regular_value
+            if (
+                bottom_playoff is not None
+                and bottom_value is not None
+                and bottom_regular_value is not None
+            )
+            else None
+        )
         edge_abbr, edge_amount = _edge_team(
             top_value, bottom_value, _team_abbr(top_team), _team_abbr(bottom_team), higher_is_better
         )
@@ -205,21 +243,13 @@ def _build_metric_edges(
                 bottom_value=bottom_value,
                 top_regular_value=top_regular_value,
                 bottom_regular_value=bottom_regular_value,
-                top_delta_vs_regular=(
-                    top_value - top_regular_value
-                    if top_value is not None and top_regular_value is not None
-                    else None
-                ),
-                bottom_delta_vs_regular=(
-                    bottom_value - bottom_regular_value
-                    if bottom_value is not None and bottom_regular_value is not None
-                    else None
-                ),
+                top_delta_vs_regular=top_delta,
+                bottom_delta_vs_regular=bottom_delta,
                 edge_team_abbr=edge_abbr,
                 edge_amount=edge_amount,
             )
         )
-    return metrics
+    return metrics, top_using_regular_baseline, bottom_using_regular_baseline
 
 
 def _position_bucket(position: Optional[str]) -> Optional[str]:
@@ -746,7 +776,9 @@ def build_playoff_series_intelligence(
     games = _series_games(db, series_id)
     pulse = _series_pulse(series, games, team_lookup)
 
-    metrics = _build_metric_edges(db, series.season, top_team, bottom_team)
+    metrics, top_uses_rs_baseline, bottom_uses_rs_baseline = _build_metric_edges(
+        db, series.season, top_team, bottom_team
+    )
     top_rows = _team_player_rows(db, top_abbr, series.season, True)
     bottom_rows = _team_player_rows(db, bottom_abbr, series.season, True)
     top_agg = _team_player_aggregate(top_rows)
@@ -798,6 +830,16 @@ def build_playoff_series_intelligence(
         shot_profile_splits,
     )
     warnings = list(coverage.warnings)
+    # Sprint 83c: surface a clear "regular-season baseline" caveat per team so
+    # users know the four-factor cards aren't yet using a playoff-only sample.
+    if top_uses_rs_baseline and top_abbr:
+        warnings.append(
+            "Showing regular-season baseline; playoff-only sample not yet synced for {}.".format(top_abbr)
+        )
+    if bottom_uses_rs_baseline and bottom_abbr:
+        warnings.append(
+            "Showing regular-season baseline; playoff-only sample not yet synced for {}.".format(bottom_abbr)
+        )
     for lineup in best_lineups + worst_lineups:
         if lineup.possessions is not None and lineup.possessions < MIN_LINEUP_POSSESSIONS:
             warnings.append(

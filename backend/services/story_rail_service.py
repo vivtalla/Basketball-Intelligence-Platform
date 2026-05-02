@@ -24,10 +24,10 @@ from __future__ import annotations
 from datetime import date
 from typing import Dict, List, Optional
 
-from sqlalchemy import func
+from sqlalchemy import func, or_
 from sqlalchemy.orm import Session
 
-from db.models import Player, PlayerGameLog, SeasonStat
+from db.models import Player, PlayerGameLog, PlayoffSeries, SeasonStat, Team
 from models.playoffs import PlayoffStoryTile
 from services.milestone_proximity_service import fetch_approaching_milestones
 from services.playoff_leaders_service import _impact_score
@@ -46,6 +46,55 @@ def _player_name(db: Session, player_id: int) -> str:
     if player is not None and player.full_name:
         return player.full_name
     return "Player {0}".format(player_id)
+
+
+def _resolve_player_active_series_href(
+    db: Session, player_id: int, season: str, team_abbreviation: Optional[str] = None
+) -> str:
+    """Sprint 83c — return /bracket?series_id=X if the player's team has an
+    active or scheduled playoff series this season, else fall back to
+    /players/{player_id}.
+
+    The ``team_abbreviation`` arg lets callers reuse the abbreviation already
+    on the SeasonStat row (avoids a redundant lookup). When omitted we resolve
+    the player's most recent SeasonStat row to find a team.
+    """
+    abbr = team_abbreviation
+    if not abbr:
+        season_stat = (
+            db.query(SeasonStat)
+            .filter(
+                SeasonStat.player_id == player_id,
+                SeasonStat.season == season,
+            )
+            .order_by(SeasonStat.is_playoff.desc(), SeasonStat.id.desc())
+            .first()
+        )
+        if season_stat is not None:
+            abbr = season_stat.team_abbreviation
+    if not abbr:
+        return "/players/{0}".format(player_id)
+
+    team = db.query(Team).filter(Team.abbreviation == abbr).first()
+    if team is None:
+        return "/players/{0}".format(player_id)
+
+    active = (
+        db.query(PlayoffSeries)
+        .filter(
+            PlayoffSeries.season == season,
+            PlayoffSeries.status.in_(["active", "scheduled"]),
+            or_(
+                PlayoffSeries.top_seed_team_id == team.id,
+                PlayoffSeries.bottom_seed_team_id == team.id,
+            ),
+        )
+        .order_by(PlayoffSeries.round.desc())
+        .first()
+    )
+    if active is None:
+        return "/players/{0}".format(player_id)
+    return "/bracket?series_id={0}".format(active.series_id)
 
 
 def _recent_pts(db: Session, player_id: int, season: str, limit: int = 3) -> List[float]:
@@ -102,11 +151,16 @@ def _heat_check(db: Session, season: str, rows: List[SeasonStat]) -> Optional[Pl
         kicker="Heat Check",
         headline=headline,
         subhead=subhead,
-        href="/players/{0}".format(int(best_row.player_id)),
+        href=_resolve_player_active_series_href(
+            db,
+            int(best_row.player_id),
+            season,
+            best_row.team_abbreviation,
+        ),
     )
 
 
-def _efficiency_desk(db: Session, rows: List[SeasonStat]) -> Optional[PlayoffStoryTile]:
+def _efficiency_desk(db: Session, season: str, rows: List[SeasonStat]) -> Optional[PlayoffStoryTile]:
     """Highest TS% among qualified playoff scorers."""
     best_ts: float = 0.0
     best_row: Optional[SeasonStat] = None
@@ -141,11 +195,16 @@ def _efficiency_desk(db: Session, rows: List[SeasonStat]) -> Optional[PlayoffSto
         kicker="Efficiency Desk",
         headline=headline,
         subhead=subhead,
-        href="/players/{0}".format(int(best_row.player_id)),
+        href=_resolve_player_active_series_href(
+            db,
+            int(best_row.player_id),
+            season,
+            best_row.team_abbreviation,
+        ),
     )
 
 
-def _x_factor(db: Session, rows: List[SeasonStat]) -> Optional[PlayoffStoryTile]:
+def _x_factor(db: Session, season: str, rows: List[SeasonStat]) -> Optional[PlayoffStoryTile]:
     """Highest impact composite among non-headline scorers."""
     candidates = [
         r for r in rows
@@ -184,7 +243,12 @@ def _x_factor(db: Session, rows: List[SeasonStat]) -> Optional[PlayoffStoryTile]
         kicker="X-Factor",
         headline=headline,
         subhead=subhead,
-        href="/players/{0}".format(int(best_row.player_id)),
+        href=_resolve_player_active_series_href(
+            db,
+            int(best_row.player_id),
+            season,
+            best_row.team_abbreviation,
+        ),
     )
 
 
@@ -240,7 +304,12 @@ def _streaks_and_milestones_tile(db: Session, season: str) -> Optional[PlayoffSt
             kicker="Streak of the Night",
             headline=headline,
             subhead=subhead,
-            href="/players/{0}".format(int(streak["player_id"])),
+            href=_resolve_player_active_series_href(
+                db,
+                int(streak["player_id"]),
+                season,
+                team if isinstance(team, str) else None,
+            ),
         )
 
     if milestone is not None:
@@ -258,7 +327,11 @@ def _streaks_and_milestones_tile(db: Session, season: str) -> Optional[PlayoffSt
             kicker="Milestone Watch",
             headline=headline,
             subhead=subhead,
-            href="/players/{0}".format(int(milestone["player_id"])),
+            href=_resolve_player_active_series_href(
+                db,
+                int(milestone["player_id"]),
+                season,
+            ),
         )
 
     return None
@@ -287,10 +360,7 @@ def compute_story_rail(db: Session, season: str) -> List[PlayoffStoryTile]:
     if rows:
         for builder in (_heat_check, _efficiency_desk, _x_factor):
             try:
-                if builder is _heat_check:
-                    tile = builder(db, season, rows)
-                else:
-                    tile = builder(db, rows)
+                tile = builder(db, season, rows)
             except Exception:  # pragma: no cover — story tiles are best-effort
                 tile = None
             if tile is not None:

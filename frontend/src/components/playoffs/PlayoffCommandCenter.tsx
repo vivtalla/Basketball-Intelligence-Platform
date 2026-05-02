@@ -289,6 +289,11 @@ function MetricCard({
 function FourFactorsPanel({ data }: { data: PlayoffSeriesIntelligenceResponse }) {
   const topAbbr = data.top_team.abbreviation ?? "Top";
   const bottomAbbr = data.bottom_team.abbreviation ?? "Bottom";
+  // Sprint 83c — surface the per-team "regular-season baseline" caveats so the
+  // user knows when the four-factor cards are using a regular-season fallback.
+  const baselineWarnings = (data.warnings ?? []).filter((w) =>
+    w.toLowerCase().includes("regular-season baseline"),
+  );
   return (
     <section className="space-y-3">
       <div className="flex flex-wrap items-baseline justify-between gap-3">
@@ -312,6 +317,11 @@ function FourFactorsPanel({ data }: { data: PlayoffSeriesIntelligenceResponse })
           />
         ))}
       </div>
+      {baselineWarnings.map((warning, index) => (
+        <p key={index} className="mt-3 text-[11px] italic leading-5 text-[var(--muted)]">
+          {warning}
+        </p>
+      ))}
     </section>
   );
 }
@@ -412,8 +422,11 @@ function ShotDietPanel({ data }: { data: PlayoffSeriesIntelligenceResponse }) {
       <div>
         <p className="bip-kicker">Shot Diet Pressure</p>
         <h3 className="bip-display text-2xl font-semibold text-[var(--foreground)]">
-          Where the math is being bent.
+          How playoff defense is reshaping each team&apos;s shot selection.
         </h3>
+        <p className="mt-2 max-w-3xl text-xs leading-5 text-[var(--muted)]">
+          Rim and paint share track how often each team is attacking inside; 3PAr (3-point attempt rate) tracks perimeter spacing; FTr (free throw rate) tracks how often the offense is drawing fouls. Significant shifts from the regular-season baseline reveal which way the opponent&apos;s defense is bending the offense — e.g., a sudden 3PAr spike often means the defense is selling out to stop drives.
+        </p>
       </div>
       <div className="grid gap-3 md:grid-cols-2">
         {data.shot_diet.map((diet) => (
@@ -446,8 +459,8 @@ function LineupList({ title, lineups }: { title: string; lineups: PlayoffLineupE
             </div>
           ))
         ) : (
-          <p className="rounded-xl bg-[var(--surface-alt)] p-3 text-xs text-[var(--muted)]">
-            No qualifying playoff lineup rows yet.
+          <p className="rounded-xl bg-[var(--surface-alt)] p-3 text-xs text-[var(--muted)] leading-5">
+            Lineup Chess activates after ~25 possessions per 5-man group. Check back after Game 2 of the series.
           </p>
         )}
       </div>
@@ -617,15 +630,23 @@ function IntelligenceDetail({
 
 export default function PlayoffCommandCenter({
   bracket,
+  initialSeriesId,
 }: {
   bracket: PlayoffBracketResponse;
+  initialSeriesId?: string | null;
 }) {
   const allSeries = useMemo(() => flattenSeries(bracket), [bracket]);
   const defaultSeriesId = useMemo(() => {
+    // Sprint 83c — honor a deep-linked ?series_id=X when it matches a real
+    // series in the bracket; otherwise fall back to the active/scheduled
+    // auto-pick.
+    if (initialSeriesId && allSeries.some((s) => s.series_id === initialSeriesId)) {
+      return initialSeriesId;
+    }
     const active = allSeries.find((series) => series.status === "active");
     const scheduled = allSeries.find((series) => series.status === "scheduled");
     return active?.series_id ?? scheduled?.series_id ?? allSeries[0]?.series_id ?? null;
-  }, [allSeries]);
+  }, [allSeries, initialSeriesId]);
   const [selectedSeriesId, setSelectedSeriesId] = useState<string | null>(null);
   const effectiveSeriesId = selectedSeriesId ?? defaultSeriesId;
   const { data: today } = useSWR<PlayoffTodayResponse>(
