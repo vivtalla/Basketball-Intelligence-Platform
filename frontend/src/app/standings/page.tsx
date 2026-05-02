@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { Fragment, type ReactNode, useMemo, useState } from "react";
+import { Fragment, type CSSProperties, type ReactNode, useMemo, useState } from "react";
 import { useStandings, useStandingsHistory } from "@/hooks/usePlayerStats";
 import type { StandingsEntry, StandingsHistoryEntry } from "@/lib/types";
 import StandingsBumpChart from "@/components/StandingsBumpChart";
@@ -62,6 +62,13 @@ type StandingsColumn = {
   description: string;
   align?: "left" | "right";
   minWidth?: number;
+  /**
+   * Sprint 83a (A4): when false (default) the column is hidden below the `md`
+   * breakpoint so phones see only the 4 most essential columns and avoid
+   * horizontal scroll. Set to true on Rank, Team, W-L, and one stat-group
+   * highlight column.
+   */
+  mobile?: boolean;
   sortDefault?: "asc" | "desc";
   sortValue?: (entry: StandingsEntry) => number | string | null | undefined;
   render: (
@@ -316,6 +323,7 @@ const BASE_COLUMNS: StandingsColumn[] = [
     label: "#",
     description: "Conference seed.",
     minWidth: 34,
+    mobile: true,
     sortDefault: "asc",
     sortValue: (entry) => entry.playoff_rank,
     render: (entry) => (
@@ -328,6 +336,7 @@ const BASE_COLUMNS: StandingsColumn[] = [
     description: "Team abbreviation. Hover the abbreviation for the full team name.",
     align: "left",
     minWidth: 62,
+    mobile: true,
     sortDefault: "asc",
     sortValue: (entry) => entry.abbreviation,
     render: (entry, { clinch }) => <TeamCell entry={entry} clinch={clinch} />,
@@ -338,6 +347,7 @@ const RECORD_COLUMN: StandingsColumn = {
   key: "record",
   label: "W-L",
   description: "Team win-loss record.",
+  mobile: true,
   sortDefault: "desc",
   sortValue: (entry) => entry.win_pct,
   render: (entry) => (
@@ -350,6 +360,7 @@ const RECORD_COLUMN: StandingsColumn = {
 const STANDINGS_COLUMNS: Record<StandingsStatGroup, StandingsColumn[]> = {
   records: [
     ...BASE_COLUMNS,
+    RECORD_COLUMN,
     {
       key: "wins",
       label: "W",
@@ -497,6 +508,7 @@ const STANDINGS_COLUMNS: Record<StandingsStatGroup, StandingsColumn[]> = {
       key: "diff",
       label: "Diff",
       description: "Average scoring margin per game.",
+      mobile: true,
       sortDefault: "desc",
       sortValue: (entry) => entry.diff_pts_pg,
       render: (entry) => <DiffCell diff={entry.diff_pts_pg} />,
@@ -565,6 +577,7 @@ const STANDINGS_COLUMNS: Record<StandingsStatGroup, StandingsColumn[]> = {
       key: "diff",
       label: "Diff",
       description: "Average scoring margin per game.",
+      mobile: true,
       sortDefault: "desc",
       sortValue: (entry) => entry.diff_pts_pg,
       render: (entry) => <DiffCell diff={entry.diff_pts_pg} />,
@@ -609,6 +622,7 @@ const STANDINGS_COLUMNS: Record<StandingsStatGroup, StandingsColumn[]> = {
       key: "ts",
       label: "TS%",
       description: "True shooting percentage, incorporating twos, threes, and free throws.",
+      mobile: true,
       sortDefault: "desc",
       sortValue: (entry) => entry.ts_pct,
       render: (entry) => formatPercent(entry.ts_pct),
@@ -637,6 +651,7 @@ const STANDINGS_COLUMNS: Record<StandingsStatGroup, StandingsColumn[]> = {
       key: "net",
       label: "NET",
       description: "Net rating: offensive rating minus defensive rating.",
+      mobile: true,
       sortDefault: "desc",
       sortValue: (entry) => entry.net_rating,
       render: (entry) => <DiffCell diff={entry.net_rating} />,
@@ -713,6 +728,7 @@ const STANDINGS_COLUMNS: Record<StandingsStatGroup, StandingsColumn[]> = {
       key: "net-rank",
       label: "NET Rk",
       description: "League rank in net rating. Lower rank is better.",
+      mobile: true,
       sortDefault: "asc",
       sortValue: (entry) => entry.net_rating_rank,
       render: (entry) => formatRank(entry.net_rating_rank),
@@ -800,15 +816,21 @@ function StandingsTable({
           {conference}ern Conference
         </h2>
       </div>
-      <div className="overflow-x-auto">
-        <table className="w-full text-sm" style={{ minWidth: tableMinWidth }}>
+      <div className="md:overflow-x-auto">
+        {/* Sprint 83a (A4): only apply minWidth at md+ so phones never trigger
+            horizontal scroll. The arbitrary Tailwind utility reads the inline
+            CSS variable set below. */}
+        <table
+          className="w-full text-sm md:min-w-[var(--standings-min-width)]"
+          style={{ "--standings-min-width": `${tableMinWidth}px` } as CSSProperties}
+        >
           <thead>
             <tr className="bip-table-head border-b border-[var(--border)] text-xs uppercase tracking-[0.15em]">
               {columns.map((column) => (
                 <th
                   key={column.key}
-                  className={`px-1.5 py-3 ${column.align === "left" ? "text-left" : "text-right"}`}
-                  style={{ minWidth: column.minWidth }}
+                  className={`px-1.5 py-3 ${column.align === "left" ? "text-left" : "text-right"} ${column.mobile ? "" : "hidden md:table-cell"}`}
+                  style={column.mobile ? undefined : { minWidth: column.minWidth }}
                 >
                   <button
                     type="button"
@@ -855,7 +877,7 @@ function StandingsTable({
                         key={column.key}
                         className={`px-1.5 py-3 tabular-nums ${
                           column.align === "left" ? "text-left" : "text-right"
-                        }`}
+                        } ${column.mobile ? "" : "hidden md:table-cell"}`}
                       >
                         {column.render(entry, { historyMap, clinch })}
                       </td>
@@ -999,29 +1021,34 @@ export default function StandingsPage() {
       )}
 
       {!isLoading && data && (
-        <div className="grid grid-cols-[repeat(2,minmax(600px,1fr))] gap-3 overflow-x-auto pb-2">
-          <StandingsTable
-            entries={data}
-            conference="East"
-            historyMap={historyMap}
-            statGroup={statGroup}
-            sort={sort}
-            onSortChange={handleSortChange}
-          />
-          <StandingsTable
-            entries={data}
-            conference="West"
-            historyMap={historyMap}
-            statGroup={statGroup}
-            sort={sort}
-            onSortChange={handleSortChange}
-          />
-        </div>
+        <>
+          <p className="md:hidden text-xs text-[var(--muted)] -mt-1 mb-1">
+            Tap a team for the full stat sheet.
+          </p>
+          <div className="grid grid-cols-1 gap-3 md:grid-cols-[repeat(2,minmax(600px,1fr))] md:overflow-x-auto pb-2">
+            <StandingsTable
+              entries={data}
+              conference="East"
+              historyMap={historyMap}
+              statGroup={statGroup}
+              sort={sort}
+              onSortChange={handleSortChange}
+            />
+            <StandingsTable
+              entries={data}
+              conference="West"
+              historyMap={historyMap}
+              statGroup={statGroup}
+              sort={sort}
+              onSortChange={handleSortChange}
+            />
+          </div>
+        </>
       )}
 
       {/* Standings bump charts — conference rank over last 30 days */}
       {!isLoading && historyData && historyData.length > 0 && (
-        <div className="grid grid-cols-[repeat(2,minmax(600px,1fr))] gap-3 overflow-x-auto pb-2">
+        <div className="grid grid-cols-1 gap-3 md:grid-cols-[repeat(2,minmax(600px,1fr))] md:overflow-x-auto pb-2">
           <StandingsBumpChart historyData={historyData} conference="East" expanded />
           <StandingsBumpChart historyData={historyData} conference="West" expanded />
         </div>
