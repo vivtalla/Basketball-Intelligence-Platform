@@ -1,5 +1,6 @@
 "use client";
 
+import { Suspense } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { useMemo, useState } from "react";
@@ -77,7 +78,7 @@ const ALL_TABS: Tab[] = [
   "opponent_matchup",
 ];
 
-export default function TeamDetailPage() {
+function TeamDetailPageInner() {
   const params = useParams<{ abbr: string }>();
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -1090,5 +1091,13 @@ export default function TeamDetailPage() {
         </>
       )}
     </div>
+  );
+}
+
+export default function TeamDetailPage() {
+  return (
+    <Suspense fallback={<div className="animate-pulse h-96 rounded-2xl bg-[rgba(33,72,59,0.05)]" />}>
+      <TeamDetailPageInner />
+    </Suspense>
   );
 }

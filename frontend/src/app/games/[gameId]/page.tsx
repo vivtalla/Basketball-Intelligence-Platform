@@ -1,5 +1,6 @@
 "use client";
 
+import { Suspense } from "react";
 import dynamic from "next/dynamic";
 import Link from "next/link";
 import { useParams, useSearchParams } from "next/navigation";
@@ -208,7 +209,7 @@ function formatSequenceRole(value: string | null | undefined) {
   return "Sequence event";
 }
 
-export default function GameDetailPage() {
+function GameDetailPageInner() {
   const params = useParams<{ gameId: string }>();
   const searchParams = useSearchParams();
   const gameId = params.gameId ?? null;
@@ -1189,5 +1190,13 @@ export default function GameDetailPage() {
         </section>
       </div>
     </div>
+  );
+}
+
+export default function GameDetailPage() {
+  return (
+    <Suspense fallback={<div className="animate-pulse h-96 rounded-2xl bg-[rgba(33,72,59,0.05)]" />}>
+      <GameDetailPageInner />
+    </Suspense>
   );
 }

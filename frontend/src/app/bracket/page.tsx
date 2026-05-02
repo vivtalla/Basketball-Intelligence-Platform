@@ -1,5 +1,6 @@
 "use client";
 
+import { Suspense } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import useSWR from "swr";
@@ -30,7 +31,7 @@ function BracketSkeleton() {
   );
 }
 
-export default function BracketPage() {
+function BracketPageInner() {
   const phase = useSeasonPhase();
   const season = phase.season ?? FALLBACK_SEASON;
   // Sprint 83c — deep-link support: /bracket?series_id=X selects that series
@@ -126,5 +127,13 @@ export default function BracketPage() {
         )}
       </div>
     </div>
+  );
+}
+
+export default function BracketPage() {
+  return (
+    <Suspense fallback={<BracketSkeleton />}>
+      <BracketPageInner />
+    </Suspense>
   );
 }
