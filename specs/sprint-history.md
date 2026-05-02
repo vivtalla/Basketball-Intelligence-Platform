@@ -1017,3 +1017,27 @@ Eliminated live NBA API calls on every player profile load:
 - Added optional `analysis_metadata` to Shot Lab, Team-Fit, and Opportunity responses so clients can inspect reliability, drivers, limitations, and validation notes without breaking existing consumers.
 - Updated `specs/platform-methodology.md`, added `specs/methodology-validation.md`, refreshed backlog/coordination docs, and intentionally avoided frontend files during Claude's parallel frontend sprint.
 - Verified with 263 backend tests, `git diff --check`, methodology doc coverage checks, and FastAPI `main` import smoke.
+
+---
+
+### Sprint 82 — Public Platform + Player Depth + Scraper Hardening
+**Branches:** `feature/sprint-82a-player-depth`, `feature/sprint-82b-hosting`, `feature/sprint-82c-scrapers`, `feature/sprint-82d-public-mode` (Claude, four-stream)
+
+- Stream A — Player splits + play-type UI: `frontend/src/components/PlayerSplitsPanel.tsx` (Location/Win-Loss/Days-Rest/Month/Pre-Post-All-Star families) and `PlayTypePanel.tsx` (Synergy archetypes). Closed Sprint 81 deferred frontend work.
+- Stream B — Public hosting infra: `infra/bip-api.service` (gunicorn + 2 uvicorn workers), `infra/Caddyfile` (auto-HTTPS via Let's Encrypt), `infra/caddy-install.sh`, `infra/deploy.sh`, `infra/playwright-install.sh`, full `infra/README.md` runbook.
+- Stream C — Scraper hardening: new `PlaywrightScraper` base class with viewport spoofing + `wait_until="networkidle"` for Cloudflare JS challenges. PST scraper switched to Playwright. Sports Reference URL fixed + parser rewritten.
+- Stream D — Public mode pivot: dropped Caddy basicauth, `api.courtvue.app` reads `CF-Connecting-IP`. New `NBA_API_USER_FETCH_DISABLED` env flag; 3 user-facing methods cache-first + guarded. Centralized `frontend/src/lib/external-metrics.ts` source of truth + `<ExternalMetricsAttribution>` component.
+- Verified with 479 backend tests (was 464, +15 new), `npx tsc --noEmit` clean.
+
+---
+
+### Sprint 84 — Production Deploy + Workflow Reset
+**Branch:** `master` (doc-only updates after the Suspense fix on `43b7a4a`) (Claude, single-session)
+
+- **Site went live.** `https://courtvue.app` (Vercel) + `https://api.courtvue.app` (Hetzner CPX11 `ubuntu@5.78.114.15` running Caddy + gunicorn + 2 uvicorn workers + PostgreSQL 16). Cloudflare orange-cloud proxies both with 5 cache rules (TTLs 2hr-12hr) + WAF rule blocking empty user-agent + zgrab + masscan.
+- **SSH access recovered via Hetzner rescue mode** — required mounting `/dev/sda1`, bind-mounting `/proc`, `/sys`, `/dev`, and chrooting to create the missing `ubuntu` user (UID 1000, GID 1000, sudo group, NOPASSWD), enable the SSH service symlink, and fix `/home/ubuntu` ownership. First attempt failed because we wrote to `/mnt` without first mounting the disk — wrote to the rescue tmpfs which vanished on reboot.
+- **Bug fix shipped during deploy** (`43b7a4a`): wrap `useSearchParams` in `<Suspense>` for `/bracket`, `/games/[gameId]`, `/teams/[abbr]` — Next.js 14+ production builds reject `useSearchParams` outside a Suspense boundary. Other 5 pages already had Suspense wrappers.
+- **Postgres bootstrap:** `bip` user existed but had no password and no `DATABASE_URL` was set in `/etc/bip/env`. Set password and added connection string.
+- **New 8-phase Sprint Workflow** documented in `AGENTS.md`: Plan → Implement → QA → Pre-merge Verification → Merge → Deploy → Production Smoke Test → Closeout. New Pre-merge Verification Checklist gating master pushes (now equivalent to deploying to production within ~2 min via Vercel auto-deploy). New Production Deploy Procedure (frontend automatic; backend manual `infra/deploy.sh`). New Rollback Procedures (Vercel one-click promote, git checkout + deploy.sh, alembic downgrade -1, Cloudflare purge). Session Start Checklist now requires a 5-second production health check.
+- **CLAUDE.md** updated: new **Production** section (URLs, VM, edge layer, secrets), new **Production Deploy** subsection in Commands, new **Production Safety** section (7 rules around auto-deploy, API contracts, schema migrations, cache TTLs, CORS, secrets, rollback).
+- Verified end-to-end: frontend 200 (~145ms), API health 200 (~52ms), leaderboards 200 (~191ms cold cache). Closeout: `specs/sprint-84-closeout.md`.

@@ -14,6 +14,26 @@ CourtVue Labs is a full-stack NBA analytics platform for player evaluation, team
 
 ---
 
+## Production
+
+CourtVue Labs is publicly live as of Sprint 84.
+
+| Surface | URL | Hosted On |
+|---------|-----|-----------|
+| Frontend | https://courtvue.app | Vercel (hobby tier, auto-deploys on push to master) |
+| Backend API | https://api.courtvue.app | Hetzner CPX11 (`ubuntu@5.78.114.15`) |
+| Database | localhost on the VM | PostgreSQL 16, co-located with FastAPI |
+
+**Edge layer:** Cloudflare proxies all traffic for `courtvue.app` and `api.courtvue.app` (orange-cloud), provides DNS, WAF, rate limiting (100 req/10 min per IP), and edge caching with TTLs ranging from 5 min (catch-all) to 12 hr (player splits).
+
+**Backend service stack:** Caddy (reverse proxy, auto-HTTPS via Let's Encrypt) → gunicorn + 2 uvicorn workers on `127.0.0.1:8000` → FastAPI. Service unit at `/etc/systemd/system/bip-api.service`. Caddyfile at `/etc/caddy/Caddyfile`. Production env at `/etc/bip/env` (`DATABASE_URL` with password, `NBA_API_USER_FETCH_DISABLED=true`, `CORS_ORIGINS`).
+
+**Frontend env:** `NEXT_PUBLIC_API_URL=https://api.courtvue.app` set in Vercel project settings (Production, Preview, Development).
+
+**Where secrets live:** Production `DATABASE_URL` is on the VM only at `/etc/bip/env`. Never commit to repo. Vercel env vars are managed via the Vercel dashboard, not the repo.
+
+---
+
 ## Architecture
 
 ```
@@ -108,6 +128,29 @@ Cron: `0 6 * * * /path/to/backend/data/daily_sync.sh`
 POST /api/advanced/sync-season   body: {"season": "2024-25"}
 ```
 
+### Production Deploy
+
+**Frontend (automatic):** push to `master` → Vercel detects the change and deploys within ~2 min. Verify at https://vercel.com → CourtVue project → Deployments. No manual step required.
+
+**Backend (manual):**
+```bash
+ssh ubuntu@5.78.114.15
+cd /home/ubuntu/bip && git pull origin master
+sudo bash infra/deploy.sh                # restart services + health check
+sudo bash infra/deploy.sh --migrate      # also runs alembic upgrade head
+```
+
+`infra/deploy.sh` validates the Caddyfile, reloads Caddy, restarts `bip-api`, and exits non-zero if `/api/health` doesn't return 200.
+
+**Inspecting the live backend:**
+```bash
+sudo systemctl status bip-api caddy
+sudo journalctl -u bip-api -n 100 --no-pager
+sudo journalctl -u caddy -n 50 --no-pager
+```
+
+**Cache invalidation (when caches are masking a fix):** Cloudflare dashboard → courtvue.app zone → Caching → Configuration → **Purge Everything**. Use sparingly — purges all 5 cache rules at once.
+
 ---
 
 ## Environment Variables
@@ -165,6 +208,20 @@ POST /api/advanced/sync-season   body: {"season": "2024-25"}
 | PBP events | PostgreSQL `play_by_play` | Fetched once per game, never re-fetched |
 
 `_cache_ttl_for_season(season)` in `nba_client.py` returns `CURRENT_SEASON_CACHE_TTL` if `season == _active_nba_season()`, else `HISTORICAL_SEASON_CACHE_TTL`.
+
+---
+
+## Production Safety
+
+The site is live and serves real traffic. Read this before merging anything that could break production.
+
+- **Pushes to `master` auto-deploy the frontend via Vercel within ~2 min.** A merged build error or runtime crash goes live immediately. Always run `npm run build` locally before merging.
+- **API contract changes need coordinated frontend updates in the same sprint.** Removing or renaming an endpoint, field, or query param without updating the frontend that consumes it will break production the moment master deploys.
+- **Schema changes require Alembic migrations.** Never rely on startup DDL. The deploy script runs `alembic upgrade head` only when invoked with `--migrate`.
+- **Cache TTLs delay user-visible changes.** A new endpoint's first response is cached at the Cloudflare edge for the matching rule's TTL. If a fix needs to land immediately, purge cache after deploying.
+- **CORS is restricted to `courtvue.app` and `www.courtvue.app`.** Frontend deploys at preview URLs (vercel.app subdomains) won't be able to call the production API.
+- **`DATABASE_URL` is on the VM only.** Never commit it. If you need to test against production data, ssh in and use `psql` directly.
+- **Rollback is fast for both layers.** Frontend: Vercel dashboard → previous deployment → "Promote to Production" (one click). Backend: ssh in, `git checkout <prev-sha>`, `bash infra/deploy.sh`. Migrations roll back with `alembic downgrade -1`.
 
 ---
 
@@ -262,6 +319,14 @@ CourtVue Labs uses a hybrid sprint model: major feature sprints typically run as
 
 > Full history → `specs/sprint-history.md`
 
+### Sprint 84 — Production Deploy + Workflow Reset
+
+- **Site is live.** `https://courtvue.app` (Vercel) + `https://api.courtvue.app` (Hetzner CPX11). Manual deploy from the Sprint 82+83 hangover finally executed end-to-end in one session: SSH access recovered via Hetzner rescue mode (key injected by mounting `/dev/sda1` and chrooting to create the missing `ubuntu` user — UID 1000, GID 1000, sudo group, NOPASSWD); Caddy installed via `infra/caddy-install.sh` and obtained a Let's Encrypt cert for `api.courtvue.app` automatically; gunicorn + 2 uvicorn workers running under `bip-api.service` on `127.0.0.1:8000`; Cloudflare DNS (3 records — `api` A → `5.78.114.15`, `@`/`www` CNAME → `cname.vercel-dns.com`, all proxied), 5 cache rules (playoffs 2hr / standings 2hr / leaderboards 6hr / player splits 12hr / catch-all 2hr), and a WAF rule blocking empty user-agent + zgrab + masscan; Vercel imported from GitHub with `frontend/` root + `NEXT_PUBLIC_API_URL=https://api.courtvue.app` env var.
+- **Bug fix shipped during deploy** (`43b7a4a`): wrap `useSearchParams` in `<Suspense>` for the `/bracket`, `/games/[gameId]`, and `/teams/[abbr]` pages — Next.js 14+ production builds reject `useSearchParams` outside a Suspense boundary. The other 5 `useSearchParams` pages (insights, pre-read, leaderboards, player-stats, compare) already had Suspense wrappers.
+- **Postgres bootstrap:** `bip` user existed but had no password and no `DATABASE_URL` was set in `/etc/bip/env`. Set the password and added the connection string. `pg_hba.conf` keeps localhost connections on scram-sha-256.
+- **New production-aware workflow:** `AGENTS.md` and `CLAUDE.md` updated. New 8-phase sprint structure (Plan → Implement → QA → Pre-merge Verification → Merge → Deploy → Production Smoke Test → Closeout). New Pre-merge Verification Checklist gating master pushes. New Production Deploy Procedure (frontend automatic via Vercel; backend manual via `infra/deploy.sh`). New Rollback Procedures for frontend (Vercel one-click promote), backend (git checkout + deploy.sh), and migrations (alembic downgrade -1). Session Start Checklist now includes a 5-second production health check.
+- **Deferred:** OG image polish, bracket auto-advancement, per-series detail page, lint cleanup pass — all carried from Sprint 83. Tracking/Hustle/Passing dashboards still on backlog. Closeout: `specs/sprint-84-closeout.md`.
+
 ### Sprint 83 — MVP Launch Readiness
 
 - **Three-stream production polish sprint** plus follow-ons. 472 → 480 backend tests (+1 net new from Sprint 82c's stretch + +1 from 83c's regular-season fallback test). `npx tsc --noEmit` clean. `npm run build` succeeds.
@@ -271,16 +336,7 @@ CourtVue Labs uses a hybrid sprint model: major feature sprints typically run as
 - **Stream C — Playoff surface polish** (Vivek pre-close walkthrough, 1 commit): Shot Diet Pressure copy + explainer paragraph, Lineup Chess empty-state with threshold context, From the Desk → series-aware `<Link>` to `/bracket?series_id=X` in `BroadsheetHero`, Four Factor Edge regular-season fallback in `_build_metric_edges` with per-team warnings rendered as caveat below `FourFactorsPanel` grid (panel always renders 8 metrics now; new `test_series_intelligence_falls_back_to_regular_season_baseline`), Story Rail tile deep-links via new `_resolve_player_active_series_href` helper (Heat Check / Efficiency Desk / X-Factor / Streak / Milestone tiles all resolve → `/bracket?series_id={sid}`), `bracket/page.tsx` reads `searchParams.series_id` and pre-selects in `PlayoffCommandCenter`, SeriesCard per-game G1–G7 chip strip with W/L coloring from top-seed perspective.
 - **Deferred:** VM deploy execution (still — Vivek hit Hetzner Cloud Console password issue; recommended path is rescue-mode SSH recovery per BACKLOG runbook). OG image polish, bracket auto-advancement (parent-slot mapping is a real feature, not polish), per-series detail page (Vivek's "fully fleshed out tracker"), 4 pre-existing lint errors in `draft/` + `trade-machine/`. All documented in BACKLOG. Closeout: `specs/sprint-83-closeout.md`.
 
-### Sprint 82 — Public Platform + Player Depth + Scraper Hardening
-
-- **Four-stream sprint** (A → B → C in parallel + a follow-on D for public mode pivot). 479 backend tests (was 464, +15 net new). `npx tsc --noEmit` clean.
-- **Stream A — Player splits + play-type UI.** New `frontend/src/components/PlayerSplitsPanel.tsx` (Location/Win-Loss/Days-Rest/Month/Pre-Post-All-Star family toggle, 18-column stat table with W%/+/- color coding) and `PlayTypePanel.tsx` (Synergy archetypes with inline possession-share bars + PPP/percentile coloring). Both render on the player profile during regular season, self-fetching the Sprint 81 endpoints `/api/players/{id}/splits` and `/api/players/{id}/play-types`. Closes the Sprint 81 deferred frontend work.
-- **Stream B — Public hosting infra.** `infra/bip-api.service` (gunicorn + 2 uvicorn workers on `127.0.0.1:8000`), `infra/Caddyfile` (auto-HTTPS via Let's Encrypt + security headers + JSON logs), `infra/caddy-install.sh` (one-time bootstrap), `infra/deploy.sh` (idempotent post-pull deploy with health check), `infra/playwright-install.sh`, full `infra/README.md` runbook. `gunicorn==23.0.0` added to requirements.
-- **Stream C — Scraper hardening.** New `PlaywrightScraper` base class in `_base.py` with ImportError guard, viewport spoofing, `wait_until="networkidle"` for Cloudflare JS challenges. PST scraper switched from `HttpScraper` to `PlaywrightScraper` (2-line change). Sports Reference URL fixed (`-per-game.html` 404 → `-leaders.html`); parser rewritten to target `div#leaders_pts_per_g` blocks with BeautifulSoup Comment fallback for SR's anti-scrape wrapping; new `_fetch_player_profile_stats()` follows player profile links for full stat lines. 6 new tests across both scrapers.
-- **Stream D — Public mode pivot.** Mid-sprint Vivek pivoted from FO-only basicauth to fully public read-only. (D1) Dropped Caddy basicauth; api.courtvue.app reads real client IP from `CF-Connecting-IP`; runbook updated with Cloudflare WAF rate limiting + cache rules. (D2) New env flag `NBA_API_USER_FETCH_DISABLED` raises `LiveFetchBlockedError` on cache miss; the 3 uncached user-facing methods (`get_career_stats`, `get_team_game_log`, `get_player_info`) wrapped with cache-first + guard; `stats_service`/`team_net_rating_service` catch and return graceful empty; `daily_sync.sh` exports flag=false so cron always fetches normally; 7 new guard tests. (D3) New `frontend/src/lib/external-metrics.ts` is the single source of truth for LEBRON, RAPTOR, EPM, PIPM, RAPM (full names, sources, URLs); new `<ExternalMetricsAttribution>` component (footer + banner variants); fixed three under-attributed surfaces — `StatTable.tsx` (column tooltips + footer legend), `CustomMetricBuilder.tsx` (dropdown source labels + amber banner when external metric is referenced), `ComparisonView.tsx` (replaced buried disclaimer with centralized component).
-- **Deferred:** VM deploy execution — all infra files merged but Vivek hit a Hetzner Cloud Console password issue. Recommended recovery is rescue mode (boot rescue OS with SSH key injected via Cloud UI, mount real disk at `/mnt/`, append key to `/mnt/home/ubuntu/.ssh/authorized_keys`) — sidesteps VNC password fight entirely. Closeout: `specs/sprint-82-closeout.md`.
-
-*Sprint 81 and older moved to `specs/sprint-history.md`.*
+*Sprint 82 and older moved to `specs/sprint-history.md`.*
 
 ---
 

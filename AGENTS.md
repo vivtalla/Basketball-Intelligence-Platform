@@ -1,6 +1,6 @@
 # Agent Coordination
 
-Last updated: 2026-05-02 by Claude (Sprint 83 closeout reset)
+Last updated: 2026-05-02 by Claude (Sprint 84 closeout — production deploy + new workflow)
 
 > Both agents read this file before touching code at the start of every session.
 > The canonical source of truth is the clean `master` checkout at `/Users/viv/Documents/Basketball Intelligence Platform`.
@@ -14,15 +14,158 @@ Last updated: 2026-05-02 by Claude (Sprint 83 closeout reset)
 
 | Field | Value |
 |-------|-------|
-| Sprint | 84 |
+| Sprint | 85 |
 | Goal | TBD — awaiting Vivek's sprint kickoff |
 | Started | TBD |
 | Target merge | TBD |
 | Sprint shape | TBD |
-| Branch | `master` until Sprint 84 kickoff |
+| Branch | `master` until Sprint 85 kickoff |
 | Worker policy | No active sprint; set at kickoff |
 
-**Pending hangover from Sprint 82+83:** VM deploy execution. All public-hosting infra and all production-polish work is merged on `master` but not yet running on `5.78.114.15`. The runbook lives as a self-contained 6-phase guide in `specs/BACKLOG.md` ("Execute the pending VM deploy") covering rescue-mode SSH recovery → firewall → Cloudflare DNS → caddy-install → Vercel → WAF. ~30-45 min of mostly web-UI clicks. This is a manual step Vivek runs when ready.
+**Production status:** CourtVue Labs is publicly live at `https://courtvue.app` (Vercel) + `https://api.courtvue.app` (Hetzner CPX11, `ubuntu@5.78.114.15`). The Sprint 82+83 VM deploy hangover was executed in Sprint 84.
+
+---
+
+## Sprint Workflow
+
+Every sprint follows these 8 phases. The QA, Pre-merge Verification, Deploy, and Production Smoke Test phases became standard at Sprint 84 — they exist because the platform is now live and master pushes auto-deploy the frontend to production within ~2 minutes.
+
+### Phase 1 — Plan
+- Architect spec written into `~/.claude/plans/<plan-name>.md`
+- Files to touch identified up-front; **Shared File Lock Table** updated for shared files
+- Verification approach defined per stream
+- Sprint shape (single sequential, two-team parallel, etc.) chosen and documented in the Sprint Status table above
+
+### Phase 2 — Implement
+- Each stream commits to its sprint branch in its own worktree (never directly on `master`)
+- Per-item commits where the diff allows (overlapping files may collapse to one commit per stream)
+- Workers spawned per the **Worker Deployment Rules** below — bounded, independent subtasks only
+
+### Phase 3 — QA (~30-60 min)
+- Run the full backend test suite: `cd backend && pytest -q` — must pass
+- Run frontend production build: `cd frontend && npm run build` — must succeed (catches Suspense / SSR errors that dev mode hides)
+- Run lint: `cd frontend && npm run lint` — no NEW errors (4 pre-existing errors in `draft/` and `trade-machine/` are documented in BACKLOG)
+- Manual smoke walkthrough in a browser of every surface the sprint touched: golden path + one edge case + a quick mobile-viewport spot check if UI changed
+- For backend changes: hit the new endpoints with `curl` against the local dev server (`http://localhost:8000`) to confirm response shapes
+
+### Phase 4 — Pre-merge Verification
+Run through the **Pre-merge Verification Checklist** below. Anything red means stop and fix before merging.
+
+### Phase 5 — Merge to master
+- Sprint branch fast-forwards or merges into local `master`
+- `git push origin master`
+- Vercel detects the push and starts building the frontend automatically (~2 min)
+
+### Phase 6 — Deploy
+- **Frontend**: nothing to do — Vercel auto-deploys on the master push. Verify at vercel.com → Deployments → confirm the latest commit shows "Ready" status. If "Error", click into the deployment → View Build Logs → fix locally and push again. The previous deployment stays live until a new one succeeds — production is never broken by a failed build.
+- **Backend**: manual.
+  ```bash
+  ssh ubuntu@5.78.114.15
+  cd /home/ubuntu/bip && git pull origin master
+  sudo bash infra/deploy.sh                # standard deploy
+  # OR
+  sudo bash infra/deploy.sh --migrate      # if any Alembic revisions are new
+  ```
+  Script exits non-zero if `/api/health` doesn't return 200 — investigate before declaring deploy complete.
+
+### Phase 7 — Production Smoke Test
+After deploy:
+```bash
+curl -sf https://api.courtvue.app/api/health           # 200, returns {"status":"ok"}
+curl -sf "https://api.courtvue.app/api/<one-changed-endpoint>"  # 200 + valid JSON
+curl -sI https://courtvue.app | head -3                # 200 or 307 (redirect to www is fine)
+```
+Then load `https://courtvue.app` in a real browser and walk through the changed surface end-to-end. If anything is broken, run the **Rollback Procedures** for the affected layer immediately.
+
+### Phase 8 — Closeout
+Use the **Sprint Closeout Checklist** below.
+
+---
+
+## Pre-merge Verification Checklist
+
+Before merging any sprint branch into `master`, every item below must be green. A merged push deploys to production via Vercel within ~2 minutes — there is no staging gate.
+
+- [ ] All backend tests pass: `cd backend && pytest -q`
+- [ ] Frontend production build succeeds: `cd frontend && npm run build`
+- [ ] No new ESLint errors: `cd frontend && npm run lint` (4 pre-existing errors in `draft/` and `trade-machine/` are documented and OK)
+- [ ] Manual smoke walkthrough completed for every changed surface (golden path + one edge case)
+- [ ] If schema changed: Alembic migration created, runs cleanly on local DB, and `--migrate` flag noted in the deploy plan
+- [ ] If API contract changed: every frontend caller updated in the same sprint (search for the endpoint or field name across `frontend/src/`)
+- [ ] If a new endpoint added: confirm CORS origin allows it (no change needed for `courtvue.app` / `www.courtvue.app`), confirm Cloudflare cache rule TTL is sensible (add a new rule or rely on the 2hr catch-all)
+- [ ] No secrets, passwords, or production env values in any commit (`git log -p origin/master..HEAD | grep -iE "password|secret|api[_-]key" | head`)
+- [ ] Sprint closeout artifact draft started in `specs/sprint-NN-closeout.md`
+
+---
+
+## Production Deploy Procedure
+
+### Frontend — Vercel (automatic)
+
+On push to `master`, Vercel automatically:
+1. Detects the new commit
+2. Builds the Next.js app from the `frontend/` root
+3. Promotes the new build to production at `courtvue.app`
+
+Verify at https://vercel.com → CourtVue project → Deployments. Status should show "Ready" within ~2 min.
+
+### Backend — manual
+
+```bash
+ssh ubuntu@5.78.114.15
+cd /home/ubuntu/bip
+git pull origin master
+sudo bash infra/deploy.sh                # standard deploy
+# OR
+sudo bash infra/deploy.sh --migrate      # if any Alembic revisions are new
+```
+
+`infra/deploy.sh`:
+1. Updates pip dependencies from `backend/requirements.txt`
+2. Runs `alembic upgrade head` if `--migrate` is passed
+3. Validates the Caddyfile syntax
+4. Reloads Caddy
+5. Restarts `bip-api.service`
+6. Health-checks `http://127.0.0.1:8000/api/health` — exits 1 if non-200
+
+If the script fails, inspect:
+```bash
+sudo journalctl -u bip-api -n 100 --no-pager
+sudo journalctl -u caddy -n 50 --no-pager
+sudo systemctl status bip-api caddy
+```
+
+---
+
+## Rollback Procedures
+
+### Frontend rollback (Vercel)
+1. Vercel dashboard → CourtVue project → Deployments
+2. Find the last known-good deployment (most recent "Ready" before the bad one)
+3. Click the three-dot menu → **Promote to Production**
+4. Production cuts over within seconds — no rebuild needed
+
+### Backend rollback (VM)
+```bash
+ssh ubuntu@5.78.114.15
+cd /home/ubuntu/bip
+git log --oneline -5                     # find the previous good SHA
+git checkout <prev-sha>
+sudo bash infra/deploy.sh
+```
+Re-deploy a forward fix later by `git checkout master && sudo bash infra/deploy.sh`.
+
+### Migration rollback
+```bash
+ssh ubuntu@5.78.114.15
+cd /home/ubuntu/bip/backend
+source /etc/bip/env
+./venv/bin/python -m alembic downgrade -1   # roll back one revision
+```
+Always test downgrade locally before deploying any forward migration.
+
+### Cache invalidation
+When a fix landed but users still see stale data: Cloudflare dashboard → courtvue.app zone → Caching → Configuration → **Purge Everything**. Forces all 5 cache rules to refetch from origin on next request. Use sparingly — every purge increases load on the VM.
 
 ---
 
@@ -76,6 +219,7 @@ Specs or review notes written by one stream for another. Check this before start
 | `specs/sprint-63-closeout.md` | Sprint 63 | Next sprint | Reference — Team/Insights workflow expansion baseline |
 | `specs/sprint-65-closeout.md` | Sprint 65 | Next sprint | Reference — Opportunity caching/handoff + scouting inference confidence baseline |
 | `specs/methodology-validation.md` | Sprint 71 | Next sprint | Reference — methodology golden fixtures, calibration targets, and validation checks |
+| `specs/sprint-84-closeout.md` | Sprint 84 | Next sprint | Reference — production deploy execution + new workflow definitions |
 
 ---
 
@@ -87,7 +231,7 @@ TBD at kickoff. Next sprint branch/worktree is created at kickoff and merges bac
 
 ## Sprint Work Allocation
 
-Sprint 77 allocation — TBD at kickoff.
+Sprint 85 allocation — TBD at kickoff.
 
 | Area | Files | Owner |
 |------|-------|-------|
@@ -98,13 +242,19 @@ Sprint 77 allocation — TBD at kickoff.
 ## Session Start Checklist
 
 1. Review `tasks/lessons.md` — apply any standing rules before touching code
-2. Read this file: canonical root, sprint status, branch/worktree rules, shared locks
+2. Read this file: canonical root, sprint status, current sprint phase, branch/worktree rules, shared locks
 3. Confirm you are in `/Users/viv/Documents/Basketball Intelligence Platform` on `master`, or on the explicitly assigned sprint branch/worktree
-4. Check the lock table before editing shared files
-5. Check the handoff queue for any ready spec or review note
-6. `git fetch origin` and inspect recent `origin/master`
-7. Update your status here if it changed materially
-8. Begin work
+4. **Production health check** (5 seconds — required since Sprint 84):
+   ```bash
+   curl -sf https://api.courtvue.app/api/health
+   curl -sI https://courtvue.app | head -1
+   ```
+   If anything is non-200, raise it with Vivek before starting any new work.
+5. Check the **Shared File Lock Table** before editing shared files
+6. Check the **Handoff Queue** for any ready spec or review note
+7. `git fetch origin` and inspect recent `origin/master`
+8. Update your status here if it changed materially
+9. Begin work
 
 ---
 
@@ -152,19 +302,25 @@ Sprint 77 allocation — TBD at kickoff.
 ## Sprint Closeout Checklist
 
 1. Stop local dev/test servers started during the sprint and confirm relevant ports/resources are free (`lsof -iTCP:8000`, `lsof -iTCP:3000`, warehouse workers, import jobs, or other long-running processes)
-2. Create or update `specs/sprint-{NN}-closeout.md` with shipped work, deferred work, workflow lessons, and next-sprint seeds
-3. Refresh `specs/BACKLOG.md` so shipped items are removed or rewritten as follow-ons
-4. Reset `AGENTS.md` for the next sprint kickoff state
-5. Update `CLAUDE.md` "Recent Sprints" section (keep last 2 sprints inline; move the oldest out)
-6. Append the completed sprint summary to `specs/sprint-history.md`
-7. Merge the sprint branch back into `master` locally and push `master` to `origin`
-8. Confirm `master` contains the sprint closeout commit(s) before declaring the sprint closed
+2. Run the full **Pre-merge Verification Checklist** above — every box checked before proceeding
+3. Create or update `specs/sprint-{NN}-closeout.md` with shipped work, deferred work, workflow lessons, and next-sprint seeds
+4. Refresh `specs/BACKLOG.md` so shipped items are removed or rewritten as follow-ons
+5. Reset `AGENTS.md` for the next sprint kickoff state
+6. Update `CLAUDE.md` "Recent Sprints" section (keep last 2 sprints inline; move the oldest out to `specs/sprint-history.md`)
+7. Append the completed sprint summary to `specs/sprint-history.md`
+8. Merge the sprint branch back into `master` locally and push `master` to `origin`
+9. **Deploy backend if any backend code changed** (Sprint 84+): ssh into the VM, pull master, run `sudo bash infra/deploy.sh` (or `--migrate` if migrations changed)
+10. **Verify frontend deploy** (Sprint 84+): wait ~2 min, check Vercel dashboard for "Ready" status on the new commit
+11. **Production smoke test** (Sprint 84+): `curl -sf https://api.courtvue.app/api/health`, load `https://courtvue.app` in a browser, walk through one changed surface end-to-end
+12. Confirm `master` contains the sprint closeout commit(s) AND production reflects the new code before declaring the sprint closed
 
 ---
 
 ## Notes
 
 *Free-form, dated, newest first. Use this for coordination and repo-state exceptions.*
+
+2026-05-02 (Claude): Sprint 84 closed. Two-stage sprint executed in one session. **Stage 1 — VM deploy:** Recovered SSH access to `5.78.114.15` via Hetzner rescue mode (mounted `/dev/sda1`, chrooted, created the missing `ubuntu` user with UID 1000 + sudo group + NOPASSWD, fixed home directory ownership, enabled `ssh.service` symlink — root cause of why SSH was refusing connections after our earlier disk write was that the rescue OS leaves `/mnt` empty by default and we wrote to the rescue tmpfs the first time). Configured Hetzner firewall (TCP 80/443 open). Registered `courtvue.app` via Cloudflare (`.app` not `.com` because `.com` was taken) and added 3 DNS records (api A → VM, @ + www CNAME → Vercel, all orange-cloud proxied). Ran `infra/caddy-install.sh` on the VM, set `/etc/bip/env` (NBA_API_USER_FETCH_DISABLED=true, CORS_ORIGINS, DATABASE_URL with new password for the `bip` Postgres user), installed gunicorn, ran `alembic upgrade head`, started `bip-api` + reloaded `caddy`. Caddy obtained Let's Encrypt cert for `api.courtvue.app` automatically. Imported repo into Vercel with `frontend/` root + `NEXT_PUBLIC_API_URL=https://api.courtvue.app`. First Vercel build failed on `useSearchParams` outside Suspense in `/bracket`, `/games/[gameId]`, `/teams/[abbr]` — fixed by wrapping each page's body in `<Suspense>` and shipped as `43b7a4a` on master. Configured Cloudflare cache rules (5 rules, TTLs 2hr-12hr matching the daily sync cadence) + WAF rule blocking empty user-agent + zgrab + masscan. End-to-end smoke: frontend 200, API health 200, leaderboards 200 with real data. **Stage 2 — workflow reset:** rewrote AGENTS.md (this file) and CLAUDE.md to reflect production-aware sprint structure. Added 8-phase Sprint Workflow (the QA / Pre-merge / Deploy / Smoke phases are new), Pre-merge Verification Checklist, Production Deploy Procedure, Rollback Procedures (frontend Vercel one-click, backend git checkout + deploy.sh, alembic downgrade -1, Cloudflare purge). Updated Session Start Checklist with mandatory production health check. Closeout: `specs/sprint-84-closeout.md`. **Workflow lesson:** the rescue-mode disk recovery wasted ~30 min because we didn't mount `/dev/sda1` to `/mnt` before writing — wrote to the rescue tmpfs, which vanished on reboot. Documented the chroot pattern in the closeout for future VM recoveries.
 
 2026-04-28 (Claude): Sprint 77 closed on `feature/sprint-77a-game-data-foundation` + `feature/sprint-77b-broadsheet-screens` and merged to `master`. Two-team parallel sprint shipping the broadsheet/newsprint Playoff Home (replaces Sprint 73's carousel + slate during the playoff window) and the Game Detail deep-dive page with 12 new modules above the existing box-score sections. Stream A: new `services/game_trajectory_service.py` (WP trajectory + lead-tracker computed from PBP), `services/possession_diary_service.py` (24-row top-impact possession diary + per-quarter player +/-), `services/game_detail_assembler.py` (single resilient entry point for /api/games/{id}), `services/playoff_simulator_service.py` extended with `compute_series_odds_history`, `services/playoff_leaders_service.py` (new /api/playoffs/leaders endpoint with trend symbols + 5-game grades), `services/playoff_bracket_service.py` extended with `compute_game_storyline` (headline_storyline on /api/playoffs/today), and a new `frontend/src/hooks/useViewMode.ts` (auto-detect via useSeasonPhase + localStorage override). Stream B: new `frontend/src/components/broadsheet/` (11 components: BroadsheetMasthead, ModeToggle, BroadsheetHero, TodaysSlate, BroadsheetGameCard, SeriesTrackerStrip, BracketStrip, NarrativeLeaders, StoryRail, ArchiveVault, TipOffAgenda) and `frontend/src/components/broadsheet/game-detail/` (15 components including BroadsheetGameDetail, ScoreboardChrome, GameVariantToggle, plus the 12 page-modules — WP hero, lead tracker, dual shot charts, lineup grid, player impact cards, possession diary, coaching log, hustle stats, series odds card, quote ribbon). Auto-pick scoreboard for live/halftime, broadsheet for final + pre-game, manual toggle persists in localStorage. All broadsheet UI gated by useViewMode so toggle-back to regular_season or offseason renders existing Sprint 73 home cleanly. Architect → 8 parallel Engineers → Reviewer → Optimizer per CLAUDE.md. Reviewer signed off no-blockers; Optimizer addressed 3 cheap concerns (live-state inference tightened, LeadTracker + PossessionDiary memoized, WCAG AA contrast fix on impact tags). Verification: 360 backend tests (was 346, +14 new), `npm run build` + `npm run lint` clean (7 pre-existing warnings unchanged). Closeout: `specs/sprint-77-closeout.md`.
 
@@ -187,19 +343,3 @@ Sprint 77 allocation — TBD at kickoff.
 2026-04-25 (Claude): Sprint 68 closeout on `feature/sprint-68-decision-intelligence-followups`. Closed all five Sprint-67 deferrals on one branch in one session: Opportunity `usg_pct` precision, Team-Fit similarity mode (with teammate-duplicate penalty), Scouting Brief deep-link banners (`source=brief`), coaching copy polish across 12 diagnosis tags + 5 brief cards, and the Player Archetype Evolution Timeline (new `/api/archetype/{id}/history` endpoint + `<ArchetypeEvolutionTimeline>` component). 4 new backend tests; full suite 247 passing. Closeout: `specs/sprint-68-closeout.md`.
 
 2026-04-24 (Claude): Sprint 67 closeout on `feature/sprint-67-decision-intelligence`. Shipped the 15-archetype Player Archetype Engine, role-aware similarity (season + age modes), 12-tag Shot Profile Diagnosis, and the 5-card Scouting Brief. Three spec tune passes before code caught two routing bugs and one coverage gap; live-DB smoke caught two more bugs before merge. 47 new backend tests (243 passing). Closeout: `specs/sprint-67-closeout.md`. Cleaned up four untracked Sprint-65 leftover files that were silently breaking `npm run build`.
-
-2026-04-23 (Claude): Sprint 67 kickoff on `feature/sprint-67-decision-intelligence`. Theme: Decision Intelligence — make the player page answer "Who is this player, how do they create value, and what should I do with that?" Three features: Player Archetype + Similarity Engine (Stream A, Claude), Shot Profile Diagnosis Panel + Scouting Summary Cards (Stream B, Codex). Plan file: `~/.claude/plans/you-are-acting-as-gentle-tiger.md`. Merge order A → B. Starting on A1 (archetype taxonomy spec).
-
-2026-04-23 (Codex): Sprint 66 closed on `codex-sprint-66-staff-packet-handoff` and merged to `master`. Shipped named Pre-Read staff packets with editable title/note metadata, scouting claim pinning into frozen packets, packet library/history on `/pre-read`, markdown export, Prep Queue save continuity, and a manual smoke walkthrough that surfaced and resolved the missing live DB migration. Closeout: `specs/sprint-66-closeout.md`.
-2026-04-23 (Claude): Sprint 65 closed on `feature/sprint-65-scouting-opportunity-fit` and merged to `master`. Shipped opportunity TTL cache + compare-handoff peers + role-fit AST/TOV depth, scouting claim inference confidence + opponent-aware ranking, `UsageEfficiencyDashboard.tsx` → `OpportunityDashboard.tsx` rename with stale scaffolding deletion, Compare + Pre-Read inbound-context banners, compound-position bucketing bugfix, and a Sprint-64 Tooltip formatter type fix. 14 new backend tests (193 total). Closeout: `specs/sprint-65-closeout.md`.
-2026-04-23 (Claude): Sprint 65 kickoff on `feature/sprint-65-scouting-opportunity-fit`. Theme: Scouting & Opportunity Fit. Plan file: `~/.claude/plans/plan-next-sprint-you-jazzy-duckling.md`. Three workstreams sequenced A (opportunity caching + compare handoff + role-fit depth) → B (scouting inference confidence + opponent-aware ranking) → C (cross-tab glue + Usage* cleanup including rename of `UsageEfficiencyDashboard.tsx` → `OpportunityDashboard.tsx` and deletion of stale untracked Usage* scaffolding).
-2026-04-22 (Codex): Sprint 63 closed on `feature/sprint-63-team-insights-workflow-expansion` and merged to `master`. Shipped canonical shot-profile reuse across compare/prep/pre-read/team-defense/X-Ray, richer X-Ray history + drift + handoffs, replay-aware coaching continuity, prep snapshots, and trust-note handling for ambiguous official split families. Closeout: `specs/sprint-63-closeout.md`.
-2026-04-21 (Codex): Sprint 62 closeout prepared on `feature/sprint-62-style-intelligence-and-team-shooting-splits`. Added canonical `team_shooting_split_stats`, DB-first team shooting-splits API, team-page `Shooting` splits workspace, and shot-profile-driven Style X-Ray follow-ons. Verification passed (`pytest`, `npm run lint`, `npm run build`, `git diff --check`). Merged to `master` on 2026-04-22.
-2026-04-20 (Claude): Sprint 61 implementation complete on `feature/sprint-61-shot-lab-polish-and-ops`. Shipped shared `ShotHoverTooltip`, replay-example chips with linkage-quality gating, `ShotIdentityBadges` in PlayerHeader + Compare, Shot Intelligence Ops panel on `/coverage`, `shot_quality_baselines` materialization (Alembic 0008) with `get_or_build_baseline`, and refresh-baseline / refresh-stale-players endpoints. 172 backend tests, frontend lint + build clean. Ready to merge.
-2026-04-20 (Claude): Sprint 61 kickoff on `feature/sprint-61-shot-lab-polish-and-ops`. Plan file: `~/.claude/plans/plan-sprint-related-to-foamy-corbato.md`. Two backlog themes taken to completion in one sequential single-stream sprint: Shot Lab Visual Polish + Replay Examples, and Shot Intelligence Ops + Materialization. Six workstreams sequenced A1→A2→A3→B1→B2→B3.
-2026-04-19 (Claude): Sprint 60 closed on `feature/sprint-60-insights-xray-explainability` and merged to `master`. Shipped Play-Style X-Ray tab promotion, Trajectory + Trends explainability parity, and MVP lineup-aware teammate on/off swings. 37 new backend tests. Reference summary: `specs/sprint-history.md` (Sprint 60 section).
-2026-04-19 (Codex): Sprint 59 implementation complete on `codex-sprint-59-insights-trend-overhaul`. Shipped Insights Trend Intelligence overhaul with canonical trend card service, expanded team/player trend contract, shared `player_id`/`signal` URL pinning across Trends/Opportunity/Trajectory, active Team Roll-Up tile pinning, and hard deletion of deprecated `/api/insights/usage-efficiency`.
-2026-04-19 (Claude): Sprint 58 closed. Shipped multi-axis Opportunity Workspace replacing USG/TS two-lane board: 5-signal capped z-score service, new /api/insights/opportunity endpoint, full UsageEfficiencyDashboard rewrite, 8 opportunity/ components with hover driver descriptions, and 13 backend tests. Deprecated (not deleted) old usage-efficiency endpoint. Next: hard-delete deprecated endpoint, cross-tab chip in InsightsHeader, opportunity score caching.
-2026-04-19 (Claude): Sprint 57 closed on `feature/sprint-57-insights-revamp` and merged to `master`. Shipped Trajectory two-column revamp with rolling sparklines, driver decomp, clutch/on-off/shot-quality cards, evidence games, lineup context service, shared InsightsHeader, and lineup context integration in MVP + player profile. Closeout: `specs/sprint-57-closeout.md`.
-2026-04-19 (Codex): Sprint 56 closed on `codex/sprint-56-player-impact-profile-clarity` and prepared for merge to `master`. Shipped MVP Team Impact, Voter Room team-impact evidence, Team Impact & Clutch profile panel, player profile cleanup, and Shot Lab tab relocation for action/distance/context workflows. Closeout: `specs/sprint-56-closeout.md`.
-2026-04-19 (Codex): Sprint 55 closed on `codex/sprint-55-shot-lab-intelligence` and prepared for merge to `master`. Shipped Shot Lab Intelligence with `shot_quality_v1`, player and team-defense quality/creation/identity/coverage endpoints, compare and team-defense parity, snapshot intelligence metadata, and coverage-aware methodology. Closeout: `specs/sprint-55-closeout.md`.
