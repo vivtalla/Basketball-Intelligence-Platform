@@ -615,8 +615,37 @@ export default function TeamDetailPage() {
         )}
       </div>
 
-      {/* Tab bar */}
-      <div className="flex rounded-xl overflow-hidden border border-gray-200 dark:border-gray-700 w-fit text-sm">
+      {/* Tab bar — desktop pills, mobile native select (Sprint 83a A3) */}
+      <div className="md:hidden">
+        <label htmlFor="team-tab-select" className="sr-only">
+          Section
+        </label>
+        <select
+          id="team-tab-select"
+          value={activeTab}
+          onChange={(event) => {
+            const next = event.target.value as Tab;
+            setSelectedTab(next);
+            const params = new URLSearchParams(searchParams.toString());
+            params.set("tab", next);
+            params.set("season", effectiveSeason);
+            if (selectedOpponent) {
+              params.set("opponent", selectedOpponent);
+            }
+            router.replace(`${currentPath}?${params.toString()}`);
+          }}
+          className="w-full rounded-xl border border-[var(--border)] bg-[var(--surface)] px-4 py-2.5 text-sm capitalize text-[var(--foreground)]"
+        >
+          {ALL_TABS.filter(
+            (tab) => tab !== "opponent_matchup" || showOpponentMatchupTab
+          ).map((tab) => (
+            <option key={tab} value={tab} className="capitalize">
+              {tab === "opponent_matchup" ? "Opponent matchup" : tab}
+            </option>
+          ))}
+        </select>
+      </div>
+      <div className="hidden md:flex rounded-xl overflow-hidden border border-gray-200 dark:border-gray-700 w-fit text-sm">
         {ALL_TABS.filter(
           (tab) => tab !== "opponent_matchup" || showOpponentMatchupTab
         ).map((tab) => (
