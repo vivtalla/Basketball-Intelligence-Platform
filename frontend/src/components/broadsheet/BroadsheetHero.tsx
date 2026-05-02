@@ -104,6 +104,25 @@ export default function BroadsheetHero() {
   const games = data?.games ?? [];
   const pick = pickHero(games);
 
+  // Sprint 83c — pick today's featured active series for the From-the-desk CTA.
+  // Prefer a live/active series; fall back to the next scheduled tipoff.
+  const activeSeries =
+    games.find(
+      (g) =>
+        g.series_id != null &&
+        g.top_seed_team_abbr != null &&
+        g.bottom_seed_team_abbr != null &&
+        g.status === "active"
+    ) ??
+    games.find(
+      (g) =>
+        g.series_id != null &&
+        g.top_seed_team_abbr != null &&
+        g.bottom_seed_team_abbr != null &&
+        g.status !== "closed"
+    ) ??
+    null;
+
   return (
     <section className="grid grid-cols-1 lg:grid-cols-[2fr_1fr] gap-6">
       {/* ── Left: headline + lede + stat pills ───────────────────────── */}
@@ -159,53 +178,90 @@ export default function BroadsheetHero() {
         </Link>
       </div>
 
-      {/* ── Right: From-the-desk pull-quote ──────────────────────────── */}
-      <aside
-        className="bip-panel rounded-[1.85rem] px-6 py-7 flex flex-col"
-        style={{
-          background:
-            "linear-gradient(180deg, rgba(234,219,183,0.55) 0%, rgba(255,249,241,0.85) 100%)",
-          borderColor: "rgba(180,137,61,0.28)",
-        }}
-      >
-        <p className="bip-kicker mb-3">From the desk</p>
-        <blockquote
-          className="text-[var(--foreground)]"
+      {/* ── Right: From-the-desk CTA / pull-quote ────────────────────── */}
+      {activeSeries ? (
+        <Link
+          href={`/bracket?series_id=${activeSeries.series_id}`}
+          className="bip-panel rounded-[1.85rem] px-6 py-7 flex flex-col transition hover:border-[rgba(180,137,61,0.45)]"
           style={{
-            fontFamily: "var(--font-display)",
-            fontSize: "1.05rem",
-            lineHeight: 1.55,
+            background:
+              "linear-gradient(180deg, rgba(234,219,183,0.55) 0%, rgba(255,249,241,0.85) 100%)",
+            borderColor: "rgba(180,137,61,0.28)",
           }}
         >
-          <span
-            aria-hidden
-            className="block text-[var(--signal)]"
+          <p className="bip-kicker mb-3">From the desk</p>
+          <p
+            className="bip-display font-semibold text-[var(--foreground)]"
             style={{
               fontFamily: "var(--font-display)",
-              fontSize: "3rem",
-              lineHeight: 0.6,
-              marginBottom: "0.4rem",
+              fontSize: "clamp(1.4rem, 2vw, 1.7rem)",
+              lineHeight: 1.2,
+              letterSpacing: "-0.01em",
             }}
           >
-            &ldquo;
-          </span>
-          <em>
-            Possession-by-possession truth still beats the box score.
-            Read the matchups, not the noise.
-          </em>
-        </blockquote>
-        <p
-          className="mt-4 text-xs"
+            Read the briefing for {activeSeries.top_seed_team_abbr} vs{" "}
+            {activeSeries.bottom_seed_team_abbr}.
+          </p>
+          <p
+            className="mt-3 text-xs"
+            style={{
+              fontFamily: "var(--font-geist-mono)",
+              letterSpacing: "0.18em",
+              textTransform: "uppercase",
+              color: "var(--muted)",
+            }}
+          >
+            Open the Playoff Command Center →
+          </p>
+        </Link>
+      ) : (
+        <aside
+          className="bip-panel rounded-[1.85rem] px-6 py-7 flex flex-col"
           style={{
-            fontFamily: "var(--font-geist-mono)",
-            letterSpacing: "0.14em",
-            textTransform: "uppercase",
-            color: "var(--muted)",
+            background:
+              "linear-gradient(180deg, rgba(234,219,183,0.55) 0%, rgba(255,249,241,0.85) 100%)",
+            borderColor: "rgba(180,137,61,0.28)",
           }}
         >
-          — The Editors
-        </p>
-      </aside>
+          <p className="bip-kicker mb-3">From the desk</p>
+          <blockquote
+            className="text-[var(--foreground)]"
+            style={{
+              fontFamily: "var(--font-display)",
+              fontSize: "1.05rem",
+              lineHeight: 1.55,
+            }}
+          >
+            <span
+              aria-hidden
+              className="block text-[var(--signal)]"
+              style={{
+                fontFamily: "var(--font-display)",
+                fontSize: "3rem",
+                lineHeight: 0.6,
+                marginBottom: "0.4rem",
+              }}
+            >
+              &ldquo;
+            </span>
+            <em>
+              Possession-by-possession truth still beats the box score.
+              Read the matchups, not the noise.
+            </em>
+          </blockquote>
+          <p
+            className="mt-4 text-xs"
+            style={{
+              fontFamily: "var(--font-geist-mono)",
+              letterSpacing: "0.14em",
+              textTransform: "uppercase",
+              color: "var(--muted)",
+            }}
+          >
+            — The Editors
+          </p>
+        </aside>
+      )}
     </section>
   );
 }

@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import useSWR from "swr";
 import HeroHardwood from "@/components/HeroHardwood";
 import Reveal from "@/components/Reveal";
@@ -32,6 +33,10 @@ function BracketSkeleton() {
 export default function BracketPage() {
   const phase = useSeasonPhase();
   const season = phase.season ?? FALLBACK_SEASON;
+  // Sprint 83c — deep-link support: /bracket?series_id=X selects that series
+  // in the command center on first render.
+  const searchParams = useSearchParams();
+  const initialSeriesId = searchParams?.get("series_id") ?? null;
 
   // Only fetch when we know we're in playoffs. Off-season renders empty state.
   const swrKey =
@@ -116,7 +121,7 @@ export default function BracketPage() {
         {/* Live bracket */}
         {phase.isPlayoffs && data && (
           <Reveal>
-            <PlayoffCommandCenter bracket={data} />
+            <PlayoffCommandCenter bracket={data} initialSeriesId={initialSeriesId} />
           </Reveal>
         )}
       </div>

@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import type { PlayoffSeriesResponse } from "@/lib/types";
+import type { PlayoffSeriesGame, PlayoffSeriesResponse } from "@/lib/types";
 
 // Inline brand-color tint map keyed by team abbreviation. Pattern copied from
 // frontend/src/app/teams/page.tsx (Sprint 70 TEAM_META). Used to paint the
@@ -48,6 +48,54 @@ function statusPillClass(status: PlayoffSeriesResponse["status"]): string {
     default:
       return "bg-[var(--surface-alt)] text-[var(--muted)]";
   }
+}
+
+// Sprint 83c — compact per-game W/L chip for the SeriesCard score strip.
+// Coloring is from the top seed's perspective so a row of chips reads as the
+// favorite's series story (green = top seed won, red = top seed lost).
+function GameChip({
+  game,
+  topSeedTeamId,
+}: {
+  game: PlayoffSeriesGame;
+  topSeedTeamId: number | null;
+}) {
+  const played = game.home_pts != null && game.away_pts != null;
+  const topWon =
+    played && game.winner_team_id != null && game.winner_team_id === topSeedTeamId;
+  const isAway = topSeedTeamId != null && game.away_team_id === topSeedTeamId;
+  const topScore = isAway ? game.away_pts : game.home_pts;
+  const oppScore = isAway ? game.home_pts : game.away_pts;
+
+  const className =
+    "rounded-md border px-2 py-1 text-[10px] font-mono leading-tight " +
+    (played
+      ? topWon
+        ? "border-[var(--success-ink)] bg-[rgba(33,72,59,0.06)] text-[var(--foreground)]"
+        : "border-[var(--danger-ink)] bg-[rgba(180,30,30,0.06)] text-[var(--foreground)]"
+      : "border-[var(--border)] bg-[var(--surface-alt)] text-[var(--muted)]");
+
+  const title = played
+    ? `Game ${game.series_game_num ?? "?"}: ${game.home_team_abbr ?? "TBD"} ${game.home_pts ?? "-"} – ${
+        game.away_team_abbr ?? "TBD"
+      } ${game.away_pts ?? "-"}`
+    : `Game ${game.series_game_num ?? "?"}: not yet played`;
+
+  return (
+    <div className={className} title={title}>
+      <div className="text-[9px] uppercase tracking-wider opacity-70">
+        G{game.series_game_num ?? "?"}
+      </div>
+      {played ? (
+        <>
+          <div className="font-semibold tabular-nums">{topScore}</div>
+          <div className="opacity-60 tabular-nums">{oppScore}</div>
+        </>
+      ) : (
+        <div className="opacity-40">—</div>
+      )}
+    </div>
+  );
 }
 
 interface SeriesCardProps {
@@ -131,6 +179,19 @@ export default function SeriesCard({ series }: SeriesCardProps) {
               {series.bottom_wins}
             </span>
           </div>
+
+          {/* Per-game score chips (Sprint 83c) */}
+          {series.games && series.games.length > 0 ? (
+            <div className="flex flex-wrap gap-1.5 pt-1">
+              {series.games.map((game) => (
+                <GameChip
+                  key={game.game_id}
+                  game={game}
+                  topSeedTeamId={series.top_seed_team_id}
+                />
+              ))}
+            </div>
+          ) : null}
 
           {/* Status pill */}
           <div className="flex items-center justify-between pt-1">

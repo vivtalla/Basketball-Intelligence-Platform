@@ -514,3 +514,65 @@ def test_series_intelligence_surfaces_thin_data_warnings():
     assert response.data_coverage.playoff_team_stats is False
     assert response.analysis_metadata is not None
     assert response.analysis_metadata.confidence == "low"
+
+
+def test_series_intelligence_falls_back_to_regular_season_baseline():
+    """Sprint 83c — when playoff TeamSeasonStat rows are missing for a team,
+    the four-factor cards should populate from the regular-season row and a
+    "regular-season baseline" warning should be surfaced.
+    """
+    SessionLocal = _make_session_factory()
+    session = SessionLocal()
+    try:
+        season = "2024-25"
+        series_id = _seed_series_with_games(session, season=season)
+        # Seed regular-season rows ONLY (no playoff TeamSeasonStat) so the
+        # four-factor builder must fall back.
+        session.add_all(
+            [
+                TeamSeasonStat(
+                    team_id=1610612760,
+                    season=season,
+                    is_playoff=False,
+                    gp=82,
+                    net_rating=8.7,
+                    efg_pct=0.56,
+                    tov_pct=0.118,
+                    oreb_pct=0.285,
+                    pace=99.0,
+                    ts_pct=0.596,
+                ),
+                TeamSeasonStat(
+                    team_id=1610612745,
+                    season=season,
+                    is_playoff=False,
+                    gp=82,
+                    net_rating=1.4,
+                    efg_pct=0.543,
+                    tov_pct=0.126,
+                    oreb_pct=0.271,
+                    pace=99.4,
+                    ts_pct=0.575,
+                ),
+            ]
+        )
+        session.commit()
+        response = get_series_intelligence(series_id=series_id, db=session)
+    finally:
+        session.close()
+
+    # Top team's net_rating card should now carry the regular-season value.
+    net_rating_metric = next(
+        metric for metric in response.four_factors if metric.key == "net_rating"
+    )
+    assert net_rating_metric.top_value is not None
+    assert abs(net_rating_metric.top_value - 8.7) < 1e-6
+    # No playoff-only sample yet, so deltas vs RS should not be computed.
+    assert net_rating_metric.top_delta_vs_regular is None
+    assert net_rating_metric.bottom_delta_vs_regular is None
+    # Regular-season baseline warning is surfaced for both teams.
+    baseline_warnings = [
+        w for w in response.warnings if "regular-season baseline" in w.lower()
+    ]
+    assert any("OKC" in w for w in baseline_warnings)
+    assert any("HOU" in w for w in baseline_warnings)
