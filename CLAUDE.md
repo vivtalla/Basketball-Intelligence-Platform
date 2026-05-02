@@ -262,6 +262,15 @@ CourtVue Labs uses a hybrid sprint model: major feature sprints typically run as
 
 > Full history → `specs/sprint-history.md`
 
+### Sprint 83 — MVP Launch Readiness
+
+- **Three-stream production polish sprint** plus follow-ons. 472 → 480 backend tests (+1 net new from Sprint 82c's stretch + +1 from 83c's regular-season fallback test). `npx tsc --noEmit` clean. `npm run build` succeeds.
+- **Stream A — Critical UX production blockers** (9 commits): leaderboards loading skeleton (was returning `null` → blank page), mobile hamburger nav + secondary "More ▾" dropdown (`MobileNav.tsx`), team detail tabs as native `<select>` on mobile, standings table 4-column mobile layout (`hidden md:table-cell` per column), `app/not-found.tsx` + `app/error.tsx` for graceful 404 + error boundary, localStorage hardening across `useFavorites`/`CustomMetricBuilder`/RegularHome (private-mode crash fix), search dropdowns capped at `60vh` with scroll, onboarding `bip-kicker` labels above PlayerDashboard's Gravity/Archetype/Team Fit panels.
+- **Stream B — First-impression polish + SEO + analytics** (5 commits): home hero rewrite for casual audience + 3-bullet kicker affordances + `hidden sm:block` on platform-card descriptions; root-layout `Metadata` with full `openGraph`/`twitter` blocks; `@vercel/analytics` mounted; `app/robots.ts` + `app/sitemap.ts` (Next.js dynamic helpers, 20 routes); offseason "Between seasons" empty state on HomeLeagueLeaders; LiveTicker context label (sticky leftmost gold kicker, dynamic "Today's slate" / "Demo · Live scores").
+- **Sprint 83-followup — Dynamic OG image** (`app/og/route.tsx`): code-generated 1200×630 PNG via `next/og` `ImageResponse` using the existing `courtvue-mark.svg` geometry inlined + brand palette. Replaces `/og-home.png` placeholder. Composition workmanlike but not bespoke; logged to BACKLOG for Sprint 84 polish (load real fonts, stat callouts, parameterize for per-page share cards).
+- **Stream C — Playoff surface polish** (Vivek pre-close walkthrough, 1 commit): Shot Diet Pressure copy + explainer paragraph, Lineup Chess empty-state with threshold context, From the Desk → series-aware `<Link>` to `/bracket?series_id=X` in `BroadsheetHero`, Four Factor Edge regular-season fallback in `_build_metric_edges` with per-team warnings rendered as caveat below `FourFactorsPanel` grid (panel always renders 8 metrics now; new `test_series_intelligence_falls_back_to_regular_season_baseline`), Story Rail tile deep-links via new `_resolve_player_active_series_href` helper (Heat Check / Efficiency Desk / X-Factor / Streak / Milestone tiles all resolve → `/bracket?series_id={sid}`), `bracket/page.tsx` reads `searchParams.series_id` and pre-selects in `PlayoffCommandCenter`, SeriesCard per-game G1–G7 chip strip with W/L coloring from top-seed perspective.
+- **Deferred:** VM deploy execution (still — Vivek hit Hetzner Cloud Console password issue; recommended path is rescue-mode SSH recovery per BACKLOG runbook). OG image polish, bracket auto-advancement (parent-slot mapping is a real feature, not polish), per-series detail page (Vivek's "fully fleshed out tracker"), 4 pre-existing lint errors in `draft/` + `trade-machine/`. All documented in BACKLOG. Closeout: `specs/sprint-83-closeout.md`.
+
 ### Sprint 82 — Public Platform + Player Depth + Scraper Hardening
 
 - **Four-stream sprint** (A → B → C in parallel + a follow-on D for public mode pivot). 479 backend tests (was 464, +15 net new). `npx tsc --noEmit` clean.
@@ -271,19 +280,7 @@ CourtVue Labs uses a hybrid sprint model: major feature sprints typically run as
 - **Stream D — Public mode pivot.** Mid-sprint Vivek pivoted from FO-only basicauth to fully public read-only. (D1) Dropped Caddy basicauth; api.courtvue.app reads real client IP from `CF-Connecting-IP`; runbook updated with Cloudflare WAF rate limiting + cache rules. (D2) New env flag `NBA_API_USER_FETCH_DISABLED` raises `LiveFetchBlockedError` on cache miss; the 3 uncached user-facing methods (`get_career_stats`, `get_team_game_log`, `get_player_info`) wrapped with cache-first + guard; `stats_service`/`team_net_rating_service` catch and return graceful empty; `daily_sync.sh` exports flag=false so cron always fetches normally; 7 new guard tests. (D3) New `frontend/src/lib/external-metrics.ts` is the single source of truth for LEBRON, RAPTOR, EPM, PIPM, RAPM (full names, sources, URLs); new `<ExternalMetricsAttribution>` component (footer + banner variants); fixed three under-attributed surfaces — `StatTable.tsx` (column tooltips + footer legend), `CustomMetricBuilder.tsx` (dropdown source labels + amber banner when external metric is referenced), `ComparisonView.tsx` (replaced buried disclaimer with centralized component).
 - **Deferred:** VM deploy execution — all infra files merged but Vivek hit a Hetzner Cloud Console password issue. Recommended recovery is rescue mode (boot rescue OS with SSH key injected via Cloud UI, mount real disk at `/mnt/`, append key to `/mnt/home/ubuntu/.ssh/authorized_keys`) — sidesteps VNC password fight entirely. Closeout: `specs/sprint-82-closeout.md`.
 
-### Sprint 81 — Data Foundation Closeout
-
-- **Two-stream parallel sprint** replacing seed-CSV stubs with live data, retiring legacy architecture, activating calibrated MVP weights, and adding two new official data domains. 464 backend tests (was 415, +49 net new). `npx tsc --noEmit` clean.
-- **Stream A — Real Data Scrapers** (Spotrac salaries, ProSportsTransactions injuries, Sports Reference draft prospects): all share `backend/data/scrapers/_base.py` (`HttpScraper`, `ScraperError`, user-agent rotation, 2s rate-limit, retry/backoff). All three fall back transparently to the existing seed CSV on any failure (network, anti-bot, parse error) so dependent surfaces never go dark. `salary_source` field flips from `"estimated"` → `"spotrac"` for resolved rows.
-- **Stream B1 — Legacy `play_by_play` retirement.** Migrated 9 service/router files (`pbp_service`, `pbp_sync_service`, `warehouse_service`, `game_trajectory_service`, `possession_diary_service`, `game_detail_assembler`, `team_intelligence_service`, `shot_lab_service`, `routers/advanced`) + 2 sync scripts to `PlayByPlayEvent`. Halted dual-writes from `warehouse_service` and `pbp_sync_service`. Removed `PlayByPlay` ORM model + `GameLog.play_by_play` relationship. Migration `0018_sprint81_drop_legacy_pbp` drops the table (~677 MB, ~30% of DB). New CI guard test `test_no_legacy_pbp_imports.py` fails CI if anyone re-imports the retired model. 6 fixture-using test files migrated to seed `WarehouseGame` + `PlayByPlayEvent` with `season` + `order_index`. Three legacy-fallback tests deleted (tested behavior that no longer exists).
-- **Stream B2 — `mvp_case_v5` activation.** New table `award_case_candidates` (migration `0019_sprint81_award_case_candidates`) holds Basketball Value + 5-pillar modifier vectors per (player, season). New `data/materialize_award_modifiers.py` populates from `season_stats` + `team_season_stats` (joined through `Team` for abbreviation). `award_calibration_service.calibrate_award_case_weights()` now runs LOO-CV when ≥5 seasons available, applies ±0.04 drift cap per pillar, and only flips `calibration_pending=False` when LOO-CV Spearman ≥ 0.7 — otherwise surfaces the gating reason and keeps priors.
-- **Stream B3 — New official data domains.** Two new tables (migration `0020_sprint81_player_splits_play_types`):
-  - `player_split_stats` — per-player Location / W-L / Days Rest / Month / Pre-Post All-Star slices via `playerdashboardbygeneralsplits`. New endpoint `GET /api/players/{id}/splits` returns rows grouped by family.
-  - `play_type_stats` — per-player Synergy archetype rows (Isolation, Transition, PRBallHandler, PRRollMan, Postup, Spotup, Handoff, Cut, OffScreen, Putbacks, Misc). New endpoint `GET /api/players/{id}/play-types` returns rows sorted by possession volume.
-  - Frontend rendering shipped in Sprint 82.
-- `daily_sync.sh` wired with three new scrapers + materializer + two new domain syncs in correct order. Dry-run validated end-to-end. Cron picks up changes on next git pull on `5.78.114.15`. Closeout: `specs/sprint-81-closeout.md`.
-
-*Sprint 80 and older moved to `specs/sprint-history.md`.*
+*Sprint 81 and older moved to `specs/sprint-history.md`.*
 
 ---
 
@@ -331,6 +328,9 @@ CourtVue Labs uses a hybrid sprint model: major feature sprints typically run as
 | `feature/sprint-82b-hosting` | Claude | Merged to master |
 | `feature/sprint-82c-scrapers` | Claude | Merged to master |
 | `feature/sprint-82d-public-mode` | Claude | Merged to master |
+| `feature/sprint-83a-blockers` | Claude | Merged to master |
+| `feature/sprint-83b-launch-polish` | Claude | Merged to master |
+| `feature/sprint-83c-playoff-polish` | Claude | Merged to master |
 
 Sprint branches are created at kickoff and listed in `AGENTS.md`.
 

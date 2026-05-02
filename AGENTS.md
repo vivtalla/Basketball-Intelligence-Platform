@@ -1,6 +1,6 @@
 # Agent Coordination
 
-Last updated: 2026-04-30 by Claude (Sprint 82 closeout reset)
+Last updated: 2026-05-02 by Claude (Sprint 83 closeout reset)
 
 > Both agents read this file before touching code at the start of every session.
 > The canonical source of truth is the clean `master` checkout at `/Users/viv/Documents/Basketball Intelligence Platform`.
@@ -14,15 +14,15 @@ Last updated: 2026-04-30 by Claude (Sprint 82 closeout reset)
 
 | Field | Value |
 |-------|-------|
-| Sprint | 83 |
+| Sprint | 84 |
 | Goal | TBD — awaiting Vivek's sprint kickoff |
 | Started | TBD |
 | Target merge | TBD |
 | Sprint shape | TBD |
-| Branch | `master` until Sprint 83 kickoff |
+| Branch | `master` until Sprint 84 kickoff |
 | Worker policy | No active sprint; set at kickoff |
 
-**Pending hangover from Sprint 82:** VM deploy execution. All public-hosting infra is merged on `master` but not yet running on `5.78.114.15`. See `infra/README.md` for the runbook; SSH recovery should use Hetzner rescue mode (boot rescue OS with the laptop's `~/.ssh/id_ed25519.pub` injected via the Hetzner Cloud UI, mount `/mnt/`, append the key to `/mnt/home/ubuntu/.ssh/authorized_keys`). This is a manual step Vivek runs when ready.
+**Pending hangover from Sprint 82+83:** VM deploy execution. All public-hosting infra and all production-polish work is merged on `master` but not yet running on `5.78.114.15`. The runbook lives as a self-contained 6-phase guide in `specs/BACKLOG.md` ("Execute the pending VM deploy") covering rescue-mode SSH recovery → firewall → Cloudflare DNS → caddy-install → Vercel → WAF. ~30-45 min of mostly web-UI clicks. This is a manual step Vivek runs when ready.
 
 ---
 

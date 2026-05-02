@@ -1,9 +1,21 @@
 # Sprint History Archive
 
-Archived sprint summaries through Sprint 82. The two most recent sprints also stay inline in `CLAUDE.md` under "Recent Sprints".
+Archived sprint summaries through Sprint 83. The two most recent sprints also stay inline in `CLAUDE.md` under "Recent Sprints".
 
 For detailed per-sprint records, see the individual closeout files in this directory where available:
 `specs/sprint-09-closeout.md` through `specs/sprint-59-closeout.md`, plus `specs/sprint-62-closeout.md` and `specs/sprint-67-closeout.md` onward.
+
+---
+
+### Sprint 83 — MVP Launch Readiness
+**Branches:** `feature/sprint-83a-blockers`, `feature/sprint-83b-launch-polish`, `feature/sprint-83c-playoff-polish` (all merged to master)
+
+- Three-stream production polish sprint plus follow-ons (dynamic OG image + post-merge lint cleanup). 472 → 480 backend tests (+1 net new, from 83c regular-season fallback). `npx tsc --noEmit` clean. `npm run build` succeeds. No feature additions — pure polish for the public launch.
+- **Stream A — Critical UX production blockers (9 commits):** leaderboards loading skeleton (was returning `null`), mobile hamburger nav + secondary "More ▾" dropdown, team detail tabs as native `<select>` on mobile, standings table 4-column mobile layout via `hidden md:table-cell`, `app/not-found.tsx` + `app/error.tsx` for graceful 404 + error boundary, localStorage hardening across `useFavorites` / `CustomMetricBuilder` / RegularHome, search dropdowns capped at 60vh with scroll, onboarding `bip-kicker` labels above PlayerDashboard's Gravity / Archetype / Team Fit panels.
+- **Stream B — First-impression polish + SEO + analytics (5 commits):** home hero rewrite for casual audience + 3-bullet kicker affordances + `hidden sm:block` on platform-card descriptions; root-layout `Metadata` with full `openGraph` + `twitter` blocks; `@vercel/analytics` mounted in root layout; `app/robots.ts` + `app/sitemap.ts` (Next.js dynamic helpers, 20 routes); offseason "Between seasons" empty state on HomeLeagueLeaders; LiveTicker context label.
+- **Sprint 83-followup — Dynamic OG image:** `app/og/route.tsx` returns a code-generated 1200×630 PNG via `next/og` `ImageResponse` using the existing `courtvue-mark.svg` geometry inlined and the brand palette. Replaces the `/og-home.png` placeholder. Workmanlike but not bespoke; logged to BACKLOG for Sprint 84 polish.
+- **Stream C — Playoff surface polish** (Vivek pre-close walkthrough, single commit): Shot Diet Pressure copy + explainer paragraph, Lineup Chess empty-state with threshold context, From the Desk → series-aware `<Link>` to `/bracket?series_id=X` in `BroadsheetHero`, Four Factor Edge regular-season fallback in `_build_metric_edges` with per-team warnings rendered as caveat below `FourFactorsPanel` grid (panel always renders 8 metrics now; new `test_series_intelligence_falls_back_to_regular_season_baseline`), Story Rail tile deep-links via new `_resolve_player_active_series_href` helper, `bracket/page.tsx` reads `searchParams.series_id` for pre-selection, SeriesCard per-game G1–G7 chip strip with W/L coloring from top-seed perspective.
+- **Deferred:** VM deploy execution (Sprint 82+83 hangover — Vivek hit Hetzner Cloud Console password issue), OG image polish, bracket auto-advancement (parent-slot mapping is a real feature, not polish), per-series detail page, lint cleanup pass for 4 pre-existing errors. All documented in BACKLOG. Closeout: `specs/sprint-83-closeout.md`.
 
 ---
 

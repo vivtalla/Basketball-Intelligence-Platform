@@ -15,7 +15,28 @@ Guidelines:
 
 ---
 
-## Sprint 83 Candidates
+## Sprint 84 Candidates
+
+### Bracket auto-advancement (Sprint 83 deferral)
+Why it matters:
+Sprint 83c shipped per-game score chips on `SeriesCard`, but the bracket doesn't visually advance series winners into the next round's empty slot. Today, when BOS finishes off ORL 4-1, the next round's BOS series only appears once the BOS-vs-MIL record exists in the DB — there's no "BOS vs TBD" placeholder. Public visitors who check the bracket between rounds see gaps where the path-to-trophy should be obvious.
+
+Likely shape:
+- **Backend**: add `parent_series_id` + `slot_position` ("top" | "bottom") to `PlayoffSeries` (Alembic migration). Or compute the slot mapping dynamically from seed pairings (1-vs-8 winner → 4-vs-5 winner slot, etc.) without persisting it.
+- **Service**: in `playoff_bracket_service.compute_bracket()`, when a series closes, materialize a placeholder `PlayoffSeriesResponse` for the next-round slot with `winner_team_id` filled in for one side and `null` for the other.
+- **Frontend**: `SeriesCard` renders a "BOS vs TBD" placeholder state — cream background, dashed border, "Awaiting Round 1 winners" sub-label.
+- Effort: 4-6 agent-hours.
+
+### Per-series detail page (Sprint 83 deferral)
+Why it matters:
+During the Sprint 83 review, Vivek wanted the Story Rail tiles to lead to "a fully fleshed out tracker with stats of matchup so far, with options to click through the different games and their stats." Sprint 83c routes tiles to `/bracket?series_id=X` (Playoff Command Center) which is largely that page already, but it's a coach/analyst surface — not a fan-friendly per-series storyline page. A dedicated `/playoffs/series/{series_id}` route with player game-by-game stat tables and click-through to `/games/[gameId]` would make the playoff narrative readable for both audiences.
+
+Likely shape:
+- New page: `frontend/src/app/playoffs/series/[seriesId]/page.tsx`
+- Sections: series header (W-L state, round, matchup) → `<SeriesWPChart>` (Sprint 73 component) → game-by-game timeline (G1, G2, ... clickable into /games/{game_id}) → key-player stat tables (per-game stats for top scorers from each side) → series narrative carousel
+- Backend reuses existing `/api/playoffs/series/{series_id}` + `/api/playoffs/series/{series_id}/intelligence`
+- Update Story Rail tiles to point here instead of `/bracket?series_id=X` (or keep both — `/bracket` for analyst, this for fan)
+- Effort: 6-8 agent-hours.
 
 ### Polish the home OG image (Sprint 83 followup)
 Why it matters:
@@ -168,11 +189,21 @@ Likely shape:
 
 ### Fix flaky `test_series_odds_monotonic_toward_winning_side`
 Why it matters:
-Monte Carlo test in `test_series_odds_history.py` has no fixed RNG seed. Passes in isolation, occasionally fails in the full suite due to variance. Surfaced again at Sprint 82 close.
+Monte Carlo test in `test_series_odds_history.py` has no fixed RNG seed. Passes in isolation, occasionally fails in the full suite due to variance. Surfaced at Sprint 82 close and again at Sprint 83 close.
 
 Likely shape:
 - Pin the RNG seed at the test boundary or relax the monotonicity threshold by a small epsilon.
 - One-line fix.
+
+### Lint cleanup pass (carried from Sprint 83 close)
+Why it matters:
+4 pre-existing lint errors visible at every Sprint close: `react-hooks/set-state-in-effect` in `frontend/src/app/draft/page.tsx:65` and `frontend/src/app/draft/[prospectId]/page.tsx:93`, and `react/no-unescaped-entities` in `frontend/src/app/trade-machine/page.tsx:124`. None are launch-blocking but they accumulate noise in lint runs and mask real regressions.
+
+Likely shape:
+- Refactor the two `setState`-in-`useEffect` patterns to use derived state or proper data-fetching pattern (move to SWR if not already, or to a `useMemo` if the value is computed). Read React's "You Might Not Need an Effect" doc for the patterns.
+- Escape the two double quotes in trade-machine line 124.
+- Add a `localStorage.setItem` defensive-wrapper lint rule (custom ESLint rule) to prevent the private-mode crash class of bug from regressing.
+- Effort: 1-2 hours.
 
 ---
 
