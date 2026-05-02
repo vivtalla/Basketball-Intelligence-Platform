@@ -349,7 +349,12 @@ export default function HomePage() {
   // a user who picked REGULAR on /playoffs lands back on / cleanly.
   useEffect(() => {
     if (typeof window === "undefined") return;
-    const stored = window.localStorage.getItem("bip-view-mode");
+    let stored: string | null = null;
+    try {
+      stored = window.localStorage.getItem("bip-view-mode");
+    } catch {
+      // localStorage unavailable (private mode) — fall through to auto-redirect.
+    }
     if (stored != null) return;
     const month = new Date().getMonth();
     if (month >= 3 && month <= 5) {

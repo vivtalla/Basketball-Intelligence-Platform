@@ -204,7 +204,11 @@ function readSavedPresets(): SavedMetricPreset[] {
 
 function writeSavedPresets(presets: SavedMetricPreset[]) {
   if (typeof window === "undefined") return;
-  window.localStorage.setItem(PRESET_STORAGE_KEY, JSON.stringify(presets));
+  try {
+    window.localStorage.setItem(PRESET_STORAGE_KEY, JSON.stringify(presets));
+  } catch {
+    // Private-browsing or quota exceeded — silently ignore.
+  }
 }
 
 function encodeMetricConfig(config: BuilderConfig): string {
