@@ -431,9 +431,12 @@ def simulate_series(
             home_top_prob, away_top_prob, gn
         )
 
-    # Deterministic seeded RNG.
+    # Deterministic seeded RNG. `hash(str)` is randomized per-process when
+    # PYTHONHASHSEED isn't pinned, which made `compute_series_odds_history`
+    # tests flake. Seed with the raw string instead — random.Random accepts
+    # str directly and hashes it deterministically.
     rng = random.Random()
-    rng.seed(hash(series_id))
+    rng.seed(series_id)
 
     top_series_prob, bottom_series_prob, per_game_counter = _monte_carlo(
         rng,
