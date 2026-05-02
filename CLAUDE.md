@@ -262,6 +262,15 @@ CourtVue Labs uses a hybrid sprint model: major feature sprints typically run as
 
 > Full history → `specs/sprint-history.md`
 
+### Sprint 82 — Public Platform + Player Depth + Scraper Hardening
+
+- **Four-stream sprint** (A → B → C in parallel + a follow-on D for public mode pivot). 479 backend tests (was 464, +15 net new). `npx tsc --noEmit` clean.
+- **Stream A — Player splits + play-type UI.** New `frontend/src/components/PlayerSplitsPanel.tsx` (Location/Win-Loss/Days-Rest/Month/Pre-Post-All-Star family toggle, 18-column stat table with W%/+/- color coding) and `PlayTypePanel.tsx` (Synergy archetypes with inline possession-share bars + PPP/percentile coloring). Both render on the player profile during regular season, self-fetching the Sprint 81 endpoints `/api/players/{id}/splits` and `/api/players/{id}/play-types`. Closes the Sprint 81 deferred frontend work.
+- **Stream B — Public hosting infra.** `infra/bip-api.service` (gunicorn + 2 uvicorn workers on `127.0.0.1:8000`), `infra/Caddyfile` (auto-HTTPS via Let's Encrypt + security headers + JSON logs), `infra/caddy-install.sh` (one-time bootstrap), `infra/deploy.sh` (idempotent post-pull deploy with health check), `infra/playwright-install.sh`, full `infra/README.md` runbook. `gunicorn==23.0.0` added to requirements.
+- **Stream C — Scraper hardening.** New `PlaywrightScraper` base class in `_base.py` with ImportError guard, viewport spoofing, `wait_until="networkidle"` for Cloudflare JS challenges. PST scraper switched from `HttpScraper` to `PlaywrightScraper` (2-line change). Sports Reference URL fixed (`-per-game.html` 404 → `-leaders.html`); parser rewritten to target `div#leaders_pts_per_g` blocks with BeautifulSoup Comment fallback for SR's anti-scrape wrapping; new `_fetch_player_profile_stats()` follows player profile links for full stat lines. 6 new tests across both scrapers.
+- **Stream D — Public mode pivot.** Mid-sprint Vivek pivoted from FO-only basicauth to fully public read-only. (D1) Dropped Caddy basicauth; api.courtvue.app reads real client IP from `CF-Connecting-IP`; runbook updated with Cloudflare WAF rate limiting + cache rules. (D2) New env flag `NBA_API_USER_FETCH_DISABLED` raises `LiveFetchBlockedError` on cache miss; the 3 uncached user-facing methods (`get_career_stats`, `get_team_game_log`, `get_player_info`) wrapped with cache-first + guard; `stats_service`/`team_net_rating_service` catch and return graceful empty; `daily_sync.sh` exports flag=false so cron always fetches normally; 7 new guard tests. (D3) New `frontend/src/lib/external-metrics.ts` is the single source of truth for LEBRON, RAPTOR, EPM, PIPM, RAPM (full names, sources, URLs); new `<ExternalMetricsAttribution>` component (footer + banner variants); fixed three under-attributed surfaces — `StatTable.tsx` (column tooltips + footer legend), `CustomMetricBuilder.tsx` (dropdown source labels + amber banner when external metric is referenced), `ComparisonView.tsx` (replaced buried disclaimer with centralized component).
+- **Deferred:** VM deploy execution — all infra files merged but Vivek hit a Hetzner Cloud Console password issue. Recommended recovery is rescue mode (boot rescue OS with SSH key injected via Cloud UI, mount real disk at `/mnt/`, append key to `/mnt/home/ubuntu/.ssh/authorized_keys`) — sidesteps VNC password fight entirely. Closeout: `specs/sprint-82-closeout.md`.
+
 ### Sprint 81 — Data Foundation Closeout
 
 - **Two-stream parallel sprint** replacing seed-CSV stubs with live data, retiring legacy architecture, activating calibrated MVP weights, and adding two new official data domains. 464 backend tests (was 415, +49 net new). `npx tsc --noEmit` clean.
@@ -271,23 +280,10 @@ CourtVue Labs uses a hybrid sprint model: major feature sprints typically run as
 - **Stream B3 — New official data domains.** Two new tables (migration `0020_sprint81_player_splits_play_types`):
   - `player_split_stats` — per-player Location / W-L / Days Rest / Month / Pre-Post All-Star slices via `playerdashboardbygeneralsplits`. New endpoint `GET /api/players/{id}/splits` returns rows grouped by family.
   - `play_type_stats` — per-player Synergy archetype rows (Isolation, Transition, PRBallHandler, PRRollMan, Postup, Spotup, Handoff, Cut, OffScreen, Putbacks, Misc). New endpoint `GET /api/players/{id}/play-types` returns rows sorted by possession volume.
-  - Frontend rendering deferred to Sprint 82.
+  - Frontend rendering shipped in Sprint 82.
 - `daily_sync.sh` wired with three new scrapers + materializer + two new domain syncs in correct order. Dry-run validated end-to-end. Cron picks up changes on next git pull on `5.78.114.15`. Closeout: `specs/sprint-81-closeout.md`.
 
-### Sprint 80 — Cloud Migration: Database + Cron Off the Laptop
-
-- **Single-stream infrastructure sprint** migrating Postgres and the daily sync cron from Vivek's MacBook to a Hetzner CX22 VM (`5.78.114.15`, Ashburn VA) at ~$5/month. Cloudflare R2 free tier for nightly pg_dump backups. FastAPI deploy deferred to Sprint 81.
-- **DB cleanup before migration:** Alembic migration `0017_sprint80_raw_payload_ttl` TTLs `raw_game_payloads` rows older than 30 days (freed 184 MB, table 193 MB → 9 MB). Legacy `play_by_play` table drop deferred to Sprint 81 (11+ active service readers found via grep).
-- **Salary data improvement (Sprint 79 closeout):** `contracts_2025_26.csv` expanded from sparse data to full 514-player coverage (490 estimated + 24 known-exact). `salary_source` field (`"actual" | "seed_csv" | "estimated"`) wired backend → router → frontend. Trade Machine UI shows amber `est.` badge per player and a panel banner when any estimated contracts are present.
-- **Hetzner VM setup:** Postgres 16.13 on Ubuntu 24.04 LTS. Applied `infra/postgresql.conf.snippet` tuning (`shared_buffers=1GB`, `effective_cache_size=3GB`, `work_mem=16MB`, `maintenance_work_mem=256MB`, `random_page_cost=1.1`, `max_connections=30`). `bip` user + database created, `pg_hba.conf` configured for SCRAM-SHA-256 SSL remote auth.
-- **Migration:** `pg_dump --format=custom --compress=9` on laptop (123 MB compressed, 1.84 GB uncompressed), `pg_restore` on VM. Verified: **PASS: 50 tables, 4,558,469 rows, alembic_version=0017_sprint80_raw_payload_ttl**. Size deltas are normal (fresh restore = no bloat).
-- **Cron migration:** VM Python venv + full requirements installed at `/home/ubuntu/bip/backend/venv`. Crontab installed from `infra/cron.txt`: 4am UTC backup → R2, 6am UTC daily sync, */30 post-game refresh, Sunday 5am backup verify. Each job sources `/etc/bip/env` for `DATABASE_URL`.
-- **Secrets:** `~/.bip-env` on laptop exports `DATABASE_URL=postgresql://bip:...@5.78.114.15:5432/bip`. `/etc/bip/env` on VM (`chmod 600`) holds `PGUSER`, `PGPASSWORD`, `DATABASE_URL`, and R2 credentials.
-- **Backup automation:** `infra/bip-backup.sh` (pg_dump → gzip → R2 stream), `infra/bip-backup-prune.sh` (7 daily / 4 weekly / 3 monthly retention), `infra/bip-backup-verify.sh` (weekly restore drill to `bip_restore_test`). First manual backup confirmed: `bip-20260430.dump.gz` (140 MB) in R2 bucket.
-- **Firewall:** Hetzner Cloud Firewall applied — port 5432 locked to laptop IP `97.115.178.47` only.
-- No test count change (infra-only sprint). `npx tsc --noEmit` clean. Backend smoke-tested against Hetzner DB: `/api/leaderboards/teams`, `/api/trade/contracts/BOS`, `/api/playoffs/today` all return 200 OK.
-
-*Sprint 79 and older moved to `specs/sprint-history.md`.*
+*Sprint 80 and older moved to `specs/sprint-history.md`.*
 
 ---
 
@@ -331,6 +327,10 @@ CourtVue Labs uses a hybrid sprint model: major feature sprints typically run as
 | `feature/sprint-78-cf3-career-hof-view` | Claude | Merged to master |
 | `feature/sprint-78-cf4-game-story-mode` | Claude | Merged to master |
 | `feature/sprint-78-cf5-streaks-milestones` | Claude | Merged to master |
+| `feature/sprint-82a-player-depth` | Claude | Merged to master |
+| `feature/sprint-82b-hosting` | Claude | Merged to master |
+| `feature/sprint-82c-scrapers` | Claude | Merged to master |
+| `feature/sprint-82d-public-mode` | Claude | Merged to master |
 
 Sprint branches are created at kickoff and listed in `AGENTS.md`.
 
@@ -416,3 +416,6 @@ Sprint branches are created at kickoff and listed in `AGENTS.md`.
 | `PostseasonHeatmap` | `components/playoffs/` | USG% × TS%-delta scatter computed client-side from Regular vs Playoffs leaderboards; rotation-player filter with WCAG AA quadrant labels (Sprint 73) |
 | `OpponentLineupMatchupMatrix` | `components/playoffs/` | 5×5 net-rating delta matrix between a team's and opponent's top-5 playoff lineups; 100+ possessions per cell threshold (Sprint 73) |
 | `NavLinks` | `components/` | Client-only nav link group extracted from layout.tsx so the conditional Bracket nav item can read useSeasonPhase (Sprint 73) |
+| `PlayerSplitsPanel` | `components/` | Official NBA situational splits with family toggle (Location, Win/Loss, Days Rest, Month, Pre/Post All-Star) and 18-column stat table with W%/+/- color coding (Sprint 82) |
+| `PlayTypePanel` | `components/` | Synergy play-type breakdown: hybrid table with inline possession-share bars + PPP/percentile coloring; min 10 possessions filter (Sprint 82) |
+| `ExternalMetricsAttribution` | `components/` | Reusable source-attribution UI with `footer` (subtle) + `banner` (prominent amber) variants for LEBRON/RAPTOR/EPM/PIPM/RAPM disclosure (Sprint 82) |

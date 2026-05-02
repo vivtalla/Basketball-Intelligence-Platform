@@ -1,9 +1,21 @@
 # Sprint History Archive
 
-Archived sprint summaries through Sprint 81. The two most recent sprints also stay inline in `CLAUDE.md` under "Recent Sprints".
+Archived sprint summaries through Sprint 82. The two most recent sprints also stay inline in `CLAUDE.md` under "Recent Sprints".
 
 For detailed per-sprint records, see the individual closeout files in this directory where available:
 `specs/sprint-09-closeout.md` through `specs/sprint-59-closeout.md`, plus `specs/sprint-62-closeout.md` and `specs/sprint-67-closeout.md` onward.
+
+---
+
+### Sprint 82 — Public Platform + Player Depth + Scraper Hardening
+**Branches:** `feature/sprint-82a-player-depth`, `feature/sprint-82b-hosting`, `feature/sprint-82c-scrapers`, `feature/sprint-82d-public-mode` (all merged to master)
+
+- Four-stream sprint (A → B → C in parallel + a follow-on D for public-mode pivot). 464 → 479 backend tests (+15 net new). `npx tsc --noEmit` clean.
+- **Stream A — Player splits + play-type UI:** `PlayerSplitsPanel.tsx` (Location/Win-Loss/Days-Rest/Month/Pre-Post-All-Star family toggle, 18-column stat table) and `PlayTypePanel.tsx` (Synergy archetypes with possession-share bars + PPP/percentile coloring), both wired into `PlayerDashboard` (regular-season only, self-fetching). Closes Sprint 81 deferred frontend work.
+- **Stream B — Public hosting infra:** `infra/bip-api.service` (gunicorn + 2 uvicorn workers, loopback bind), `infra/Caddyfile` (auto-HTTPS + security headers + JSON logs), `infra/caddy-install.sh` (one-time bootstrap), `infra/deploy.sh` (idempotent post-pull), `infra/playwright-install.sh`, `infra/README.md` runbook. `gunicorn==23.0.0` added to requirements.
+- **Stream C — Scraper hardening:** New `PlaywrightScraper` base class (headless Chromium via `playwright.sync_api`, ImportError guard, viewport spoofing, `wait_until="networkidle"` for Cloudflare JS challenges); PST switched from `HttpScraper` (bypasses 403). Sports Reference URL fixed (`-per-game.html` → `-leaders.html`); parser rewritten to target `div#leaders_pts_per_g` blocks with HTML Comment fallback for SR's anti-scrape wrapping; `_fetch_player_profile_stats()` follows player profile links for full stat lines.
+- **Stream D — Public mode pivot:** Mid-sprint Vivek pivoted from FO-only basicauth to fully public read-only. (D1) Dropped Caddy basicauth, switched api.courtvue.app to read CF-Connecting-IP, runbook updated with Cloudflare WAF rate limiting + cache rules. (D2) New env flag `NBA_API_USER_FETCH_DISABLED` raises `LiveFetchBlockedError` on cache miss; 3 uncached user-facing methods wrapped with cache-first + guard; `daily_sync.sh` exports flag=false so cron always fetches normally; 7 new guard tests. (D3) New `frontend/src/lib/external-metrics.ts` is single source of truth for LEBRON/RAPTOR/EPM/PIPM/RAPM; new `<ExternalMetricsAttribution>` component; fixed three under-attributed surfaces (`StatTable`, `CustomMetricBuilder`, `ComparisonView`).
+- **Deferred:** VM deploy execution (Hetzner Cloud Console password issue paused it; rescue-mode SSH recovery is the recommended path). Closeout: `specs/sprint-82-closeout.md`.
 
 ---
 

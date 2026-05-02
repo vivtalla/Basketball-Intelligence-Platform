@@ -15,31 +15,22 @@ Guidelines:
 
 ---
 
-## Sprint 82 Candidates
+## Sprint 83 Candidates
 
-### Public Hosting — FastAPI deploy + Vercel frontend + Cloudflare CDN
+### Execute the pending VM deploy (Sprint 82 hangover)
 Why it matters:
-Sprint 80 landed the data layer in the cloud (Hetzner CX22 Postgres + cron) and Sprint 81 closed out the data foundation. The FastAPI backend and Next.js frontend still only run locally on Vivek's laptop — once the laptop is closed, the platform is unreachable. To make CourtVue Labs a real product that anyone can use — portfolio piece, shareable link, eventually paid tier — the web stack also needs to live online.
+Sprint 82 merged all the public-hosting infra (Caddyfile, systemd unit, install + deploy scripts, runbook, public-mode env flags, NBA-API-isolation guard, full external metric attribution) but Vivek paused the VM execution after hitting a Hetzner Cloud Console password issue. The platform is fully ready to go live but isn't actually serving traffic yet.
 
 Likely shape:
-- **FastAPI on Hetzner**: Caddy reverse proxy (auto-HTTPS via Let's Encrypt), systemd unit for uvicorn (2 workers), tighter CORS allowlist, basic rate limiting (slowapi or Caddy-side), `gunicorn -k uvicorn.workers.UvicornWorker` for production-grade worker management
-- **Frontend on Vercel**: GitHub-integrated auto-deploy on push to master; `NEXT_PUBLIC_API_URL` pointed at the Hetzner backend
-- **Cloudflare in front**: proxy DNS, default cache rules tuned for API patterns (1-6 hours TTL), WAF rules
-- **Domain**: register `courtvue.app` or similar (~$12/year via Cloudflare Registrar)
-- **Observability**: structured request logging, uptime monitoring (UptimeRobot or Cloudflare Workers Cron pinging /health)
-- **Auth question**: decide whether the platform is fully public (read-only, no login) or gated. Today there's no auth model — public hosting forces the question.
+- Use **Hetzner rescue mode** to recover SSH access (boots a temporary Linux with your public key injected via the Cloud UI, then mount the real disk at `/mnt/` and append the key to `/mnt/home/ubuntu/.ssh/authorized_keys`). Avoids the VNC console password fight entirely.
+- Open ports 80 + 443 in the Hetzner Cloud Firewall.
+- Register `courtvue.app` at Cloudflare Registrar (~$12/yr).
+- Add DNS records (orange-cloud `api.courtvue.app` → `5.78.114.15`; CNAME `@` and `www` → Vercel).
+- Run `infra/caddy-install.sh`, set `NBA_API_USER_FETCH_DISABLED=true` + `CORS_ORIGINS` in `/etc/bip/env`, install gunicorn, run alembic, start services.
+- Import repo into Vercel with root `frontend/` and `NEXT_PUBLIC_API_URL=https://api.courtvue.app`.
+- Configure Cloudflare WAF (1 rate-limit rule + bot blocks) and cache rules per `infra/README.md`.
 
-CX22 capacity headroom: Postgres ~1 GB + FastAPI ~600 MB + Caddy/cron ~200 MB = ~2 GB used of 4 GB. Comfortable.
-
-### Frontend rendering for player splits + play types
-Why it matters:
-Sprint 81 shipped the `player_split_stats` and `play_type_stats` tables + sync + endpoints (`/api/players/{id}/splits`, `/api/players/{id}/play-types`) but no UI surface yet. The data is read-ready and refreshes nightly.
-
-Likely shape:
-- **PlayerSplitsPanel** on the player profile page — mirror of `TeamSplitsPanel` from Sprint 47 with stat-table grid + family selector
-- **PlayTypeRadial** — Synergy-style possession share + percentile bars per archetype
-- Extend `lib/types.ts` and `lib/api.ts` to mirror the new endpoint shapes
-- Frontend tests are deferred until the Sprint 82 candidate "Frontend component-logic test infrastructure" lands
+Total wall-clock time: ~30-45 min of click-through, almost entirely web UIs.
 
 ### Tracking / Hustle / Passing dashboards
 Why it matters:
@@ -50,17 +41,13 @@ Likely shape:
 - prefer one family per sprint; the data-shape variance across these endpoints is real
 - frontend can wait until at least two families ship
 
-### Scraper hardening — PST + Sports Reference (Spotrac is shipped)
+### Spotrac retry-on-empty (Sprint 82c stretch)
 Why it matters:
-Sprint 81 shipped three scrapers; production testing on the Hetzner VM (commit e81a57f) found:
-- **Spotrac:** ✅ working. 29/30 teams scrape successfully each run; 339 of 526 contracts in production now have `source='spotrac'` (~65% coverage including all rotation players + stars). Diacritic-name resolution (Jokić, Dončić) and per-team partial-failure tolerance landed in fix commits.
-- **ProSportsTransactions:** ❌ blocked. PST sits behind Cloudflare's "Just a moment" JS challenge. Plain `requests`, `cloudscraper`, and `curl_cffi` (TLS impersonation) all return HTTP 403. Bypass requires real JS execution via Playwright. Falls back cleanly to seed CSV — the synthetic 220-row cohort still drives the Injury Duration Model.
-- **Sports Reference:** ❌ URL/structure mismatch. `/cbb/seasons/men/{year}-per-game.html` returns 404; the actual page is `/cbb/seasons/men/{year}-leaders.html` with `<div>`-based leader blocks, not the `<table id="per_game_stats">` my parser targets. Falls back to the 30-row hand-curated seed CSV.
+Sprint 82c shipped PST Playwright + SR URL/parser fixes but skipped the Spotrac retry-on-empty stretch goal. ~65% of contracts have `source='spotrac'` today; LAL/CHI pages occasionally return empty mid-run (suspected rate-limit). Worth doing only if production logs after the Sprint 82b/d deploy show repeated empty teams.
 
-Likely shape (Sprint 82):
-- **PST:** add Playwright as a dependency, run once nightly via cron with a `--headless --no-sandbox` flag. ~250 MB browser binary on the VM is fine (CX22 has 40 GB SSD); ~200 MB peak RSS per run is fine (4 GB total RAM).
-- **SR:** rewrite `_parse_per_game_page()` to target the leaders page's `<div id="leaders_pts_per_g">` structure. Each block has `<span class="who"><a href='/cbb/players/...'>Name</a> <small>School</small></span><span class="value">23.3</span>`. For full stat lines, follow each top-N player's profile link. ~50 prospects × 3s delay = ~3 min added to nightly cron.
-- **Spotrac stretch:** the LAL/CHI pages return empty intermittently (mid-run rate-limit suspected). Add retry-on-empty for known-good slugs, or re-fetch failed teams at the end of the run with longer delay.
+Likely shape:
+- After main per-team loop, sleep 30s then re-fetch any team that returned empty at 4.0s delay.
+- Add 1 test verifying the retry path.
 
 ### Award calibration cohort expansion
 Why it matters:
@@ -70,6 +57,14 @@ Likely shape:
 - extend `award_voting_seed.csv` backward to 2008-09 (+4 seasons, ~20 more rows) for a wider LOO-CV set
 - add DPOY / MIP / 6MOY ballot rows — same code path, different `award_type` filter
 - iterate on the modifier proxies in `materialize_award_modifiers.py` (especially `_clutch_proxy` and `_signature_games_proxy`) as PBP-derived clutch + signature-game data becomes available for older seasons
+
+### Fix flaky `test_series_odds_monotonic_toward_winning_side`
+Why it matters:
+Monte Carlo test in `test_series_odds_history.py` has no fixed RNG seed. Passes in isolation, occasionally fails in the full suite due to variance. Surfaced again at Sprint 82 close.
+
+Likely shape:
+- Pin the RNG seed at the test boundary or relax the monotonicity threshold by a small epsilon.
+- One-line fix.
 
 ---
 

@@ -1,6 +1,6 @@
 # Agent Coordination
 
-Last updated: 2026-04-28 by Claude (Sprint 77 closeout reset)
+Last updated: 2026-04-30 by Claude (Sprint 82 closeout reset)
 
 > Both agents read this file before touching code at the start of every session.
 > The canonical source of truth is the clean `master` checkout at `/Users/viv/Documents/Basketball Intelligence Platform`.
@@ -14,13 +14,15 @@ Last updated: 2026-04-28 by Claude (Sprint 77 closeout reset)
 
 | Field | Value |
 |-------|-------|
-| Sprint | 78 |
+| Sprint | 83 |
 | Goal | TBD — awaiting Vivek's sprint kickoff |
 | Started | TBD |
 | Target merge | TBD |
 | Sprint shape | TBD |
-| Branch | `master` until Sprint 78 kickoff |
+| Branch | `master` until Sprint 83 kickoff |
 | Worker policy | No active sprint; set at kickoff |
+
+**Pending hangover from Sprint 82:** VM deploy execution. All public-hosting infra is merged on `master` but not yet running on `5.78.114.15`. See `infra/README.md` for the runbook; SSH recovery should use Hetzner rescue mode (boot rescue OS with the laptop's `~/.ssh/id_ed25519.pub` injected via the Hetzner Cloud UI, mount `/mnt/`, append the key to `/mnt/home/ubuntu/.ssh/authorized_keys`). This is a manual step Vivek runs when ready.
 
 ---
 
