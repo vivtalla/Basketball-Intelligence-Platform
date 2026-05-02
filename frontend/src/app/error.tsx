@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
+import Link from "next/link";
 
 export default function ErrorBoundary({
   error,
@@ -10,7 +11,6 @@ export default function ErrorBoundary({
   reset: () => void;
 }) {
   useEffect(() => {
-    // eslint-disable-next-line no-console
     console.error("Route error boundary caught:", error);
   }, [error]);
 
@@ -31,12 +31,12 @@ export default function ErrorBoundary({
           >
             Try again
           </button>
-          <a
+          <Link
             href="/"
             className="bip-toggle rounded-full px-5 py-2 text-sm font-semibold uppercase tracking-[0.12em]"
           >
             Home
-          </a>
+          </Link>
         </div>
       </div>
     </main>

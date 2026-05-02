@@ -120,8 +120,7 @@ export default function LiveTicker() {
           paddingLeft: 14,
           paddingRight: 22,
           zIndex: 1,
-          background:
-            "linear-gradient(90deg, #1d1612 0%, #1d1612 70%, rgba(29,22,18,0) 100%)",
+          background: `linear-gradient(90deg, #1d1612 0%, #1d1612 70%, rgba(29,22,18,0) 100%)`,
           pointerEvents: "none",
         }}
       >
