@@ -249,11 +249,14 @@ export default function PlayerDashboard({ playerId }: PlayerDashboardProps) {
       )}
 
       {effectiveSeasonStr && (
-        <PlayerGravityPanel
-          profile={gravityProfile}
-          isLoading={gravityLoading}
-          season={effectiveSeasonStr}
-        />
+        <div>
+          <p className="bip-kicker mb-2">Gravity — defensive attention this player commands</p>
+          <PlayerGravityPanel
+            profile={gravityProfile}
+            isLoading={gravityLoading}
+            season={effectiveSeasonStr}
+          />
+        </div>
       )}
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -314,11 +317,15 @@ export default function PlayerDashboard({ playerId }: PlayerDashboardProps) {
 
       <div id="archetype" className="space-y-3 scroll-mt-6">
         <BriefSourceBanner anchor="archetype" />
+        <p className="bip-kicker">Archetype — style classification with peer cohort</p>
         <PlayerArchetypeProfile playerId={playerId} season={effectiveSeasonStr} />
         <ArchetypeEvolutionTimeline playerId={playerId} />
       </div>
 
-      <TeamFitPanel playerId={playerId} season={effectiveSeasonStr} />
+      <div>
+        <p className="bip-kicker mb-2">Team Fit — projected lineup compatibility scores</p>
+        <TeamFitPanel playerId={playerId} season={effectiveSeasonStr} />
+      </div>
 
       <PlayerSimilarity playerId={playerId} season={effectiveSeasonStr} />
 
