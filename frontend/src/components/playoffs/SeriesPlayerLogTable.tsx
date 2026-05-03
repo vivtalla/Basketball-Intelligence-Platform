@@ -2,15 +2,17 @@
 
 /**
  * Sprint 85 — per-team player game-by-game log table.
+ * Sprint 86 (B) — sortable column headers.
  *
  * Renders one section per team for a single playoff series:
  *  - Team header strip (abbreviation + total players logged).
- *  - For each player (sorted by total minutes in the series), a stacked
- *    block of one row per game plus a "Totals" row at the bottom.
+ *  - For each player (sorted by series-totals stat — defaults to MIN desc),
+ *    a stacked block of one row per game plus a "Totals" row at the bottom.
  *  - Game# column deep-links to /games/{game_id} for full game detail.
  */
 
 import Link from "next/link";
+import { useMemo, useState } from "react";
 import type {
   SeriesPlayerGameLine,
   SeriesPlayerLogs,
@@ -20,6 +22,49 @@ interface SeriesPlayerLogTableProps {
   team: SeriesPlayerLogs[];
   teamAbbr: string;
   teamId: number | null;
+}
+
+type SortKey = "min" | "pts" | "reb" | "ast" | "stl" | "blk" | "tov" | "plus_minus";
+type SortDir = "asc" | "desc";
+
+function SortableHeader({
+  label,
+  sortKey,
+  activeKey,
+  activeDir,
+  onSort,
+  className = "",
+}: {
+  label: string;
+  sortKey: SortKey;
+  activeKey: SortKey;
+  activeDir: SortDir;
+  onSort: (key: SortKey) => void;
+  className?: string;
+}) {
+  const isActive = activeKey === sortKey;
+  const arrow = isActive ? (activeDir === "desc" ? " ↓" : " ↑") : "";
+  return (
+    <th
+      className={`px-3 py-3 text-right text-xs font-semibold uppercase tracking-wider text-[var(--muted)] ${className}`}
+    >
+      <button
+        type="button"
+        onClick={() => onSort(sortKey)}
+        className={`inline-flex items-center gap-0.5 transition-colors hover:text-[var(--accent)] ${
+          isActive ? "text-[var(--foreground)]" : ""
+        }`}
+        aria-label={`Sort by ${label} ${
+          isActive ? (activeDir === "desc" ? "ascending" : "descending") : "descending"
+        }`}
+      >
+        {label}
+        <span className="text-[10px] tabular-nums" aria-hidden="true">
+          {arrow}
+        </span>
+      </button>
+    </th>
+  );
 }
 
 function fmtNum(value: number | null | undefined, digits = 0): string {
@@ -173,6 +218,28 @@ export default function SeriesPlayerLogTable({
   teamAbbr,
   teamId,
 }: SeriesPlayerLogTableProps) {
+  const [sortKey, setSortKey] = useState<SortKey>("min");
+  const [sortDir, setSortDir] = useState<SortDir>("desc");
+
+  const handleSort = (key: SortKey) => {
+    if (key === sortKey) {
+      setSortDir((d) => (d === "desc" ? "asc" : "desc"));
+    } else {
+      setSortKey(key);
+      setSortDir("desc");
+    }
+  };
+
+  const sortedTeam = useMemo(() => {
+    const arr = [...team];
+    arr.sort((a, b) => {
+      const av = a.series_totals[sortKey] ?? 0;
+      const bv = b.series_totals[sortKey] ?? 0;
+      return sortDir === "desc" ? bv - av : av - bv;
+    });
+    return arr;
+  }, [team, sortKey, sortDir]);
+
   if (team.length === 0) {
     return (
       <section className="bip-panel rounded-[1.4rem] p-6">
@@ -217,8 +284,8 @@ export default function SeriesPlayerLogTable({
             {teamAbbr}
           </h2>
           <p className="text-[11px] text-[var(--muted)]">
-            {team.length} player{team.length === 1 ? "" : "s"} · sorted by total
-            minutes
+            {team.length} player{team.length === 1 ? "" : "s"} · click any
+            stat to re-sort
           </p>
         </div>
       </div>
@@ -231,27 +298,13 @@ export default function SeriesPlayerLogTable({
                 <th className="whitespace-nowrap px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-[var(--muted)]">
                   Game
                 </th>
-                <th className="px-3 py-3 text-right text-xs font-semibold uppercase tracking-wider text-[var(--muted)]">
-                  MIN
-                </th>
-                <th className="px-3 py-3 text-right text-xs font-semibold uppercase tracking-wider text-[var(--muted)]">
-                  PTS
-                </th>
-                <th className="px-3 py-3 text-right text-xs font-semibold uppercase tracking-wider text-[var(--muted)]">
-                  REB
-                </th>
-                <th className="px-3 py-3 text-right text-xs font-semibold uppercase tracking-wider text-[var(--muted)]">
-                  AST
-                </th>
-                <th className="hidden px-3 py-3 text-right text-xs font-semibold uppercase tracking-wider text-[var(--muted)] sm:table-cell">
-                  STL
-                </th>
-                <th className="hidden px-3 py-3 text-right text-xs font-semibold uppercase tracking-wider text-[var(--muted)] sm:table-cell">
-                  BLK
-                </th>
-                <th className="hidden px-3 py-3 text-right text-xs font-semibold uppercase tracking-wider text-[var(--muted)] sm:table-cell">
-                  TO
-                </th>
+                <SortableHeader label="MIN" sortKey="min" activeKey={sortKey} activeDir={sortDir} onSort={handleSort} />
+                <SortableHeader label="PTS" sortKey="pts" activeKey={sortKey} activeDir={sortDir} onSort={handleSort} />
+                <SortableHeader label="REB" sortKey="reb" activeKey={sortKey} activeDir={sortDir} onSort={handleSort} />
+                <SortableHeader label="AST" sortKey="ast" activeKey={sortKey} activeDir={sortDir} onSort={handleSort} />
+                <SortableHeader label="STL" sortKey="stl" activeKey={sortKey} activeDir={sortDir} onSort={handleSort} className="hidden sm:table-cell" />
+                <SortableHeader label="BLK" sortKey="blk" activeKey={sortKey} activeDir={sortDir} onSort={handleSort} className="hidden sm:table-cell" />
+                <SortableHeader label="TO" sortKey="tov" activeKey={sortKey} activeDir={sortDir} onSort={handleSort} className="hidden sm:table-cell" />
                 <th className="hidden px-3 py-3 text-right text-xs font-semibold uppercase tracking-wider text-[var(--muted)] md:table-cell">
                   FG
                 </th>
@@ -261,13 +314,11 @@ export default function SeriesPlayerLogTable({
                 <th className="hidden px-3 py-3 text-right text-xs font-semibold uppercase tracking-wider text-[var(--muted)] md:table-cell">
                   FT
                 </th>
-                <th className="px-3 py-3 text-right text-xs font-semibold uppercase tracking-wider text-[var(--muted)]">
-                  +/-
-                </th>
+                <SortableHeader label="+/-" sortKey="plus_minus" activeKey={sortKey} activeDir={sortDir} onSort={handleSort} />
               </tr>
             </thead>
             <tbody>
-              {team.map((player, idx) => (
+              {sortedTeam.map((player, idx) => (
                 <PlayerBlock key={player.player_id} player={player} isFirst={idx === 0} />
               ))}
             </tbody>
