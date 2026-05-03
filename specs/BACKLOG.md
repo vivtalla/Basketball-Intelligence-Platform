@@ -40,19 +40,19 @@ Likely shape:
 - Mount in the team detail page tabs alongside the existing splits
 - Effort: ~3-4 agent-hours.
 
-### Spotrac retry-on-empty (Sprint 82c stretch)
-Why it matters:
-Sprint 82c shipped PST Playwright + SR URL/parser fixes but skipped the Spotrac retry-on-empty stretch goal. ~65% of contracts have `source='spotrac'` today; LAL/CHI pages occasionally return empty mid-run (suspected rate-limit). Worth doing only if production logs after the Sprint 82b/d deploy show repeated empty teams.
-
-Likely shape:
-- After main per-team loop, sleep 30s then re-fetch any team that returned empty at 4.0s delay.
-- Add 1 test verifying the retry path.
-
 ### Award calibration cohort expansion
+**Why deferred:** Blocked on data we don't have yet. Requires sourcing historical NBA voting data back to 2008-09 (~80 ballot rows across 4 seasons + DPOY/MIP/6MOY ballots) before any code work. Per the Deferral Policy, this qualifies as "blocked on data we don't have yet."
+
 Why it matters:
 Sprint 81 shipped the `mvp_case_v5` calibration activation, but it requires LOO-CV Spearman ≥ 0.7 to flip `calibration_pending=False`. The seeded `award_voting` table has 57 rows across 13 seasons. If LOO-CV in production fails to clear the bar, the next move is more historical data.
 
-Likely shape:
+Data acquisition path (the unblocking work, NOT a sprint):
+- Source: `https://www.basketball-reference.com/awards/awards_{year}.html` has voting tables back to 1980 (well before 2008-09)
+- Option A: web-scrape using the existing `backend/data/scrapers/sportsreference_cbb.py` pattern (~3-4 hr to write a new scraper)
+- Option B: manual CSV editing — 4 seasons × ~20 rows each = ~80 entries, ~2-3 hr of focused effort
+- **Recommendation:** manual CSV editing as a one-shot task that doesn't need a sprint allocation. Vivek can do whenever motivated.
+
+Once data is sourced, the implementation work is ~2-3 hr:
 - extend `award_voting_seed.csv` backward to 2008-09 (+4 seasons, ~20 more rows) for a wider LOO-CV set
 - add DPOY / MIP / 6MOY ballot rows — same code path, different `award_type` filter
 - iterate on the modifier proxies in `materialize_award_modifiers.py` (especially `_clutch_proxy` and `_signature_games_proxy`) as PBP-derived clutch + signature-game data becomes available for older seasons

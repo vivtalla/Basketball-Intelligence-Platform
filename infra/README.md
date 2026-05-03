@@ -105,18 +105,19 @@ In Cloudflare dashboard → Security → WAF → Custom rules:
 
 ### Cache rules (Cloudflare → Caching → Cache Rules)
 
-The daily cron refreshes data overnight. Cache TTLs aligned with that cadence:
+The daily cron refreshes data overnight. Cache TTLs aligned with that cadence. Free tier allows 5 cache rules.
 
-| URL pattern | Cache TTL | Why |
-|-------------|-----------|-----|
-| `api.courtvue.app/api/health` | Bypass | Always live |
-| `api.courtvue.app/api/playoffs/*` | 30 min | Playoff data is most volatile |
-| `api.courtvue.app/api/standings/*` | 1 hour | Refreshed post-game |
-| `api.courtvue.app/api/leaderboards/*` | 6 hours | Updated nightly |
-| `api.courtvue.app/api/players/*/splits` | 12 hours | Updated nightly |
-| `api.courtvue.app/api/*` (catch-all) | 5 minutes | Default short TTL |
+| Rule | Pattern (priority order) | Cache TTL | Why |
+|------|-------------------------|-----------|-----|
+| 1 | `hostname=api.courtvue.app AND URI starts_with /api/playoffs/` | 2 hours | Playoff series + bracket + per-series player logs (Sprint 85 B). Refreshes post-game. |
+| 2 | `hostname=api.courtvue.app AND URI starts_with /api/standings` | 2 hours | Refreshed post-game |
+| 3 | `hostname=api.courtvue.app AND URI starts_with /api/leaderboards` | 6 hours | Updated nightly |
+| 4 | `hostname=api.courtvue.app AND URI matches "^/api/(players\|teams)/.*/(splits\|play-types\|tracking\|hustle)$"` | 12 hours | Daily-synced player + team stat dashboards (Sprint 81 splits/play-types + Sprint 85/86 tracking + hustle). Sprint 86 broadened from `/api/players/*/splits` to cover the new endpoints. |
+| 5 | `hostname=api.courtvue.app` (catch-all) | 2 hours | Default for `/api/health`, search, anything not matched above. Health bypass is unnecessary because requests are cheap and the catch-all TTL is short. |
 
-Cloudflare's edge cache is what protects your $5/mo VM from a sudden traffic spike. Without it, a Hacker News spike would fall straight through to a 2-worker gunicorn.
+Cloudflare's edge cache is what protects the VM from a sudden traffic spike. Without it, a viral moment would fall straight through to the 2-worker gunicorn.
+
+**When to update rule 4:** any new endpoint family that follows the daily-sync cadence (e.g. future shooting splits, advanced stats by player or team) should be added to the regex inside the existing rule rather than creating a new rule (free tier is at the 5-rule cap).
 
 ## Routine Deploys (after each git push to master)
 
