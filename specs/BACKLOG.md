@@ -15,25 +15,34 @@ Guidelines:
 
 ---
 
-## Sprint 88 Candidates
+## Sprint 89 Candidates
 
-### `infra/deploy.sh` auto-installs systemd service units (Sprint 87 workflow gap)
+### Server-component refactor of stable pages for true ISR (Sprint 88 D follow-on)
 Why it matters:
-Sprint 87 Stream C2 changed `bip-api.service` (added `ExecStartPre` + new gunicorn flags). The deploy script does NOT auto-copy the service unit from the repo to `/etc/systemd/system/` — that's a one-time bootstrap from the original `caddy-install.sh`. So the deploy ran cleanly but the new service config wasn't picked up until manual `sudo cp + sudo systemctl daemon-reload`. Same gap will bite the next time `bip-api.service` or any new systemd unit changes.
+Sprint 88 Stream D added `revalidate` exports to 6 stable pages (`/players/[id]`, `/teams/[abbr]`, `/leaderboards`, `/standings`, `/milestones`, `/mvp`) via direct page exports + sibling `layout.tsx` exports. Build registered the ISR settings, but production responses still return `cache-control: max-age=0, must-revalidate` with no `x-vercel-cache: HIT` after multiple requests. Root cause: the underlying pages are `"use client"` components — Vercel can cache the server-rendered HTML but the client shell has no data baked in (data fetches via SWR client-side on every browser request).
+
+Likely shape (per page family — could be split across multiple sprints):
+- Convert `players/[id]/page.tsx` to a server component that fetches player data server-side (`await fetch(\`\${API}/api/players/\${id}\`)`) and passes it as props to a thin client wrapper. Initial HTML includes the data; Vercel's edge can cache it for the `revalidate` window. Browser SWR can revalidate on focus from the seeded data.
+- Same for `/teams/[abbr]`, `/leaderboards`, `/standings`, `/milestones`, `/mvp`.
+- Each page family is a separate refactor unit (~2-3 hr each). Could be one big Sprint 89 (12-15 hr) or split.
+
+### Cache-effectiveness measurement (Sprint 88 C1 follow-on)
+Why it matters:
+Sprint 88 instrumented `CacheManager` with hit/miss/expired counters but we have no baseline yet. After 24-48 hours of production traffic, we should see a snapshot via `/api/health/cache-stats` and use it to tune cache TTLs.
 
 Likely shape:
-- In `infra/deploy.sh`, after the `git pull`, diff `/etc/systemd/system/bip-api.service` against `infra/bip-api.service` (and any other unit files we add). If different: `sudo cp` + `sudo systemctl daemon-reload`.
-- Same pattern for `/etc/caddy/Caddyfile` (currently `caddy validate` runs but doesn't auto-sync from repo).
-- One commit, ~30 min.
+- Wait 24-72 hours for counters to accumulate
+- `curl -s https://api.courtvue.app/api/health/cache-stats`
+- If hit rate < 50% on certain key prefixes: bump TTLs in `nba_client.py` for those keys
+- One commit, ~30 min after data is collected.
 
 ### R2 backup lifecycle rule (Sprint 87 deferred — Cloudflare UI step)
-**Why deferred:** Cloudflare R2 dashboard UI configuration step, not code. Per Deferral Policy "different domain" — infra UI config done outside the code repo. Documented in `infra/README.md`.
+**Why deferred:** Cloudflare R2 dashboard UI configuration step, not code. Per Deferral Policy "different domain". Documented in `infra/README.md`.
 
-Likely shape:
-- Cloudflare dashboard → R2 → bucket settings → Object lifecycle rules → Add rule
-- Apply to: all objects in the bucket
-- Delete after: 90 days
-- ~5 min next time touching Cloudflare config.
+### Cloudflare `/api/health` bypass-cache rule (Sprint 88 deferred — Cloudflare UI step)
+**Why deferred:** Cloudflare cache rules dashboard UI step, not code. Per Deferral Policy "different domain". Documented in `infra/README.md`.
+
+Both Cloudflare deferrals are ~5 min combined when next touching the Cloudflare dashboard.
 
 ---
 

@@ -323,6 +323,17 @@ CourtVue Labs uses a hybrid sprint model: major feature sprints typically run as
 
 > Full history → `specs/sprint-history.md`
 
+### Sprint 88 — Data Foundation Audit + Full Implementation
+
+- **Audit-driven sprint** based on 3 parallel Explore agents (DB structure, caching, sync pipeline). 500 backend tests pass, `npm run build` clean, `npm run lint` 0/0. Single branch (`feature/sprint-88-data-foundation`), sequential commits A → B → C → D → E.
+- **Biggest user win — Stream A completeness syncs:** player + team hustle + team tracking endpoints now return populated data in regular season. Was empty 6 months/year because syncs only fired during playoffs (via `sync_playoff_full.py`). `daily_sync.sh` extended with `sync_player_hustle_stats` + `sync_team_hustle_stats` + `sync_team_tracking_stats` for current season. New `backend/data/weekly_sync.sh` runs `sync_player_tracking_stats(player_ids=None)` Sunday 8am UTC for all active players (~450 calls). Production backfill executed post-deploy: 581 player hustle + 30 team hustle + 360 team tracking rows.
+- **Stream B — Database performance:** Alembic `0023_sprint88_perf_indexes.py` adds 8 missing indexes on hot tables (`season_stats × 2`, `player_game_logs`, `play_by_play_events`, `lineup_stats`, `player_on_off`, `game_player_stats`, `game_team_stats`). N+1 fixes in `advanced.py` top-lineups + on-off-leaderboard (was 1 query per row → 1 batched query) and `stats.py` league-context (position filter pushed from Python to SQL). Explicit SQLAlchemy pool config: `pool_size=10, max_overflow=20, pool_recycle=3600` (was default → 30 max conns; now 60). Weekly Sunday 6am UTC Postgres `vacuumdb --analyze-in-stages` cron entry.
+- **Stream C — Cache observability:** `CacheManager` instrumented with `_stats: {hit, miss, expired}` per-process counter + `logger.debug()` traces. New `GET /api/health/cache-stats` endpoint returns counter + total + row count + cache.db file size. `clear_expired()` now returns the deleted count (was returning None) and is invoked by `daily_sync.sh` end-of-run, keeping `cache.db` bounded to active TTL window.
+- **Stream D — Frontend ISR (PARTIAL win):** `revalidate` exports added to 6 stable pages via direct page exports (server components) and sibling `layout.tsx` (client components). Real-world Vercel response still shows `cache-control: max-age=0, must-revalidate` with no `x-vercel-cache: HIT` because the underlying pages are `"use client"` — Vercel can cache the server-rendered HTML shell but client pages have no data baked in (data fetched via SWR client-side). Real fix is server-component refactor of each page family. Filed as Sprint 89 candidate.
+- **Stream E — `infra/deploy.sh` auto-sync of systemd units + Caddyfile:** Closes Sprint 87 workflow gap. Diff `infra/bip-api.service` against `/etc/systemd/system/`; copy + `systemctl daemon-reload` if different. Same for Caddyfile. Verified live during Sprint 88 deploy — new service unit picked up automatically without manual `sudo cp + daemon-reload`.
+- **Deferred (1):** Cloudflare `/api/health` bypass-cache rule — UI step, "different domain" per Deferral Policy. Documented in `infra/README.md`.
+- Closeout: `specs/sprint-88-closeout.md`.
+
 ### Sprint 87 — Security Maintenance Pass
 
 - **Security audit findings** from the post-Sprint-86 review, executed end-to-end. Single branch (`feature/sprint-87-security-maintenance`), 6 commits, deployed cleanly. 500 backend tests still pass post-upgrade, `npm run lint` 0/0.
@@ -337,19 +348,7 @@ CourtVue Labs uses a hybrid sprint model: major feature sprints typically run as
 - **Deferred (1, with Why):** R2 backup lifecycle rule (Cloudflare UI step, "different domain" per Deferral Policy). Documented in `infra/README.md` for the next Cloudflare-touch session.
 - Closeout: `specs/sprint-87-closeout.md`.
 
-### Sprint 86 — Complete Sprint 85 Follow-Ons + Team-Level Tracking/Hustle + OG Polish
-
-- **First sprint operating under the new Deferral Policy** (added at end of Sprint 85). Goal honored: every Sprint 85 follow-on completed + team-level tracking/hustle (sister feature) + OG polish (Sprint 83 carry) all shipped in one self-contained sprint. 490 → 500 backend tests (+10 net new), `npm run build` clean, `npm run lint` 0 errors maintained.
-- **Stream A — Bracket auto-advance polish** (`feature/sprint-86a-bracket-polish`): label richness — `PlayoffSeriesResponse` extended with `parent_top_seed` / `parent_bottom_seed` / `parent_top_team_abbrs` / `parent_bottom_team_abbrs`; `SeriesCard.tsx` `parentLabel()` renders "winner of 1v8 (OKC/HOU)" for R1 parents (falls back to "winner of {abbrs}" for R2+). Backfill — new `backend/data/backfill_playoff_parent_pointers.py` (idempotent); `compute_next_round_slot` exposed publicly for the script. Production backfill ran with `closed_seen: 2, updated: 0` — correct behavior since R2 child rows don't exist yet (will populate on next nightly bracket sync via Sprint 85 auto-advance).
-- **Stream B — Per-series detail page sortable columns** (`feature/sprint-86b-series-detail-sort`): `SortableHeader` component + `useState<SortKey>` + direction-toggle + `useMemo` comparator on `series_totals[sortKey]`. 8 sortable stat columns (MIN, PTS, REB, AST, STL, BLK, TOV, +/-).
-- **Stream C — Team-level tracking + hustle dashboards** (`feature/sprint-86c-team-tracking-hustle`): full new feature. Alembic 0022 with new `team_tracking_stats` + `team_hustle_stats` tables; new `TeamTrackingStat`/`TeamHustleStat` ORM; new nba_client wrappers (`get_league_team_tracking_dashboard` issues 12 calls per sync — 5 `LeagueDashPtStats` measure types + 1 passing + 6 `LeagueDashPtTeamDefend` distance buckets — vs player-side single call; `get_league_team_hustle_stats` mirrors); new sync functions in `gravity_sync_service`; new `team_tracking_service.py` + `team_hustle_service.py` (cache-first, sync-on-miss); 2 new endpoints `/api/teams/{abbr}/{tracking,hustle}`; 2 new components mounted in team analytics tab. 6 new tests.
-- **Stream D — OG image polish** (`feature/sprint-86d-og-image-polish`): full rewrite 190 → 770 LOC. 5 per-type renderers (`renderHomeCard`, `renderPlayerCard`, `renderTeamCard`, `renderSeriesCard`, `renderMvpCard`) sharing `CardShell` (hardwood + half-court silhouette + hairline frame). Custom font loading via `tryReadFontAnyExt()` (Source Serif 4 Bold + Source Sans 3 Regular/Bold; .ttf fallback to .woff2). Per-page `generateMetadata` via sibling `layout.tsx` for client-component pages. Each per-type renderer fetches data server-side from existing API.
-- **Stream E — Cache rule + deferral audit** (`feature/sprint-86e-cache-deferral-audit`): broadened Cloudflare cache rule 4 regex to cover daily-synced `(splits|play-types|tracking|hustle)` for both `/api/players/*/...` and `/api/teams/*/...` paths. Spotrac retry-on-empty dropped from BACKLOG (production logs: 0 errors in 7 days, 42K log lines). Award calibration cohort expansion annotated with `Why deferred:` per the new policy ("blocked on data we don't have yet"; basketball-reference scrape OR ~3hr manual CSV editing path documented).
-- **Phase 6 fix** (`3e09de7`): schema test pinned to Sprint 85 alembic head; bumped to `0022_sprint86_team_track_hus`.
-- **Production smoke verified all 5 surfaces:** bracket has 6 new parent fields; team tracking + hustle 200; OG home + per-page cards 200 with image/png. Closeout: `specs/sprint-86-closeout.md`.
-- **Deferred (1 item, with documented reason):** Award calibration cohort expansion — blocked on historical NBA voting data acquisition. Per the Deferral Policy this qualifies; data path documented in BACKLOG.
-
-*Sprint 85 and older moved to `specs/sprint-history.md`.*
+*Sprint 86 and older moved to `specs/sprint-history.md`.*
 
 ---
 

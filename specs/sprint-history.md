@@ -1128,3 +1128,29 @@ Eliminated live NBA API calls on every player profile load:
 - Mid-sprint Vivek made the GitHub repo public to unblock VM `git pull` (private repo had no cached creds; previous deploys worked via expired temp cache).
 - Workflow gap surfaced: `infra/deploy.sh` doesn't auto-sync `bip-api.service` to systemd — required manual `sudo cp + daemon-reload` after Stream C2. Filed as Sprint 88 candidate.
 - Closeout: `specs/sprint-87-closeout.md`.
+
+---
+
+### Sprint 86 — Complete Sprint 85 Follow-Ons + Team-Level Tracking/Hustle + OG Polish
+**Branches:** `feature/sprint-86{a,b,c,d,e}-*` (Claude, 5-stream parallel)
+
+- First sprint operating under the new Deferral Policy. All Sprint 85 follow-ons + team-level tracking/hustle (sister feature) + OG polish (Sprint 83 carry) shipped end-to-end. Only legitimate deferral: Award calibration cohort expansion (data-blocked).
+- 490 → 500 backend tests (+10).
+- Stream A: Bracket label richness — 4 parent fields + "winner of 1v8 (OKC/HOU)" labels + idempotent backfill script. Stream B: SeriesPlayerLogTable sortable columns. Stream C: Team-level tracking + hustle full stack from scratch (Alembic 0022 + ORM models + 12-call multi-measure nba_client wrapper + sync functions + services + endpoints + components in team analytics tab). Stream D: OG image polish — route.tsx 190→770 LOC, 5 per-type renderers (`?type=home|player|team|series|mvp`), custom Source Serif 4 + Source Sans 3 fonts. Stream E: docs only — broadened Cloudflare cache rule 4 regex; dropped Spotrac (0 prod errors); `Why deferred:` annotation on Award calibration.
+- Post-closeout hotfix (`1de57c5`): user-fetch guard on 4 tracking + hustle nba_client wrappers (Sprint 85+86 missed the Sprint 82d pattern; production users were triggering live NBA API calls that took 6s and OOM'd workers).
+- Closeout: `specs/sprint-86-closeout.md`.
+
+---
+
+### Sprint 88 — Data Foundation Audit + Full Implementation
+**Branch:** `feature/sprint-88-data-foundation` (Claude, single sequential stream)
+
+- Audit-driven sprint based on 3 parallel Explore agents (DB structure, caching, sync pipeline). 500 backend tests pass post-implementation, `npm run build` clean, `npm run lint` 0/0.
+- **Biggest user win:** Stream A completeness syncs — player + team hustle + team tracking endpoints now return populated data in regular season. Was empty 6 months/year (only synced during playoffs). Production backfill: 581 player hustle + 30 team hustle + 360 team tracking rows. Player tracking (`~450` calls) backfilled in background.
+- Stream B1: Alembic 0023 — 8 missing indexes on hot tables (`season_stats × 2`, `player_game_logs`, `play_by_play_events`, `lineup_stats`, `player_on_off`, `game_player_stats`, `game_team_stats`). Defensive `_has_table` + `_has_index` guards.
+- Stream B2: N+1 fixes in `advanced.py` top-lineups + on-off-leaderboard + `stats.py` league-context (position filter pushed from Python to SQL).
+- Stream B3: SQLAlchemy explicit pool config (10 + 20 overflow + 1hr recycle). Stream B4: weekly Sunday 6am UTC `vacuumdb --analyze-in-stages`.
+- Stream C1: CacheManager hit/miss/expired counters + new `GET /api/health/cache-stats` endpoint. C2: `clear_expired()` returns count + invoked nightly.
+- Stream D — Frontend ISR PARTIAL: `revalidate` exports added to 6 stable pages, but client-component pages don't get edge-cached because the HTML shell has no data baked in (data loads via SWR client-side). Real fix is server-component refactor; filed as Sprint 89 candidate.
+- Stream E: `infra/deploy.sh` auto-syncs `bip-api.service` + `Caddyfile` with `daemon-reload`. Closes Sprint 87 workflow gap. Verified live during Sprint 88 deploy.
+- Closeout: `specs/sprint-88-closeout.md`.

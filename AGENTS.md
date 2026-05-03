@@ -1,6 +1,6 @@
 # Agent Coordination
 
-Last updated: 2026-05-03 by Claude (Sprint 88 kickoff — data foundation audit + full implementation: completeness syncs + DB indexes + N+1 fixes + cache observability + frontend ISR)
+Last updated: 2026-05-03 by Claude (Sprint 88 closeout — data foundation shipped end-to-end; biggest user win: hustle + tracking tables now populated in regular season)
 
 > Both agents read this file before touching code at the start of every session.
 > The canonical source of truth is the clean `master` checkout at `/Users/viv/Documents/Basketball Intelligence Platform`.
@@ -14,16 +14,15 @@ Last updated: 2026-05-03 by Claude (Sprint 88 kickoff — data foundation audit 
 
 | Field | Value |
 |-------|-------|
-| Sprint | 88 |
-| Goal | Data foundation audit + full implementation: completeness syncs (player/team tracking + hustle in regular season — closes 4 silent UI gaps), DB indexes (8 missing on hot tables), N+1 fixes, cache observability, frontend ISR for stable pages |
-| Started | 2026-05-03 |
-| Target merge | 2026-05-04 |
-| Sprint shape | Single sequential stream; per-stream commits A → B1 → B2 → B3 → B4 → C1 → C2 → D → E |
-| Branch | `feature/sprint-88-data-foundation` |
-| Worker policy | None — main session does all stream work directly |
-| Plan file | `~/.claude/plans/zazzy-swimming-pebble.md` |
+| Sprint | 89 |
+| Goal | TBD — awaiting Vivek's sprint kickoff |
+| Started | TBD |
+| Target merge | TBD |
+| Sprint shape | TBD |
+| Branch | `master` until Sprint 89 kickoff |
+| Worker policy | No active sprint; set at kickoff |
 
-**Production status:** CourtVue Labs is publicly live at `https://courtvue.app` (Vercel) + `https://api.courtvue.app` (Hetzner CPX11, `ubuntu@5.78.114.15`). Audit-driven sprint based on 3 parallel architecture explores. **Critical finding:** player/team tracking + hustle tables only synced during playoffs — empty for 6 months/year. Sprint 88 closes the gap. Only legitimate deferral: Cloudflare `/api/health` bypass-cache rule (UI step).
+**Production status:** CourtVue Labs is publicly live at `https://courtvue.app` (Vercel) + `https://api.courtvue.app` (Hetzner CPX11, `ubuntu@5.78.114.15`). Sprint 88 shipped data foundation work — hustle + tracking tables now populated in regular season (was empty 6 months/year), 8 missing DB indexes added, N+1 query patterns fixed, SQLAlchemy pool explicit, weekly VACUUM ANALYZE, cache observability via `/api/health/cache-stats`, `infra/deploy.sh` auto-syncs systemd units. 500 backend tests, 0 lint errors. **Stream D ISR was partial** — exports added but client-component pages don't get edge-cached (real fix is server-component refactor, filed as Sprint 89 candidate).
 
 ---
 
@@ -207,9 +206,9 @@ If repo state, sprint numbering, or shipped features appear to disagree across l
 ## Current Assignments
 
 ### Claude
-- Branch: `feature/sprint-88-data-foundation`
-- Scope: All Sprint 88 streams (sync ops + DB indexes + N+1 + cache observability + frontend ISR + deploy.sh fix)
-- Status: Kickoff — sequential A → B → C → D → E
+- Branch: TBD at kickoff
+- Scope: No active sprint assignment
+- Status: Not started
 
 ### Codex
 - Branch: TBD at kickoff
@@ -247,6 +246,7 @@ Specs or review notes written by one stream for another. Check this before start
 | `specs/sprint-85-closeout.md` | Sprint 85 | Next sprint | Reference — first sprint exercising new workflow; deploy.sh `--migrate` infra fixes; subagent stages, parent commits operating model |
 | `specs/sprint-86-closeout.md` | Sprint 86 | Next sprint | Reference — first sprint operating under Deferral Policy; team-level tracking/hustle pattern (12-call multi-measure tracking endpoint); OG image with custom fonts + 5 per-type renderers |
 | `specs/sprint-87-closeout.md` | Sprint 87 | Next sprint | Reference — security maintenance pass; FastAPI 0.115→0.124 + Starlette 0.41→0.44 framework bumps with zero regressions; CORS tightened; gunicorn file log + logrotate; lesson re: deploy.sh doesn't auto-install service units |
+| `specs/sprint-88-closeout.md` | Sprint 88 | Next sprint | Reference — data foundation audit + full impl: completeness syncs (hustle + tracking populated in reg season), 8 DB indexes, N+1 fixes, cache observability, deploy.sh auto-sync. Honest call: Stream D ISR partial — client pages don't edge-cache, file Sprint 89 candidate. |
 
 ---
 
@@ -347,6 +347,8 @@ Sprint 87 allocation — TBD at kickoff.
 ## Notes
 
 *Free-form, dated, newest first. Use this for coordination and repo-state exceptions.*
+
+2026-05-03 (Claude): Sprint 88 closed. **Data foundation audit + full implementation** under the Deferral Policy. 3 parallel Explore agents (DB structure, caching, sync pipeline) produced comprehensive findings; sequential implementation across single branch. 500 backend tests pass post-impl, `npm run build` clean, `npm run lint` 0/0. **Biggest user win:** player + team hustle and tracking endpoints now return populated data in regular season (was empty 6 months/year — only synced during playoffs). Streams: A = `daily_sync.sh` runs hustle (player + team) + team tracking nightly + new `weekly_sync.sh` runs player tracking Sunday 8am UTC; `gravity_sync_service.sync_player_tracking_stats(player_ids=None)` auto-derives active players from `PlayerGameLog`; production backfill ran post-deploy: 581 player hustle + 30 team hustle + 360 team tracking rows. B1 = Alembic 0023 with 8 missing indexes (season_stats × 2, player_game_logs, play_by_play, lineup_stats, player_on_off, game_player_stats, game_team_stats); defensive `_has_table` + `_has_index` guards. B2 = N+1 fixes in advanced.py top-lineups + on-off-leaderboard + stats.py league-context (position filter pushed to SQL). B3 = SQLAlchemy `pool_size=10, max_overflow=20, pool_recycle=3600`. B4 = weekly Sunday 6am UTC `vacuumdb --analyze-in-stages`. C1 = CacheManager hit/miss/expired counters + new `GET /api/health/cache-stats` endpoint. C2 = `clear_expired()` (returns count) hooked into daily_sync. D = ISR `revalidate` exports added to 6 stable pages (PARTIAL win — client-component pages don't get edge-cached; real fix is server-component refactor, filed as Sprint 89 candidate). E = `infra/deploy.sh` auto-syncs `bip-api.service` + `Caddyfile` with daemon-reload (closes Sprint 87 workflow gap; verified live). Production smoke: hustle/tracking endpoints return populated data (was empty); `/api/health/cache-stats` works; N+1 endpoints 200 in <100ms; `infra/deploy.sh` auto-sync confirmed. Closeout: `specs/sprint-88-closeout.md`.
 
 2026-05-03 (Claude): Sprint 87 closed. **Security maintenance pass under the Deferral Policy.** 6 commits on a single branch (`feature/sprint-87-security-maintenance`) shipped end-to-end. 500 backend tests still pass after FastAPI 0.115→0.124 + Starlette 0.41→0.44 framework bumps (zero regressions in the 193-route surface). `npm run build` clean, `npm run lint` 0/0. Streams: A = `npm audit fix --force` bumped Next 16.2.0→16.2.4 (resolved high-severity DoS GHSA-q4gf-8mx6-v5v3); 3 moderate postcss-bundled-by-Next vulns accepted (no real exploit surface — Tailwind generates static CSS, not runtime user input). B1 = pydantic 2.10.4→2.10.6 + sqlalchemy 2.0.36→2.0.49 + pypdf 5.4.0→5.9.0 (safe patches). B2 = fastapi + starlette major bumps. C1 = CORS tightened: `methods=["*"]` → `["GET","HEAD","POST","OPTIONS"]`, `headers=["*"]` → `["Content-Type","Accept","Authorization"]`. C2 = gunicorn `--access-logfile -` → `/var/log/bip-api/access.log` + `ExecStartPre=+/usr/bin/install -d` for dir creation + new `infra/bip-api.logrotate` (14-day retention, copytruncate, compress). C3 = PGPASSWORD comment cleanup REJECTED on review (accurate documentation, not unused code). **Mid-sprint: Vivek made the GitHub repo public** to unblock VM `git pull` (private repo had no cached creds; previous deploys worked through expired temp cache). **Workflow gap surfaced:** `infra/deploy.sh` doesn't auto-sync `bip-api.service` to systemd — required manual `sudo cp + daemon-reload` after Stream C2's service unit changes. Filed as Sprint 88 candidate. Production smoke verified all changes live: Next 16.2.4 frontend, FastAPI 0.124 backend, CORS tightened allowlist, `/var/log/bip-api/access.log` writing. Closeout: `specs/sprint-87-closeout.md`.
 
