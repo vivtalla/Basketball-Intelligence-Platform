@@ -9,6 +9,9 @@ User=ubuntu
 Group=ubuntu
 WorkingDirectory=/home/ubuntu/bip/backend
 EnvironmentFile=/etc/bip/env
+# Sprint 87 (C2) — ensure log dir exists with ubuntu ownership before
+# gunicorn starts. Runs as root (the leading +) so the chown is allowed.
+ExecStartPre=+/usr/bin/install -d -o ubuntu -g ubuntu -m 0755 /var/log/bip-api
 ExecStart=/home/ubuntu/bip/backend/venv/bin/gunicorn \
     main:app \
     --workers 2 \
@@ -17,7 +20,7 @@ ExecStart=/home/ubuntu/bip/backend/venv/bin/gunicorn \
     --timeout 120 \
     --graceful-timeout 30 \
     --keep-alive 5 \
-    --access-logfile - \
+    --access-logfile /var/log/bip-api/access.log \
     --error-logfile - \
     --log-level info
 ExecReload=/bin/kill -s HUP $MAINPID

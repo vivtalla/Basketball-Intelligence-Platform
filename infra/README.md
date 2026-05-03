@@ -119,6 +119,28 @@ Cloudflare's edge cache is what protects the VM from a sudden traffic spike. Wit
 
 **When to update rule 4:** any new endpoint family that follows the daily-sync cadence (e.g. future shooting splits, advanced stats by player or team) should be added to the regex inside the existing rule rather than creating a new rule (free tier is at the 5-rule cap).
 
+### Backup retention (Sprint 87 — recommended next Cloudflare touch)
+
+`bip-backup-prune.sh` enforces 7 daily / 4 weekly / 3 monthly retention via shell logic. As a second-layer safety net (in case the prune script silently fails), add an R2 lifecycle rule auto-deleting objects older than 90 days:
+
+- Cloudflare dashboard → R2 → bucket settings → Object lifecycle rules → Add rule
+- Apply to: all objects in the bucket
+- Delete after: 90 days
+- OR via API once the AWS CLI is configured: `aws --endpoint=$R2_ENDPOINT s3api put-bucket-lifecycle-configuration --bucket=$R2_BUCKET --lifecycle-configuration file://r2-lifecycle.json`
+
+Audit-flagged but deferred from Sprint 87 because it's a Cloudflare UI step (different domain per the Deferral Policy).
+
+## One-time logrotate install (Sprint 87)
+
+The `bip-api.service` writes gunicorn access logs to `/var/log/bip-api/access.log` (Sprint 87 changed from journal-only). Install the rotation config once per VM:
+
+```bash
+sudo cp /home/ubuntu/bip/infra/bip-api.logrotate /etc/logrotate.d/bip-api
+sudo logrotate -d /etc/logrotate.d/bip-api   # dry-run validate
+```
+
+Logrotate runs daily via Ubuntu's `/etc/cron.daily/logrotate`. Default config: 14-day retention, compressed, copytruncate (no need to signal gunicorn). Verify after first day with `ls -la /var/log/bip-api/`.
+
 ## Routine Deploys (after each git push to master)
 
 ```bash
