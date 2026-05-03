@@ -806,6 +806,18 @@ def compute_game_storyline(
     )
 
 
+# Sprint 86 — Public alias for the seed-pairing helper so the bracket parent
+# pointer backfill script can import it without reaching into a private name.
+# The original underscore-prefixed function remains in place as the canonical
+# implementation; downstream callers can use either name.
+compute_next_round_slot = _compute_next_round_slot
+
+
 # Public re-export so ``from services.playoff_bracket_service import PlayoffSeries``
 # works even when the fallback class above is used.
-__all__ = ["build_or_refresh_bracket", "compute_game_storyline", "PlayoffSeries"]
+__all__ = [
+    "build_or_refresh_bracket",
+    "compute_game_storyline",
+    "compute_next_round_slot",
+    "PlayoffSeries",
+]

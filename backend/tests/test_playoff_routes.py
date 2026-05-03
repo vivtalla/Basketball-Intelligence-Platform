@@ -1011,3 +1011,93 @@ def test_series_player_logs_returns_404_for_missing_series():
             raise AssertionError("Expected 404 for missing series")
     finally:
         session.close()
+
+
+# ---------------------------------------------------------------------------
+# Sprint 86 — Bracket auto-advance label richness (parent seed + abbrs)
+# ---------------------------------------------------------------------------
+
+
+def test_series_response_includes_parent_seed_when_parent_exists():
+    """A Round-2 child slot whose parent_top_series_id is set should expose
+    the parent's lower seed and team-abbreviation pair so the frontend can
+    render labels like ``"winner of 1v8 (OKC/HOU)"``.
+    """
+    SessionLocal = _make_session_factory()
+    session = SessionLocal()
+    try:
+        season = "2024-25"
+        # Seed two West teams + a closed parent 1v8 OKC-HOU series.
+        session.add_all(
+            [
+                Team(id=1610612760, abbreviation="OKC", name="Oklahoma City Thunder"),
+                Team(id=1610612745, abbreviation="HOU", name="Houston Rockets"),
+            ]
+        )
+        session.commit()
+
+        parent_id = "{0}-W-R1-OKC-HOU".format(season)
+        session.add(
+            PlayoffSeries(
+                season=season,
+                round=1,
+                series_id=parent_id,
+                top_seed_team_id=1610612760,
+                bottom_seed_team_id=1610612745,
+                top_seed=1,
+                bottom_seed=8,
+                top_wins=4,
+                bottom_wins=0,
+                status="closed",
+                winner_team_id=1610612760,
+            )
+        )
+        # Child Round-2 row with parent_top pointer set → response should
+        # include parent_top_seed=1 and parent_top_team_abbrs=["OKC", "HOU"].
+        child_id = "{0}-W-R2-TOP".format(season)
+        session.add(
+            PlayoffSeries(
+                season=season,
+                round=2,
+                series_id=child_id,
+                top_seed_team_id=1610612760,
+                bottom_seed_team_id=None,
+                top_seed=1,
+                bottom_seed=None,
+                top_wins=0,
+                bottom_wins=0,
+                status="scheduled",
+                parent_top_series_id=parent_id,
+            )
+        )
+        session.commit()
+
+        response = get_series(series_id=child_id, db=session)
+    finally:
+        session.close()
+
+    assert response.parent_top_series_id == parent_id
+    assert response.parent_top_seed == 1
+    assert response.parent_top_team_abbrs == ["OKC", "HOU"]
+    # Bottom side has no parent pointer set → all parent_bottom_* fields null.
+    assert response.parent_bottom_series_id is None
+    assert response.parent_bottom_seed is None
+    assert response.parent_bottom_team_abbrs is None
+
+
+def test_series_response_omits_parent_fields_for_round_1():
+    """Round-1 series have no parents — all parent_* fields must be None."""
+    SessionLocal = _make_session_factory()
+    session = SessionLocal()
+    try:
+        series_id = _seed_series_with_games(session, season="2024-25")
+        response = get_series(series_id=series_id, db=session)
+    finally:
+        session.close()
+
+    assert response.parent_top_series_id is None
+    assert response.parent_bottom_series_id is None
+    assert response.parent_top_seed is None
+    assert response.parent_bottom_seed is None
+    assert response.parent_top_team_abbrs is None
+    assert response.parent_bottom_team_abbrs is None

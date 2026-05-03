@@ -4053,6 +4053,14 @@ export interface PlayoffSeriesResponse {
   // their parents closed; null on Round 1 series and any pre-Sprint-85 row.
   parent_top_series_id?: string | null;
   parent_bottom_series_id?: string | null;
+  // Sprint 86 — parent series seed + team abbreviations for richer TBD
+  // labels (e.g. "winner of 1v8 (OKC/PHX)"). The seed is the parent's lower
+  // seed (e.g. 1 for a 1v8 series); the abbrs list is [top_abbr, bottom_abbr]
+  // of the parent. Null when the corresponding parent_*_series_id is null.
+  parent_top_seed?: number | null;
+  parent_bottom_seed?: number | null;
+  parent_top_team_abbrs?: string[] | null;
+  parent_bottom_team_abbrs?: string[] | null;
 }
 
 export interface PlayoffBracketResponse {

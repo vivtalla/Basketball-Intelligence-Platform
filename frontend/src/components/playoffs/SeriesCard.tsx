@@ -22,19 +22,36 @@ function tintFor(abbr: string | null | undefined): string {
   return TEAM_TINT[abbr.toUpperCase()] ?? "var(--accent)";
 }
 
-// Sprint 85 — when an auto-advance slot lists `parent_top_series_id` /
-// `parent_bottom_series_id` like "2025-26-W-R1-OKC-MIN", surface a short
-// "1v8 winner" / "2v7 winner" label by reading the seed digits embedded in
-// the series_id. Falls back to "winner of {series_id}" when parsing fails.
-function parentLabel(parentSeriesId: string | null | undefined): string {
+// Sprint 86 — when the backend provides parent seed + team abbreviations
+// (resolved from the parent PlayoffSeries row), render a richer label like
+// "winner of 1v8 (OKC/PHX)" for Round-1 parents. Falls back to the Sprint 85
+// round-only label "winner of R{n}" when the seed/abbrs are absent.
+function parentLabel(
+  parentSeriesId: string | null | undefined,
+  parentSeed?: number | null,
+  parentAbbrs?: string[] | null,
+): string {
   if (!parentSeriesId) return "TBD";
-  // series_id format: "{season}-{conf}-R{round}-{topAbbr}-{botAbbr}".
-  // We cannot recover seeds from the abbreviations directly, so derive a
-  // round-N label from the R{n} token, e.g. "R1 winner" / "R2 winner".
+
+  // Parse the parent's round number from its series_id. R1 parents follow
+  // the 1v8 / 2v7 / 3v6 / 4v5 pairing convention (seeds sum to 9), so we
+  // can derive the matchup string from a single seed. For R2+ parents the
+  // seeds do not follow a fixed pattern, so we only render the abbrs.
   const roundMatch = parentSeriesId.match(/-R(\d+)-/);
-  if (roundMatch) {
-    const round = roundMatch[1];
-    return `winner of R${round}`;
+  const parentRound = roundMatch ? Number(roundMatch[1]) : null;
+  const abbrText =
+    parentAbbrs && parentAbbrs.length > 0
+      ? parentAbbrs.filter(Boolean).join("/")
+      : "";
+
+  if (parentRound === 1 && parentSeed != null && abbrText) {
+    return `winner of ${parentSeed}v${9 - parentSeed} (${abbrText})`;
+  }
+  if (abbrText) {
+    return `winner of ${abbrText}`;
+  }
+  if (parentRound != null) {
+    return `winner of R${parentRound}`;
   }
   return `winner of ${parentSeriesId}`;
 }
@@ -46,10 +63,18 @@ function statusLabel(series: PlayoffSeriesResponse): string {
     if (topMissing && bottomMissing) {
       return "Awaiting both arms";
     }
-    const waitingFor = topMissing
-      ? series.parent_top_series_id
-      : series.parent_bottom_series_id;
-    return `Awaiting ${parentLabel(waitingFor)}`;
+    if (topMissing) {
+      return `Awaiting ${parentLabel(
+        series.parent_top_series_id,
+        series.parent_top_seed,
+        series.parent_top_team_abbrs,
+      )}`;
+    }
+    return `Awaiting ${parentLabel(
+      series.parent_bottom_series_id,
+      series.parent_bottom_seed,
+      series.parent_bottom_team_abbrs,
+    )}`;
   }
   if (series.status === "closed") {
     const winningWins = Math.max(series.top_wins, series.bottom_wins);
@@ -148,9 +173,19 @@ export default function SeriesCard({ series }: SeriesCardProps) {
     series.status === "closed" && series.top_wins > series.bottom_wins;
   const bottomIsWinner =
     series.status === "closed" && series.bottom_wins > series.top_wins;
-  const topParentLabel = topMissing ? parentLabel(series.parent_top_series_id) : null;
+  const topParentLabel = topMissing
+    ? parentLabel(
+        series.parent_top_series_id,
+        series.parent_top_seed,
+        series.parent_top_team_abbrs,
+      )
+    : null;
   const bottomParentLabel = bottomMissing
-    ? parentLabel(series.parent_bottom_series_id)
+    ? parentLabel(
+        series.parent_bottom_series_id,
+        series.parent_bottom_seed,
+        series.parent_bottom_team_abbrs,
+      )
     : null;
 
   return (
