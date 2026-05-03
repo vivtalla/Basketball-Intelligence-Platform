@@ -276,3 +276,61 @@ class PlayoffStoryRailResponse(BaseModel):
     tiles: List[PlayoffStoryTile] = Field(default_factory=list)
     data_as_of: Optional[_date] = None
     computed_at: Optional[datetime] = None
+
+
+# ---------------------------------------------------------------------------
+# Sprint 85 — Per-series detail page (per-team, per-game player stat lines)
+# ---------------------------------------------------------------------------
+
+
+class SeriesPlayerGameLine(BaseModel):
+    """One player's stat line for one game in a playoff series.
+
+    Counting stats are integer per-game totals as recorded in
+    ``PlayerGameLog``. ``min`` is float because ``PlayerGameLog.min`` is
+    stored as a float minute total. For the synthetic ``series_totals`` row
+    that aggregates a player's full series, ``series_game_num`` is set to 0
+    (sentinel meaning "not a real game") and ``min`` is the minutes summed
+    across the series.
+    """
+
+    game_id: str
+    series_game_num: int
+    min: float = 0.0
+    pts: int = 0
+    reb: int = 0
+    ast: int = 0
+    stl: int = 0
+    blk: int = 0
+    tov: int = 0
+    fgm: int = 0
+    fga: int = 0
+    fg3m: int = 0
+    fg3a: int = 0
+    ftm: int = 0
+    fta: int = 0
+    plus_minus: int = 0
+
+
+class SeriesPlayerLogs(BaseModel):
+    """All of one player's per-game stat lines in one series, plus totals."""
+
+    player_id: int
+    player_name: str
+    team_id: int
+    team_abbreviation: str
+    headshot_url: Optional[str] = None
+    games: List[SeriesPlayerGameLine] = Field(default_factory=list)
+    series_totals: SeriesPlayerGameLine
+
+
+class PlayoffSeriesPlayerLogsResponse(BaseModel):
+    """Per-team player logs for a single playoff series.
+
+    Players in each team list are sorted by total minutes played in the
+    series (descending) — i.e. the rotation order as actually used.
+    """
+
+    series_id: str
+    top_seed: List[SeriesPlayerLogs] = Field(default_factory=list)
+    bottom_seed: List[SeriesPlayerLogs] = Field(default_factory=list)
