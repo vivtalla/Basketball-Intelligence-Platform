@@ -1,6 +1,6 @@
 # Agent Coordination
 
-Last updated: 2026-05-02 by Claude (Sprint 86 closeout — first sprint operating under the Deferral Policy; 5 streams shipped + 1 legitimately deferred Award calibration item)
+Last updated: 2026-05-03 by Claude (Sprint 87 kickoff — security maintenance pass: npm audit fix + Python deps + CORS hardening + small infra wins)
 
 > Both agents read this file before touching code at the start of every session.
 > The canonical source of truth is the clean `master` checkout at `/Users/viv/Documents/Basketball Intelligence Platform`.
@@ -15,14 +15,15 @@ Last updated: 2026-05-02 by Claude (Sprint 86 closeout — first sprint operatin
 | Field | Value |
 |-------|-------|
 | Sprint | 87 |
-| Goal | TBD — awaiting Vivek's sprint kickoff |
-| Started | TBD |
-| Target merge | TBD |
-| Sprint shape | TBD |
-| Branch | `master` until Sprint 87 kickoff |
-| Worker policy | No active sprint; set at kickoff |
+| Goal | Security maintenance pass: npm audit fix (1 high + 2 mod vulns), Python deps (13 outdated incl. FastAPI 9 minor versions behind), CORS tightening (drop wildcard methods/headers), gunicorn file log + logrotate, PGPASSWORD cleanup |
+| Started | 2026-05-03 |
+| Target merge | 2026-05-03 |
+| Sprint shape | Single sequential stream (main session); per-stream commits A → B1 → B2 → C1 → C2 → C3 |
+| Branch | `feature/sprint-87-security-maintenance` |
+| Worker policy | None — main session does all stream work directly |
+| Plan file | `~/.claude/plans/zazzy-swimming-pebble.md` |
 
-**Production status:** CourtVue Labs is publicly live at `https://courtvue.app` (Vercel) + `https://api.courtvue.app` (Hetzner CPX11, `ubuntu@5.78.114.15`). Sprint 86 shipped 5 streams under the new Deferral Policy — all Sprint 85 follow-ons completed, plus team-level tracking/hustle, plus OG image polish (Sprint 83 carry). 500 backend tests, 0 lint errors. Only legitimate deferral is Award calibration cohort expansion (data-blocked).
+**Production status:** CourtVue Labs is publicly live at `https://courtvue.app` (Vercel) + `https://api.courtvue.app` (Hetzner CPX11, `ubuntu@5.78.114.15`). Sprint 87 cleans up the security audit findings from the post-Sprint-86 review. Only legitimate deferral: R2 backup lifecycle rule (Cloudflare UI step, "different domain" per Deferral Policy).
 
 ---
 
@@ -206,9 +207,9 @@ If repo state, sprint numbering, or shipped features appear to disagree across l
 ## Current Assignments
 
 ### Claude
-- Branch: TBD at kickoff
-- Scope: No active sprint assignment
-- Status: Not started
+- Branch: `feature/sprint-87-security-maintenance`
+- Scope: All Sprint 87 streams (npm + pip + CORS + infra hygiene)
+- Status: Kickoff — sequential A → B1 → B2 → C1 → C2 → C3
 
 ### Codex
 - Branch: TBD at kickoff
