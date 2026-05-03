@@ -3,9 +3,6 @@ import Link from "next/link";
 import PlayerDashboard from "@/components/PlayerDashboard";
 import ShareCardButton from "@/components/share/ShareCardButton";
 
-const API_BASE =
-  process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
-
 export async function generateMetadata({
   params,
 }: {
@@ -16,10 +13,10 @@ export async function generateMetadata({
   if (isNaN(id)) {
     return { title: "Player · CourtVue Labs" };
   }
-  // OG image points at the share endpoint. The endpoint internally falls
-  // back to the active season when none is supplied so the URL stays
-  // stable as the season rolls.
-  const ogUrl = `${API_BASE}/api/share/player/${id}.png`;
+  // Sprint 86 D — point at the parameterized `/og` route so social previews
+  // pick up the player-specific brand card (Source Serif/Sans + stat tiles)
+  // instead of the legacy `/api/share/player/{id}.png` composition.
+  const ogUrl = `/og?type=player&id=${id}`;
   return {
     title: `Player #${id} · CourtVue Labs`,
     openGraph: {
