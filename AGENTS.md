@@ -1,6 +1,6 @@
 # Agent Coordination
 
-Last updated: 2026-05-02 by Claude (Sprint 86 kickoff — completing all Sprint 85 follow-ons + team-level tracking/hustle + OG image polish under the new Deferral Policy)
+Last updated: 2026-05-02 by Claude (Sprint 86 closeout — first sprint operating under the Deferral Policy; 5 streams shipped + 1 legitimately deferred Award calibration item)
 
 > Both agents read this file before touching code at the start of every session.
 > The canonical source of truth is the clean `master` checkout at `/Users/viv/Documents/Basketball Intelligence Platform`.
@@ -14,16 +14,15 @@ Last updated: 2026-05-02 by Claude (Sprint 86 kickoff — completing all Sprint 
 
 | Field | Value |
 |-------|-------|
-| Sprint | 86 |
-| Goal | Complete all Sprint 85 follow-ons + team-level tracking/hustle + OG image polish (per new Deferral Policy: self-contained sprint, no follow-on tail) |
-| Started | 2026-05-02 |
-| Target merge | 2026-05-03 |
-| Sprint shape | 5 parallel streams (B + E first as warm-ups via main session; A/C/D in parallel via subagents; merge order B→E→A→D→C) |
-| Branch | `feature/sprint-86a-bracket-polish`, `feature/sprint-86b-series-detail-sort`, `feature/sprint-86c-team-tracking-hustle`, `feature/sprint-86d-og-image-polish`, `feature/sprint-86e-cache-deferral-audit` |
-| Worker policy | Subagents for A/C/D; main session does B/E directly + integrates + QA + deploys |
-| Plan file | `~/.claude/plans/zazzy-swimming-pebble.md` |
+| Sprint | 87 |
+| Goal | TBD — awaiting Vivek's sprint kickoff |
+| Started | TBD |
+| Target merge | TBD |
+| Sprint shape | TBD |
+| Branch | `master` until Sprint 87 kickoff |
+| Worker policy | No active sprint; set at kickoff |
 
-**Production status:** CourtVue Labs is publicly live at `https://courtvue.app` (Vercel) + `https://api.courtvue.app` (Hetzner CPX11, `ubuntu@5.78.114.15`). Sprint 86 is the second sprint exercising the new 8-phase workflow and the first under the **Deferral Policy** — the only legitimate Sprint 86 deferral is Award calibration cohort expansion (blocked on historical NBA voting data acquisition). 490 backend tests, 0 lint errors going in.
+**Production status:** CourtVue Labs is publicly live at `https://courtvue.app` (Vercel) + `https://api.courtvue.app` (Hetzner CPX11, `ubuntu@5.78.114.15`). Sprint 86 shipped 5 streams under the new Deferral Policy — all Sprint 85 follow-ons completed, plus team-level tracking/hustle, plus OG image polish (Sprint 83 carry). 500 backend tests, 0 lint errors. Only legitimate deferral is Award calibration cohort expansion (data-blocked).
 
 ---
 
@@ -206,12 +205,12 @@ If repo state, sprint numbering, or shipped features appear to disagree across l
 ## Current Assignments
 
 ### Claude
-- Branch: all 5 streams (`feature/sprint-86{a,b,c,d,e}-*`)
-- Scope: All 5 Sprint 86 streams (see plan file)
-- Status: Kickoff — B + E first via main session, then A/C/D in parallel via subagents
+- Branch: TBD at kickoff
+- Scope: No active sprint assignment
+- Status: Not started
 
 ### Codex
-- Branch: TBD
+- Branch: TBD at kickoff
 - Scope: No active sprint assignment
 - Status: Not started
 
@@ -226,12 +225,7 @@ Claim a shared file here before editing. If a file is already claimed, read that
 
 | File | Claimed by | Purpose |
 |------|------------|---------|
-| `frontend/src/lib/types.ts` | Streams 86a + 86c (joint, append-only) | A appends bracket parent label fields; C appends team tracking/hustle types. No conflicting hunks expected. |
-| `frontend/src/app/teams/[abbr]/page.tsx` | Streams 86c + 86d (joint) | C mounts tracking/hustle panels in analytics tab; D adds `generateMetadata` for per-team OG card. Different sections of the file. |
-| `backend/models/playoffs.py` | Stream 86a only | A extends `PlayoffSeriesResponse` with parent label fields. No other stream touches it. |
-| `backend/routers/playoffs.py` | Stream 86a only | A extends `_series_to_response`. |
-| `backend/routers/teams.py` | Stream 86c only | C adds tracking + hustle routes. |
-| `frontend/src/lib/api.ts` | Stream 86c only | C appends team tracking + hustle API calls. |
+| — | — | No active claims; claim here at the next sprint kickoff before editing shared files |
 
 ---
 
@@ -249,30 +243,23 @@ Specs or review notes written by one stream for another. Check this before start
 | `specs/methodology-validation.md` | Sprint 71 | Next sprint | Reference — methodology golden fixtures, calibration targets, and validation checks |
 | `specs/sprint-84-closeout.md` | Sprint 84 | Next sprint | Reference — production deploy execution + new workflow definitions |
 | `specs/sprint-85-closeout.md` | Sprint 85 | Next sprint | Reference — first sprint exercising new workflow; deploy.sh `--migrate` infra fixes; subagent stages, parent commits operating model |
+| `specs/sprint-86-closeout.md` | Sprint 86 | Next sprint | Reference — first sprint operating under Deferral Policy; team-level tracking/hustle pattern (12-call multi-measure tracking endpoint); OG image with custom fonts + 5 per-type renderers |
 
 ---
 
 ## Merge Order
 
-Sprint 86: **B → E → A → D → C**. Rationale:
-- B + E are tiny (1 hr each) — land first to clear the slot.
-- A (bracket polish) lands before D (OG image) so bracket label richness ships before per-series OG cards might want bracket-context labels.
-- D before C because D is frontend-only (lower regression risk on the type system).
-- C lands last because it has the most files + a migration that needs `--migrate` deploy.
-
-Backend deploys: standard `infra/deploy.sh` after A (then run backfill script manually); `infra/deploy.sh --migrate` after C (Stream C migration `0022_sprint86_team_tracking_hustle.py`).
+TBD at kickoff. Next sprint branch/worktree is created at kickoff and merges back to `master` at closeout.
 
 ---
 
 ## Sprint Work Allocation
 
-| Stream | Goal | Branch | Owner | Files |
-|--------|------|--------|-------|-------|
-| 86b | Per-series detail sortable columns | `feature/sprint-86b-series-detail-sort` | Claude (main) | 1-2 frontend |
-| 86e | Cache rule + deferral audit | `feature/sprint-86e-cache-deferral-audit` | Claude (main) | 2 docs |
-| 86a | Bracket polish (label richness + backfill) | `feature/sprint-86a-bracket-polish` | Claude (worker) | 8 backend + frontend |
-| 86d | OG image polish (fonts + composition + per-page) | `feature/sprint-86d-og-image-polish` | Claude (worker) | 5-6 frontend |
-| 86c | Team-level tracking + hustle (full new feature) | `feature/sprint-86c-team-tracking-hustle` | Claude (worker) | 13 backend + frontend (incl. migration) |
+Sprint 87 allocation — TBD at kickoff.
+
+| Area | Files | Owner |
+|------|-------|-------|
+| — | — | — |
 
 ---
 
@@ -357,6 +344,8 @@ Backend deploys: standard `infra/deploy.sh` after A (then run backfill script ma
 ## Notes
 
 *Free-form, dated, newest first. Use this for coordination and repo-state exceptions.*
+
+2026-05-02 (Claude): Sprint 86 closed. **First sprint operating under the Deferral Policy.** 5 streams shipped end-to-end + 1 legitimately deferred Award calibration item (data-blocked). 490 → 500 backend tests, `npm run build` clean, `npm run lint` 0 errors. Streams: A = bracket label richness + backfill script (parent_*_seed/team_abbrs surfaced; 4 new PlayoffSeriesResponse fields; idempotent `data/backfill_playoff_parent_pointers.py`); B = sortable column headers on SeriesPlayerLogTable (8 stat columns, click-to-toggle direction); C = team-level tracking + hustle full stack from scratch (Alembic 0022 with new tables + ORM models + 12-call multi-measure nba_client wrapper + sync functions + services + endpoints + 2 frontend panels mounted in team analytics tab); D = OG image polish (route.tsx 190→770 LOC, 5 per-type renderers via `?type=player|team|series|mvp`, custom fonts via `tryReadFontAnyExt`, sibling layout.tsx for client-component pages); E = doc-only (broadened Cloudflare cache rule 4 regex for daily-synced player+team endpoints, dropped Spotrac retry from BACKLOG after 7-day prod log scan returned 0 matches, applied Why-deferred annotation to Award calibration). Phase 6 surfaced 1 fix: schema test pinned to Sprint 85 alembic head; bumped to `0022_sprint86_team_track_hus`. Production smoke verified all 5 surfaces live (bracket has 6 parent fields, /api/teams/OKC/tracking 200, /api/teams/OKC/hustle 200, /og 200 image/png, /og?type=player 200 image/png). Backfill ran in production: `closed_seen: 2, updated: 0, skipped_child_missing: 2` — correct behavior, R2 child rows will be created on next nightly bracket sync at which point parent pointers populate via Sprint 85's auto-advance close-transition. **Workflow lessons:** Deferral Policy + Phase 1 scoping rule prevented the natural "60% MVP" trap; subagent "stages, parent commits + verifies" is now standard SOP (3rd sprint with sandbox issue, fully formalized in stream prompts up front); 5-stream sprint shape works (small streams in main session + big streams via subagents); zero merge conflicts vs Sprint 85's 3 (lock-table claims + append-only discipline). Closeout: `specs/sprint-86-closeout.md`.
 
 2026-05-02 (Claude): Sprint 85 closed. First sprint executed end-to-end under the new 8-phase workflow. **4 parallel streams** with subagents for A/B/C and main session for D + integration: D = lint cleanup (4 errors + 8 warnings → 0) + Monte Carlo flake fix (`hash(series_id)` → `series_id` directly; 10/10 stable); A = bracket auto-advancement with new Alembic 0021 (parent_top/bottom_series_id columns + NOT NULL relaxation, defensive `_has_table` guard for SQLite legacy-baseline path) + `_compute_next_round_slot` + `_auto_advance_closed_series` in `playoff_bracket_service.py` + `SeriesCard` TBD-pill rendering; B = new `/playoff-series/[seriesId]` route + `playoff_series_player_logs_service.py` + `GET /api/playoffs/series/{id}/player-logs` + `SeriesPlayerLogTable` component (grouped by player, links to `/games/{id}`); C = `player_tracking_service.py` + `player_hustle_service.py` + `/api/players/{id}/tracking` + `/api/players/{id}/hustle` + `PlayerTrackingPanel` (3 family toggle) + `PlayerHustlePanel` (single 8-tile grid) mounted in `PlayerDashboard`. Verification: 480 → 490 backend tests (+10 net new), `npm run build` clean, `npm run lint` 0 errors / 0 warnings (down from 4 errors + 8 warnings). **Phase 6 surfaced two latent infra bugs from Sprint 82+84:** (1) `infra/deploy.sh:21` `source /etc/bip/env` didn't auto-export vars to subprocesses → fixed with `set -a/+a`; (2) raw `python -m alembic` ignored DATABASE_URL because `alembic.ini` hardcoded a passwordless URL → fixed by invoking `python -m db.migrations` instead. Production smoke test: all 4 surfaces verified live (bracket has new parent fields; series player-logs returns 15+15 players; tracking returns 3 families; hustle returns stats). **Workflow lessons:** subagent sandbox issue (3rd sprint in a row) — formalized "subagent stages, parent commits + verifies" model in stream prompts up front; lock-table claims worked but the actual append-only discipline matters more than the lock; merge order D→A→B→C produced exactly 3 conflicts (test file section divider + 2 append-tail conflicts on api.ts/types.ts) all trivially resolved. Closeout: `specs/sprint-85-closeout.md`.
 

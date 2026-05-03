@@ -15,30 +15,7 @@ Guidelines:
 
 ---
 
-## Sprint 86 Candidates
-
-### Polish the home OG image (Sprint 83 followup)
-Why it matters:
-Sprint 83 shipped a code-generated OG image at `/og` (file: `frontend/src/app/og/route.tsx`) so the home page has *some* social-share preview, but the result is workmanlike — the brand mark + wordmark layout + Satori-default typography read as adequate, not designed. Public launch deserves better. This is the first thing anyone tweeting `courtvue.app` sees in their preview card.
-
-Likely shape:
-- **Typography**: load the actual site display font into Satori (the existing `next/og` route uses Inter by default). Match the home hero's typeface so the OG card visually rhymes with the site visitors land on. Reference `frontend/src/app/layout.tsx` font imports.
-- **Composition**: consider stat callouts ("4,892 players · 1.2M games · 30 teams"), a faint half-court silhouette behind the wordmark, or a small cluster of mini bar/sparkline glyphs to signal "analytics platform" at a glance. The current card reads "newsletter" more than "data tool."
-- **Mark + wordmark scale**: the 220px mark beside the 130px wordmark looks visually balanced but the green "LABS" subhead under "CourtVue" reads stacked rather than integrated. Try the mark INSIDE the wordmark (e.g., the C of CourtVue), or move LABS to a baseline kicker.
-- **Per-page OG cards**: extend the same `/og` route pattern to take query params (`/og?type=player&id=2544`) for player share cards, team share cards, MVP race cards. Reuses the same composition primitives. Pairs with Sprint 78 CF1 share-cards work that already shipped on the backend.
-- **Static fallback**: if dynamic OG generation gets slow under load, generate the home card once at build time and ship as a static PNG. Easy fallback if Vercel edge caching isn't sufficient.
-
-Effort estimate: 1-2 hours for the home polish, +2-3 hours for parameterized per-page cards.
-
-### Team-level tracking / hustle dashboards (Sprint 85 follow-on)
-Why it matters:
-Sprint 85 Stream C shipped player-level tracking (`/api/players/{id}/tracking`) + hustle (`/api/players/{id}/hustle`) endpoints + frontend panels. Team-level (`LeagueDashTeamPtStats`, `LeagueHustleStatsTeam`) is the parallel for the Insights / Team-Defense surfaces. Same nba_api wrappers exist in `nba_client.py`; service + endpoint + panel layer needs to mirror the player pattern.
-
-Likely shape:
-- New services `team_tracking_service.py` + `team_hustle_service.py` mirroring the player-side pattern from Sprint 85 C
-- New endpoints `/api/teams/{id}/tracking` + `/api/teams/{id}/hustle`
-- Mount in the team detail page tabs alongside the existing splits
-- Effort: ~3-4 agent-hours.
+## Deferred — Data Acquisition Blocked
 
 ### Award calibration cohort expansion
 **Why deferred:** Blocked on data we don't have yet. Requires sourcing historical NBA voting data back to 2008-09 (~80 ballot rows across 4 seasons + DPOY/MIP/6MOY ballots) before any code work. Per the Deferral Policy, this qualifies as "blocked on data we don't have yet."
@@ -56,32 +33,6 @@ Once data is sourced, the implementation work is ~2-3 hr:
 - extend `award_voting_seed.csv` backward to 2008-09 (+4 seasons, ~20 more rows) for a wider LOO-CV set
 - add DPOY / MIP / 6MOY ballot rows — same code path, different `award_type` filter
 - iterate on the modifier proxies in `materialize_award_modifiers.py` (especially `_clutch_proxy` and `_signature_games_proxy`) as PBP-derived clutch + signature-game data becomes available for older seasons
-
-### Bracket auto-advance frontend label richness (Sprint 85 follow-on)
-Why it matters:
-Sprint 85 Stream A renders TBD pills as "Awaiting winner of R{n}" — the round number alone. Richer "winner of 1v8" or "winner of LAC vs DAL" labels would help users understand the path-to-trophy at a glance.
-
-Likely shape:
-- Pass parent seed numbers + abbreviations into the `PlayoffSeriesResponse` (or have the frontend look up the parent series client-side from the bracket response).
-- Update `SeriesCard.tsx` TBD-pill rendering to use the richer label.
-- Effort: ~1 hour.
-
-### Backfill `parent_*_series_id` on existing closed series (Sprint 85 follow-on)
-Why it matters:
-Sprint 85 Stream A's auto-advance only fires on close-transitions. Existing closed series in production already had their next-round children populated by other code paths but lack the new `parent_top_series_id` / `parent_bottom_series_id` pointers. Without this backfill, the frontend can't show "BOS came from the 1v8 series" deep links for already-closed bracket arms.
-
-Likely shape:
-- One-shot backfill script + idempotent re-run support
-- Iterate over closed series in seed order, compute parent pointers from the bracket pairing rules, set them
-- Effort: ~1-2 hours.
-
-### Per-series detail page sortable columns (Sprint 85 polish)
-Why it matters:
-Sprint 85 Stream B shipped the `/playoff-series/[seriesId]` page with players grouped by team and rows sorted by minutes-played-desc. Adding click-to-sort on PTS, MIN, +/-, etc. would help scout-mode users surface specific patterns faster.
-
-Likely shape:
-- Reuse the sort patterns from existing `GameLogTable.tsx`
-- Effort: ~1 hour.
 
 ---
 

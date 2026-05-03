@@ -1065,3 +1065,28 @@ Eliminated live NBA API calls on every player profile load:
 - Stream D: 4 lint errors → 0 (state pattern for setState-in-effect; HTML-entity escaping); 8 warnings → 0; **Monte Carlo flake fix** — `playoff_simulator_service.py:436` was `rng.seed(hash(series_id))` and Python's `hash(str)` is per-process randomized; fix `rng.seed(series_id)` directly. 10/10 stable post-fix.
 - **Phase 6 surfaced 2 latent infra bugs from Sprint 82+84:** `infra/deploy.sh` `source /etc/bip/env` didn't auto-export to subprocesses (fixed with `set -a/+a`); raw `python -m alembic` ignored `DATABASE_URL` because `alembic.ini` hardcoded a passwordless URL (fixed by invoking `python -m db.migrations` instead). The `--migrate` deploy flow is now actually production-ready.
 - Production smoke test passed all 4 surfaces. Closeout: `specs/sprint-85-closeout.md`.
+
+---
+
+### Sprint 86 — Complete Sprint 85 Follow-Ons + Team-Level Tracking/Hustle + OG Polish
+**Branches:** `feature/sprint-86a-bracket-polish`, `feature/sprint-86b-series-detail-sort`, `feature/sprint-86c-team-tracking-hustle`, `feature/sprint-86d-og-image-polish`, `feature/sprint-86e-cache-deferral-audit` (Claude, 5-stream parallel)
+
+- **First sprint operating under the new Deferral Policy.** All 5 Sprint 85 follow-ons + team-level tracking/hustle (sister feature) + OG polish (Sprint 83 carry) shipped end-to-end. Only legitimate deferral: Award calibration cohort expansion (data-blocked).
+- 490 → 500 backend tests (+10), `npm run lint` 0/0 maintained, `npm run build` clean.
+- Stream A: Bracket label richness — `PlayoffSeriesResponse` extended with 4 parent fields (seeds + abbrs lists); `SeriesCard.tsx` renders "winner of 1v8 (OKC/HOU)" for R1 parents. Backfill — new `backend/data/backfill_playoff_parent_pointers.py` (idempotent CLI); `compute_next_round_slot` exposed publicly.
+- Stream B: Sortable column headers on `SeriesPlayerLogTable.tsx` (8 numeric columns, click-to-toggle direction).
+- Stream C: Team-level tracking + hustle full stack from scratch — Alembic 0022 (`team_tracking_stats`, `team_hustle_stats`); new ORM models; nba_client wrappers (12 `LeagueDashPtStats`+`LeagueDashPtTeamDefend` calls per sync vs player-side single call; `LeagueHustleStatsTeam`); sync functions; services + endpoints `/api/teams/{abbr}/{tracking,hustle}`; `TeamTrackingPanel` + `TeamHustlePanel` mounted in team analytics tab.
+- Stream D: OG image polish — `route.tsx` 190 → 770 LOC, 5 per-type renderers (`?type=home|player|team|series|mvp`), custom Source Serif 4 + Source Sans 3 fonts via `tryReadFontAnyExt`, sibling `layout.tsx` for client-component pages.
+- Stream E: docs only — broadened Cloudflare cache rule 4 regex; dropped Spotrac (0 prod errors in 7 days, 42K log lines); `Why deferred:` annotation on Award calibration.
+- Phase 6: 1 fix (schema test pinned alembic head bumped to 0022). Production smoke verified all 5 surfaces. Closeout: `specs/sprint-86-closeout.md`.
+
+---
+
+### Sprint 84 — Production Deploy + Workflow Reset
+**Branch:** `master` (Claude, single-session)
+
+- Site went live: `https://courtvue.app` (Vercel) + `https://api.courtvue.app` (Hetzner CPX11). Manual deploy from Sprint 82+83 hangover executed end-to-end: SSH access recovered via Hetzner rescue mode (mounted `/dev/sda1`, chrooted, created missing `ubuntu` user with UID 1000 + sudo NOPASSWD); Caddy installed via `infra/caddy-install.sh` and obtained Let's Encrypt cert for `api.courtvue.app` automatically; gunicorn + 2 uvicorn workers under `bip-api.service`.
+- Cloudflare DNS (3 records — `api` A → `5.78.114.15`, `@`/`www` CNAME → `cname.vercel-dns.com`, all proxied), 5 cache rules + WAF blocking empty user-agent + zgrab + masscan; Vercel imported with `frontend/` root + `NEXT_PUBLIC_API_URL=https://api.courtvue.app` env var.
+- Bug fix during deploy (`43b7a4a`): wrap `useSearchParams` in `<Suspense>` for `/bracket`, `/games/[gameId]`, `/teams/[abbr]`. Postgres bootstrap: `bip` user + password + `DATABASE_URL` in `/etc/bip/env`.
+- New 8-phase Sprint Workflow documented in `AGENTS.md` (Plan → Implement → QA → Pre-merge Verification → Merge → Deploy → Production Smoke Test → Closeout). New Pre-merge Verification Checklist, Production Deploy Procedure, Rollback Procedures (Vercel one-click, git checkout + deploy.sh, alembic downgrade -1, Cloudflare purge). Session Start Checklist requires 5-second production health check.
+- CLAUDE.md additions: Production section (URLs, VM, edge layer, secrets), Production Deploy commands, Production Safety section (7 rules). Closeout: `specs/sprint-84-closeout.md`.
