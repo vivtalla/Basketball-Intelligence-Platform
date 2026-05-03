@@ -272,6 +272,47 @@ def get_player_play_types(
     }
 
 
+@router.get("/{player_id}/tracking")
+def get_player_tracking_endpoint(
+    player_id: int,
+    season: str = Query("2024-25"),
+    is_playoff: bool = Query(False),
+    db: Session = Depends(get_db),
+):
+    """Sprint 85 (C): Player tracking dashboard rows grouped by family.
+
+    Returns ``{ player_id, season, is_playoff, families: { ... } }`` where
+    families always include ``Shot Creation``, ``Passing``, ``Shot Defense``
+    (each may be empty if no upstream data is persisted).
+    """
+    from services.player_tracking_service import get_player_tracking
+    player = db.query(Player).filter(Player.id == player_id).first()
+    if not player:
+        raise HTTPException(status_code=404, detail=f"Player {player_id} not found.")
+    return get_player_tracking(db, player_id=player_id, season=season, is_playoff=is_playoff)
+
+
+@router.get("/{player_id}/hustle")
+def get_player_hustle_endpoint(
+    player_id: int,
+    season: str = Query("2024-25"),
+    is_playoff: bool = Query(False),
+    db: Session = Depends(get_db),
+):
+    """Sprint 85 (C): Player hustle aggregate (single panel, no families).
+
+    Returns ``{ player_id, season, is_playoff, stats }`` where ``stats`` is
+    null if no upstream row is persisted. Stats include contested_shots,
+    deflections, charges_drawn, screen_assists, screen_assist_points,
+    loose_balls_recovered, box_outs.
+    """
+    from services.player_hustle_service import get_player_hustle
+    player = db.query(Player).filter(Player.id == player_id).first()
+    if not player:
+        raise HTTPException(status_code=404, detail=f"Player {player_id} not found.")
+    return get_player_hustle(db, player_id=player_id, season=season, is_playoff=is_playoff)
+
+
 @router.get("/{player_id}/analysis-contexts", response_model=AnalysisContextListResponse)
 def get_player_analysis_contexts(
     player_id: int,

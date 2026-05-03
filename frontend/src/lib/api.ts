@@ -2098,3 +2098,25 @@ export async function getPlayerPlayTypes(
     `/api/players/${playerId}/play-types?season=${encodeURIComponent(season)}&is_playoff=false`
   );
 }
+
+// ── Sprint 85 (C) — Player Tracking + Hustle ─────────────────────────────────
+
+export async function getPlayerTracking(
+  playerId: number,
+  season: string,
+  isPlayoff: boolean = false
+): Promise<import("./types").PlayerTrackingResponse> {
+  return fetchApi<import("./types").PlayerTrackingResponse>(
+    `/api/players/${playerId}/tracking?season=${encodeURIComponent(season)}&is_playoff=${isPlayoff}`
+  );
+}
+
+export async function getPlayerHustle(
+  playerId: number,
+  season: string,
+  isPlayoff: boolean = false
+): Promise<import("./types").PlayerHustleResponse> {
+  return fetchApi<import("./types").PlayerHustleResponse>(
+    `/api/players/${playerId}/hustle?season=${encodeURIComponent(season)}&is_playoff=${isPlayoff}`
+  );
+}

@@ -72,6 +72,8 @@ import type {
   TeamSplitsResponse,
   PlayerSplitsResponse,
   PlayTypeResponse,
+  PlayerTrackingResponse,
+  PlayerHustleResponse,
   MvpCandidateCaseResponse,
   MvpContextMapResponse,
   MvpGravityLeaderboardResponse,
@@ -178,6 +180,8 @@ import {
   getTeamBenchAnalytics,
   getPlayerSplits,
   getPlayerPlayTypes,
+  getPlayerTracking,
+  getPlayerHustle,
 } from "@/lib/api";
 
 const DEFAULT_SHOT_LAB_FILTERS: ShotLabFilters = {
@@ -1353,5 +1357,27 @@ export function usePlayerPlayTypes(playerId: number | null, season: string | nul
   return useSWR<PlayTypeResponse>(
     playerId && season ? `player-play-types-${playerId}-${season}` : null,
     () => getPlayerPlayTypes(playerId!, season!)
+  );
+}
+
+export function usePlayerTracking(
+  playerId: number | null,
+  season: string | null,
+  isPlayoff: boolean = false
+) {
+  return useSWR<PlayerTrackingResponse>(
+    playerId && season ? `player-tracking-${playerId}-${season}-${isPlayoff}` : null,
+    () => getPlayerTracking(playerId!, season!, isPlayoff)
+  );
+}
+
+export function usePlayerHustle(
+  playerId: number | null,
+  season: string | null,
+  isPlayoff: boolean = false
+) {
+  return useSWR<PlayerHustleResponse>(
+    playerId && season ? `player-hustle-${playerId}-${season}-${isPlayoff}` : null,
+    () => getPlayerHustle(playerId!, season!, isPlayoff)
   );
 }
