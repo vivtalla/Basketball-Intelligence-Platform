@@ -3,6 +3,11 @@ import Link from "next/link";
 import PlayerDashboard from "@/components/PlayerDashboard";
 import ShareCardButton from "@/components/share/ShareCardButton";
 
+// Sprint 88 (D) — ISR. Player profile is daily-synced via cron; serve a cached
+// HTML for 1hr from Vercel's edge, revalidate in background. SWR on the client
+// still picks up live changes via revalidateOnFocus.
+export const revalidate = 3600;
+
 export async function generateMetadata({
   params,
 }: {

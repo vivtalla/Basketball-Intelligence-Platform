@@ -530,18 +530,21 @@ def get_lineups(
 
     rows = query.order_by(LineupStats.net_rating.desc()).limit(limit).all()
 
-    results = []
-    for row in rows:
-        player_ids = [int(pid) for pid in row.lineup_key.split("-")]
-        # Resolve player names
-        players = db.query(Player).filter(Player.id.in_(player_ids)).all()
-        name_map = {p.id: p.full_name for p in players}
-        player_names = [name_map.get(pid, str(pid)) for pid in player_ids]
+    # Sprint 88 (B2) — batch player lookup. Original code did one DB query per
+    # row to resolve names; for `limit=25` that was 26 queries instead of 2.
+    parsed_lineups = [(row, [int(pid) for pid in row.lineup_key.split("-")]) for row in rows]
+    all_player_ids = {pid for _, ids in parsed_lineups for pid in ids}
+    name_map = {
+        p.id: p.full_name
+        for p in db.query(Player).filter(Player.id.in_(all_player_ids)).all()
+    } if all_player_ids else {}
 
+    results = []
+    for row, player_ids in parsed_lineups:
         results.append({
             "lineup_key": row.lineup_key,
             "player_ids": player_ids,
-            "player_names": player_names,
+            "player_names": [name_map.get(pid, str(pid)) for pid in player_ids],
             "season": row.season,
             "team_id": row.team_id,
             "minutes": row.minutes,
@@ -578,16 +581,23 @@ def get_on_off_leaderboard(
         .all()
     )
 
-    results = []
-    for row in rows:
-        player = db.query(Player).filter_by(id=row.player_id).first()
-        results.append({
+    # Sprint 88 (B2) — batch player lookup; was 1 query per row (limit+1 total).
+    player_ids = [r.player_id for r in rows]
+    players_by_id = {
+        p.id: p.full_name
+        for p in db.query(Player).filter(Player.id.in_(player_ids)).all()
+    } if player_ids else {}
+
+    results = [
+        {
             "player_id": row.player_id,
-            "player_name": player.full_name if player else str(row.player_id),
+            "player_name": players_by_id.get(row.player_id, str(row.player_id)),
             "on_minutes": row.on_minutes,
             "on_net_rating": row.on_net_rating,
             "off_net_rating": row.off_net_rating,
             "on_off_net": row.on_off_net,
-        })
+        }
+        for row in rows
+    ]
 
     return {"season": season, "players": results}

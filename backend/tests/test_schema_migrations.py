@@ -143,7 +143,7 @@ def test_upgrade_database_stamps_legacy_sqlite_schema_and_applies_drift_columns(
             assert "context_type" in context_columns
             assert "applies_to" in context_columns
 
-            assert alembic_revision == "0022_sprint86_team_track_hus"
+            assert alembic_revision == "0023_sprint88_perf_indexes"
             assert snapshot_date == "2025-12-01"
 
             # Sprint 85 — bracket auto-advancement parent pointers + relaxed

@@ -329,11 +329,13 @@ def league_context(
     if position:
         position_group = _POS_MAP.get(position.upper())
         if position_group:
-            # Collect player positions from joined Player table
+            # Sprint 88 (B2) — push position filter to SQL. Was loading every
+            # Player row (~800+) into memory just to filter by position group.
+            allowed_positions = [pos for pos, grp in _POS_MAP.items() if grp == position_group]
             player_ids_in_group = {
-                p.id
-                for p in db.query(Player).all()
-                if p.position and _POS_MAP.get(p.position.upper()) == position_group
+                pid for (pid,) in db.query(Player.id)
+                .filter(Player.position.in_(allowed_positions))
+                .all()
             }
             pos_rows = [r for r in all_rows if r.player_id in player_ids_in_group]
             if pos_rows:

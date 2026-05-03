@@ -398,4 +398,38 @@ finally:
     db.close()
 PYEOF
 
+# Sprint 88 Stream A — daily syncs for hustle (player + team, single API call each)
+# and team tracking (12 calls × 0.6s ≈ 7s wall-clock). Player tracking is weekly
+# (450 calls = ~5 min) and runs from infra/cron.txt's separate Sunday entry.
+echo "[$(date -u +%Y-%m-%dT%H:%M:%SZ)] daily_sync: hustle + team tracking" >> "$LOG"
+"$PYTHON_BIN" - <<PYEOF >> "$LOG" 2>&1
+import os, sys
+sys.path.insert(0, os.getcwd())
+from db.database import SessionLocal
+from services.gravity_sync_service import (
+    sync_player_hustle_stats,
+    sync_team_hustle_stats,
+    sync_team_tracking_stats,
+)
+season = os.environ.get("SEASON", "2024-25")
+season_type = "Playoffs" if os.environ.get("IS_PLAYOFFS") == "1" else "Regular Season"
+db = SessionLocal()
+try:
+    print("sync_player_hustle_stats:", sync_player_hustle_stats(db, season=season, season_type=season_type))
+    print("sync_team_hustle_stats:", sync_team_hustle_stats(db, season=season, season_type=season_type))
+    print("sync_team_tracking_stats:", sync_team_tracking_stats(db, season=season, season_type=season_type))
+finally:
+    db.close()
+PYEOF
+
+# Sprint 88 Stream C2 — clear expired SQLite cache rows so cache.db doesn't
+# grow unboundedly. CacheManager.clear_expired() was defined but never called
+# until Sprint 88.
+"$PYTHON_BIN" - <<PYEOF >> "$LOG" 2>&1
+import os, sys
+sys.path.insert(0, os.getcwd())
+from data.cache import CacheManager
+print(f"cache cleanup: {CacheManager.clear_expired()} expired rows deleted from cache.db")
+PYEOF
+
 echo "[$(date -u +%Y-%m-%dT%H:%M:%SZ)] daily_sync complete season=$SEASON post_game=$POST_GAME_MODE is_playoffs=$IS_PLAYOFFS" >> "$LOG"

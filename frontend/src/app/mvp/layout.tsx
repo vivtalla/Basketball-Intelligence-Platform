@@ -1,5 +1,9 @@
 import type { Metadata } from "next";
 
+// Sprint 88 (D) — ISR. MVP race volatile during the season but updates at most
+// every few hours; 30min cache balances freshness with backend load.
+export const revalidate = 1800;
+
 /**
  * Sprint 86 D — server-only layout that owns OG metadata for /mvp.
  * The page is a "use client" component, so `generateMetadata` must live

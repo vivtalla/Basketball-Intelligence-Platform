@@ -16,6 +16,7 @@ from data.nba_client import (
     get_synergy_player_play_types,
 )
 from db.models import (
+    PlayerGameLog,
     PlayerGravityStat,
     PlayerHustleStat,
     PlayerPlayTypeStat,
@@ -182,9 +183,30 @@ def sync_player_hustle_stats(db: Session, season: str, season_type: str = "Regul
 def sync_player_tracking_stats(
     db: Session,
     season: str,
-    player_ids: Sequence[int],
+    player_ids: Optional[Sequence[int]] = None,
     season_type: str = "Regular Season",
 ) -> dict:
+    """Fetch + persist per-player tracking dashboards.
+
+    Sprint 88 — when ``player_ids`` is None, defaults to every player who has
+    appeared in at least one game this season + season_type (queried from
+    ``PlayerGameLog``). This unlocks weekly bulk-sync of all active players
+    instead of requiring callers to enumerate IDs.
+    """
+    if player_ids is None:
+        player_ids = [
+            pid for (pid,) in db.query(PlayerGameLog.player_id)
+            .filter(
+                PlayerGameLog.season == season,
+                PlayerGameLog.season_type == season_type,
+            )
+            .distinct()
+            .all()
+        ]
+        logger.info(
+            "sync_player_tracking_stats: %d active players for %s/%s",
+            len(player_ids), season, season_type,
+        )
     refreshed = 0
     created = 0
     for player_id in player_ids:
