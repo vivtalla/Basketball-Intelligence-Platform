@@ -15,28 +15,7 @@ Guidelines:
 
 ---
 
-## Sprint 84 Candidates
-
-### Bracket auto-advancement (Sprint 83 deferral)
-Why it matters:
-Sprint 83c shipped per-game score chips on `SeriesCard`, but the bracket doesn't visually advance series winners into the next round's empty slot. Today, when BOS finishes off ORL 4-1, the next round's BOS series only appears once the BOS-vs-MIL record exists in the DB — there's no "BOS vs TBD" placeholder. Public visitors who check the bracket between rounds see gaps where the path-to-trophy should be obvious.
-
-Likely shape:
-- **Backend**: add `parent_series_id` + `slot_position` ("top" | "bottom") to `PlayoffSeries` (Alembic migration). Or compute the slot mapping dynamically from seed pairings (1-vs-8 winner → 4-vs-5 winner slot, etc.) without persisting it.
-- **Service**: in `playoff_bracket_service.compute_bracket()`, when a series closes, materialize a placeholder `PlayoffSeriesResponse` for the next-round slot with `winner_team_id` filled in for one side and `null` for the other.
-- **Frontend**: `SeriesCard` renders a "BOS vs TBD" placeholder state — cream background, dashed border, "Awaiting Round 1 winners" sub-label.
-- Effort: 4-6 agent-hours.
-
-### Per-series detail page (Sprint 83 deferral)
-Why it matters:
-During the Sprint 83 review, Vivek wanted the Story Rail tiles to lead to "a fully fleshed out tracker with stats of matchup so far, with options to click through the different games and their stats." Sprint 83c routes tiles to `/bracket?series_id=X` (Playoff Command Center) which is largely that page already, but it's a coach/analyst surface — not a fan-friendly per-series storyline page. A dedicated `/playoffs/series/{series_id}` route with player game-by-game stat tables and click-through to `/games/[gameId]` would make the playoff narrative readable for both audiences.
-
-Likely shape:
-- New page: `frontend/src/app/playoffs/series/[seriesId]/page.tsx`
-- Sections: series header (W-L state, round, matchup) → `<SeriesWPChart>` (Sprint 73 component) → game-by-game timeline (G1, G2, ... clickable into /games/{game_id}) → key-player stat tables (per-game stats for top scorers from each side) → series narrative carousel
-- Backend reuses existing `/api/playoffs/series/{series_id}` + `/api/playoffs/series/{series_id}/intelligence`
-- Update Story Rail tiles to point here instead of `/bracket?series_id=X` (or keep both — `/bracket` for analyst, this for fan)
-- Effort: 6-8 agent-hours.
+## Sprint 86 Candidates
 
 ### Polish the home OG image (Sprint 83 followup)
 Why it matters:
@@ -51,14 +30,15 @@ Likely shape:
 
 Effort estimate: 1-2 hours for the home polish, +2-3 hours for parameterized per-page cards.
 
-### Tracking / Hustle / Passing dashboards
+### Team-level tracking / hustle dashboards (Sprint 85 follow-on)
 Why it matters:
-Sprint 81 closed two of the four high-priority data domain gaps from `specs/official-data-source-matrix.md`. The remaining three families — `LeagueDashPtStats` tracking endpoints, `LeagueHustleStatsPlayer`, and pass/contest tracking — would unlock deeper style classification, defensive context, and matchup-aware scouting.
+Sprint 85 Stream C shipped player-level tracking (`/api/players/{id}/tracking`) + hustle (`/api/players/{id}/hustle`) endpoints + frontend panels. Team-level (`LeagueDashTeamPtStats`, `LeagueHustleStatsTeam`) is the parallel for the Insights / Team-Defense surfaces. Same nba_api wrappers exist in `nba_client.py`; service + endpoint + panel layer needs to mirror the player pattern.
 
 Likely shape:
-- mirror the Sprint 81 B3 pattern: new tables + sync_service functions + `/api/players/{id}/tracking` + `/api/players/{id}/hustle` endpoints
-- prefer one family per sprint; the data-shape variance across these endpoints is real
-- frontend can wait until at least two families ship
+- New services `team_tracking_service.py` + `team_hustle_service.py` mirroring the player-side pattern from Sprint 85 C
+- New endpoints `/api/teams/{id}/tracking` + `/api/teams/{id}/hustle`
+- Mount in the team detail page tabs alongside the existing splits
+- Effort: ~3-4 agent-hours.
 
 ### Spotrac retry-on-empty (Sprint 82c stretch)
 Why it matters:
@@ -77,23 +57,31 @@ Likely shape:
 - add DPOY / MIP / 6MOY ballot rows — same code path, different `award_type` filter
 - iterate on the modifier proxies in `materialize_award_modifiers.py` (especially `_clutch_proxy` and `_signature_games_proxy`) as PBP-derived clutch + signature-game data becomes available for older seasons
 
-### Fix flaky `test_series_odds_monotonic_toward_winning_side`
+### Bracket auto-advance frontend label richness (Sprint 85 follow-on)
 Why it matters:
-Monte Carlo test in `test_series_odds_history.py` has no fixed RNG seed. Passes in isolation, occasionally fails in the full suite due to variance. Surfaced at Sprint 82 close and again at Sprint 83 close.
+Sprint 85 Stream A renders TBD pills as "Awaiting winner of R{n}" — the round number alone. Richer "winner of 1v8" or "winner of LAC vs DAL" labels would help users understand the path-to-trophy at a glance.
 
 Likely shape:
-- Pin the RNG seed at the test boundary or relax the monotonicity threshold by a small epsilon.
-- One-line fix.
+- Pass parent seed numbers + abbreviations into the `PlayoffSeriesResponse` (or have the frontend look up the parent series client-side from the bracket response).
+- Update `SeriesCard.tsx` TBD-pill rendering to use the richer label.
+- Effort: ~1 hour.
 
-### Lint cleanup pass (carried from Sprint 83 close)
+### Backfill `parent_*_series_id` on existing closed series (Sprint 85 follow-on)
 Why it matters:
-4 pre-existing lint errors visible at every Sprint close: `react-hooks/set-state-in-effect` in `frontend/src/app/draft/page.tsx:65` and `frontend/src/app/draft/[prospectId]/page.tsx:93`, and `react/no-unescaped-entities` in `frontend/src/app/trade-machine/page.tsx:124`. None are launch-blocking but they accumulate noise in lint runs and mask real regressions.
+Sprint 85 Stream A's auto-advance only fires on close-transitions. Existing closed series in production already had their next-round children populated by other code paths but lack the new `parent_top_series_id` / `parent_bottom_series_id` pointers. Without this backfill, the frontend can't show "BOS came from the 1v8 series" deep links for already-closed bracket arms.
 
 Likely shape:
-- Refactor the two `setState`-in-`useEffect` patterns to use derived state or proper data-fetching pattern (move to SWR if not already, or to a `useMemo` if the value is computed). Read React's "You Might Not Need an Effect" doc for the patterns.
-- Escape the two double quotes in trade-machine line 124.
-- Add a `localStorage.setItem` defensive-wrapper lint rule (custom ESLint rule) to prevent the private-mode crash class of bug from regressing.
-- Effort: 1-2 hours.
+- One-shot backfill script + idempotent re-run support
+- Iterate over closed series in seed order, compute parent pointers from the bracket pairing rules, set them
+- Effort: ~1-2 hours.
+
+### Per-series detail page sortable columns (Sprint 85 polish)
+Why it matters:
+Sprint 85 Stream B shipped the `/playoff-series/[seriesId]` page with players grouped by team and rows sorted by minutes-played-desc. Adding click-to-sort on PTS, MIN, +/-, etc. would help scout-mode users surface specific patterns faster.
+
+Likely shape:
+- Reuse the sort patterns from existing `GameLogTable.tsx`
+- Effort: ~1 hour.
 
 ---
 

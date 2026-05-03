@@ -1041,3 +1041,27 @@ Eliminated live NBA API calls on every player profile load:
 - **New 8-phase Sprint Workflow** documented in `AGENTS.md`: Plan → Implement → QA → Pre-merge Verification → Merge → Deploy → Production Smoke Test → Closeout. New Pre-merge Verification Checklist gating master pushes (now equivalent to deploying to production within ~2 min via Vercel auto-deploy). New Production Deploy Procedure (frontend automatic; backend manual `infra/deploy.sh`). New Rollback Procedures (Vercel one-click promote, git checkout + deploy.sh, alembic downgrade -1, Cloudflare purge). Session Start Checklist now requires a 5-second production health check.
 - **CLAUDE.md** updated: new **Production** section (URLs, VM, edge layer, secrets), new **Production Deploy** subsection in Commands, new **Production Safety** section (7 rules around auto-deploy, API contracts, schema migrations, cache TTLs, CORS, secrets, rollback).
 - Verified end-to-end: frontend 200 (~145ms), API health 200 (~52ms), leaderboards 200 (~191ms cold cache). Closeout: `specs/sprint-84-closeout.md`.
+
+---
+
+### Sprint 83 — MVP Launch Readiness
+**Branches:** `feature/sprint-83a-blockers`, `feature/sprint-83b-launch-polish`, `feature/sprint-83c-playoff-polish` (Claude, three-stream + follow-on)
+
+- Stream A: 9 critical UX production blockers (leaderboards skeleton fix, mobile hamburger nav `MobileNav.tsx`, team-detail tabs as native `<select>` on mobile, standings 4-col mobile table, `app/not-found.tsx` + `app/error.tsx`, localStorage hardening for private browsing, search dropdown `60vh` cap, onboarding `bip-kicker` labels).
+- Stream B: First-impression polish + SEO + analytics (home hero rewrite, root-layout `Metadata` with OG/Twitter blocks, `@vercel/analytics`, `app/robots.ts` + `app/sitemap.ts`, offseason empty state on HomeLeagueLeaders, LiveTicker context label).
+- Sprint 83-followup: Dynamic OG image (`app/og/route.tsx` — `next/og` ImageResponse using inline `courtvue-mark.svg` geometry).
+- Stream C — Playoff surface polish: Shot Diet Pressure copy, Lineup Chess empty-state, From the Desk → series-aware CTA, Four Factor Edge regular-season fallback (panel always renders 8 metrics), Story Rail tile deep-links → `/bracket?series_id={sid}`, SeriesCard per-game G1–G7 chip strip.
+- Verified: 472 → 480 backend tests, `npm run build` + `npm run lint` clean. Closeout: `specs/sprint-83-closeout.md`.
+
+---
+
+### Sprint 85 — Bracket Auto-Advance + Per-Series Detail + Tracking/Hustle + Lint Cleanup
+**Branches:** `feature/sprint-85a-bracket-advance`, `feature/sprint-85b-per-series-detail`, `feature/sprint-85c-tracking-hustle`, `feature/sprint-85d-lint-cleanup` (Claude, 4-stream parallel via subagents)
+
+- **First sprint executed end-to-end under the new 8-phase workflow** from Sprint 84. 480 → 490 backend tests (+10), `npm run lint` 4 errors + 8 warnings → 0/0.
+- Stream A: Alembic 0021 adds `parent_top_series_id` + `parent_bottom_series_id` (nullable, indexed) to `playoff_series` + relaxes NOT NULL on seed columns; `_compute_next_round_slot` + `_auto_advance_closed_series` in `playoff_bracket_service.py` encode standard NBA pairing (1v8 → R2 vs 4v5 winner; through CF and Finals); `SeriesCard.tsx` renders TBD pill ("Awaiting winner of R{n}") when either team is null.
+- Stream B: NEW route `/playoff-series/[seriesId]` + NEW service `playoff_series_player_logs_service.py` joining series → games → `PlayerGameLog` rows + NEW endpoint `GET /api/playoffs/series/{id}/player-logs` + NEW `<SeriesPlayerLogTable>` component (grouped by player, per-game stat rows, totals row, each game-row links to `/games/{game_id}`).
+- Stream C: NEW services `player_tracking_service.py` + `player_hustle_service.py` (cache-first, sync-on-miss) + endpoints `/api/players/{id}/tracking` (3 families: Shot Creation / Passing / Shot Defense) + `/api/players/{id}/hustle` + components `PlayerTrackingPanel` + `PlayerHustlePanel` mounted in `PlayerDashboard` after the existing splits/play-types panels.
+- Stream D: 4 lint errors → 0 (state pattern for setState-in-effect; HTML-entity escaping); 8 warnings → 0; **Monte Carlo flake fix** — `playoff_simulator_service.py:436` was `rng.seed(hash(series_id))` and Python's `hash(str)` is per-process randomized; fix `rng.seed(series_id)` directly. 10/10 stable post-fix.
+- **Phase 6 surfaced 2 latent infra bugs from Sprint 82+84:** `infra/deploy.sh` `source /etc/bip/env` didn't auto-export to subprocesses (fixed with `set -a/+a`); raw `python -m alembic` ignored `DATABASE_URL` because `alembic.ini` hardcoded a passwordless URL (fixed by invoking `python -m db.migrations` instead). The `--migrate` deploy flow is now actually production-ready.
+- Production smoke test passed all 4 surfaces. Closeout: `specs/sprint-85-closeout.md`.

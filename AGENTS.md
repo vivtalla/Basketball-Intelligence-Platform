@@ -1,6 +1,6 @@
 # Agent Coordination
 
-Last updated: 2026-05-02 by Claude (Sprint 85 kickoff — bracket auto-advance + per-series detail + tracking/hustle + lint cleanup)
+Last updated: 2026-05-02 by Claude (Sprint 85 closeout — 4-stream parallel sprint shipped; site is live and serving the new surfaces)
 
 > Both agents read this file before touching code at the start of every session.
 > The canonical source of truth is the clean `master` checkout at `/Users/viv/Documents/Basketball Intelligence Platform`.
@@ -14,16 +14,15 @@ Last updated: 2026-05-02 by Claude (Sprint 85 kickoff — bracket auto-advance +
 
 | Field | Value |
 |-------|-------|
-| Sprint | 85 |
-| Goal | Bracket auto-advancement + per-series detail page + tracking/hustle dashboards + lint cleanup |
-| Started | 2026-05-02 |
-| Target merge | 2026-05-03 |
-| Sprint shape | 4 parallel streams (D first as warm-up; A/B/C in parallel; merge order D→A→B→C) |
-| Branch | `feature/sprint-85a-bracket-advance`, `feature/sprint-85b-per-series-detail`, `feature/sprint-85c-tracking-hustle`, `feature/sprint-85d-lint-cleanup` |
-| Worker policy | One worker per stream; main session integrates + runs QA + deploys |
-| Plan file | `~/.claude/plans/zazzy-swimming-pebble.md` |
+| Sprint | 86 |
+| Goal | TBD — awaiting Vivek's sprint kickoff |
+| Started | TBD |
+| Target merge | TBD |
+| Sprint shape | TBD |
+| Branch | `master` until Sprint 86 kickoff |
+| Worker policy | No active sprint; set at kickoff |
 
-**Production status:** CourtVue Labs is publicly live at `https://courtvue.app` (Vercel) + `https://api.courtvue.app` (Hetzner CPX11, `ubuntu@5.78.114.15`). Sprint 85 is the first sprint exercising the new 8-phase workflow end-to-end (Stream A's migration tests `--migrate` deploy flow).
+**Production status:** CourtVue Labs is publicly live at `https://courtvue.app` (Vercel) + `https://api.courtvue.app` (Hetzner CPX11, `ubuntu@5.78.114.15`). Sprint 85 shipped 4 streams under the new 8-phase workflow including the platform's first production migration via `infra/deploy.sh --migrate` (after fixing two latent infra bugs the new workflow surfaced). 490 backend tests, 0 lint errors.
 
 ---
 
@@ -184,12 +183,12 @@ If repo state, sprint numbering, or shipped features appear to disagree across l
 ## Current Assignments
 
 ### Claude
-- Branch: all 4 streams (`feature/sprint-85a-bracket-advance`, `feature/sprint-85b-per-series-detail`, `feature/sprint-85c-tracking-hustle`, `feature/sprint-85d-lint-cleanup`)
-- Scope: All 4 Sprint 85 streams (see plan file)
-- Status: Kickoff — Stream D first, then A/B/C in parallel via subagents
+- Branch: TBD at kickoff
+- Scope: No active sprint assignment
+- Status: Not started
 
 ### Codex
-- Branch: TBD
+- Branch: TBD at kickoff
 - Scope: No active sprint assignment
 - Status: Not started
 
@@ -204,10 +203,7 @@ Claim a shared file here before editing. If a file is already claimed, read that
 
 | File | Claimed by | Purpose |
 |------|------------|---------|
-| `backend/models/playoffs.py` | Streams 85a + 85b (joint, append-only) | A adds Optional fields to PlayoffSeriesResponse; B appends new SeriesPlayerLogs models. A merges first. |
-| `backend/routers/playoffs.py` | Streams 85a + 85b (joint, append-only) | A's bracket logic + B's new `/series/{id}/player-logs` endpoint. A merges first. |
-| `frontend/src/lib/api.ts` | Streams 85b + 85c (append-only) | New API call functions for both streams |
-| `frontend/src/lib/types.ts` | Streams 85b + 85c (append-only) | New TypeScript interface mirrors |
+| — | — | No active claims; claim here at the next sprint kickoff before editing shared files |
 
 ---
 
@@ -224,28 +220,23 @@ Specs or review notes written by one stream for another. Check this before start
 | `specs/sprint-65-closeout.md` | Sprint 65 | Next sprint | Reference — Opportunity caching/handoff + scouting inference confidence baseline |
 | `specs/methodology-validation.md` | Sprint 71 | Next sprint | Reference — methodology golden fixtures, calibration targets, and validation checks |
 | `specs/sprint-84-closeout.md` | Sprint 84 | Next sprint | Reference — production deploy execution + new workflow definitions |
+| `specs/sprint-85-closeout.md` | Sprint 85 | Next sprint | Reference — first sprint exercising new workflow; deploy.sh `--migrate` infra fixes; subagent stages, parent commits operating model |
 
 ---
 
 ## Merge Order
 
-Sprint 85: **D → A → B → C**. Rationale:
-- D is small (~1-2 hr) and removes lint noise so subsequent streams' Pre-merge checks are clean
-- A defines schema shape (`Optional` fields on `PlayoffSeriesResponse`) that B's new models append to
-- B and C are independent of each other; B merges before C only because B touches the shared `playoffs.py` shared file
-
-Each merge triggers a Vercel auto-deploy of the frontend (~2 min). Backend deploy happens after Stream A merges (`--migrate` flag for the new bracket-advancement migration) and again after the final merge.
+TBD at kickoff. Next sprint branch/worktree is created at kickoff and merges back to `master` at closeout.
 
 ---
 
 ## Sprint Work Allocation
 
-| Stream | Goal | Branch | Owner | Files |
-|--------|------|--------|-------|-------|
-| 85d | Lint cleanup + flaky test investigation | `feature/sprint-85d-lint-cleanup` | Claude (main) | 5 frontend |
-| 85a | Bracket auto-advancement (migration + service + frontend TBD) | `feature/sprint-85a-bracket-advance` | Claude (worker) | 6 backend + frontend |
-| 85b | Per-series detail page (backend endpoint + new `/playoff-series/[id]` route) | `feature/sprint-85b-per-series-detail` | Claude (worker) | 9 backend + frontend |
-| 85c | Tracking + Hustle dashboards (services + endpoints + panels) | `feature/sprint-85c-tracking-hustle` | Claude (worker) | 10 backend + frontend |
+Sprint 86 allocation — TBD at kickoff.
+
+| Area | Files | Owner |
+|------|-------|-------|
+| — | — | — |
 
 ---
 
@@ -329,6 +320,8 @@ Each merge triggers a Vercel auto-deploy of the frontend (~2 min). Backend deplo
 ## Notes
 
 *Free-form, dated, newest first. Use this for coordination and repo-state exceptions.*
+
+2026-05-02 (Claude): Sprint 85 closed. First sprint executed end-to-end under the new 8-phase workflow. **4 parallel streams** with subagents for A/B/C and main session for D + integration: D = lint cleanup (4 errors + 8 warnings → 0) + Monte Carlo flake fix (`hash(series_id)` → `series_id` directly; 10/10 stable); A = bracket auto-advancement with new Alembic 0021 (parent_top/bottom_series_id columns + NOT NULL relaxation, defensive `_has_table` guard for SQLite legacy-baseline path) + `_compute_next_round_slot` + `_auto_advance_closed_series` in `playoff_bracket_service.py` + `SeriesCard` TBD-pill rendering; B = new `/playoff-series/[seriesId]` route + `playoff_series_player_logs_service.py` + `GET /api/playoffs/series/{id}/player-logs` + `SeriesPlayerLogTable` component (grouped by player, links to `/games/{id}`); C = `player_tracking_service.py` + `player_hustle_service.py` + `/api/players/{id}/tracking` + `/api/players/{id}/hustle` + `PlayerTrackingPanel` (3 family toggle) + `PlayerHustlePanel` (single 8-tile grid) mounted in `PlayerDashboard`. Verification: 480 → 490 backend tests (+10 net new), `npm run build` clean, `npm run lint` 0 errors / 0 warnings (down from 4 errors + 8 warnings). **Phase 6 surfaced two latent infra bugs from Sprint 82+84:** (1) `infra/deploy.sh:21` `source /etc/bip/env` didn't auto-export vars to subprocesses → fixed with `set -a/+a`; (2) raw `python -m alembic` ignored DATABASE_URL because `alembic.ini` hardcoded a passwordless URL → fixed by invoking `python -m db.migrations` instead. Production smoke test: all 4 surfaces verified live (bracket has new parent fields; series player-logs returns 15+15 players; tracking returns 3 families; hustle returns stats). **Workflow lessons:** subagent sandbox issue (3rd sprint in a row) — formalized "subagent stages, parent commits + verifies" model in stream prompts up front; lock-table claims worked but the actual append-only discipline matters more than the lock; merge order D→A→B→C produced exactly 3 conflicts (test file section divider + 2 append-tail conflicts on api.ts/types.ts) all trivially resolved. Closeout: `specs/sprint-85-closeout.md`.
 
 2026-05-02 (Claude): Sprint 84 closed. Two-stage sprint executed in one session. **Stage 1 — VM deploy:** Recovered SSH access to `5.78.114.15` via Hetzner rescue mode (mounted `/dev/sda1`, chrooted, created the missing `ubuntu` user with UID 1000 + sudo group + NOPASSWD, fixed home directory ownership, enabled `ssh.service` symlink — root cause of why SSH was refusing connections after our earlier disk write was that the rescue OS leaves `/mnt` empty by default and we wrote to the rescue tmpfs the first time). Configured Hetzner firewall (TCP 80/443 open). Registered `courtvue.app` via Cloudflare (`.app` not `.com` because `.com` was taken) and added 3 DNS records (api A → VM, @ + www CNAME → Vercel, all orange-cloud proxied). Ran `infra/caddy-install.sh` on the VM, set `/etc/bip/env` (NBA_API_USER_FETCH_DISABLED=true, CORS_ORIGINS, DATABASE_URL with new password for the `bip` Postgres user), installed gunicorn, ran `alembic upgrade head`, started `bip-api` + reloaded `caddy`. Caddy obtained Let's Encrypt cert for `api.courtvue.app` automatically. Imported repo into Vercel with `frontend/` root + `NEXT_PUBLIC_API_URL=https://api.courtvue.app`. First Vercel build failed on `useSearchParams` outside Suspense in `/bracket`, `/games/[gameId]`, `/teams/[abbr]` — fixed by wrapping each page's body in `<Suspense>` and shipped as `43b7a4a` on master. Configured Cloudflare cache rules (5 rules, TTLs 2hr-12hr matching the daily sync cadence) + WAF rule blocking empty user-agent + zgrab + masscan. End-to-end smoke: frontend 200, API health 200, leaderboards 200 with real data. **Stage 2 — workflow reset:** rewrote AGENTS.md (this file) and CLAUDE.md to reflect production-aware sprint structure. Added 8-phase Sprint Workflow (the QA / Pre-merge / Deploy / Smoke phases are new), Pre-merge Verification Checklist, Production Deploy Procedure, Rollback Procedures (frontend Vercel one-click, backend git checkout + deploy.sh, alembic downgrade -1, Cloudflare purge). Updated Session Start Checklist with mandatory production health check. Closeout: `specs/sprint-84-closeout.md`. **Workflow lesson:** the rescue-mode disk recovery wasted ~30 min because we didn't mount `/dev/sda1` to `/mnt` before writing — wrote to the rescue tmpfs, which vanished on reboot. Documented the chroot pattern in the closeout for future VM recoveries.
 
