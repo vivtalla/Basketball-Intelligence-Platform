@@ -19,8 +19,11 @@ from nba_api.stats.endpoints import (
     boxscoretraditionalv2,
     commonplayerinfo,
     leaguedashplayerstats,
+    leaguedashptstats,
+    leaguedashptteamdefend,
     leaguedashteamclutch,
     leaguehustlestatsplayer,
+    leaguehustlestatsteam,
     leaguedashteamstats,
     leaguegamelog,
     leaguestandings,
@@ -2042,6 +2045,133 @@ def get_player_tracking_dashboard(
             timeout=NBA_API_TIMEOUT,
         ),
     )
+    CacheManager.set(cache_key, {"rows": rows}, _cache_ttl_for_season(season))
+    return rows
+
+
+def get_league_team_tracking_dashboard(
+    season: str,
+    season_type: str = "Regular Season",
+) -> List[Dict[str, Any]]:
+    """Sprint 86 (C) — Fetch league-wide team tracking rows across families.
+
+    Mirrors :func:`get_player_tracking_dashboard` but in team-mode. The NBA
+    stats endpoints split tracking by ``PtMeasureType`` rather than by
+    dataset, so we issue one request per family and tag each row with the
+    public family label.
+
+    Returned rows are normalized into ``{family, split_key, raw}`` triples so
+    the sync layer can persist partial coverage without changing product
+    contracts when a family is unavailable upstream.
+
+    Families covered:
+      * ``shots``        -> ``LeagueDashPtStats(PtMeasureType="CatchShoot")``
+                            and ``"PullUpShot"``, plus ``"PaintTouch"`` /
+                            ``"Drives"`` for shot-creation drivers.
+      * ``passing``      -> ``LeagueDashPtStats(PtMeasureType="Passing")``
+      * ``shot_defense`` -> ``LeagueDashPtTeamDefend`` per ``DefenseCategory``
+                            distance bucket.
+    """
+    cache_key = f"team_tracking_dashboard_{season}_{season_type}"
+    cached = CacheManager.get(cache_key)
+    if cached and isinstance(cached.get("rows"), list):
+        return cached["rows"]
+
+    rows: List[Dict[str, Any]] = []
+
+    def _collect_team(family: str, split_key: str, endpoint) -> None:
+        frames = endpoint.get_data_frames()
+        for record in _df_records(frames[0] if frames else None):
+            rows.append({
+                "family": family,
+                "split_key": split_key,
+                "raw": record,
+            })
+
+    # Shot-creation family — one row per measure-type bucket.
+    shot_creation_measures = (
+        ("Drives", "Drives"),
+        ("CatchShoot", "Catch & Shoot"),
+        ("PullUpShot", "Pull-Up"),
+        ("PaintTouch", "Paint Touches"),
+        ("Possessions", "Possessions"),
+    )
+    for measure, split_label in shot_creation_measures:
+        _rate_limit()
+        _collect_team(
+            "shots",
+            split_label,
+            leaguedashptstats.LeagueDashPtStats(
+                player_or_team="Team",
+                pt_measure_type=measure,
+                season=season,
+                season_type_all_star=season_type,
+                per_mode_simple="Totals",
+                timeout=NBA_API_TIMEOUT,
+            ),
+        )
+
+    # Passing family — single overall pull.
+    _rate_limit()
+    _collect_team(
+        "passing",
+        "overall",
+        leaguedashptstats.LeagueDashPtStats(
+            player_or_team="Team",
+            pt_measure_type="Passing",
+            season=season,
+            season_type_all_star=season_type,
+            per_mode_simple="Totals",
+            timeout=NBA_API_TIMEOUT,
+        ),
+    )
+
+    # Shot-defense family — one row per defense distance bucket.
+    defense_categories = (
+        "Overall",
+        "3 Pointers",
+        "2 Pointers",
+        "Less Than 6Ft",
+        "Less Than 10Ft",
+        "Greater Than 15Ft",
+    )
+    for category in defense_categories:
+        _rate_limit()
+        _collect_team(
+            "shot_defense",
+            category,
+            leaguedashptteamdefend.LeagueDashPtTeamDefend(
+                defense_category=category,
+                season=season,
+                season_type_all_star=season_type,
+                per_mode_simple="Totals",
+                timeout=NBA_API_TIMEOUT,
+            ),
+        )
+
+    CacheManager.set(cache_key, {"rows": rows}, _cache_ttl_for_season(season))
+    return rows
+
+
+def get_league_team_hustle_stats(
+    season: str,
+    season_type: str = "Regular Season",
+) -> List[Dict[str, Any]]:
+    """Sprint 86 (C) — Fetch official league team hustle rows."""
+    cache_key = f"league_hustle_team_{season}_{season_type}"
+    cached = CacheManager.get(cache_key)
+    if cached and isinstance(cached.get("rows"), list):
+        return cached["rows"]
+
+    _rate_limit()
+    response = leaguehustlestatsteam.LeagueHustleStatsTeam(
+        season=season,
+        season_type_all_star=season_type,
+        per_mode_time="Totals",
+        timeout=NBA_API_TIMEOUT,
+    )
+    frames = response.get_data_frames()
+    rows = _df_records(frames[0] if frames else None)
     CacheManager.set(cache_key, {"rows": rows}, _cache_ttl_for_season(season))
     return rows
 

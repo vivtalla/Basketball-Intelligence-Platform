@@ -50,6 +50,8 @@ import TeamNetRatingChart from "@/components/TeamNetRatingChart";
 import TeamPeriodScoringPanel from "@/components/TeamPeriodScoringPanel";
 import TeamBenchAnalyticsPanel from "@/components/TeamBenchAnalyticsPanel";
 import TeamArcPanel from "@/components/team-arc/TeamArcPanel";
+import TeamTrackingPanel from "@/components/TeamTrackingPanel";
+import TeamHustlePanel from "@/components/TeamHustlePanel";
 import type { TeamPrepQueueItem, TeamRosterPlayer } from "@/lib/types";
 
 const DEFAULT_SEASON = "2024-25";
@@ -836,6 +838,20 @@ function TeamDetailPageInner() {
                   teamAbbreviation={roster.abbreviation}
                   seasons={availableSeasons.length > 0 ? availableSeasons : [effectiveSeason]}
                   defaultSeason={effectiveSeason}
+                />
+              ) : null}
+              {teamAbbreviation ? (
+                <TeamTrackingPanel
+                  teamAbbr={teamAbbreviation}
+                  season={effectiveSeason}
+                  isPlayoff={isPlayoffs}
+                />
+              ) : null}
+              {teamAbbreviation ? (
+                <TeamHustlePanel
+                  teamAbbr={teamAbbreviation}
+                  season={effectiveSeason}
+                  isPlayoff={isPlayoffs}
                 />
               ) : null}
             </div>

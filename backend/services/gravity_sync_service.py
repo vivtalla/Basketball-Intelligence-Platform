@@ -10,10 +10,19 @@ from sqlalchemy.orm import Session
 from data.nba_client import (
     get_inside_game_gravity_rows,
     get_league_hustle_player_stats,
+    get_league_team_hustle_stats,
+    get_league_team_tracking_dashboard,
     get_player_tracking_dashboard,
     get_synergy_player_play_types,
 )
-from db.models import PlayerGravityStat, PlayerHustleStat, PlayerPlayTypeStat, PlayerTrackingStat
+from db.models import (
+    PlayerGravityStat,
+    PlayerHustleStat,
+    PlayerPlayTypeStat,
+    PlayerTrackingStat,
+    TeamHustleStat,
+    TeamTrackingStat,
+)
 from services.gravity_service import persist_proxy_gravity_profiles
 
 
@@ -55,6 +64,14 @@ def _int(row: Dict[str, Any], *keys: str) -> Optional[int]:
 
 def _player_id(row: Dict[str, Any]) -> Optional[int]:
     value = row.get("PLAYER_ID") or row.get("PLAYERID") or row.get("PERSON_ID") or row.get("playerId")
+    try:
+        return int(value) if value is not None else None
+    except (TypeError, ValueError):
+        return None
+
+
+def _team_id(row: Dict[str, Any]) -> Optional[int]:
+    value = row.get("TEAM_ID") or row.get("TEAMID") or row.get("teamId")
     try:
         return int(value) if value is not None else None
     except (TypeError, ValueError):
@@ -276,3 +293,138 @@ def sync_official_gravity_stats(
         "rows_created": 0,
         "warnings": ["Official NBA Gravity structured source unavailable; persisted CourtVue proxy rows instead."],
     }
+
+
+# ---------------------------------------------------------------------------
+# Sprint 86 (C) — Team-level tracking + hustle sync
+# ---------------------------------------------------------------------------
+
+
+def sync_team_tracking_stats(
+    db: Session,
+    season: str,
+    season_type: str = "Regular Season",
+    team_ids: Optional[Sequence[int]] = None,
+) -> dict:
+    """Fetch league-wide team tracking dashboards and upsert rows.
+
+    Mirrors :func:`sync_player_tracking_stats` but in team-mode. The upstream
+    endpoint family + split-bucket are tagged in :func:`get_league_team_tracking_dashboard`
+    so this sync layer just normalizes per-row stat columns.
+
+    ``team_ids`` filters the persisted set when supplied (used by the
+    on-demand "sync-on-miss" path so we don't refresh every team for a
+    single page load).
+    """
+    try:
+        rows = get_league_team_tracking_dashboard(season, season_type=season_type)
+    except Exception as exc:  # pragma: no cover - network/source defensive guard
+        logger.warning("Team tracking sync failed for %s/%s: %s", season, season_type, exc)
+        rows = []
+
+    requested = {int(tid) for tid in team_ids} if team_ids else None
+    refreshed = 0
+    created = 0
+    seen_in_session: set = set()
+
+    for item in rows:
+        payload = dict(item.get("raw") or {})
+        tid = _team_id(payload)
+        if not tid or (requested and tid not in requested):
+            continue
+        family = str(item.get("family") or "tracking")
+        split_key = str(item.get("split_key") or "overall")
+        session_key = (tid, family, split_key)
+        if session_key in seen_in_session:
+            continue
+        seen_in_session.add(session_key)
+
+        row = (
+            db.query(TeamTrackingStat)
+            .filter_by(
+                team_id=tid,
+                season=season,
+                season_type=season_type,
+                tracking_family=family,
+                split_key=split_key,
+                source="stats.nba.com/team-tracking",
+            )
+            .first()
+        )
+        if not row:
+            row = TeamTrackingStat(
+                team_id=tid,
+                season=season,
+                season_type=season_type,
+                tracking_family=family,
+                split_key=split_key,
+            )
+            db.add(row)
+            created += 1
+        row.team_abbreviation = payload.get("TEAM_ABBREVIATION")
+        row.gp = _int(payload, "GP", "G")
+        row.minutes = _float(payload, "MIN")
+        row.touches = _float(payload, "TOUCHES")
+        row.front_court_touches = _float(payload, "FRONT_CT_TOUCHES")
+        row.time_of_possession = _float(payload, "TIME_OF_POSS")
+        row.drives = _float(payload, "DRIVES")
+        row.passes_made = _float(payload, "PASSES_MADE", "PASS")
+        row.passes_received = _float(payload, "PASSES_RECEIVED")
+        row.catch_shoot_fga = _float(payload, "CATCH_SHOOT_FGA", "FGA")
+        row.catch_shoot_pts = _float(payload, "CATCH_SHOOT_PTS", "PTS")
+        row.pull_up_fga = _float(payload, "PULL_UP_FGA")
+        row.pull_up_pts = _float(payload, "PULL_UP_PTS")
+        row.paint_touch_pts = _float(payload, "PAINT_TOUCH_PTS")
+        row.close_touch_pts = _float(payload, "CLOSE_TOUCH_PTS")
+        row.raw_payload = _sanitize_for_json(payload)
+        refreshed += 1
+
+    db.commit()
+    return {"status": "ok", "rows_synced": refreshed, "rows_created": created}
+
+
+def sync_team_hustle_stats(
+    db: Session, season: str, season_type: str = "Regular Season"
+) -> dict:
+    """Fetch league-wide team hustle stats and upsert one row per team."""
+    try:
+        rows = get_league_team_hustle_stats(season, season_type=season_type)
+    except Exception as exc:  # pragma: no cover
+        logger.warning("Team hustle sync failed for %s: %s", season, exc)
+        rows = []
+
+    refreshed = 0
+    created = 0
+    for payload in rows:
+        tid = _team_id(payload)
+        if not tid:
+            continue
+        row = (
+            db.query(TeamHustleStat)
+            .filter_by(
+                team_id=tid,
+                season=season,
+                season_type=season_type,
+                source="stats.nba.com/league-hustle-team",
+            )
+            .first()
+        )
+        if not row:
+            row = TeamHustleStat(team_id=tid, season=season, season_type=season_type)
+            db.add(row)
+            created += 1
+        row.team_abbreviation = payload.get("TEAM_ABBREVIATION")
+        row.gp = _int(payload, "G", "GP")
+        row.minutes = _float(payload, "MIN")
+        row.contested_shots = _float(payload, "CONTESTED_SHOTS")
+        row.deflections = _float(payload, "DEFLECTIONS")
+        row.charges_drawn = _float(payload, "CHARGES_DRAWN")
+        row.screen_assists = _float(payload, "SCREEN_ASSISTS")
+        row.screen_assist_points = _float(payload, "SCREEN_AST_PTS")
+        row.loose_balls_recovered = _float(payload, "LOOSE_BALLS_RECOVERED")
+        row.box_outs = _float(payload, "BOX_OUTS")
+        row.raw_payload = _sanitize_for_json(payload)
+        refreshed += 1
+
+    db.commit()
+    return {"status": "ok", "rows_synced": refreshed, "rows_created": created}

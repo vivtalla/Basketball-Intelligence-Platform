@@ -2130,3 +2130,25 @@ export async function getPlayerHustle(
     `/api/players/${playerId}/hustle?season=${encodeURIComponent(season)}&is_playoff=${isPlayoff}`
   );
 }
+
+// ── Sprint 86 (C) — Team Tracking + Hustle ───────────────────────────────────
+
+export async function getTeamTracking(
+  abbr: string,
+  season: string,
+  isPlayoff: boolean = false
+): Promise<import("./types").TeamTrackingResponse> {
+  return fetchApi<import("./types").TeamTrackingResponse>(
+    `/api/teams/${encodeURIComponent(abbr)}/tracking?season=${encodeURIComponent(season)}&is_playoff=${isPlayoff}`
+  );
+}
+
+export async function getTeamHustle(
+  abbr: string,
+  season: string,
+  isPlayoff: boolean = false
+): Promise<import("./types").TeamHustleResponse> {
+  return fetchApi<import("./types").TeamHustleResponse>(
+    `/api/teams/${encodeURIComponent(abbr)}/hustle?season=${encodeURIComponent(season)}&is_playoff=${isPlayoff}`
+  );
+}

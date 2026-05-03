@@ -5211,3 +5211,51 @@ export interface PlayerHustleResponse {
   is_playoff: boolean;
   stats: PlayerHustleStats | null;
 }
+
+// ── Sprint 86 (C) — Team Tracking + Hustle ───────────────────────────────────
+
+export interface TeamTrackingRow {
+  split_key: string;
+  team_abbreviation: string | null;
+  gp: number | null;
+  minutes: number | null;
+  touches: number | null;
+  front_court_touches: number | null;
+  time_of_possession: number | null;
+  drives: number | null;
+  passes_made: number | null;
+  passes_received: number | null;
+  catch_shoot_fga: number | null;
+  catch_shoot_pts: number | null;
+  pull_up_fga: number | null;
+  pull_up_pts: number | null;
+  paint_touch_pts: number | null;
+  close_touch_pts: number | null;
+}
+
+export interface TeamTrackingResponse {
+  team_id: number;
+  season: string;
+  is_playoff: boolean;
+  families: Record<string, TeamTrackingRow[]>;
+}
+
+export interface TeamHustleStats {
+  team_abbreviation: string | null;
+  gp: number | null;
+  minutes: number | null;
+  contested_shots: number | null;
+  deflections: number | null;
+  charges_drawn: number | null;
+  screen_assists: number | null;
+  screen_assist_points: number | null;
+  loose_balls_recovered: number | null;
+  box_outs: number | null;
+}
+
+export interface TeamHustleResponse {
+  team_id: number;
+  season: string;
+  is_playoff: boolean;
+  stats: TeamHustleStats | null;
+}
