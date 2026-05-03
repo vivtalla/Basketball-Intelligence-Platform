@@ -13,14 +13,23 @@ build/
 
 # Backend
 backend/db/cache.db
-backend/.env
 backend/tmp/
 
 # Node
 node_modules/
 .next/
 out/
-frontend/.env.local
+
+# Env files (any path, any variant — sensitive secrets)
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+!**/public/**/*.key   # allow font/asset .key files in public/
+
+# Vercel local
+.vercel/
 
 # IDE
 .vscode/

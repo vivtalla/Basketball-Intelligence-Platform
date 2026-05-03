@@ -7,6 +7,18 @@
 
 ---
 
+## Post-closeout hotfix (`1de57c5`, 2026-05-03)
+
+Production users reported player profiles loading slowly. Root cause: 4 nba_client wrappers added in Sprint 85+86 (`get_player_tracking_dashboard`, `get_league_team_tracking_dashboard`, `get_league_hustle_player_stats`, `get_league_team_hustle_stats`) skipped the `_block_live_fetch_if_user_mode()` guard that Sprint 82d added to other methods. On production with `NBA_API_USER_FETCH_DISABLED=true`, user requests were triggering live `stats.nba.com` calls that took 6+ seconds (single player) or 30+ seconds (team — 12 calls per sync). The team-tracking hang OOM'd a worker; systemd auto-restarted but the gunicorn worker pool got saturated and `/api/players/*` requests queued up too.
+
+**Fix:** added `_block_live_fetch_if_user_mode()` after the cache-miss check in all 4 wrappers (`backend/data/nba_client.py`). On user requests, sync attempts now raise `LiveFetchBlockedError` immediately → service catches → returns empty in <100ms. Verified post-deploy: tracking dropped 6.2s → 92ms (67× faster).
+
+**QA gap that allowed this:** Phase 3 manual smoke walkthrough hit endpoints locally where the guard isn't active (`NBA_API_USER_FETCH_DISABLED` defaults to false in dev). They returned data. Production was the only place that triggered the bug.
+
+**Workflow fix applied:** Pre-merge Verification Checklist (`AGENTS.md`) now includes "any new `nba_client` wrapper has `_block_live_fetch_if_user_mode()` after cache-miss check" so this class of regression can't recur.
+
+---
+
 ## Shipped
 
 First sprint operating under the new **Deferral Policy** (added at end of Sprint 85). Goal was to honor the policy by completing every Sprint 85 follow-on + team-level tracking/hustle (sister-feature) + OG polish (Sprint 83 carry) in one self-contained sprint, rather than letting them stack as a tail of half-baked work.

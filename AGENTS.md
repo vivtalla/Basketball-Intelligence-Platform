@@ -115,6 +115,7 @@ Before merging any sprint branch into `master`, every item below must be green. 
 - [ ] If schema changed: Alembic migration created, runs cleanly on local DB, and `--migrate` flag noted in the deploy plan
 - [ ] If API contract changed: every frontend caller updated in the same sprint (search for the endpoint or field name across `frontend/src/`)
 - [ ] If a new endpoint added: confirm CORS origin allows it (no change needed for `courtvue.app` / `www.courtvue.app`), confirm Cloudflare cache rule TTL is sensible (add a new rule or rely on the 2hr catch-all)
+- [ ] If a new `nba_client` wrapper added: `_block_live_fetch_if_user_mode("<method>", cache_key)` is called immediately after the cache-miss check, before any network IO. Without it, production user requests trigger live `stats.nba.com` calls that take 3-30 seconds and can OOM the worker. (Sprint 86 hotfix lesson — `1de57c5`.)
 - [ ] No secrets, passwords, or production env values in any commit (`git log -p origin/master..HEAD | grep -iE "password|secret|api[_-]key" | head`)
 - [ ] Sprint closeout artifact draft started in `specs/sprint-NN-closeout.md`
 
