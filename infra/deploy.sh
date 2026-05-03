@@ -18,7 +18,11 @@ cd "$BACKEND"
 
 if [ "$MIGRATE" = "--migrate" ]; then
     echo "[deploy] Running Alembic migrations..."
+    # /etc/bip/env uses KEY=value (no `export`) so wrap with set -a/+a so the
+    # subprocess `alembic` actually inherits DATABASE_URL.
+    set -a
     source /etc/bip/env
+    set +a
     "$PYTHON" -m alembic upgrade head
     echo "[deploy] Migrations complete."
 fi
