@@ -19,11 +19,14 @@ cd "$BACKEND"
 if [ "$MIGRATE" = "--migrate" ]; then
     echo "[deploy] Running Alembic migrations..."
     # /etc/bip/env uses KEY=value (no `export`) so wrap with set -a/+a so the
-    # subprocess `alembic` actually inherits DATABASE_URL.
+    # subprocess inherits DATABASE_URL.
     set -a
     source /etc/bip/env
     set +a
-    "$PYTHON" -m alembic upgrade head
+    # Invoke via `db.migrations` (not raw `alembic`) so the DATABASE_URL env
+    # var is honored — alembic.ini hardcodes a passwordless localhost URL
+    # which fails against production Postgres.
+    "$PYTHON" -m db.migrations
     echo "[deploy] Migrations complete."
 fi
 
