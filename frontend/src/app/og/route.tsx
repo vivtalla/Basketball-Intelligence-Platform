@@ -78,11 +78,16 @@ async function tryReadFont(filename: string): Promise<ArrayBuffer | null> {
   }
 }
 
+async function tryReadFontAnyExt(base: string): Promise<ArrayBuffer | null> {
+  // Prefer .woff2 (smaller), fall back to .ttf (Satori accepts both)
+  return (await tryReadFont(`${base}.woff2`)) ?? (await tryReadFont(`${base}.ttf`));
+}
+
 async function loadFonts(): Promise<LoadedFont[]> {
   const [serifBold, sansRegular, sansBold] = await Promise.all([
-    tryReadFont("SourceSerif4-Bold.woff2"),
-    tryReadFont("SourceSans3-Regular.woff2"),
-    tryReadFont("SourceSans3-Bold.woff2"),
+    tryReadFontAnyExt("SourceSerif4-Bold"),
+    tryReadFontAnyExt("SourceSans3-Regular"),
+    tryReadFontAnyExt("SourceSans3-Bold"),
   ]);
   const fonts: LoadedFont[] = [];
   if (serifBold) {
