@@ -1311,14 +1311,24 @@ class PlayoffSeries(Base):
     # Bracket round: 1=first round, 2=conference semis, 3=conference finals, 4=NBA Finals
     round = Column(Integer, nullable=False)
     series_id = Column(String, nullable=False)  # e.g. "2025-26-W-R1-OKC-MIN"
-    top_seed_team_id = Column(Integer, ForeignKey("teams.id"), nullable=False)
-    bottom_seed_team_id = Column(Integer, ForeignKey("teams.id"), nullable=False)
-    top_seed = Column(Integer, nullable=False)     # 1..16
-    bottom_seed = Column(Integer, nullable=False)
+    # Sprint 85 — both team pointers are nullable so a Round-(N+1) row can be
+    # stood up the moment one parent closes (one seed populated, the other
+    # waiting). Existing Round-1 rows always have both populated; auto-advance
+    # is the only path that intentionally leaves one side null.
+    top_seed_team_id = Column(Integer, ForeignKey("teams.id"), nullable=True)
+    bottom_seed_team_id = Column(Integer, ForeignKey("teams.id"), nullable=True)
+    top_seed = Column(Integer, nullable=True)      # 1..16; null until matched
+    bottom_seed = Column(Integer, nullable=True)
     top_wins = Column(Integer, nullable=False, default=0)
     bottom_wins = Column(Integer, nullable=False, default=0)
     status = Column(String, nullable=False)        # "scheduled", "active", "closed"
     winner_team_id = Column(Integer, ForeignKey("teams.id"), nullable=True)
+    # Sprint 85 — Bracket auto-advancement.
+    # When this row is a Round-(N+1) slot waiting on its parents, these point
+    # to the upstream series whose winner fills the top/bottom seat. Null for
+    # Round 1 series (no parents) and for any pre-Sprint-85 rows.
+    parent_top_series_id = Column(String(80), nullable=True, index=True)
+    parent_bottom_series_id = Column(String(80), nullable=True, index=True)
     created_at = Column(DateTime, server_default=func.now())
     updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
 

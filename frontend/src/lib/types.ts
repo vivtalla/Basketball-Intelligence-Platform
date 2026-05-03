@@ -4039,13 +4039,20 @@ export interface PlayoffSeriesResponse {
   bottom_seed_team_id: number | null;
   top_seed_team_abbr: string | null;
   bottom_seed_team_abbr: string | null;
-  top_seed: number;
-  bottom_seed: number;
+  // Sprint 85 — auto-advance slots can stand up before either parent has
+  // matched, so seeds are nullable along with team_id/abbr.
+  top_seed: number | null;
+  bottom_seed: number | null;
   top_wins: number;
   bottom_wins: number;
   status: PlayoffSeriesStatus;
   winner_team_id: number | null;
   games: PlayoffSeriesGame[];
+  // Sprint 85 — bracket auto-advancement parent pointers. Populated only on
+  // Round-(N+1) slots that were stood up by the bracket service when one of
+  // their parents closed; null on Round 1 series and any pre-Sprint-85 row.
+  parent_top_series_id?: string | null;
+  parent_bottom_series_id?: string | null;
 }
 
 export interface PlayoffBracketResponse {

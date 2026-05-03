@@ -150,8 +150,16 @@ def _games_for_series(
 def _series_to_response(
     series, team_lookup: Dict[int, Team], games: List[PlayoffSeriesGame]
 ) -> PlayoffSeriesResponse:
-    top = team_lookup.get(series.top_seed_team_id)
-    bottom = team_lookup.get(series.bottom_seed_team_id)
+    top = (
+        team_lookup.get(series.top_seed_team_id)
+        if series.top_seed_team_id is not None
+        else None
+    )
+    bottom = (
+        team_lookup.get(series.bottom_seed_team_id)
+        if series.bottom_seed_team_id is not None
+        else None
+    )
     return PlayoffSeriesResponse(
         season=series.season,
         round=series.round,
@@ -167,6 +175,9 @@ def _series_to_response(
         status=series.status,
         winner_team_id=series.winner_team_id,
         games=games,
+        # Sprint 85 — bracket auto-advancement parent pointers.
+        parent_top_series_id=getattr(series, "parent_top_series_id", None),
+        parent_bottom_series_id=getattr(series, "parent_bottom_series_id", None),
     )
 
 

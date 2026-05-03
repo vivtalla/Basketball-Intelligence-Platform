@@ -71,14 +71,17 @@ except ImportError:  # pragma: no cover - exercised only pre-EA1 merge
         season = Column(String(10), nullable=False)
         round = Column(Integer, nullable=False)
         series_id = Column(String(80), nullable=False, unique=True)
-        top_seed_team_id = Column(Integer, ForeignKey("teams.id"), nullable=False)
-        bottom_seed_team_id = Column(Integer, ForeignKey("teams.id"), nullable=False)
-        top_seed = Column(Integer, default=99)
-        bottom_seed = Column(Integer, default=99)
+        # Sprint 85 — nullable so auto-advance can stand up half-populated rows.
+        top_seed_team_id = Column(Integer, ForeignKey("teams.id"), nullable=True)
+        bottom_seed_team_id = Column(Integer, ForeignKey("teams.id"), nullable=True)
+        top_seed = Column(Integer, default=99, nullable=True)
+        bottom_seed = Column(Integer, default=99, nullable=True)
         top_wins = Column(Integer, default=0)
         bottom_wins = Column(Integer, default=0)
         status = Column(String(20), default="active")
         winner_team_id = Column(Integer, ForeignKey("teams.id"), nullable=True)
+        parent_top_series_id = Column(String(80), nullable=True)
+        parent_bottom_series_id = Column(String(80), nullable=True)
         created_at = Column(DateTime, server_default=func.now())
         updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
 
@@ -208,6 +211,233 @@ def _game_season_type(game: GameLog) -> str:
 
 
 # ---------------------------------------------------------------------------
+# Sprint 85 — Bracket auto-advancement
+# ---------------------------------------------------------------------------
+#
+# Standard NBA bracket pairings inside a conference:
+#   Round 1: (1,8), (4,5), (3,6), (2,7)
+#   Round 2: (1|8 winner) vs (4|5 winner)   — "top arm"
+#            (2|7 winner) vs (3|6 winner)   — "bottom arm"
+#   Conf Final: (top arm winner) vs (bottom arm winner)
+#   Finals: East CF winner vs West CF winner
+#
+# We model each round's bracket geometry as a "slot id" string of the form
+# ``"<season>-<conf>-R<round>-<arm>"``. Within a slot the series's two
+# parents are the only candidates that could fill it; the parent with the
+# lower top_seed value lands in the top_seed_team_id of the child.
+
+# Map a Round-1 top_seed → which arm of the conference this series feeds.
+_R1_ARM_FOR_TOP_SEED = {
+    1: "TOP", 8: "TOP",
+    4: "TOP", 5: "TOP",
+    2: "BOT", 7: "BOT",
+    3: "BOT", 6: "BOT",
+}
+
+
+def _arm_for_top_seed(top_seed: Optional[int]) -> Optional[str]:
+    """Return ``"TOP"`` or ``"BOT"`` for a series's top_seed inside its conference."""
+    if top_seed is None:
+        return None
+    return _R1_ARM_FOR_TOP_SEED.get(int(top_seed))
+
+
+def _compute_next_round_slot(
+    season: str,
+    conference_token: str,
+    round_number: int,
+    top_seed: Optional[int],
+    bottom_seed: Optional[int],
+) -> Optional[Dict[str, object]]:
+    """Return the next-round slot descriptor for a closed series, or ``None``.
+
+    Output shape::
+
+        {
+            "round": int,           # next round number (2..4)
+            "conference": str,      # "E" / "W" for R2/CF; "FIN" for Finals
+            "slot_id": str,         # synthetic series_id placeholder
+            "child_slot": str,      # "TOP" or "BOT" — which side this winner fills
+        }
+
+    ``round_number`` is the closed series's round (1..3). Round 4 (Finals) has
+    no successor.
+    """
+    if round_number is None or round_number >= 4:
+        return None
+
+    next_round = round_number + 1
+
+    # Finals (next_round == 4): East CF winner goes to top, West CF winner to bottom.
+    if next_round == 4:
+        conf_norm = (conference_token or "").upper()[:1]
+        if conf_norm == "E":
+            child_slot = "TOP"
+        elif conf_norm == "W":
+            child_slot = "BOT"
+        else:
+            return None
+        slot_id = "{0}-FIN-R4".format(season)
+        return {
+            "round": 4,
+            "conference": "FIN",
+            "slot_id": slot_id,
+            "child_slot": child_slot,
+        }
+
+    # R2 / CF: same conference as the parent.
+    arm = _arm_for_top_seed(top_seed)
+    if arm is None:
+        # Without a known seed we cannot route the winner.
+        return None
+
+    conf = (conference_token or "X").upper()[:1] or "X"
+
+    if next_round == 2:
+        # Two arms per conference; slot_id encodes the arm so both R1 parents
+        # in the same arm land on the same row.
+        slot_id = "{0}-{1}-R2-{2}".format(season, conf, arm)
+        # Within the R2 row, the parent with the LOWER top_seed becomes the
+        # top_seed slot of the child.
+        # TOP arm: (1,8) → top_seed=1; (4,5) → top_seed=4. 1 < 4, so 1v8 winner = top.
+        # BOT arm: (2,7) → top_seed=2; (3,6) → top_seed=3. 2 < 3, so 2v7 winner = top.
+        if arm == "TOP":
+            child_slot = "TOP" if int(top_seed) == 1 else "BOT"
+        else:  # BOT
+            child_slot = "TOP" if int(top_seed) == 2 else "BOT"
+        return {
+            "round": 2,
+            "conference": conf,
+            "slot_id": slot_id,
+            "child_slot": child_slot,
+        }
+
+    if next_round == 3:
+        # One CF per conference. TOP arm winner fills the top_seed slot of CF.
+        slot_id = "{0}-{1}-R3-CF".format(season, conf)
+        child_slot = "TOP" if arm == "TOP" else "BOT"
+        return {
+            "round": 3,
+            "conference": conf,
+            "slot_id": slot_id,
+            "child_slot": child_slot,
+        }
+
+    return None
+
+
+def _auto_advance_closed_series(
+    db: Session,
+    closed_series: "PlayoffSeries",
+    season: str,
+    conference_token: str,
+) -> Optional["PlayoffSeries"]:
+    """Stand up or update the next-round slot when ``closed_series`` finishes.
+
+    Returns the next-round PlayoffSeries row (newly created or updated), or
+    ``None`` if there is no successor (e.g. the Finals just closed, or seed
+    information is missing).
+
+    Idempotent: if the next-round row already exists with both seeds populated
+    (because the parallel arm has already advanced and a real games-derived
+    series_id was minted), the function refuses to overwrite it. If it exists
+    as a half-populated TBD slot, the matching seat is filled and parent
+    pointers are reconciled.
+    """
+    if closed_series.status != "closed" or closed_series.winner_team_id is None:
+        return None
+
+    slot_info = _compute_next_round_slot(
+        season=season,
+        conference_token=conference_token,
+        round_number=int(closed_series.round),
+        top_seed=closed_series.top_seed,
+        bottom_seed=closed_series.bottom_seed,
+    )
+    if slot_info is None:
+        return None
+
+    next_round = int(slot_info["round"])
+    slot_id = str(slot_info["slot_id"])
+    child_slot = str(slot_info["child_slot"])
+    winner_team_id = int(closed_series.winner_team_id)
+    parent_series_id = closed_series.series_id
+
+    # Look for an existing row by stable slot_id first; if absent, also try to
+    # find a "real" games-derived row that already lists this winner as one
+    # of its teams (e.g. Round 2 actually tipped off and was created by the
+    # game-walk path before this auto-advance ran). In that case the row
+    # already represents the right matchup — we just need to reconcile parent
+    # pointers and skip seat-filling.
+    existing = (
+        db.query(PlayoffSeries)
+        .filter(
+            PlayoffSeries.season == season,
+            PlayoffSeries.series_id == slot_id,
+        )
+        .first()
+    )
+    if existing is None:
+        # Fallback: a games-derived sibling row in the same round whose
+        # parent pointer for child_slot is empty and who already includes
+        # the winner on the matching seat.
+        sibling = (
+            db.query(PlayoffSeries)
+            .filter(
+                PlayoffSeries.season == season,
+                PlayoffSeries.round == next_round,
+            )
+            .all()
+        )
+        for candidate in sibling:
+            top_id = candidate.top_seed_team_id
+            bot_id = candidate.bottom_seed_team_id
+            if child_slot == "TOP" and top_id == winner_team_id:
+                existing = candidate
+                break
+            if child_slot == "BOT" and bot_id == winner_team_id:
+                existing = candidate
+                break
+
+    if existing is None:
+        existing = PlayoffSeries(
+            season=season,
+            round=next_round,
+            series_id=slot_id,
+            top_seed_team_id=winner_team_id if child_slot == "TOP" else None,
+            bottom_seed_team_id=winner_team_id if child_slot == "BOT" else None,
+            top_seed=closed_series.top_seed if child_slot == "TOP" else None,
+            bottom_seed=closed_series.top_seed if child_slot == "BOT" else None,
+            top_wins=0,
+            bottom_wins=0,
+            status="scheduled",
+            parent_top_series_id=parent_series_id if child_slot == "TOP" else None,
+            parent_bottom_series_id=parent_series_id if child_slot == "BOT" else None,
+        )
+        db.add(existing)
+        db.flush()
+        return existing
+
+    # Update path — only fill the matching seat if it's still empty. Always
+    # reconcile parent pointers so the frontend can label the TBD side.
+    if child_slot == "TOP":
+        if existing.top_seed_team_id is None:
+            existing.top_seed_team_id = winner_team_id
+            existing.top_seed = closed_series.top_seed
+        if not existing.parent_top_series_id:
+            existing.parent_top_series_id = parent_series_id
+    else:
+        if existing.bottom_seed_team_id is None:
+            existing.bottom_seed_team_id = winner_team_id
+            existing.bottom_seed = closed_series.top_seed
+        if not existing.parent_bottom_series_id:
+            existing.parent_bottom_series_id = parent_series_id
+
+    db.flush()
+    return existing
+
+
+# ---------------------------------------------------------------------------
 # Public entry point
 # ---------------------------------------------------------------------------
 
@@ -305,6 +535,12 @@ def build_or_refresh_bracket(db: Session, season: str) -> int:
             )
             .first()
         )
+        # Capture whether this row is *transitioning* to closed in this run
+        # (was not closed before, is closed now). We only fire auto-advance
+        # for true transitions to avoid creating phantom slots when the
+        # bracket builder is re-run against an already-closed series.
+        was_closed_before = existing is not None and existing.status == "closed"
+
         if existing is None:
             existing = PlayoffSeries(
                 season=season,
@@ -320,6 +556,7 @@ def build_or_refresh_bracket(db: Session, season: str) -> int:
                 winner_team_id=winner_team_id,
             )
             db.add(existing)
+            db.flush()
         else:
             existing.season = season
             existing.round = round_number
@@ -331,6 +568,44 @@ def build_or_refresh_bracket(db: Session, season: str) -> int:
             existing.bottom_wins = bottom_wins
             existing.status = status
             existing.winner_team_id = winner_team_id
+            db.flush()
+
+        # Sprint 85 — auto-populate the next round's slot whenever this row is
+        # newly closed (or was previously closed but the next round still has
+        # no descendant — the second condition keeps the builder self-healing
+        # if the auto-advance ran against a partial DB before).
+        if status == "closed" and winner_team_id is not None:
+            should_advance = not was_closed_before
+            if not should_advance:
+                # Self-heal: if the closed series's downstream slot is missing
+                # entirely, fire auto-advance even on a re-run. This is cheap
+                # and idempotent — _auto_advance_closed_series refuses to
+                # overwrite real data.
+                slot_info = _compute_next_round_slot(
+                    season=season,
+                    conference_token=conf_token,
+                    round_number=round_number,
+                    top_seed=top_seed_value,
+                    bottom_seed=bottom_seed_value,
+                )
+                if slot_info is not None:
+                    next_row = (
+                        db.query(PlayoffSeries)
+                        .filter(
+                            PlayoffSeries.season == season,
+                            PlayoffSeries.series_id == str(slot_info["slot_id"]),
+                        )
+                        .first()
+                    )
+                    if next_row is None:
+                        should_advance = True
+            if should_advance:
+                _auto_advance_closed_series(
+                    db=db,
+                    closed_series=existing,
+                    season=season,
+                    conference_token=conf_token,
+                )
 
         refreshed += 1
 
