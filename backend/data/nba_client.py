@@ -1957,6 +1957,7 @@ def get_league_hustle_player_stats(
     cached = CacheManager.get(cache_key)
     if cached and isinstance(cached.get("rows"), list):
         return cached["rows"]
+    _block_live_fetch_if_user_mode("get_league_hustle_player_stats", cache_key)
 
     _rate_limit()
     response = leaguehustlestatsplayer.LeagueHustleStatsPlayer(
@@ -1985,6 +1986,7 @@ def get_player_tracking_dashboard(
     cached = CacheManager.get(cache_key)
     if cached and isinstance(cached.get("rows"), list):
         return cached["rows"]
+    _block_live_fetch_if_user_mode("get_player_tracking_dashboard", cache_key)
 
     rows: List[Dict[str, Any]] = []
 
@@ -2076,6 +2078,7 @@ def get_league_team_tracking_dashboard(
     cached = CacheManager.get(cache_key)
     if cached and isinstance(cached.get("rows"), list):
         return cached["rows"]
+    _block_live_fetch_if_user_mode("get_league_team_tracking_dashboard", cache_key)
 
     rows: List[Dict[str, Any]] = []
 
@@ -2162,6 +2165,7 @@ def get_league_team_hustle_stats(
     cached = CacheManager.get(cache_key)
     if cached and isinstance(cached.get("rows"), list):
         return cached["rows"]
+    _block_live_fetch_if_user_mode("get_league_team_hustle_stats", cache_key)
 
     _rate_limit()
     response = leaguehustlestatsteam.LeagueHustleStatsTeam(
