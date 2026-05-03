@@ -107,3 +107,14 @@ def startup():
 @app.get("/api/health")
 def health_check():
     return {"status": "ok"}
+
+
+@app.get("/api/health/cache-stats")
+def cache_stats():
+    """Sprint 88 (C1) — process-local SQLite cache effectiveness snapshot.
+
+    Per gunicorn worker (not aggregated across workers). Public-safe: just
+    counts + row count + db file size, no key contents. Useful for spot-checking
+    cache hit rate during capacity planning + post-deploy validation.
+    """
+    return CacheManager.stats()

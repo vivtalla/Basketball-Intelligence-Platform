@@ -1,5 +1,9 @@
 import type { Metadata } from "next";
 
+// Sprint 88 (D) — ISR. Team detail is daily-synced; cache HTML for 1hr at the
+// Vercel edge, revalidate in background. SWR on the client picks up live data.
+export const revalidate = 3600;
+
 /**
  * Sprint 86 D — server-only layout that owns OG metadata for /teams/[abbr].
  * The page is a "use client" component, so `generateMetadata` lives here.

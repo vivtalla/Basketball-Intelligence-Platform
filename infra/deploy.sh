@@ -30,6 +30,33 @@ if [ "$MIGRATE" = "--migrate" ]; then
     echo "[deploy] Migrations complete."
 fi
 
+# Sprint 88 (E) — auto-sync infra config files into their installed locations.
+# Without this, changes to bip-api.service or Caddyfile in the repo silently
+# don't take effect because the service unit / Caddy config in /etc/* are
+# only seeded once by caddy-install.sh. Sprint 87 surfaced this gap.
+sync_if_different() {
+    local src="$1"
+    local dst="$2"
+    local label="$3"
+    if [ -f "$src" ] && ! cmp -s "$src" "$dst"; then
+        echo "[deploy] Syncing $label: $src → $dst"
+        install -m 0644 "$src" "$dst"
+        return 0
+    fi
+    return 1
+}
+
+NEED_DAEMON_RELOAD=0
+if sync_if_different "$REPO_ROOT/infra/bip-api.service" "/etc/systemd/system/bip-api.service" "bip-api.service"; then
+    NEED_DAEMON_RELOAD=1
+fi
+sync_if_different "$REPO_ROOT/infra/Caddyfile" "/etc/caddy/Caddyfile" "Caddyfile" || true
+
+if [ "$NEED_DAEMON_RELOAD" = "1" ]; then
+    echo "[deploy] systemctl daemon-reload (service unit changed)"
+    systemctl daemon-reload
+fi
+
 echo "[deploy] Validating Caddyfile..."
 caddy validate --config /etc/caddy/Caddyfile --adapter caddyfile
 
