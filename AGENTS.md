@@ -1,6 +1,6 @@
 # Agent Coordination
 
-Last updated: 2026-05-02 by Claude (Sprint 85 closeout — 4-stream parallel sprint shipped; site is live and serving the new surfaces)
+Last updated: 2026-05-02 by Claude (Sprint 86 kickoff — completing all Sprint 85 follow-ons + team-level tracking/hustle + OG image polish under the new Deferral Policy)
 
 > Both agents read this file before touching code at the start of every session.
 > The canonical source of truth is the clean `master` checkout at `/Users/viv/Documents/Basketball Intelligence Platform`.
@@ -15,14 +15,15 @@ Last updated: 2026-05-02 by Claude (Sprint 85 closeout — 4-stream parallel spr
 | Field | Value |
 |-------|-------|
 | Sprint | 86 |
-| Goal | TBD — awaiting Vivek's sprint kickoff |
-| Started | TBD |
-| Target merge | TBD |
-| Sprint shape | TBD |
-| Branch | `master` until Sprint 86 kickoff |
-| Worker policy | No active sprint; set at kickoff |
+| Goal | Complete all Sprint 85 follow-ons + team-level tracking/hustle + OG image polish (per new Deferral Policy: self-contained sprint, no follow-on tail) |
+| Started | 2026-05-02 |
+| Target merge | 2026-05-03 |
+| Sprint shape | 5 parallel streams (B + E first as warm-ups via main session; A/C/D in parallel via subagents; merge order B→E→A→D→C) |
+| Branch | `feature/sprint-86a-bracket-polish`, `feature/sprint-86b-series-detail-sort`, `feature/sprint-86c-team-tracking-hustle`, `feature/sprint-86d-og-image-polish`, `feature/sprint-86e-cache-deferral-audit` |
+| Worker policy | Subagents for A/C/D; main session does B/E directly + integrates + QA + deploys |
+| Plan file | `~/.claude/plans/zazzy-swimming-pebble.md` |
 
-**Production status:** CourtVue Labs is publicly live at `https://courtvue.app` (Vercel) + `https://api.courtvue.app` (Hetzner CPX11, `ubuntu@5.78.114.15`). Sprint 85 shipped 4 streams under the new 8-phase workflow including the platform's first production migration via `infra/deploy.sh --migrate` (after fixing two latent infra bugs the new workflow surfaced). 490 backend tests, 0 lint errors.
+**Production status:** CourtVue Labs is publicly live at `https://courtvue.app` (Vercel) + `https://api.courtvue.app` (Hetzner CPX11, `ubuntu@5.78.114.15`). Sprint 86 is the second sprint exercising the new 8-phase workflow and the first under the **Deferral Policy** — the only legitimate Sprint 86 deferral is Award calibration cohort expansion (blocked on historical NBA voting data acquisition). 490 backend tests, 0 lint errors going in.
 
 ---
 
@@ -205,12 +206,12 @@ If repo state, sprint numbering, or shipped features appear to disagree across l
 ## Current Assignments
 
 ### Claude
-- Branch: TBD at kickoff
-- Scope: No active sprint assignment
-- Status: Not started
+- Branch: all 5 streams (`feature/sprint-86{a,b,c,d,e}-*`)
+- Scope: All 5 Sprint 86 streams (see plan file)
+- Status: Kickoff — B + E first via main session, then A/C/D in parallel via subagents
 
 ### Codex
-- Branch: TBD at kickoff
+- Branch: TBD
 - Scope: No active sprint assignment
 - Status: Not started
 
@@ -225,7 +226,12 @@ Claim a shared file here before editing. If a file is already claimed, read that
 
 | File | Claimed by | Purpose |
 |------|------------|---------|
-| — | — | No active claims; claim here at the next sprint kickoff before editing shared files |
+| `frontend/src/lib/types.ts` | Streams 86a + 86c (joint, append-only) | A appends bracket parent label fields; C appends team tracking/hustle types. No conflicting hunks expected. |
+| `frontend/src/app/teams/[abbr]/page.tsx` | Streams 86c + 86d (joint) | C mounts tracking/hustle panels in analytics tab; D adds `generateMetadata` for per-team OG card. Different sections of the file. |
+| `backend/models/playoffs.py` | Stream 86a only | A extends `PlayoffSeriesResponse` with parent label fields. No other stream touches it. |
+| `backend/routers/playoffs.py` | Stream 86a only | A extends `_series_to_response`. |
+| `backend/routers/teams.py` | Stream 86c only | C adds tracking + hustle routes. |
+| `frontend/src/lib/api.ts` | Stream 86c only | C appends team tracking + hustle API calls. |
 
 ---
 
@@ -248,17 +254,25 @@ Specs or review notes written by one stream for another. Check this before start
 
 ## Merge Order
 
-TBD at kickoff. Next sprint branch/worktree is created at kickoff and merges back to `master` at closeout.
+Sprint 86: **B → E → A → D → C**. Rationale:
+- B + E are tiny (1 hr each) — land first to clear the slot.
+- A (bracket polish) lands before D (OG image) so bracket label richness ships before per-series OG cards might want bracket-context labels.
+- D before C because D is frontend-only (lower regression risk on the type system).
+- C lands last because it has the most files + a migration that needs `--migrate` deploy.
+
+Backend deploys: standard `infra/deploy.sh` after A (then run backfill script manually); `infra/deploy.sh --migrate` after C (Stream C migration `0022_sprint86_team_tracking_hustle.py`).
 
 ---
 
 ## Sprint Work Allocation
 
-Sprint 86 allocation — TBD at kickoff.
-
-| Area | Files | Owner |
-|------|-------|-------|
-| — | — | — |
+| Stream | Goal | Branch | Owner | Files |
+|--------|------|--------|-------|-------|
+| 86b | Per-series detail sortable columns | `feature/sprint-86b-series-detail-sort` | Claude (main) | 1-2 frontend |
+| 86e | Cache rule + deferral audit | `feature/sprint-86e-cache-deferral-audit` | Claude (main) | 2 docs |
+| 86a | Bracket polish (label richness + backfill) | `feature/sprint-86a-bracket-polish` | Claude (worker) | 8 backend + frontend |
+| 86d | OG image polish (fonts + composition + per-page) | `feature/sprint-86d-og-image-polish` | Claude (worker) | 5-6 frontend |
+| 86c | Team-level tracking + hustle (full new feature) | `feature/sprint-86c-team-tracking-hustle` | Claude (worker) | 13 backend + frontend (incl. migration) |
 
 ---
 
