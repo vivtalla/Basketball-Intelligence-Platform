@@ -149,8 +149,64 @@ def _games_for_series(
     return games
 
 
+def _resolve_parent_label_fields(
+    db: Session, parent_series_id: Optional[str]
+):
+    """Sprint 86 — return ``(seed, [top_abbr, bottom_abbr])`` for a parent
+    series, or ``(None, None)`` when the pointer is null or the row is missing.
+
+    ``seed`` is the parent's lower-numbered seed (e.g. 1 for a 1v8 series),
+    which the frontend uses together with the abbreviation pair to render
+    richer TBD labels like ``"winner of 1v8 (OKC/PHX)"``.
+    """
+    if not parent_series_id:
+        return None, None
+
+    from db.models import PlayoffSeries  # local import — avoids router cycle
+
+    parent = (
+        db.query(PlayoffSeries)
+        .filter(PlayoffSeries.series_id == parent_series_id)
+        .first()
+    )
+    if parent is None:
+        return None, None
+
+    top_seed = parent.top_seed
+    bottom_seed = parent.bottom_seed
+    if top_seed is not None and bottom_seed is not None:
+        # Convention: render as "{lower}v{higher}" — store the lower seed only;
+        # the frontend pairs it with the parent series's higher seed.
+        seed_pair_top = min(int(top_seed), int(bottom_seed))
+    elif top_seed is not None:
+        seed_pair_top = int(top_seed)
+    elif bottom_seed is not None:
+        seed_pair_top = int(bottom_seed)
+    else:
+        seed_pair_top = None
+
+    top_abbr = None
+    bottom_abbr = None
+    if parent.top_seed_team_id is not None:
+        top_team = (
+            db.query(Team).filter(Team.id == parent.top_seed_team_id).first()
+        )
+        top_abbr = top_team.abbreviation if top_team is not None else None
+    if parent.bottom_seed_team_id is not None:
+        bottom_team = (
+            db.query(Team).filter(Team.id == parent.bottom_seed_team_id).first()
+        )
+        bottom_abbr = bottom_team.abbreviation if bottom_team is not None else None
+
+    abbrs = [top_abbr, bottom_abbr] if (top_abbr or bottom_abbr) else None
+    return seed_pair_top, abbrs
+
+
 def _series_to_response(
-    series, team_lookup: Dict[int, Team], games: List[PlayoffSeriesGame]
+    series,
+    team_lookup: Dict[int, Team],
+    games: List[PlayoffSeriesGame],
+    db: Optional[Session] = None,
 ) -> PlayoffSeriesResponse:
     top = (
         team_lookup.get(series.top_seed_team_id)
@@ -162,6 +218,27 @@ def _series_to_response(
         if series.bottom_seed_team_id is not None
         else None
     )
+
+    parent_top_series_id = getattr(series, "parent_top_series_id", None)
+    parent_bottom_series_id = getattr(series, "parent_bottom_series_id", None)
+
+    # Sprint 86 — resolve the parent series's seed + team abbreviations so the
+    # frontend can label TBD slots as "winner of 1v8 (OKC/PHX)" etc.
+    parent_top_seed = None
+    parent_top_team_abbrs = None
+    parent_bottom_seed = None
+    parent_bottom_team_abbrs = None
+    if db is not None:
+        if parent_top_series_id:
+            parent_top_seed, parent_top_team_abbrs = _resolve_parent_label_fields(
+                db, parent_top_series_id
+            )
+        if parent_bottom_series_id:
+            (
+                parent_bottom_seed,
+                parent_bottom_team_abbrs,
+            ) = _resolve_parent_label_fields(db, parent_bottom_series_id)
+
     return PlayoffSeriesResponse(
         season=series.season,
         round=series.round,
@@ -178,8 +255,13 @@ def _series_to_response(
         winner_team_id=series.winner_team_id,
         games=games,
         # Sprint 85 — bracket auto-advancement parent pointers.
-        parent_top_series_id=getattr(series, "parent_top_series_id", None),
-        parent_bottom_series_id=getattr(series, "parent_bottom_series_id", None),
+        parent_top_series_id=parent_top_series_id,
+        parent_bottom_series_id=parent_bottom_series_id,
+        # Sprint 86 — richer TBD labels: parent seed + abbrs.
+        parent_top_seed=parent_top_seed,
+        parent_bottom_seed=parent_bottom_seed,
+        parent_top_team_abbrs=parent_top_team_abbrs,
+        parent_bottom_team_abbrs=parent_bottom_team_abbrs,
     )
 
 
@@ -217,7 +299,7 @@ def get_bracket(
 
     for s in series_rows:
         games = _games_for_series(db, s.series_id, team_lookup)
-        response = _series_to_response(s, team_lookup, games)
+        response = _series_to_response(s, team_lookup, games, db=db)
 
         if s.round == 4:
             finals = response
@@ -267,7 +349,7 @@ def get_series(
     team_lookup = _team_lookup(db, team_ids)
 
     games = _games_for_series(db, series_id, team_lookup)
-    return _series_to_response(series, team_lookup, games)
+    return _series_to_response(series, team_lookup, games, db=db)
 
 
 @router.get("/series/{series_id}/intelligence", response_model=PlayoffSeriesIntelligenceResponse)

@@ -50,6 +50,15 @@ class PlayoffSeriesResponse(BaseModel):
     # pre-Sprint-85 rows that haven't been re-walked by the bracket builder.
     parent_top_series_id: Optional[str] = None
     parent_bottom_series_id: Optional[str] = None
+    # Sprint 86 — Parent series seed + abbreviation context for richer TBD
+    # labels in the frontend (e.g. "winner of 1v8 (OKC/PHX)" instead of
+    # "winner of R1"). Resolved by the router from the parent PlayoffSeries
+    # row. Null when the corresponding parent_*_series_id is null OR when the
+    # parent row is not found.
+    parent_top_seed: Optional[int] = None
+    parent_bottom_seed: Optional[int] = None
+    parent_top_team_abbrs: Optional[List[str]] = None
+    parent_bottom_team_abbrs: Optional[List[str]] = None
 
 
 class PlayoffBracketResponse(BaseModel):
