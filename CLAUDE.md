@@ -313,6 +313,10 @@ Workflow:
 
 CourtVue Labs uses a hybrid sprint model: major feature sprints typically run as two parallel teams, while small or tightly coupled sprints use one sequential `Architect → Engineer → Reviewer → Optimizer` stream. Branch/worktree cleanup is part of the default operating model.
 
+**Sprints are self-contained.** Every sprint ships its features in their final state — no "phase 1" with a tail of follow-on polish in the next sprint. If a feature has obvious next-step work (sortable columns on a new table, richer labels on a new component, backfill scripts for a new migration), that work belongs in the same sprint. Lengthen the sprint if scope grows; never ship the 60% solution and defer the rest.
+
+**Deferral is the exception, not the default.** Acceptable reasons: blocked on data we don't have, blocked on infrastructure we don't have, blocked on a user decision, or genuinely a different domain (sister features, not follow-on polish). Anything else is incomplete work — finish it before closeout. See `AGENTS.md` → **Deferral Policy** for the full bar.
+
 ---
 
 ## Recent Sprints

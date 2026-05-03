@@ -35,6 +35,7 @@ Every sprint follows these 8 phases. The QA, Pre-merge Verification, Deploy, and
 - Files to touch identified up-front; **Shared File Lock Table** updated for shared files
 - Verification approach defined per stream
 - Sprint shape (single sequential, two-team parallel, etc.) chosen and documented in the Sprint Status table above
+- **Scope for completeness, not for time** (see **Deferral Policy** below). Each stream's "Done" criteria captures the full feature in its final state — sortable columns included if the table needs sorting, backfill scripts included if a migration creates data drift, frontend label richness included if it's part of the user-facing experience. Plans should NOT have a "deferred polish" section unless one of the approved deferral reasons applies. If the work is bigger than expected, lengthen the sprint — don't ship the 60% solution.
 
 ### Phase 2 — Implement
 - Each stream commits to its sprint branch in its own worktree (never directly on `master`)
@@ -79,6 +80,27 @@ Then load `https://courtvue.app` in a real browser and walk through the changed 
 
 ### Phase 8 — Closeout
 Use the **Sprint Closeout Checklist** below.
+
+---
+
+## Deferral Policy
+
+**Default: don't defer. Sprints ship features in their final state.** If a feature has obvious follow-on polish ("add sortable columns later," "richer labels later," "backfill existing rows later"), that work belongs in the same sprint that ships the feature, not the next one.
+
+The trap to avoid: treating every sprint as a 60%-complete MVP with a tail of follow-ons. That makes the BACKLOG grow faster than it shrinks and leaves users with half-baked features stacked on top of each other. Better to ship one fully-finished thing per sprint than three half-finished things.
+
+**Sprints are scoped, not capped.** If a complete feature needs 12 hours of work, the sprint is 12 hours. Don't ship 6 hours and defer 6 — either tighten the scope so the 6 hours produces something genuinely complete, or commit to the full 12. Length is fine; half-baked is not.
+
+**Deferral is acceptable only when:**
+
+1. **Blocked on data we don't have yet** — e.g. waiting on the next nightly NBA sync, waiting on a season to start, waiting on Spotrac to populate contract rows
+2. **Blocked on infrastructure we don't have yet** — e.g. requires a new managed Postgres instance, a new third-party service signup, a Cloudflare paid-tier feature
+3. **Blocked on a user decision we haven't made** — e.g. design direction, methodology choice, naming
+4. **Genuinely a different domain** — e.g. shipping the player-tracking dashboards doesn't obligate the same sprint to ship team-tracking; those are sister features that warrant their own sprint shape, not "follow-on polish"
+
+If a deferral doesn't fit one of those reasons, it's not a deferral — it's incomplete work. Lengthen the sprint instead.
+
+**When you do defer, document why in the closeout.** The Sprint Closeout Checklist now requires a "Why deferred" line per item with one of the four approved reasons. If you can't write it cleanly, the work isn't actually blocked — it's just unfinished, and you should finish it before closeout.
 
 ---
 
@@ -304,16 +326,17 @@ Sprint 86 allocation — TBD at kickoff.
 
 1. Stop local dev/test servers started during the sprint and confirm relevant ports/resources are free (`lsof -iTCP:8000`, `lsof -iTCP:3000`, warehouse workers, import jobs, or other long-running processes)
 2. Run the full **Pre-merge Verification Checklist** above — every box checked before proceeding
-3. Create or update `specs/sprint-{NN}-closeout.md` with shipped work, deferred work, workflow lessons, and next-sprint seeds
-4. Refresh `specs/BACKLOG.md` so shipped items are removed or rewritten as follow-ons
-5. Reset `AGENTS.md` for the next sprint kickoff state
-6. Update `CLAUDE.md` "Recent Sprints" section (keep last 2 sprints inline; move the oldest out to `specs/sprint-history.md`)
-7. Append the completed sprint summary to `specs/sprint-history.md`
-8. Merge the sprint branch back into `master` locally and push `master` to `origin`
-9. **Deploy backend if any backend code changed** (Sprint 84+): ssh into the VM, pull master, run `sudo bash infra/deploy.sh` (or `--migrate` if migrations changed)
-10. **Verify frontend deploy** (Sprint 84+): wait ~2 min, check Vercel dashboard for "Ready" status on the new commit
-11. **Production smoke test** (Sprint 84+): `curl -sf https://api.courtvue.app/api/health`, load `https://courtvue.app` in a browser, walk through one changed surface end-to-end
-12. Confirm `master` contains the sprint closeout commit(s) AND production reflects the new code before declaring the sprint closed
+3. **Deferral audit.** Review every "deferred" / "next sprint" / "follow-on" / "future polish" item the sprint surfaced. For each, ask: does it fit one of the 4 approved deferral reasons in the **Deferral Policy** above? If yes, list it in the closeout's "Deferred" section with a one-line "Why deferred:" justification. If no, **do not close out yet** — extend the sprint, finish the work, then come back here.
+4. Create or update `specs/sprint-{NN}-closeout.md` with shipped work, deferred work (each with `Why deferred:`), workflow lessons, and next-sprint seeds
+5. Refresh `specs/BACKLOG.md` so shipped items are removed or rewritten as follow-ons
+6. Reset `AGENTS.md` for the next sprint kickoff state
+7. Update `CLAUDE.md` "Recent Sprints" section (keep last 2 sprints inline; move the oldest out to `specs/sprint-history.md`)
+8. Append the completed sprint summary to `specs/sprint-history.md`
+9. Merge the sprint branch back into `master` locally and push `master` to `origin`
+10. **Deploy backend if any backend code changed** (Sprint 84+): ssh into the VM, pull master, run `sudo bash infra/deploy.sh` (or `--migrate` if migrations changed)
+11. **Verify frontend deploy** (Sprint 84+): wait ~2 min, check Vercel dashboard for "Ready" status on the new commit
+12. **Production smoke test** (Sprint 84+): `curl -sf https://api.courtvue.app/api/health`, load `https://courtvue.app` in a browser, walk through one changed surface end-to-end
+13. Confirm `master` contains the sprint closeout commit(s) AND production reflects the new code before declaring the sprint closed
 
 ---
 
