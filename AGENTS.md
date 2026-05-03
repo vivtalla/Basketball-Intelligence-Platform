@@ -1,6 +1,6 @@
 # Agent Coordination
 
-Last updated: 2026-05-03 by Claude (Sprint 87 closeout — security maintenance shipped end-to-end; only deferral is R2 lifecycle Cloudflare UI step)
+Last updated: 2026-05-03 by Claude (Sprint 88 kickoff — data foundation audit + full implementation: completeness syncs + DB indexes + N+1 fixes + cache observability + frontend ISR)
 
 > Both agents read this file before touching code at the start of every session.
 > The canonical source of truth is the clean `master` checkout at `/Users/viv/Documents/Basketball Intelligence Platform`.
@@ -15,14 +15,15 @@ Last updated: 2026-05-03 by Claude (Sprint 87 closeout — security maintenance 
 | Field | Value |
 |-------|-------|
 | Sprint | 88 |
-| Goal | TBD — awaiting Vivek's sprint kickoff |
-| Started | TBD |
-| Target merge | TBD |
-| Sprint shape | TBD |
-| Branch | `master` until Sprint 88 kickoff |
-| Worker policy | No active sprint; set at kickoff |
+| Goal | Data foundation audit + full implementation: completeness syncs (player/team tracking + hustle in regular season — closes 4 silent UI gaps), DB indexes (8 missing on hot tables), N+1 fixes, cache observability, frontend ISR for stable pages |
+| Started | 2026-05-03 |
+| Target merge | 2026-05-04 |
+| Sprint shape | Single sequential stream; per-stream commits A → B1 → B2 → B3 → B4 → C1 → C2 → D → E |
+| Branch | `feature/sprint-88-data-foundation` |
+| Worker policy | None — main session does all stream work directly |
+| Plan file | `~/.claude/plans/zazzy-swimming-pebble.md` |
 
-**Production status:** CourtVue Labs is publicly live at `https://courtvue.app` (Vercel) + `https://api.courtvue.app` (Hetzner CPX11, `ubuntu@5.78.114.15`). Sprint 87 shipped the security maintenance pass — Next.js DoS patched, FastAPI/Starlette upgraded, CORS hardened, gunicorn file logging + logrotate. 500 backend tests, 0 lint errors, 0 high/critical npm vulns. **Repo is now public on GitHub** (Vivek's call mid-Sprint 87 to unblock VM deploys without cred setup). Only legitimate deferral remaining: R2 lifecycle rule (Cloudflare UI step).
+**Production status:** CourtVue Labs is publicly live at `https://courtvue.app` (Vercel) + `https://api.courtvue.app` (Hetzner CPX11, `ubuntu@5.78.114.15`). Audit-driven sprint based on 3 parallel architecture explores. **Critical finding:** player/team tracking + hustle tables only synced during playoffs — empty for 6 months/year. Sprint 88 closes the gap. Only legitimate deferral: Cloudflare `/api/health` bypass-cache rule (UI step).
 
 ---
 
@@ -206,9 +207,9 @@ If repo state, sprint numbering, or shipped features appear to disagree across l
 ## Current Assignments
 
 ### Claude
-- Branch: TBD at kickoff
-- Scope: No active sprint assignment
-- Status: Not started
+- Branch: `feature/sprint-88-data-foundation`
+- Scope: All Sprint 88 streams (sync ops + DB indexes + N+1 + cache observability + frontend ISR + deploy.sh fix)
+- Status: Kickoff — sequential A → B → C → D → E
 
 ### Codex
 - Branch: TBD at kickoff
