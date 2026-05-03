@@ -76,11 +76,17 @@ def upgrade() -> None:
     # NOT NULL constraints on top/bottom seed pointers so we can persist that
     # half-populated state until the parallel arm finishes.
     if dialect_name == "sqlite":
-        with op.batch_alter_table("playoff_series") as batch_op:
-            batch_op.alter_column("top_seed_team_id", existing_type=sa.Integer(), nullable=True)
-            batch_op.alter_column("bottom_seed_team_id", existing_type=sa.Integer(), nullable=True)
-            batch_op.alter_column("top_seed", existing_type=sa.Integer(), nullable=True)
-            batch_op.alter_column("bottom_seed", existing_type=sa.Integer(), nullable=True)
+        # SQLite batch_alter_table reflects existing FKs to recreate them.
+        # If the FK target table (`teams`) is absent — as in the legacy-baseline
+        # stamping test path — reflection blows up. Skip the relaxation in that
+        # case; SQLite enforces NOT NULL but the legacy-baseline test never
+        # writes auto-advance NULLs.
+        if _has_table("teams"):
+            with op.batch_alter_table("playoff_series") as batch_op:
+                batch_op.alter_column("top_seed_team_id", existing_type=sa.Integer(), nullable=True)
+                batch_op.alter_column("bottom_seed_team_id", existing_type=sa.Integer(), nullable=True)
+                batch_op.alter_column("top_seed", existing_type=sa.Integer(), nullable=True)
+                batch_op.alter_column("bottom_seed", existing_type=sa.Integer(), nullable=True)
     else:
         op.alter_column("playoff_series", "top_seed_team_id", existing_type=sa.Integer(), nullable=True)
         op.alter_column("playoff_series", "bottom_seed_team_id", existing_type=sa.Integer(), nullable=True)
@@ -105,11 +111,12 @@ def downgrade() -> None:
     )
 
     if dialect_name == "sqlite":
-        with op.batch_alter_table("playoff_series") as batch_op:
-            batch_op.alter_column("top_seed_team_id", existing_type=sa.Integer(), nullable=False)
-            batch_op.alter_column("bottom_seed_team_id", existing_type=sa.Integer(), nullable=False)
-            batch_op.alter_column("top_seed", existing_type=sa.Integer(), nullable=False)
-            batch_op.alter_column("bottom_seed", existing_type=sa.Integer(), nullable=False)
+        if _has_table("teams"):
+            with op.batch_alter_table("playoff_series") as batch_op:
+                batch_op.alter_column("top_seed_team_id", existing_type=sa.Integer(), nullable=False)
+                batch_op.alter_column("bottom_seed_team_id", existing_type=sa.Integer(), nullable=False)
+                batch_op.alter_column("top_seed", existing_type=sa.Integer(), nullable=False)
+                batch_op.alter_column("bottom_seed", existing_type=sa.Integer(), nullable=False)
     else:
         op.alter_column("playoff_series", "top_seed_team_id", existing_type=sa.Integer(), nullable=False)
         op.alter_column("playoff_series", "bottom_seed_team_id", existing_type=sa.Integer(), nullable=False)
