@@ -22,7 +22,35 @@ function tintFor(abbr: string | null | undefined): string {
   return TEAM_TINT[abbr.toUpperCase()] ?? "var(--accent)";
 }
 
+// Sprint 85 — when an auto-advance slot lists `parent_top_series_id` /
+// `parent_bottom_series_id` like "2025-26-W-R1-OKC-MIN", surface a short
+// "1v8 winner" / "2v7 winner" label by reading the seed digits embedded in
+// the series_id. Falls back to "winner of {series_id}" when parsing fails.
+function parentLabel(parentSeriesId: string | null | undefined): string {
+  if (!parentSeriesId) return "TBD";
+  // series_id format: "{season}-{conf}-R{round}-{topAbbr}-{botAbbr}".
+  // We cannot recover seeds from the abbreviations directly, so derive a
+  // round-N label from the R{n} token, e.g. "R1 winner" / "R2 winner".
+  const roundMatch = parentSeriesId.match(/-R(\d+)-/);
+  if (roundMatch) {
+    const round = roundMatch[1];
+    return `winner of R${round}`;
+  }
+  return `winner of ${parentSeriesId}`;
+}
+
 function statusLabel(series: PlayoffSeriesResponse): string {
+  const topMissing = series.top_seed_team_id == null;
+  const bottomMissing = series.bottom_seed_team_id == null;
+  if (topMissing || bottomMissing) {
+    if (topMissing && bottomMissing) {
+      return "Awaiting both arms";
+    }
+    const waitingFor = topMissing
+      ? series.parent_top_series_id
+      : series.parent_bottom_series_id;
+    return `Awaiting ${parentLabel(waitingFor)}`;
+  }
   if (series.status === "closed") {
     const winningWins = Math.max(series.top_wins, series.bottom_wins);
     const losingWins = Math.min(series.top_wins, series.bottom_wins);
@@ -103,14 +131,27 @@ interface SeriesCardProps {
 }
 
 export default function SeriesCard({ series }: SeriesCardProps) {
-  const topAbbr = series.top_seed_team_abbr ?? "TBD";
-  const bottomAbbr = series.bottom_seed_team_abbr ?? "TBD";
-  const topColor = tintFor(series.top_seed_team_abbr);
-  const bottomColor = tintFor(series.bottom_seed_team_abbr);
+  // Sprint 85 — auto-advance slots can have one or both seats waiting on a
+  // parent series. Treat null team_id as the canonical "TBD" signal so the
+  // row renders the muted placeholder regardless of what the abbr field says.
+  const topMissing = series.top_seed_team_id == null;
+  const bottomMissing = series.bottom_seed_team_id == null;
+  const topAbbr = topMissing ? "TBD" : series.top_seed_team_abbr ?? "TBD";
+  const bottomAbbr = bottomMissing ? "TBD" : series.bottom_seed_team_abbr ?? "TBD";
+  const topColor = topMissing
+    ? "var(--border)"
+    : tintFor(series.top_seed_team_abbr);
+  const bottomColor = bottomMissing
+    ? "var(--border)"
+    : tintFor(series.bottom_seed_team_abbr);
   const topIsWinner =
     series.status === "closed" && series.top_wins > series.bottom_wins;
   const bottomIsWinner =
     series.status === "closed" && series.bottom_wins > series.top_wins;
+  const topParentLabel = topMissing ? parentLabel(series.parent_top_series_id) : null;
+  const bottomParentLabel = bottomMissing
+    ? parentLabel(series.parent_bottom_series_id)
+    : null;
 
   return (
     <Link
@@ -127,26 +168,35 @@ export default function SeriesCard({ series }: SeriesCardProps) {
                 className="font-mono text-[10px] tracking-wider text-[var(--muted)] w-6 shrink-0"
                 style={{ letterSpacing: "0.06em" }}
               >
-                #{series.top_seed}
+                {series.top_seed != null ? `#${series.top_seed}` : "—"}
               </span>
               <span
                 className="inline-block w-2 h-2 rounded-full shrink-0"
                 style={{ background: topColor }}
                 aria-hidden
               />
-              <span
-                className="text-sm font-semibold truncate text-[var(--foreground)]"
-                style={{ fontFamily: "var(--font-display)" }}
-              >
-                {topAbbr}
-              </span>
+              {topMissing ? (
+                <span
+                  className="bip-empty inline-flex items-center px-2 py-0.5 rounded-md border border-dashed border-[var(--border)] text-[11px] uppercase tracking-wider text-[var(--muted)]"
+                  title={`Awaiting ${topParentLabel}`}
+                >
+                  TBD · {topParentLabel}
+                </span>
+              ) : (
+                <span
+                  className="text-sm font-semibold truncate text-[var(--foreground)]"
+                  style={{ fontFamily: "var(--font-display)" }}
+                >
+                  {topAbbr}
+                </span>
+              )}
             </div>
             <span
               className={`font-mono text-sm tabular-nums ${
                 topIsWinner ? "text-[var(--accent)] font-bold" : "text-[var(--foreground)]"
               }`}
             >
-              {series.top_wins}
+              {topMissing ? "—" : series.top_wins}
             </span>
           </div>
 
@@ -157,26 +207,35 @@ export default function SeriesCard({ series }: SeriesCardProps) {
                 className="font-mono text-[10px] tracking-wider text-[var(--muted)] w-6 shrink-0"
                 style={{ letterSpacing: "0.06em" }}
               >
-                #{series.bottom_seed}
+                {series.bottom_seed != null ? `#${series.bottom_seed}` : "—"}
               </span>
               <span
                 className="inline-block w-2 h-2 rounded-full shrink-0"
                 style={{ background: bottomColor }}
                 aria-hidden
               />
-              <span
-                className="text-sm font-semibold truncate text-[var(--foreground)]"
-                style={{ fontFamily: "var(--font-display)" }}
-              >
-                {bottomAbbr}
-              </span>
+              {bottomMissing ? (
+                <span
+                  className="bip-empty inline-flex items-center px-2 py-0.5 rounded-md border border-dashed border-[var(--border)] text-[11px] uppercase tracking-wider text-[var(--muted)]"
+                  title={`Awaiting ${bottomParentLabel}`}
+                >
+                  TBD · {bottomParentLabel}
+                </span>
+              ) : (
+                <span
+                  className="text-sm font-semibold truncate text-[var(--foreground)]"
+                  style={{ fontFamily: "var(--font-display)" }}
+                >
+                  {bottomAbbr}
+                </span>
+              )}
             </div>
             <span
               className={`font-mono text-sm tabular-nums ${
                 bottomIsWinner ? "text-[var(--accent)] font-bold" : "text-[var(--foreground)]"
               }`}
             >
-              {series.bottom_wins}
+              {bottomMissing ? "—" : series.bottom_wins}
             </span>
           </div>
 

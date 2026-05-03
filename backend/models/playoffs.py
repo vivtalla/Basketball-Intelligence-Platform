@@ -37,13 +37,19 @@ class PlayoffSeriesResponse(BaseModel):
     bottom_seed_team_id: Optional[int] = None
     top_seed_team_abbr: Optional[str] = None
     bottom_seed_team_abbr: Optional[str] = None
-    top_seed: int
-    bottom_seed: int
-    top_wins: int
-    bottom_wins: int
+    top_seed: Optional[int] = None
+    bottom_seed: Optional[int] = None
+    top_wins: int = 0
+    bottom_wins: int = 0
     status: PlayoffSeriesStatus
     winner_team_id: Optional[int] = None
     games: List[PlayoffSeriesGame] = []
+    # Sprint 85 — Bracket auto-advancement. When this row is a Round-(N+1)
+    # slot waiting on its parents, these point to the upstream series whose
+    # winner fills the top/bottom seat. Null for Round 1 series and for any
+    # pre-Sprint-85 rows that haven't been re-walked by the bracket builder.
+    parent_top_series_id: Optional[str] = None
+    parent_bottom_series_id: Optional[str] = None
 
 
 class PlayoffBracketResponse(BaseModel):

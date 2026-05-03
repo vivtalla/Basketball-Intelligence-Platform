@@ -576,3 +576,266 @@ def test_series_intelligence_falls_back_to_regular_season_baseline():
     ]
     assert any("OKC" in w for w in baseline_warnings)
     assert any("HOU" in w for w in baseline_warnings)
+
+
+# ---------------------------------------------------------------------------
+# Sprint 85 — Bracket auto-advancement
+# ---------------------------------------------------------------------------
+
+
+def _seed_west_first_round_with_games(session, season="2024-25"):
+    """Seed the four West Round-1 series with enough games for the 1v8 (OKC v
+    HOU) and 4v5 (LAC v GSW) matchups to fully close 4-0, while 2v7/3v6 stay
+    untouched. Used by the auto-advance tests below.
+    """
+    teams = WEST_TEAMS
+    for tid, abbr, name in teams:
+        session.add(Team(id=tid, abbreviation=abbr, name=name))
+    session.commit()
+
+    # Standard 1-vs-8 / 4-vs-5 / 3-vs-6 / 2-vs-7 first-round pairings.
+    okc = WEST_TEAMS[0]   # 1
+    den = WEST_TEAMS[1]   # 2
+    minn = WEST_TEAMS[2]  # 3
+    lac = WEST_TEAMS[3]   # 4
+    gsw = WEST_TEAMS[4]   # 5
+    dal = WEST_TEAMS[5]   # 6
+    mem = WEST_TEAMS[6]   # 7
+    hou = WEST_TEAMS[7]   # 8
+
+    # Build playoff games: OKC sweeps HOU 4-0, LAC sweeps GSW 4-0. The other
+    # two series (DEN-MEM, MIN-DAL) get one game each so they exist but stay
+    # active. build_or_refresh_bracket walks games into series rows.
+    game_id_counter = [1]
+
+    def _emit(home_id, away_id, home_score, away_score, gdate):
+        gid = "00425{0:05d}".format(game_id_counter[0])
+        game_id_counter[0] += 1
+        session.add(
+            GameLog(
+                game_id=gid,
+                season=season,
+                game_date=gdate,
+                home_team_id=home_id,
+                away_team_id=away_id,
+                home_score=home_score,
+                away_score=away_score,
+                season_type="Playoffs",
+            )
+        )
+
+    # OKC (1) sweeps HOU (8) — 4 OKC wins.
+    _emit(okc[0], hou[0], 120, 100, date(2026, 4, 18))
+    _emit(okc[0], hou[0], 115, 102, date(2026, 4, 21))
+    _emit(hou[0], okc[0], 99, 110, date(2026, 4, 24))
+    _emit(hou[0], okc[0], 95, 108, date(2026, 4, 27))
+
+    # LAC (4) sweeps GSW (5) — 4 LAC wins.
+    _emit(lac[0], gsw[0], 116, 98, date(2026, 4, 19))
+    _emit(lac[0], gsw[0], 110, 105, date(2026, 4, 22))
+    _emit(gsw[0], lac[0], 90, 109, date(2026, 4, 25))
+    _emit(gsw[0], lac[0], 95, 112, date(2026, 4, 28))
+
+    # DEN (2) v MEM (7) — one game so the series exists but stays active.
+    _emit(den[0], mem[0], 105, 100, date(2026, 4, 19))
+
+    # MIN (3) v DAL (6) — one game so the series exists but stays active.
+    _emit(minn[0], dal[0], 102, 96, date(2026, 4, 20))
+
+    # Seed regular-season W% rows so _seed_lookup can rank teams 1..8 cleanly.
+    # Higher w_pct => lower (better) seed.
+    rs_rows = [
+        (okc[0], 0.80),   # rank 1
+        (den[0], 0.74),   # rank 2
+        (minn[0], 0.70),  # rank 3
+        (lac[0], 0.65),   # rank 4
+        (gsw[0], 0.60),   # rank 5
+        (dal[0], 0.55),   # rank 6
+        (mem[0], 0.50),   # rank 7
+        (hou[0], 0.45),   # rank 8
+    ]
+    for tid, wpct in rs_rows:
+        session.add(
+            TeamSeasonStat(
+                team_id=tid,
+                season=season,
+                is_playoff=False,
+                gp=82,
+                w_pct=wpct,
+            )
+        )
+    session.commit()
+
+
+def test_round1_close_creates_round2_slot_with_tbd_opponent():
+    """When a Round-1 series closes 4-0, build_or_refresh_bracket should stand
+    up a Round-2 row with the winner pre-populated and the other side null
+    (a TBD slot waiting on the parallel arm)."""
+    from db.models import PlayoffSeries
+    from services.playoff_bracket_service import build_or_refresh_bracket
+
+    SessionLocal = _make_session_factory()
+    session = SessionLocal()
+    try:
+        season = "2024-25"
+        _seed_west_first_round_with_games(session, season=season)
+        # Drop the LAC sweep so only OKC closes — that way the R2 slot
+        # has exactly one parent populated.
+        session.query(GameLog).filter(
+            GameLog.home_team_id == 1610612746
+        ).delete(synchronize_session=False)
+        session.query(GameLog).filter(
+            GameLog.away_team_id == 1610612746
+        ).delete(synchronize_session=False)
+        session.commit()
+
+        build_or_refresh_bracket(session, season)
+
+        r2_rows = (
+            session.query(PlayoffSeries)
+            .filter(PlayoffSeries.season == season, PlayoffSeries.round == 2)
+            .all()
+        )
+        assert len(r2_rows) == 1, f"expected one R2 slot, got {len(r2_rows)}"
+        slot = r2_rows[0]
+        # OKC is the 1 seed and won 1v8 — its R2 arm is "TOP", and within that
+        # arm the 1v8 winner takes the top_seed seat (vs the 4v5 winner).
+        assert slot.top_seed_team_id == 1610612760, "OKC should fill the top seat"
+        assert slot.bottom_seed_team_id is None, "bottom seat should remain TBD"
+        assert slot.parent_top_series_id is not None
+        assert "OKC" in slot.parent_top_series_id
+        assert slot.parent_bottom_series_id is None
+        assert slot.status == "scheduled"
+    finally:
+        session.close()
+
+
+def test_both_round1_parents_close_populates_round2_seeds():
+    """When both parents in the same R2 arm close, the slot should hold both
+    teams with the lower-seeded parent winner in the top seat."""
+    from db.models import PlayoffSeries
+    from services.playoff_bracket_service import build_or_refresh_bracket
+
+    SessionLocal = _make_session_factory()
+    session = SessionLocal()
+    try:
+        season = "2024-25"
+        _seed_west_first_round_with_games(session, season=season)
+        build_or_refresh_bracket(session, season)
+
+        r2_rows = (
+            session.query(PlayoffSeries)
+            .filter(PlayoffSeries.season == season, PlayoffSeries.round == 2)
+            .all()
+        )
+        # The TOP arm (1v8 + 4v5) both closed. Expect exactly one R2 row in
+        # that arm with both teams populated.
+        top_arm = [
+            r for r in r2_rows
+            if (r.parent_top_series_id and "OKC" in r.parent_top_series_id)
+            or (r.parent_bottom_series_id and "LAC" in r.parent_bottom_series_id)
+        ]
+        assert len(top_arm) == 1
+        slot = top_arm[0]
+        assert slot.top_seed_team_id == 1610612760, "OKC (1 seed) holds the top seat"
+        assert slot.bottom_seed_team_id == 1610612746, "LAC (4 seed) holds the bottom seat"
+        assert slot.parent_top_series_id is not None
+        assert slot.parent_bottom_series_id is not None
+    finally:
+        session.close()
+
+
+def test_slot_pairing_math_1v8_advances_against_4v5():
+    """Direct unit test for the seed pairing math: 1v8 winner must feed the
+    same R2 arm as 4v5 (not 2v7), and (1v8) takes the top seat over (4v5)."""
+    from services.playoff_bracket_service import _compute_next_round_slot
+
+    one_v_eight = _compute_next_round_slot(
+        season="2024-25",
+        conference_token="W",
+        round_number=1,
+        top_seed=1,
+        bottom_seed=8,
+    )
+    four_v_five = _compute_next_round_slot(
+        season="2024-25",
+        conference_token="W",
+        round_number=1,
+        top_seed=4,
+        bottom_seed=5,
+    )
+    two_v_seven = _compute_next_round_slot(
+        season="2024-25",
+        conference_token="W",
+        round_number=1,
+        top_seed=2,
+        bottom_seed=7,
+    )
+    three_v_six = _compute_next_round_slot(
+        season="2024-25",
+        conference_token="W",
+        round_number=1,
+        top_seed=3,
+        bottom_seed=6,
+    )
+
+    assert one_v_eight is not None
+    assert four_v_five is not None
+    # 1v8 and 4v5 share a slot; 2v7 and 3v6 share a different slot.
+    assert one_v_eight["slot_id"] == four_v_five["slot_id"]
+    assert two_v_seven["slot_id"] == three_v_six["slot_id"]
+    assert one_v_eight["slot_id"] != two_v_seven["slot_id"]
+
+    # Within the TOP arm: 1v8 winner = top seat; 4v5 winner = bottom seat.
+    assert one_v_eight["child_slot"] == "TOP"
+    assert four_v_five["child_slot"] == "BOT"
+    # Within the BOT arm: 2v7 winner = top seat; 3v6 winner = bottom seat.
+    assert two_v_seven["child_slot"] == "TOP"
+    assert three_v_six["child_slot"] == "BOT"
+
+    # Round 2 winners flow into the conference final.
+    cf_top_arm = _compute_next_round_slot(
+        season="2024-25",
+        conference_token="W",
+        round_number=2,
+        top_seed=1,
+        bottom_seed=4,
+    )
+    cf_bot_arm = _compute_next_round_slot(
+        season="2024-25",
+        conference_token="W",
+        round_number=2,
+        top_seed=2,
+        bottom_seed=3,
+    )
+    assert cf_top_arm["slot_id"] == cf_bot_arm["slot_id"], "both arms feed same CF row"
+    assert cf_top_arm["child_slot"] == "TOP"
+    assert cf_bot_arm["child_slot"] == "BOT"
+
+    # Conference Final winners flow into Finals (East = top, West = bottom).
+    finals_east = _compute_next_round_slot(
+        season="2024-25",
+        conference_token="E",
+        round_number=3,
+        top_seed=1,
+        bottom_seed=2,
+    )
+    finals_west = _compute_next_round_slot(
+        season="2024-25",
+        conference_token="W",
+        round_number=3,
+        top_seed=1,
+        bottom_seed=2,
+    )
+    assert finals_east["slot_id"] == finals_west["slot_id"]
+    assert finals_east["child_slot"] == "TOP"
+    assert finals_west["child_slot"] == "BOT"
+
+    # Finals (round 4) has no successor.
+    assert _compute_next_round_slot(
+        season="2024-25",
+        conference_token="FIN",
+        round_number=4,
+        top_seed=1,
+        bottom_seed=1,
+    ) is None
