@@ -15,6 +15,28 @@ Guidelines:
 
 ---
 
+## Sprint 88 Candidates
+
+### `infra/deploy.sh` auto-installs systemd service units (Sprint 87 workflow gap)
+Why it matters:
+Sprint 87 Stream C2 changed `bip-api.service` (added `ExecStartPre` + new gunicorn flags). The deploy script does NOT auto-copy the service unit from the repo to `/etc/systemd/system/` — that's a one-time bootstrap from the original `caddy-install.sh`. So the deploy ran cleanly but the new service config wasn't picked up until manual `sudo cp + sudo systemctl daemon-reload`. Same gap will bite the next time `bip-api.service` or any new systemd unit changes.
+
+Likely shape:
+- In `infra/deploy.sh`, after the `git pull`, diff `/etc/systemd/system/bip-api.service` against `infra/bip-api.service` (and any other unit files we add). If different: `sudo cp` + `sudo systemctl daemon-reload`.
+- Same pattern for `/etc/caddy/Caddyfile` (currently `caddy validate` runs but doesn't auto-sync from repo).
+- One commit, ~30 min.
+
+### R2 backup lifecycle rule (Sprint 87 deferred — Cloudflare UI step)
+**Why deferred:** Cloudflare R2 dashboard UI configuration step, not code. Per Deferral Policy "different domain" — infra UI config done outside the code repo. Documented in `infra/README.md`.
+
+Likely shape:
+- Cloudflare dashboard → R2 → bucket settings → Object lifecycle rules → Add rule
+- Apply to: all objects in the bucket
+- Delete after: 90 days
+- ~5 min next time touching Cloudflare config.
+
+---
+
 ## Deferred — Data Acquisition Blocked
 
 ### Award calibration cohort expansion

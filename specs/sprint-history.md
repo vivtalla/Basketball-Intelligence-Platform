@@ -1090,3 +1090,41 @@ Eliminated live NBA API calls on every player profile load:
 - Bug fix during deploy (`43b7a4a`): wrap `useSearchParams` in `<Suspense>` for `/bracket`, `/games/[gameId]`, `/teams/[abbr]`. Postgres bootstrap: `bip` user + password + `DATABASE_URL` in `/etc/bip/env`.
 - New 8-phase Sprint Workflow documented in `AGENTS.md` (Plan → Implement → QA → Pre-merge Verification → Merge → Deploy → Production Smoke Test → Closeout). New Pre-merge Verification Checklist, Production Deploy Procedure, Rollback Procedures (Vercel one-click, git checkout + deploy.sh, alembic downgrade -1, Cloudflare purge). Session Start Checklist requires 5-second production health check.
 - CLAUDE.md additions: Production section (URLs, VM, edge layer, secrets), Production Deploy commands, Production Safety section (7 rules). Closeout: `specs/sprint-84-closeout.md`.
+
+---
+
+### Sprint 85 — Bracket Auto-Advance + Per-Series Detail + Tracking/Hustle + Lint Cleanup
+**Branches:** `feature/sprint-85a-bracket-advance`, `feature/sprint-85b-per-series-detail`, `feature/sprint-85c-tracking-hustle`, `feature/sprint-85d-lint-cleanup` (Claude, 4-stream parallel via subagents)
+
+- First sprint executed end-to-end under the new 8-phase workflow. 480 → 490 backend tests (+10), `npm run lint` 4 errors + 8 warnings → 0/0.
+- Stream A: Alembic 0021 adds `parent_top_series_id` + `parent_bottom_series_id` to `playoff_series` + relaxes NOT NULL on seed columns; `_compute_next_round_slot` + `_auto_advance_closed_series` encode standard NBA pairing; `SeriesCard.tsx` renders TBD pill.
+- Stream B: NEW `/playoff-series/[seriesId]` route + service joining series → games → `PlayerGameLog` + endpoint `GET /api/playoffs/series/{id}/player-logs` + `<SeriesPlayerLogTable>` component grouped by player.
+- Stream C: NEW `player_tracking_service.py` + `player_hustle_service.py` + `/api/players/{id}/tracking` (3 families: Shot Creation / Passing / Shot Defense) + `/api/players/{id}/hustle` + frontend panels mounted in `PlayerDashboard`.
+- Stream D: 4 lint errors → 0; 8 warnings → 0; **Monte Carlo flake fix** — `playoff_simulator_service.py:436` `rng.seed(hash(series_id))` was per-process random (Python `hash(str)` randomized w/o pinned `PYTHONHASHSEED`); fix `rng.seed(series_id)` directly. 10/10 stable post-fix.
+- Phase 6 surfaced 2 latent infra bugs from Sprint 82+84: `infra/deploy.sh` `source /etc/bip/env` didn't auto-export to subprocesses (fixed with `set -a/+a`); raw `python -m alembic` ignored `DATABASE_URL` because `alembic.ini` hardcoded passwordless URL (fixed by `python -m db.migrations` instead).
+- Closeout: `specs/sprint-85-closeout.md`.
+
+---
+
+### Sprint 86 — Complete Sprint 85 Follow-Ons + Team-Level Tracking/Hustle + OG Polish
+**Branches:** `feature/sprint-86{a,b,c,d,e}-*` (Claude, 5-stream parallel)
+
+- First sprint operating under the new Deferral Policy. All 4 Sprint 85 follow-ons + team-level tracking/hustle (sister feature) + OG polish (Sprint 83 carry) shipped end-to-end. Only legitimate deferral: Award calibration cohort expansion (data-blocked).
+- 490 → 500 backend tests (+10).
+- Stream A: Bracket label richness — 4 parent fields + "winner of 1v8 (OKC/HOU)" labels + idempotent backfill script. Stream B: SeriesPlayerLogTable sortable columns. Stream C: Team-level tracking + hustle full stack from scratch (Alembic 0022 + ORM models + 12-call multi-measure nba_client wrapper + sync functions + services + endpoints + components in team analytics tab). Stream D: OG image polish — route.tsx 190→770 LOC, 5 per-type renderers (`?type=home|player|team|series|mvp`), custom Source Serif 4 + Source Sans 3 fonts. Stream E: docs only — broadened Cloudflare cache rule 4 regex; dropped Spotrac (0 prod errors); `Why deferred:` annotation on Award calibration.
+- Post-closeout hotfix (`1de57c5`): user-fetch guard on 4 tracking + hustle nba_client wrappers (Sprint 85+86 missed the Sprint 82d pattern; production users were triggering live NBA API calls that took 6s and OOM'd workers; fix added `_block_live_fetch_if_user_mode` after cache miss).
+- Closeout: `specs/sprint-86-closeout.md`.
+
+---
+
+### Sprint 87 — Security Maintenance Pass
+**Branch:** `feature/sprint-87-security-maintenance` (Claude, single sequential stream)
+
+- Security audit findings from post-Sprint-86 review, executed end-to-end under the Deferral Policy. 6 commits on a single branch.
+- 500 backend tests still pass after FastAPI 0.115→0.124 + Starlette 0.41→0.44 framework bumps (zero regressions in 193-route surface). `npm run build` clean, `npm run lint` 0/0.
+- Stream A: `npm audit fix --force` → Next 16.2.0→16.2.4 (resolved high-sev DoS GHSA-q4gf-8mx6-v5v3). 3 moderate postcss-bundled-by-Next vulns accepted (no real exploit surface — Tailwind generates static CSS).
+- Stream B1: pydantic + sqlalchemy + pypdf safe patches. B2: fastapi + starlette major bumps.
+- Stream C1: CORS tightened — `methods=["*"]` → `["GET","HEAD","POST","OPTIONS"]`, `headers=["*"]` → `["Content-Type","Accept","Authorization"]`. C2: gunicorn `--access-logfile -` → `/var/log/bip-api/access.log` + `ExecStartPre=+/usr/bin/install -d` for dir creation + new `infra/bip-api.logrotate` (14-day retention, copytruncate). C3 REJECTED on review (PGPASSWORD comment was accurate doc, not unused code).
+- Mid-sprint Vivek made the GitHub repo public to unblock VM `git pull` (private repo had no cached creds; previous deploys worked via expired temp cache).
+- Workflow gap surfaced: `infra/deploy.sh` doesn't auto-sync `bip-api.service` to systemd — required manual `sudo cp + daemon-reload` after Stream C2. Filed as Sprint 88 candidate.
+- Closeout: `specs/sprint-87-closeout.md`.

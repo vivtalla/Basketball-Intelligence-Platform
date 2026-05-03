@@ -1,6 +1,6 @@
 # Agent Coordination
 
-Last updated: 2026-05-03 by Claude (Sprint 87 kickoff — security maintenance pass: npm audit fix + Python deps + CORS hardening + small infra wins)
+Last updated: 2026-05-03 by Claude (Sprint 87 closeout — security maintenance shipped end-to-end; only deferral is R2 lifecycle Cloudflare UI step)
 
 > Both agents read this file before touching code at the start of every session.
 > The canonical source of truth is the clean `master` checkout at `/Users/viv/Documents/Basketball Intelligence Platform`.
@@ -14,16 +14,15 @@ Last updated: 2026-05-03 by Claude (Sprint 87 kickoff — security maintenance p
 
 | Field | Value |
 |-------|-------|
-| Sprint | 87 |
-| Goal | Security maintenance pass: npm audit fix (1 high + 2 mod vulns), Python deps (13 outdated incl. FastAPI 9 minor versions behind), CORS tightening (drop wildcard methods/headers), gunicorn file log + logrotate, PGPASSWORD cleanup |
-| Started | 2026-05-03 |
-| Target merge | 2026-05-03 |
-| Sprint shape | Single sequential stream (main session); per-stream commits A → B1 → B2 → C1 → C2 → C3 |
-| Branch | `feature/sprint-87-security-maintenance` |
-| Worker policy | None — main session does all stream work directly |
-| Plan file | `~/.claude/plans/zazzy-swimming-pebble.md` |
+| Sprint | 88 |
+| Goal | TBD — awaiting Vivek's sprint kickoff |
+| Started | TBD |
+| Target merge | TBD |
+| Sprint shape | TBD |
+| Branch | `master` until Sprint 88 kickoff |
+| Worker policy | No active sprint; set at kickoff |
 
-**Production status:** CourtVue Labs is publicly live at `https://courtvue.app` (Vercel) + `https://api.courtvue.app` (Hetzner CPX11, `ubuntu@5.78.114.15`). Sprint 87 cleans up the security audit findings from the post-Sprint-86 review. Only legitimate deferral: R2 backup lifecycle rule (Cloudflare UI step, "different domain" per Deferral Policy).
+**Production status:** CourtVue Labs is publicly live at `https://courtvue.app` (Vercel) + `https://api.courtvue.app` (Hetzner CPX11, `ubuntu@5.78.114.15`). Sprint 87 shipped the security maintenance pass — Next.js DoS patched, FastAPI/Starlette upgraded, CORS hardened, gunicorn file logging + logrotate. 500 backend tests, 0 lint errors, 0 high/critical npm vulns. **Repo is now public on GitHub** (Vivek's call mid-Sprint 87 to unblock VM deploys without cred setup). Only legitimate deferral remaining: R2 lifecycle rule (Cloudflare UI step).
 
 ---
 
@@ -207,9 +206,9 @@ If repo state, sprint numbering, or shipped features appear to disagree across l
 ## Current Assignments
 
 ### Claude
-- Branch: `feature/sprint-87-security-maintenance`
-- Scope: All Sprint 87 streams (npm + pip + CORS + infra hygiene)
-- Status: Kickoff — sequential A → B1 → B2 → C1 → C2 → C3
+- Branch: TBD at kickoff
+- Scope: No active sprint assignment
+- Status: Not started
 
 ### Codex
 - Branch: TBD at kickoff
@@ -246,6 +245,7 @@ Specs or review notes written by one stream for another. Check this before start
 | `specs/sprint-84-closeout.md` | Sprint 84 | Next sprint | Reference — production deploy execution + new workflow definitions |
 | `specs/sprint-85-closeout.md` | Sprint 85 | Next sprint | Reference — first sprint exercising new workflow; deploy.sh `--migrate` infra fixes; subagent stages, parent commits operating model |
 | `specs/sprint-86-closeout.md` | Sprint 86 | Next sprint | Reference — first sprint operating under Deferral Policy; team-level tracking/hustle pattern (12-call multi-measure tracking endpoint); OG image with custom fonts + 5 per-type renderers |
+| `specs/sprint-87-closeout.md` | Sprint 87 | Next sprint | Reference — security maintenance pass; FastAPI 0.115→0.124 + Starlette 0.41→0.44 framework bumps with zero regressions; CORS tightened; gunicorn file log + logrotate; lesson re: deploy.sh doesn't auto-install service units |
 
 ---
 
@@ -346,6 +346,8 @@ Sprint 87 allocation — TBD at kickoff.
 ## Notes
 
 *Free-form, dated, newest first. Use this for coordination and repo-state exceptions.*
+
+2026-05-03 (Claude): Sprint 87 closed. **Security maintenance pass under the Deferral Policy.** 6 commits on a single branch (`feature/sprint-87-security-maintenance`) shipped end-to-end. 500 backend tests still pass after FastAPI 0.115→0.124 + Starlette 0.41→0.44 framework bumps (zero regressions in the 193-route surface). `npm run build` clean, `npm run lint` 0/0. Streams: A = `npm audit fix --force` bumped Next 16.2.0→16.2.4 (resolved high-severity DoS GHSA-q4gf-8mx6-v5v3); 3 moderate postcss-bundled-by-Next vulns accepted (no real exploit surface — Tailwind generates static CSS, not runtime user input). B1 = pydantic 2.10.4→2.10.6 + sqlalchemy 2.0.36→2.0.49 + pypdf 5.4.0→5.9.0 (safe patches). B2 = fastapi + starlette major bumps. C1 = CORS tightened: `methods=["*"]` → `["GET","HEAD","POST","OPTIONS"]`, `headers=["*"]` → `["Content-Type","Accept","Authorization"]`. C2 = gunicorn `--access-logfile -` → `/var/log/bip-api/access.log` + `ExecStartPre=+/usr/bin/install -d` for dir creation + new `infra/bip-api.logrotate` (14-day retention, copytruncate, compress). C3 = PGPASSWORD comment cleanup REJECTED on review (accurate documentation, not unused code). **Mid-sprint: Vivek made the GitHub repo public** to unblock VM `git pull` (private repo had no cached creds; previous deploys worked through expired temp cache). **Workflow gap surfaced:** `infra/deploy.sh` doesn't auto-sync `bip-api.service` to systemd — required manual `sudo cp + daemon-reload` after Stream C2's service unit changes. Filed as Sprint 88 candidate. Production smoke verified all changes live: Next 16.2.4 frontend, FastAPI 0.124 backend, CORS tightened allowlist, `/var/log/bip-api/access.log` writing. Closeout: `specs/sprint-87-closeout.md`.
 
 2026-05-02 (Claude): Sprint 86 closed. **First sprint operating under the Deferral Policy.** 5 streams shipped end-to-end + 1 legitimately deferred Award calibration item (data-blocked). 490 → 500 backend tests, `npm run build` clean, `npm run lint` 0 errors. Streams: A = bracket label richness + backfill script (parent_*_seed/team_abbrs surfaced; 4 new PlayoffSeriesResponse fields; idempotent `data/backfill_playoff_parent_pointers.py`); B = sortable column headers on SeriesPlayerLogTable (8 stat columns, click-to-toggle direction); C = team-level tracking + hustle full stack from scratch (Alembic 0022 with new tables + ORM models + 12-call multi-measure nba_client wrapper + sync functions + services + endpoints + 2 frontend panels mounted in team analytics tab); D = OG image polish (route.tsx 190→770 LOC, 5 per-type renderers via `?type=player|team|series|mvp`, custom fonts via `tryReadFontAnyExt`, sibling layout.tsx for client-component pages); E = doc-only (broadened Cloudflare cache rule 4 regex for daily-synced player+team endpoints, dropped Spotrac retry from BACKLOG after 7-day prod log scan returned 0 matches, applied Why-deferred annotation to Award calibration). Phase 6 surfaced 1 fix: schema test pinned to Sprint 85 alembic head; bumped to `0022_sprint86_team_track_hus`. Production smoke verified all 5 surfaces live (bracket has 6 parent fields, /api/teams/OKC/tracking 200, /api/teams/OKC/hustle 200, /og 200 image/png, /og?type=player 200 image/png). Backfill ran in production: `closed_seen: 2, updated: 0, skipped_child_missing: 2` — correct behavior, R2 child rows will be created on next nightly bracket sync at which point parent pointers populate via Sprint 85's auto-advance close-transition. **Workflow lessons:** Deferral Policy + Phase 1 scoping rule prevented the natural "60% MVP" trap; subagent "stages, parent commits + verifies" is now standard SOP (3rd sprint with sandbox issue, fully formalized in stream prompts up front); 5-stream sprint shape works (small streams in main session + big streams via subagents); zero merge conflicts vs Sprint 85's 3 (lock-table claims + append-only discipline). Closeout: `specs/sprint-86-closeout.md`.
 

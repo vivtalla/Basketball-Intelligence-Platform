@@ -323,6 +323,20 @@ CourtVue Labs uses a hybrid sprint model: major feature sprints typically run as
 
 > Full history → `specs/sprint-history.md`
 
+### Sprint 87 — Security Maintenance Pass
+
+- **Security audit findings** from the post-Sprint-86 review, executed end-to-end. Single branch (`feature/sprint-87-security-maintenance`), 6 commits, deployed cleanly. 500 backend tests still pass post-upgrade, `npm run lint` 0/0.
+- **Stream A — npm vulnerability fix** (`a6d51a7`): `npm audit fix --force` bumped Next 16.2.0→16.2.4, resolving high-severity DoS GHSA-q4gf-8mx6-v5v3 (CVSS 7.5) + brace-expansion DoS GHSA-f886-m6hf-6m8v. 3 moderate postcss-bundled-by-Next vulns accepted (no real exploit surface — Tailwind generates static CSS at build time, not runtime user input; Next.js needs to upgrade their bundled postcss upstream).
+- **Stream B1 — Safe Python patches** (`9812870`): pydantic 2.10.4→2.10.6, sqlalchemy 2.0.36→2.0.49, pypdf 5.4.0→5.9.0. Other 10 outdated transitive deps auto-upgrade on production reinstall.
+- **Stream B2 — FastAPI + Starlette major bumps** (`bd65b74`): fastapi 0.115.6→0.124.4 (9 minor versions), starlette 0.41.3→0.44.0 pinned explicitly. **Zero regressions in the 500-test suite + 193-route surface** — the test suite is the safety net for framework bumps.
+- **Stream C1 — CORS hardening** (`0f6d70b`): `backend/main.py:50-56` — `allow_methods=["*"]` → `["GET", "HEAD", "POST", "OPTIONS"]`; `allow_headers=["*"]` → `["Content-Type", "Accept", "Authorization"]`. PATCH/DELETE dropped (admin-only, never called from browser). Production CORS preflight verified.
+- **Stream C2 — Gunicorn file log + logrotate** (`4944251`): `infra/bip-api.service` changed `--access-logfile -` to `/var/log/bip-api/access.log` + `ExecStartPre=+/usr/bin/install -d` for dir creation. New `infra/bip-api.logrotate` (14-day retention, copytruncate, compress). One-time install: `sudo cp infra/bip-api.logrotate /etc/logrotate.d/bip-api`.
+- **Stream C3 — PGPASSWORD comment** REJECTED on review (accurate documentation in `bip-backup.sh:14`'s header, not unused code).
+- **GitHub repo made public** mid-sprint (Vivek's call) to unblock VM `git pull` after temp credential cache expired. Appropriate for a public-facing platform with no proprietary code.
+- **Workflow gap surfaced:** `infra/deploy.sh` doesn't auto-sync `bip-api.service` to systemd — required manual `sudo cp + daemon-reload` after Stream C2's service unit change. Filed as Sprint 88 candidate.
+- **Deferred (1, with Why):** R2 backup lifecycle rule (Cloudflare UI step, "different domain" per Deferral Policy). Documented in `infra/README.md` for the next Cloudflare-touch session.
+- Closeout: `specs/sprint-87-closeout.md`.
+
 ### Sprint 86 — Complete Sprint 85 Follow-Ons + Team-Level Tracking/Hustle + OG Polish
 
 - **First sprint operating under the new Deferral Policy** (added at end of Sprint 85). Goal honored: every Sprint 85 follow-on completed + team-level tracking/hustle (sister feature) + OG polish (Sprint 83 carry) all shipped in one self-contained sprint. 490 → 500 backend tests (+10 net new), `npm run build` clean, `npm run lint` 0 errors maintained.
@@ -335,17 +349,7 @@ CourtVue Labs uses a hybrid sprint model: major feature sprints typically run as
 - **Production smoke verified all 5 surfaces:** bracket has 6 new parent fields; team tracking + hustle 200; OG home + per-page cards 200 with image/png. Closeout: `specs/sprint-86-closeout.md`.
 - **Deferred (1 item, with documented reason):** Award calibration cohort expansion — blocked on historical NBA voting data acquisition. Per the Deferral Policy this qualifies; data path documented in BACKLOG.
 
-### Sprint 85 — Bracket Auto-Advance + Per-Series Detail + Tracking/Hustle + Lint Cleanup
-
-- **First sprint executed end-to-end under the new 8-phase workflow** from Sprint 84. 4 parallel streams via subagents (A/B/C) + main session (D). 480 → 490 backend tests (+10 net new), `npm run build` clean, `npm run lint` **0 errors / 0 warnings** (was 4 errors + 8 warnings).
-- **Stream A — Bracket auto-advancement** (`1dea7b7`): Alembic 0021 adds `parent_top_series_id` + `parent_bottom_series_id` (nullable, indexed) to `playoff_series` and relaxes NOT NULL on seed columns; `_compute_next_round_slot` + `_auto_advance_closed_series` in `playoff_bracket_service.py` encode standard NBA pairing (1v8 → R2 vs 4v5; through CF and Finals); `SeriesCard.tsx` renders TBD pill ("Awaiting winner of R{n}") when either team is null. Defensive `_has_table("teams")` guard in the SQLite batch_alter path keeps the legacy-baseline test working.
-- **Stream B — Per-series detail page** (`d84b816`): new route `/playoff-series/[seriesId]`, new service `playoff_series_player_logs_service.py` joining series → games → `PlayerGameLog`, new endpoint `GET /api/playoffs/series/{id}/player-logs`, new `<SeriesPlayerLogTable>` component (grouped by player, per-game stat rows, totals row, each game-row links to `/games/{game_id}`). PlayoffCommandCenter SeriesRail header now has a "View per-game player stats →" link.
-- **Stream C — Tracking + Hustle dashboards** (`f6dfdf4`): new services `player_tracking_service.py` + `player_hustle_service.py` (cache-first, sync-on-miss via existing `gravity_sync_service`); new endpoints `/api/players/{id}/tracking` (3 families: Shot Creation / Passing / Shot Defense) and `/api/players/{id}/hustle`; new components `PlayerTrackingPanel` + `PlayerHustlePanel` mounted in PlayerDashboard after the existing splits/play-types panels; renders in BOTH regular season and playoffs.
-- **Stream D — Lint cleanup + Monte Carlo flake fix** (`4ecb13c`, `bb66429`): cleared 4 lint errors in `draft/` + `trade-machine/` (consolidated state pattern for setState-in-effect violations; HTML-entity escaping for unescaped quotes); removed 8 unused-import/dead-code warnings; **fixed real flaky test** — `playoff_simulator_service.py:436` was using `rng.seed(hash(series_id))` and Python's `hash(str)` is randomized per-process when `PYTHONHASHSEED` isn't pinned. Fix: `rng.seed(series_id)` directly. Verified 10/10 stable post-fix.
-- **Phase 6 deploy fixes** (`a9490f5`, `358f588`): the new workflow surfaced 2 latent infra bugs from Sprint 82+84. (1) `infra/deploy.sh` did `source /etc/bip/env` but the file uses `KEY=value` (no `export`), so subprocesses didn't inherit `DATABASE_URL` — fixed with `set -a; source; set +a`. (2) Even with env exported, `python -m alembic` ignored `DATABASE_URL` because `alembic.ini` hardcodes `postgresql://localhost/bip` — fixed by invoking `python -m db.migrations` instead (which calls `set_main_option("sqlalchemy.url", DATABASE_URL)` correctly). The `--migrate` deploy flow is now actually production-ready.
-- **Production smoke test passed all 4 surfaces:** `/api/playoffs/bracket` returns new parent fields; `/api/playoffs/series/{id}/player-logs` returns 15+15 players; `/api/players/1628983/tracking` returns 3 families; `/api/players/1628983/hustle` returns stats. Closeout: `specs/sprint-85-closeout.md`.
-
-*Sprint 84 and older moved to `specs/sprint-history.md`.*
+*Sprint 85 and older moved to `specs/sprint-history.md`.*
 
 ---
 
