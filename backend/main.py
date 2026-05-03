@@ -51,8 +51,13 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=CORS_ORIGINS,
     allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    # Sprint 87 — narrow from "*" to actually-used methods. Platform has
+    # 40 POST + 2 PATCH + 2 DELETE endpoints; PATCH/DELETE are admin-only and
+    # not called from the browser, so we drop them. PUT is unused.
+    allow_methods=["GET", "HEAD", "POST", "OPTIONS"],
+    # Sprint 87 — narrow from "*" to specific headers. Authorization is kept
+    # as a future-proof no-op for any auth-bearing endpoint.
+    allow_headers=["Content-Type", "Accept", "Authorization"],
 )
 
 app.include_router(players.router, prefix="/api/players", tags=["players"])
