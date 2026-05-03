@@ -1097,6 +1097,95 @@ class PlayerHustleStat(Base):
     player = relationship("Player")
 
 
+class TeamTrackingStat(Base):
+    """Sprint 86 (C) — persisted team tracking dashboard rows by family/split.
+
+    Mirrors :class:`PlayerTrackingStat` but keyed on ``team_id`` (FK ->
+    ``teams.id``). One row per (team, season, season_type, family, split).
+    """
+    __tablename__ = "team_tracking_stats"
+    __table_args__ = (
+        UniqueConstraint(
+            "team_id",
+            "season",
+            "season_type",
+            "tracking_family",
+            "split_key",
+            "source",
+            name="uq_team_tracking_stat",
+        ),
+        Index("ix_team_tracking_stats_season", "season"),
+        Index("ix_team_tracking_stats_team_season", "team_id", "season"),
+    )
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    team_id = Column(Integer, ForeignKey("teams.id"), nullable=False)
+    season = Column(String(10), nullable=False)
+    season_type = Column(String(30), nullable=False, default="Regular Season")
+    source = Column(String(80), nullable=False, default="stats.nba.com/team-tracking")
+    tracking_family = Column(String(50), nullable=False)
+    split_key = Column(String(80), nullable=False, default="overall")
+    team_abbreviation = Column(String(10))
+    gp = Column(Integer, default=0)
+    minutes = Column(Float)
+    touches = Column(Float)
+    front_court_touches = Column(Float)
+    time_of_possession = Column(Float)
+    drives = Column(Float)
+    passes_made = Column(Float)
+    passes_received = Column(Float)
+    catch_shoot_fga = Column(Float)
+    catch_shoot_pts = Column(Float)
+    pull_up_fga = Column(Float)
+    pull_up_pts = Column(Float)
+    paint_touch_pts = Column(Float)
+    close_touch_pts = Column(Float)
+    raw_payload = Column(JSON)
+    updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
+
+    team = relationship("Team")
+
+
+class TeamHustleStat(Base):
+    """Sprint 86 (C) — persisted team hustle aggregate row.
+
+    Mirrors :class:`PlayerHustleStat` but keyed on ``team_id``. One row per
+    (team, season, season_type, source).
+    """
+    __tablename__ = "team_hustle_stats"
+    __table_args__ = (
+        UniqueConstraint(
+            "team_id",
+            "season",
+            "season_type",
+            "source",
+            name="uq_team_hustle_stat",
+        ),
+        Index("ix_team_hustle_stats_season", "season"),
+        Index("ix_team_hustle_stats_team_season", "team_id", "season"),
+    )
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    team_id = Column(Integer, ForeignKey("teams.id"), nullable=False)
+    season = Column(String(10), nullable=False)
+    season_type = Column(String(30), nullable=False, default="Regular Season")
+    source = Column(String(80), nullable=False, default="stats.nba.com/league-hustle-team")
+    team_abbreviation = Column(String(10))
+    gp = Column(Integer, default=0)
+    minutes = Column(Float)
+    contested_shots = Column(Float)
+    deflections = Column(Float)
+    charges_drawn = Column(Float)
+    screen_assists = Column(Float)
+    screen_assist_points = Column(Float)
+    loose_balls_recovered = Column(Float)
+    box_outs = Column(Float)
+    raw_payload = Column(JSON)
+    updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
+
+    team = relationship("Team")
+
+
 class PlayerGravityStat(Base):
     """Official or CourtVue-derived player gravity profile."""
     __tablename__ = "player_gravity_stats"

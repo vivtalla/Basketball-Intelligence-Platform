@@ -458,3 +458,45 @@ def team_arc_with_levers(
         )
     except ValueError as exc:
         raise HTTPException(status_code=404, detail=str(exc))
+
+
+# ── Sprint 86 (C) — Team Tracking + Hustle ───────────────────────────────────
+
+
+@router.get("/{abbr}/tracking")
+def team_tracking_endpoint(
+    abbr: str,
+    season: str = Query("2024-25"),
+    is_playoff: bool = Query(False),
+    db: Session = Depends(get_db),
+):
+    """Sprint 86 (C): Team tracking dashboard rows grouped by family.
+
+    Returns ``{ team_id, season, is_playoff, families: { ... } }`` where
+    families always include ``Shot Creation``, ``Passing``, ``Shot Defense``
+    (each may be empty if no upstream data is persisted).
+    """
+    from services.team_tracking_service import get_team_tracking
+    team = db.query(Team).filter(Team.abbreviation == abbr.upper()).first()
+    if not team:
+        raise HTTPException(status_code=404, detail=f"Team '{abbr}' not found.")
+    return get_team_tracking(db, team_id=team.id, season=season, is_playoff=is_playoff)
+
+
+@router.get("/{abbr}/hustle")
+def team_hustle_endpoint(
+    abbr: str,
+    season: str = Query("2024-25"),
+    is_playoff: bool = Query(False),
+    db: Session = Depends(get_db),
+):
+    """Sprint 86 (C): Team hustle aggregate (single panel, no families).
+
+    Returns ``{ team_id, season, is_playoff, stats }`` where ``stats`` is
+    null if no upstream row is persisted.
+    """
+    from services.team_hustle_service import get_team_hustle
+    team = db.query(Team).filter(Team.abbreviation == abbr.upper()).first()
+    if not team:
+        raise HTTPException(status_code=404, detail=f"Team '{abbr}' not found.")
+    return get_team_hustle(db, team_id=team.id, season=season, is_playoff=is_playoff)
