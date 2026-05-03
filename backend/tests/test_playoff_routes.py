@@ -26,6 +26,7 @@ from db.models import (  # noqa: E402
     GameLog,
     LineupStats,
     Player,
+    PlayerGameLog,
     PlayoffSeries,
     SeasonStat,
     Team,
@@ -36,6 +37,7 @@ from routers.playoffs import (  # noqa: E402
     get_bracket,
     get_series,
     get_series_intelligence,
+    get_series_player_logs,
     get_series_simulation,
 )
 from services.playoff_simulator_service import simulate_series  # noqa: E402
@@ -576,3 +578,175 @@ def test_series_intelligence_falls_back_to_regular_season_baseline():
     ]
     assert any("OKC" in w for w in baseline_warnings)
     assert any("HOU" in w for w in baseline_warnings)
+
+
+# ---------------------------------------------------------------------------
+# Sprint 85 — Per-series detail page (player game-by-game logs)
+# ---------------------------------------------------------------------------
+
+
+def _seed_series_with_player_game_logs(session, season="2024-25"):
+    """Seed a 4-game series with per-team player game logs.
+
+    OKC roster: SGA (heavy minutes — should sort first), Jalen Williams
+    (mid minutes), Cason Wallace (low minutes — should sort last).
+    HOU roster: Sengun (heavy minutes), Jabari Smith (mid).
+    """
+    series_id = _seed_series_with_games(session, season=season)
+
+    okc_id = 1610612760
+    hou_id = 1610612745
+
+    session.add_all(
+        [
+            Player(id=101, full_name="Shai Gilgeous-Alexander", team_id=okc_id, headshot_url="https://example.com/101.png"),
+            Player(id=102, full_name="Jalen Williams", team_id=okc_id),
+            Player(id=103, full_name="Cason Wallace", team_id=okc_id),
+            Player(id=201, full_name="Alperen Sengun", team_id=hou_id),
+            Player(id=202, full_name="Jabari Smith Jr.", team_id=hou_id),
+            # A player whose team is neither — should be filtered out.
+            Player(id=999, full_name="Stray Player", team_id=1610612747),  # LAL
+        ]
+    )
+
+    games_meta = [
+        ("0042500001", 1),
+        ("0042500002", 2),
+        ("0042500003", 3),
+        ("0042500004", 4),
+    ]
+
+    # Per-game minutes by player_id (used to verify sort-by-total-minutes).
+    okc_minutes = {
+        101: [38.0, 40.0, 36.0, 39.0],   # SGA: 153.0
+        102: [33.0, 34.0, 32.0, 35.0],   # JDub: 134.0
+        103: [18.0, 16.0, 22.0, 20.0],   # Wallace: 76.0
+    }
+    hou_minutes = {
+        201: [37.0, 39.0, 36.0, 38.0],   # Sengun: 150.0
+        202: [29.0, 31.0, 27.0, 30.0],   # Smith: 117.0
+    }
+
+    rows = []
+    for game_id, game_num in games_meta:
+        for pid, mins_list in okc_minutes.items():
+            mins = mins_list[game_num - 1]
+            rows.append(
+                PlayerGameLog(
+                    player_id=pid,
+                    game_id=game_id,
+                    season=season,
+                    season_type="Playoffs",
+                    min=mins,
+                    pts=int(mins * 0.6),
+                    reb=int(mins * 0.18),
+                    ast=int(mins * 0.15),
+                    stl=1,
+                    blk=0,
+                    tov=2,
+                    fgm=int(mins * 0.25),
+                    fga=int(mins * 0.5),
+                    fg3m=int(mins * 0.08),
+                    fg3a=int(mins * 0.2),
+                    ftm=int(mins * 0.12),
+                    fta=int(mins * 0.15),
+                    plus_minus=8 if pid == 101 else 4,
+                )
+            )
+        for pid, mins_list in hou_minutes.items():
+            mins = mins_list[game_num - 1]
+            rows.append(
+                PlayerGameLog(
+                    player_id=pid,
+                    game_id=game_id,
+                    season=season,
+                    season_type="Playoffs",
+                    min=mins,
+                    pts=int(mins * 0.55),
+                    reb=int(mins * 0.22),
+                    ast=int(mins * 0.12),
+                    stl=1,
+                    blk=1,
+                    tov=2,
+                    fgm=int(mins * 0.22),
+                    fga=int(mins * 0.5),
+                    fg3m=int(mins * 0.05),
+                    fg3a=int(mins * 0.16),
+                    ftm=int(mins * 0.1),
+                    fta=int(mins * 0.13),
+                    plus_minus=-6,
+                )
+            )
+        # Stray player log — wrong team, should be excluded from response.
+        rows.append(
+            PlayerGameLog(
+                player_id=999,
+                game_id=game_id,
+                season=season,
+                season_type="Playoffs",
+                min=10.0,
+                pts=4,
+            )
+        )
+    session.add_all(rows)
+    session.commit()
+    return series_id
+
+
+def test_series_player_logs_returns_grouped_sorted_response():
+    SessionLocal = _make_session_factory()
+    session = SessionLocal()
+    try:
+        series_id = _seed_series_with_player_game_logs(session, season="2024-25")
+        response = get_series_player_logs(series_id=series_id, db=session)
+    finally:
+        session.close()
+
+    assert response.series_id == series_id
+    # 3 OKC players appeared, 2 HOU players, stray player filtered out.
+    assert len(response.top_seed) == 3
+    assert len(response.bottom_seed) == 2
+    stray_pids = {entry.player_id for entry in response.top_seed + response.bottom_seed}
+    assert 999 not in stray_pids
+
+    # Sort-by-total-minutes: SGA (153) > JDub (134) > Wallace (76).
+    okc_order = [entry.player_name for entry in response.top_seed]
+    assert okc_order == [
+        "Shai Gilgeous-Alexander",
+        "Jalen Williams",
+        "Cason Wallace",
+    ]
+    # And HOU: Sengun (150) > Smith (117).
+    hou_order = [entry.player_name for entry in response.bottom_seed]
+    assert hou_order == ["Alperen Sengun", "Jabari Smith Jr."]
+
+    sga = response.top_seed[0]
+    # Each player has all 4 games.
+    assert len(sga.games) == 4
+    # Games are ordered by series_game_num.
+    assert [g.series_game_num for g in sga.games] == [1, 2, 3, 4]
+    # Headshot is forwarded when populated on the Player row.
+    assert sga.headshot_url == "https://example.com/101.png"
+    assert sga.team_abbreviation == "OKC"
+    # series_totals row sums minutes correctly and uses sentinel game_id.
+    assert sga.series_totals.game_id == "TOTALS"
+    assert sga.series_totals.series_game_num == 0
+    assert abs(sga.series_totals.min - 153.0) < 1e-6
+    # Plus/minus also accumulates (8 per game × 4 = 32).
+    assert sga.series_totals.plus_minus == 32
+
+
+def test_series_player_logs_returns_404_for_missing_series():
+    SessionLocal = _make_session_factory()
+    session = SessionLocal()
+    try:
+        from fastapi import HTTPException
+
+        try:
+            get_series_player_logs(series_id="2024-25-W-R1-NOPE-NONE", db=session)
+        except HTTPException as exc:
+            assert exc.status_code == 404
+        else:  # pragma: no cover - safety
+            raise AssertionError("Expected 404 for missing series")
+    finally:
+        session.close()

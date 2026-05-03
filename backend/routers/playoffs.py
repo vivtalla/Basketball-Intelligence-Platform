@@ -31,6 +31,7 @@ from models.playoffs import (
     PlayoffSeriesIntelligenceResponse,
     PlayoffSeriesGame,
     PlayoffSeriesGameWithMatchup,
+    PlayoffSeriesPlayerLogsResponse,
     PlayoffSeriesResponse,
     PlayoffStoryRailResponse,
     PlayoffTodayResponse,
@@ -39,6 +40,7 @@ from models.playoffs import (
 from services.playoff_bracket_service import compute_game_storyline
 from services.playoff_leaders_service import compute_playoff_leaders
 from services.playoff_series_intelligence_service import build_playoff_series_intelligence
+from services.playoff_series_player_logs_service import build_series_player_logs
 from services.playoff_simulator_service import simulate_series
 from services.story_rail_service import compute_data_as_of, compute_story_rail
 
@@ -587,3 +589,30 @@ def get_story_rail(
         data_as_of=compute_data_as_of(db, season),
         computed_at=datetime.utcnow(),
     )
+
+
+# ---------------------------------------------------------------------------
+# Sprint 85 — Per-series detail page (per-team player game-by-game logs)
+# ---------------------------------------------------------------------------
+
+
+@router.get(
+    "/series/{series_id}/player-logs",
+    response_model=PlayoffSeriesPlayerLogsResponse,
+)
+def get_series_player_logs(
+    series_id: str,
+    db: Session = Depends(get_db),
+) -> PlayoffSeriesPlayerLogsResponse:
+    """Return per-team player game-by-game logs for a single playoff series.
+
+    Backs the per-series tracker page: each player's stat line per game,
+    grouped by team, ordered by minutes played in the series. The frontend
+    deep-links each game row into ``/games/{game_id}``.
+    """
+    response = build_series_player_logs(db, series_id)
+    if response is None:
+        raise HTTPException(
+            status_code=404, detail=f"Playoff series '{series_id}' not found"
+        )
+    return response

@@ -5119,3 +5119,40 @@ export interface PlayTypeResponse {
   is_playoff: boolean;
   play_types: PlayTypeRow[];
 }
+
+// ── Sprint 85 — Per-series detail page ────────────────────────────────────────
+
+export interface SeriesPlayerGameLine {
+  game_id: string;
+  series_game_num: number;
+  min: number;
+  pts: number;
+  reb: number;
+  ast: number;
+  stl: number;
+  blk: number;
+  tov: number;
+  fgm: number;
+  fga: number;
+  fg3m: number;
+  fg3a: number;
+  ftm: number;
+  fta: number;
+  plus_minus: number;
+}
+
+export interface SeriesPlayerLogs {
+  player_id: number;
+  player_name: string;
+  team_id: number;
+  team_abbreviation: string;
+  headshot_url: string | null;
+  games: SeriesPlayerGameLine[];
+  series_totals: SeriesPlayerGameLine;
+}
+
+export interface PlayoffSeriesPlayerLogsResponse {
+  series_id: string;
+  top_seed: SeriesPlayerLogs[];
+  bottom_seed: SeriesPlayerLogs[];
+}

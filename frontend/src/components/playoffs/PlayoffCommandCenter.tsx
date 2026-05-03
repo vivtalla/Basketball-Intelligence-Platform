@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useMemo, useState } from "react";
 import useSWR from "swr";
 import { MethodologyEvidenceCard } from "@/components/methodology/MethodologyEvidenceCard";
@@ -114,6 +115,14 @@ function SeriesRail({
         <h2 className="bip-display mt-1 text-2xl font-semibold text-[var(--foreground)]">
           Pick the chessboard.
         </h2>
+        {selectedSeriesId ? (
+          <Link
+            href={`/playoff-series/${encodeURIComponent(selectedSeriesId)}`}
+            className="mt-3 inline-flex items-center gap-1 text-xs font-semibold text-[var(--accent)] transition-colors hover:underline"
+          >
+            View per-game player stats →
+          </Link>
+        ) : null}
       </div>
       <div className="space-y-2">
         {series.map((item) => {

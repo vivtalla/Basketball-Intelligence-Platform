@@ -2098,3 +2098,13 @@ export async function getPlayerPlayTypes(
     `/api/players/${playerId}/play-types?season=${encodeURIComponent(season)}&is_playoff=false`
   );
 }
+
+// ── Sprint 85 — Per-series detail page ────────────────────────────────────────
+
+export async function getSeriesPlayerLogs(
+  seriesId: string
+): Promise<import("./types").PlayoffSeriesPlayerLogsResponse> {
+  return fetchApi<import("./types").PlayoffSeriesPlayerLogsResponse>(
+    `/api/playoffs/series/${encodeURIComponent(seriesId)}/player-logs`
+  );
+}
