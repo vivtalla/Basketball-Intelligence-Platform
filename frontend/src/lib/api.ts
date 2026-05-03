@@ -2099,12 +2099,34 @@ export async function getPlayerPlayTypes(
   );
 }
 
-// ── Sprint 85 — Per-series detail page ────────────────────────────────────────
+// ── Sprint 85 (B) — Per-series detail page ────────────────────────────────────
 
 export async function getSeriesPlayerLogs(
   seriesId: string
 ): Promise<import("./types").PlayoffSeriesPlayerLogsResponse> {
   return fetchApi<import("./types").PlayoffSeriesPlayerLogsResponse>(
     `/api/playoffs/series/${encodeURIComponent(seriesId)}/player-logs`
+  );
+}
+
+// ── Sprint 85 (C) — Player Tracking + Hustle ─────────────────────────────────
+
+export async function getPlayerTracking(
+  playerId: number,
+  season: string,
+  isPlayoff: boolean = false
+): Promise<import("./types").PlayerTrackingResponse> {
+  return fetchApi<import("./types").PlayerTrackingResponse>(
+    `/api/players/${playerId}/tracking?season=${encodeURIComponent(season)}&is_playoff=${isPlayoff}`
+  );
+}
+
+export async function getPlayerHustle(
+  playerId: number,
+  season: string,
+  isPlayoff: boolean = false
+): Promise<import("./types").PlayerHustleResponse> {
+  return fetchApi<import("./types").PlayerHustleResponse>(
+    `/api/players/${playerId}/hustle?season=${encodeURIComponent(season)}&is_playoff=${isPlayoff}`
   );
 }

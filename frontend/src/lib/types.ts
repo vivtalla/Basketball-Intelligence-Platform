@@ -5127,7 +5127,7 @@ export interface PlayTypeResponse {
   play_types: PlayTypeRow[];
 }
 
-// ── Sprint 85 — Per-series detail page ────────────────────────────────────────
+// ── Sprint 85 (B) — Per-series detail page ────────────────────────────────────
 
 export interface SeriesPlayerGameLine {
   game_id: string;
@@ -5162,4 +5162,52 @@ export interface PlayoffSeriesPlayerLogsResponse {
   series_id: string;
   top_seed: SeriesPlayerLogs[];
   bottom_seed: SeriesPlayerLogs[];
+}
+
+// ── Sprint 85 (C) — Player Tracking + Hustle ─────────────────────────────────
+
+export interface PlayerTrackingRow {
+  split_key: string;
+  team_abbreviation: string | null;
+  gp: number | null;
+  minutes: number | null;
+  touches: number | null;
+  front_court_touches: number | null;
+  time_of_possession: number | null;
+  drives: number | null;
+  passes_made: number | null;
+  passes_received: number | null;
+  catch_shoot_fga: number | null;
+  catch_shoot_pts: number | null;
+  pull_up_fga: number | null;
+  pull_up_pts: number | null;
+  paint_touch_pts: number | null;
+  close_touch_pts: number | null;
+}
+
+export interface PlayerTrackingResponse {
+  player_id: number;
+  season: string;
+  is_playoff: boolean;
+  families: Record<string, PlayerTrackingRow[]>;
+}
+
+export interface PlayerHustleStats {
+  team_abbreviation: string | null;
+  gp: number | null;
+  minutes: number | null;
+  contested_shots: number | null;
+  deflections: number | null;
+  charges_drawn: number | null;
+  screen_assists: number | null;
+  screen_assist_points: number | null;
+  loose_balls_recovered: number | null;
+  box_outs: number | null;
+}
+
+export interface PlayerHustleResponse {
+  player_id: number;
+  season: string;
+  is_playoff: boolean;
+  stats: PlayerHustleStats | null;
 }

@@ -20,6 +20,8 @@ import { PlayerSettingsDrawer } from "./player-settings/PlayerSettingsDrawer";
 import SeasonSplits from "./SeasonSplits";
 import PlayerSplitsPanel from "./PlayerSplitsPanel";
 import PlayTypePanel from "./PlayTypePanel";
+import PlayerTrackingPanel from "./PlayerTrackingPanel";
+import PlayerHustlePanel from "./PlayerHustlePanel";
 import ExternalMetricsPanel from "./ExternalMetricsPanel";
 import ChartStatusBadge from "./ChartStatusBadge";
 import PerformanceCalendar from "./PerformanceCalendar";
@@ -305,6 +307,20 @@ export default function PlayerDashboard({ playerId }: PlayerDashboardProps) {
       )}
       {!isPlayoffs && effectiveSeasonStr && (
         <PlayTypePanel playerId={playerId} season={effectiveSeasonStr} />
+      )}
+      {effectiveSeasonStr && (
+        <PlayerTrackingPanel
+          playerId={playerId}
+          season={effectiveSeasonStr}
+          isPlayoff={isPlayoffs}
+        />
+      )}
+      {effectiveSeasonStr && (
+        <PlayerHustlePanel
+          playerId={playerId}
+          season={effectiveSeasonStr}
+          isPlayoff={isPlayoffs}
+        />
       )}
 
       {/* Performance Calendar — game-by-game heatmap for current season */}
