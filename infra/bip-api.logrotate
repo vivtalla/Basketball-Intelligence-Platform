@@ -1,0 +1,17 @@
+# CourtVue Labs — gunicorn access log rotation.
+# One-time install (after Sprint 87 deploy):
+#   sudo cp /home/ubuntu/bip/infra/bip-api.logrotate /etc/logrotate.d/bip-api
+#   sudo logrotate -d /etc/logrotate.d/bip-api   # dry-run validate
+#
+# Logrotate runs daily via /etc/cron.daily/logrotate on Ubuntu by default.
+
+/var/log/bip-api/access.log {
+    daily
+    rotate 14
+    compress
+    delaycompress
+    missingok
+    notifempty
+    create 0644 ubuntu ubuntu
+    copytruncate
+}
