@@ -15,7 +15,47 @@ Guidelines:
 
 ---
 
-## Sprint 89 Candidates
+## Sprint 90 Candidates
+
+### Salary + contract integration → trade-feasibility filtering (Sprint 89 D follow-on)
+Why it matters:
+Sprint 89's `/teams/[abbr]/roster-fit` league candidates ranks players by statistical fit only — the methodology drawer explicitly disclaims "no salary, no contract length, no free-agent status, no trade feasibility." A coach/GM looking at the candidate grid currently has to mentally filter the unrealistic acquisitions.
+
+Likely shape:
+- Source contract + cap-hit data from Spotrac (the existing `data/scrapers/` pattern from Sprint 82c) — ~3-4 hr scraper work, depending on Spotrac structure changes.
+- New `player_contracts` table seeded nightly.
+- `RosterFitPlayerEntry` extended with `current_cap_hit`, `years_remaining`, `free_agent_year`, `expiring`.
+- Frontend filters: "free agents next summer", "trade-feasible within $X cap distance", "expiring contracts only".
+- Per Deferral Policy: "different domain" — Sprint 89's stat-based fit is a coherent ship; trade feasibility is a sister feature.
+
+### Shot location overlap (Sprint 89 D follow-on)
+Why it matters:
+Sprint 89 fit uses 13 box-score features (pts/reb/ast/stl/blk/tov/ts/usg/per/par3/ftr) but no shot-location signal. A guard who only shoots above-the-break 3s scores perfectly against a roster already loaded with above-the-break shooters — that's a real overlap the current model misses.
+
+Likely shape:
+- Compute per-team shot-zone profile (8 zones from the existing `play_by_play_events` data).
+- Compute per-player shot-zone vector from `player_shot_charts`.
+- Add a `shot_diet_overlap` component to the fit score (or surface it as a separate "spacing fit" signal that the user can optionally weight).
+- ~6-8 hr including methodology decisions on weighting.
+
+### Defensive scheme clustering (Sprint 89 D follow-on)
+Why it matters:
+Sprint 88 populated team tracking + hustle data in regular season. We can now cluster teams by defensive identity (switch-heavy / drop / ice / aggressive trap) using deflections + contested shots + tracking distance. A defender's fit score should reward scheme alignment.
+
+Likely shape:
+- New `services/team_defensive_archetype_service.py` clusters teams via k-means on the tracking + hustle vector.
+- Per-player defensive vector (deflections rate, contested shots, screen assists, etc.) scored against each scheme cluster.
+- New `defensive_scheme_fit` component or signal in roster-fit.
+- Methodology calibration risk — needs validation that the clusters are coachable, not just statistical noise.
+
+### Play-type compatibility via Synergy data (Sprint 89 D follow-on)
+Why it matters:
+Synergy play-type data (already imported per Sprint 82) has per-player frequencies for transition / isolation / P&R / post-up / spot-up / etc. Two players who are both 50% P&R-ball-handler create role conflict that 13 box-score features don't surface.
+
+Likely shape:
+- Per-player play-type frequency vector + PPP (already in DB).
+- Per-team aggregated frequency vector (weighted by minutes).
+- Score candidate's frequency vector against team's existing distribution (a high-frequency P&R ball handler scores poorly against a roster that already has 2 high-frequency P&R ball handlers).
 
 ### Server-component refactor of stable pages for true ISR (Sprint 88 D follow-on)
 Why it matters:
@@ -24,7 +64,7 @@ Sprint 88 Stream D added `revalidate` exports to 6 stable pages (`/players/[id]`
 Likely shape (per page family — could be split across multiple sprints):
 - Convert `players/[id]/page.tsx` to a server component that fetches player data server-side (`await fetch(\`\${API}/api/players/\${id}\`)`) and passes it as props to a thin client wrapper. Initial HTML includes the data; Vercel's edge can cache it for the `revalidate` window. Browser SWR can revalidate on focus from the seeded data.
 - Same for `/teams/[abbr]`, `/leaderboards`, `/standings`, `/milestones`, `/mvp`.
-- Each page family is a separate refactor unit (~2-3 hr each). Could be one big Sprint 89 (12-15 hr) or split.
+- Each page family is a separate refactor unit (~2-3 hr each). Could be one big Sprint 90 (12-15 hr) or split.
 
 ### Cache-effectiveness measurement (Sprint 88 C1 follow-on)
 Why it matters:

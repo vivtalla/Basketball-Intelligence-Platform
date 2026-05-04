@@ -604,6 +604,55 @@ Implementation references:
 - `backend/services/similarity_service.py`
 - `backend/models/team_fit.py`
 
+### Team-Side Roster Fit (Sprint 89)
+
+Team-Side Roster Fit answers the inverse of Team-Fit: for a given team, how well does each rostered player fit the rest of the roster, and which players around the league would fit the team best?
+
+Methodology version: `team_roster_fit_v1`
+
+What it ships:
+
+- `current_roster_fits`: every qualified rostered player ranked by fit, scored against the rest of the roster (the subject is excluded from the comparison set so Role Competition isn't inflated by self-overlap).
+- `league_candidates`: top N (default 25) non-roster qualified players ranked by fit against the full current roster.
+- `team_need_vector`: roster-weighted average z per feature so each fit traces to a visible team-level need. Negative z surfaces as `primary_needs`, positive as `primary_strengths`.
+- Per-player **position-cohort percentile** (G / F / C) shown alongside the global percentile so a center isn't graded only against guard rates.
+
+Same scoring core as `team_fit_v3`: 13 z-scored role features, three components weighted 45 / 30 / 25 (Skill Supply / Teammate Overlap / Role Runway). The function `_score_team_fit` from `team_fit_service` is reused directly so player-side and team-side reads use identical math.
+
+Why position-cohort percentile is display-only:
+
+- The score formula keeps using global norms so cross-position rankings stay coherent (a high-volume center can still rank above a low-volume guard on raw fit).
+- The cohort percentile is shown as a tooltip caveat ("ranks 12th among centers in scoring rate") to avoid grading a 7-footer's ball-handling against a point guard's.
+
+Why current-roster scoring excludes the subject:
+
+- Without exclusion, a player would always be a perfect "teammate" of themselves on every feature, inflating Role Competition.
+- Exclusion makes the score answer "how do you fit your teammates?" rather than "how do you fit a roster that includes you?"
+
+Confidence bands:
+
+- High: 8+ qualified roster rows.
+- Medium: 3–7 qualified roster rows.
+- Low: <3 qualified rows; league-candidate scoring is skipped entirely (gated, not just labeled).
+
+Caching:
+
+- League-candidate computation iterates ~440 players × 1 team. Cold compute is ~1–7 s depending on data size; subsequent calls are served from SQLite `cache.db` with a 24 h TTL keyed on `(abbr, season, season_type, limit)`. TTL aligns with the daily-sync cadence — underlying `season_stats` only changes nightly.
+
+Limitations (called out in the methodology drawer in the UI):
+
+- Statistical fit only — no salary, contract length, free-agent status, age, injury history, or trade feasibility.
+- Same-season comparisons only; no projections.
+- 13 box-score-derived features — does not include shot location overlap, defensive scheme, or play-type fit.
+- Position cohort is coarse (G / F / C); does not distinguish stretch-4 vs traditional PF.
+
+Implementation references:
+
+- `backend/services/team_roster_fit_service.py`
+- `backend/models/team_roster_fit.py`
+- `backend/routers/teams.py` (`/api/teams/{abbr}/roster-fit` endpoint, mounted alongside `/tracking` and `/hustle` per the Sprint 86 inline pattern)
+- `frontend/src/components/team-fit/TeamRosterFitPanel.tsx`
+
 ---
 
 ## 7. Trend, Trajectory, Opportunity, and Decision Intelligence
