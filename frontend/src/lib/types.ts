@@ -5267,3 +5267,74 @@ export interface TeamHustleResponse {
   is_playoff: boolean;
   stats: TeamHustleStats | null;
 }
+
+// --- Sprint 89 — Team-side Player Fit (roster + league) ------------------
+
+export interface TeamNeedFeature {
+  feature_key: string;
+  label: string;
+  team_z: number;
+  gap: number;
+  percentile: number;
+}
+
+export interface TeamNeedVector {
+  features: TeamNeedFeature[];
+  primary_needs: string[];
+  primary_strengths: string[];
+}
+
+export interface RosterFitCohortPercentile {
+  feature_key: string;
+  label: string;
+  percentile: number;
+  bucket: string;
+}
+
+export interface RosterFitPlayerEntry {
+  player_id: number;
+  full_name: string;
+  position: string | null;
+  position_bucket: string;
+  headshot_url: string | null;
+  current_team_abbr: string | null;
+  season: string;
+  gp: number;
+  fit_score: number;
+  skill_supply_score: number;
+  roster_need_score: number;
+  role_competition_score: number;
+  confidence: string;
+  confidence_notes: string[];
+  summary: string;
+  value_drivers: TeamFitDriver[];
+  role_runway_drivers: TeamFitDriver[];
+  overlap_flags: TeamFitOverlapFlag[];
+  cohort_percentiles: RosterFitCohortPercentile[];
+}
+
+export interface TeamRosterFitMethodology {
+  version: string;
+  weights: Record<string, number>;
+  duplicate_threshold: number;
+  duplicate_penalty: number;
+  min_team_players: number;
+  league_candidate_min_gp: number;
+  position_cohort_enabled: boolean;
+  cohort_buckets: string[];
+  notes: string[];
+}
+
+export interface TeamRosterFitResponse {
+  team_abbreviation: string;
+  team_name: string | null;
+  season: string;
+  season_type: string;
+  qualified_roster_count: number;
+  team_need_vector: TeamNeedVector;
+  current_roster_fits: RosterFitPlayerEntry[];
+  league_candidates: RosterFitPlayerEntry[];
+  methodology: TeamRosterFitMethodology;
+  warnings: string[];
+  generated_at: string;
+}
