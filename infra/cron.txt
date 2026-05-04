@@ -14,16 +14,26 @@ SHELL=/bin/bash
 PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
 PYTHON_BIN=/home/ubuntu/bip/backend/venv/bin/python
 
+# IMPORTANT (Sprint 91 hotfix): every line that needs DATABASE_URL /
+# NBA_API_USER_FETCH_DISABLED / CORS_ORIGINS to flow into Python subprocesses
+# must wrap the source with `set -a; . /etc/bip/env; set +a`. Plain
+# `. /etc/bip/env` only sets shell vars in the cron shell — they do NOT
+# propagate to bash subshells or python processes. Sprint 85 fixed the same
+# gap in deploy.sh. Pre-Sprint-91 cron entries used the broken form and the
+# daily sync was silently failing on every run with `fe_sendauth: no password
+# supplied` — surfaced when prod GameLog was missing the past 2 days of
+# playoff games on Sprint 90 closeout night.
+
 # ── Backups ──────────────────────────────────────────────────────────────────
 # 4am UTC nightly pg_dump → Cloudflare R2 (runs BEFORE the 6am sync so we
 # always have a snapshot of "yesterday" before today's writes start).
-0 4 * * *    . /etc/bip/env && /home/ubuntu/bip/infra/bip-backup.sh >> /var/log/bip-backup.log 2>&1
+0 4 * * *    set -a && . /etc/bip/env && set +a && /home/ubuntu/bip/infra/bip-backup.sh >> /var/log/bip-backup.log 2>&1
 
 # ── Daily full sync ──────────────────────────────────────────────────────────
 # 6am UTC — picks up yesterday's late finals + runs the full pipeline
 # (warehouse jobs, standings, season dashboards, playoff slice when in season,
 # role_expansion materialization, milestone snapshots).
-0 6 * * *    . /etc/bip/env && cd /home/ubuntu/bip/backend && bash data/daily_sync.sh >> /var/log/bip-sync.log 2>&1
+0 6 * * *    set -a && . /etc/bip/env && set +a && cd /home/ubuntu/bip/backend && bash data/daily_sync.sh >> /var/log/bip-sync.log 2>&1
 
 # ── Post-game refresh ────────────────────────────────────────────────────────
 # Every 30 min within the NBA game-completion window: 21:00 UTC (5pm ET, end
@@ -32,12 +42,12 @@ PYTHON_BIN=/home/ubuntu/bip/backend/venv/bin/python
 # skip it. Each tick does real work (~32 nba_api calls for injuries + team
 # splits), so narrowing the window cuts traffic ~62% with no freshness loss.
 # The 6am full sync above is the safety net for anything missed.
-*/30 21-23,0-5 * * * . /etc/bip/env && cd /home/ubuntu/bip/backend && bash data/daily_sync.sh --post-game >> /var/log/bip-sync.log 2>&1
+*/30 21-23,0-5 * * * set -a && . /etc/bip/env && set +a && cd /home/ubuntu/bip/backend && bash data/daily_sync.sh --post-game >> /var/log/bip-sync.log 2>&1
 
 # ── Weekly backup verification ───────────────────────────────────────────────
 # Sunday 5am UTC: restore the latest R2 dump into a scratch DB and diff
 # row counts against production. Emails on failure via MAILTO.
-0 5 * * 0    . /etc/bip/env && /home/ubuntu/bip/infra/bip-backup-verify.sh >> /var/log/bip-backup.log 2>&1
+0 5 * * 0    set -a && . /etc/bip/env && set +a && /home/ubuntu/bip/infra/bip-backup-verify.sh >> /var/log/bip-backup.log 2>&1
 
 # ── Weekly Postgres VACUUM ANALYZE (Sprint 88 B4) ───────────────────────────
 # Sunday 6am UTC: keep query plans fresh on the big tables (player_game_logs,
@@ -49,4 +59,4 @@ PYTHON_BIN=/home/ubuntu/bip/backend/venv/bin/python
 # Sunday 8am UTC: refresh player tracking dashboards for all active players.
 # ~450 NBA API calls × 0.6s rate-limit ≈ 5 min. Daily would be ~64 calls/day
 # amortized; weekly cuts that to ~64 calls/day amortized too but in one batch.
-0 8 * * 0    . /etc/bip/env && bash /home/ubuntu/bip/backend/data/weekly_sync.sh
+0 8 * * 0    set -a && . /etc/bip/env && set +a && bash /home/ubuntu/bip/backend/data/weekly_sync.sh
