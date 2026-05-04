@@ -500,3 +500,52 @@ def team_hustle_endpoint(
     if not team:
         raise HTTPException(status_code=404, detail=f"Team '{abbr}' not found.")
     return get_team_hustle(db, team_id=team.id, season=season, is_playoff=is_playoff)
+
+
+# ── Sprint 89 — Team-side player fit (roster + league candidates) ────────────
+
+
+@router.get("/{abbr}/roster-fit")
+def team_roster_fit_endpoint(
+    abbr: str,
+    season: str = Query("2024-25"),
+    season_type: SeasonType = Query("Regular Season"),
+    limit: int = Query(25, ge=5, le=50),
+    db: Session = Depends(get_db),
+):
+    """Sprint 89: team-side player fit. Two outputs per request:
+
+    * ``current_roster_fits`` — every qualified roster player ranked by fit
+      against the rest of the roster (self-excluded so overlap doesn't
+      double-count).
+    * ``league_candidates`` — top N non-roster qualified players ranked by
+      fit against the full current roster.
+
+    Plus a ``team_need_vector`` (roster-weighted feature deficits) so each
+    fit traces to a visible team-level need, and per-player position-cohort
+    percentiles (G / F / C) so a center isn't graded only against guard rates.
+
+    League-candidate computation walks ~440 players × 1 team and is cached
+    24h in SQLite ``cache.db`` keyed on ``(abbr, season, season_type, limit)``.
+    Cold compute is ~5-7s, cache hit is <50ms.
+    """
+    from data.cache import CacheManager
+    from models.team_roster_fit import TeamRosterFitResponse
+    from services.team_roster_fit_service import build_team_roster_fit_report
+
+    cache_key = "team_roster_fit:{0}:{1}:{2}:{3}".format(
+        abbr.upper(), season, season_type, limit
+    )
+    cached = CacheManager.get(cache_key)
+    if cached is not None:
+        return TeamRosterFitResponse(**cached)
+
+    report = build_team_roster_fit_report(
+        db=db,
+        team_abbr=abbr,
+        season=season,
+        season_type=season_type,
+        league_candidate_limit=limit,
+    )
+    CacheManager.set(cache_key, report.model_dump(mode="json"), ttl_seconds=86400)
+    return report
