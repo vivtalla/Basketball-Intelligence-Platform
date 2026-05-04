@@ -216,3 +216,135 @@ def test_modifier_keys_match_spec():
     expected = ("team_framing", "eligibility_pressure", "clutch", "momentum", "signature_games")
     assert MODIFIER_KEYS == expected
     assert set(DEFAULT_AWARD_CASE_WEIGHTS.keys()) == set(expected)
+
+
+# ---------------------------------------------------------------------------
+# Sprint 90 — activation integration tests
+# ---------------------------------------------------------------------------
+
+def _seed_calibration_dataset(db_session, n_seasons: int = 6, candidates_per_season: int = 5):
+    """Seed award_voting + award_case_candidates with synthetic data that has
+    a strong signal in the modifier vector — calibration should converge and
+    flip ``calibration_pending`` to False.
+
+    Generating model: observed_share = basketball_value + W . modifier_vector,
+    with W skewed toward team_framing + clutch so the calibrator has signal
+    to lean on.
+    """
+    from db.models import AwardCaseCandidate as _AwardCaseCandidate
+    from db.models import AwardVote as _AwardVote
+    from db.models import Player as _Player
+
+    true_w = [0.10, 0.04, 0.07, 0.02, 0.03]  # sum = 0.26 < cap
+
+    pid = 5000
+    for season_idx in range(n_seasons):
+        season = "20{0:02d}-{1:02d}".format(20 + season_idx, 21 + season_idx)
+        for cand_idx in range(candidates_per_season):
+            player_id = pid
+            pid += 1
+            db_session.add(_Player(
+                id=player_id,
+                full_name="Test {0} {1}".format(season_idx, cand_idx),
+                first_name="Test",
+                last_name="{0}-{1}".format(season_idx, cand_idx),
+                is_active=True,
+            ))
+            bv = 0.50 + (cand_idx + season_idx) * 0.02
+            mv = [
+                ((cand_idx * 0.13 + season_idx * 0.07) % 1) - 0.5,
+                ((cand_idx * 0.27 + season_idx * 0.11) % 1) - 0.5,
+                ((cand_idx * 0.41 + season_idx * 0.13) % 1) - 0.5,
+                ((cand_idx * 0.57 + season_idx * 0.17) % 1) - 0.5,
+                ((cand_idx * 0.71 + season_idx * 0.19) % 1) - 0.5,
+            ]
+            observed = bv + sum(true_w[k] * mv[k] for k in range(5))
+            db_session.add(_AwardVote(
+                player_id=player_id, season=season, award_type="MVP",
+                ballot_position=cand_idx + 1, voter_count=100,
+                total_award_points=observed,
+            ))
+            db_session.add(_AwardCaseCandidate(
+                player_id=player_id, season=season, award_type="MVP",
+                basketball_value=bv,
+                modifier_team_framing=mv[0],
+                modifier_eligibility_pressure=mv[1],
+                modifier_clutch=mv[2],
+                modifier_momentum=mv[3],
+                modifier_signature_games=mv[4],
+            ))
+    db_session.commit()
+
+
+def test_calibration_activates_when_dataset_has_signal(db_session):
+    """End-to-end: with materialized AwardCaseCandidate rows that follow a
+    known generating model, calibrate flips calibration_pending → False and
+    returns fitted weights different from the hand-tuned defaults."""
+    _seed_calibration_dataset(db_session, n_seasons=6, candidates_per_season=5)
+
+    result = calibrate_award_case_weights(db_session)
+    assert result["calibration_pending"] is False, "expected calibration to clear pending; notes={0}".format(result["notes"])
+    assert result["fold_count"] == 6
+    assert result["cross_validated_spearman"] >= 0.7
+    # Fitted weights should differ from the defaults on at least one pillar
+    fitted = result["weights"]
+    differs = any(abs(fitted[k] - DEFAULT_AWARD_CASE_WEIGHTS[k]) > 1e-6 for k in MODIFIER_KEYS)
+    assert differs, "expected at least one fitted weight to move from defaults; got {0}".format(fitted)
+    # Drift cap holds: every pillar within 0.04 of its prior
+    for k in MODIFIER_KEYS:
+        assert abs(fitted[k] - DEFAULT_AWARD_CASE_WEIGHTS[k]) <= MAX_PILLAR_DRIFT + 1e-9
+
+
+def test_get_calibration_state_caches_result(db_session, monkeypatch):
+    """The mvp_service helper should hit the SQLite cache on the second call;
+    a sentinel value injected into the cache must short-circuit the live
+    calibrate function entirely."""
+    from data.cache import CacheManager
+    from services import mvp_service
+
+    CacheManager.initialize()
+    CacheManager.delete(mvp_service.CALIBRATION_CACHE_KEY)
+
+    sentinel = {
+        "weights": dict(DEFAULT_AWARD_CASE_WEIGHTS),
+        "cross_validated_spearman": 0.42,
+        "fold_count": 99,
+        "last_calibrated_season": "2099-00",
+        "calibration_pending": False,
+        "notes": ["sentinel"],
+    }
+    CacheManager.set(mvp_service.CALIBRATION_CACHE_KEY, sentinel, ttl_seconds=60)
+
+    # Patch calibrate to fail loudly if called — proves the cache short-circuits it
+    def _explode(*args, **kwargs):
+        raise AssertionError("calibrate should not have been called when cache is warm")
+    monkeypatch.setattr(mvp_service, "calibrate_award_case_weights", _explode)
+
+    state = mvp_service._get_calibration_state(db_session)
+    assert state["fold_count"] == 99
+    assert state["notes"] == ["sentinel"]
+
+    CacheManager.delete(mvp_service.CALIBRATION_CACHE_KEY)
+
+
+def test_methodology_registry_augments_mvp_with_runtime_calibration(db_session):
+    """get_methodology_detail('mvp', db) must surface live calibration state
+    in the response's runtime_calibration field."""
+    from services.methodology_registry_service import get_methodology_detail
+
+    detail = get_methodology_detail("mvp", db=db_session)
+    assert detail.runtime_calibration is not None
+    rc = detail.runtime_calibration
+    # Empty DB = pending; weights match defaults
+    assert rc["calibration_pending"] is True
+    assert rc["weights_source"] == "default"
+    assert rc["fold_count"] == 0
+    assert set(rc["weights"].keys()) == set(MODIFIER_KEYS)
+
+
+def test_methodology_registry_passes_through_other_domains(db_session):
+    """Non-mvp domains must NOT have runtime_calibration populated."""
+    from services.methodology_registry_service import get_methodology_detail
+
+    detail = get_methodology_detail("archetype", db=db_session)
+    assert detail.runtime_calibration is None
