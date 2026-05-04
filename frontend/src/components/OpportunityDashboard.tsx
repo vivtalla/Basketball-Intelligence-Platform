@@ -13,6 +13,7 @@ import { EfficiencyLoadCard } from "./opportunity/EfficiencyLoadCard";
 import { TeamImpactCard } from "./opportunity/TeamImpactCard";
 import { RoleFitCard } from "./opportunity/RoleFitCard";
 import { CohortPositionCard } from "./opportunity/CohortPositionCard";
+import { UpliftEvidenceCard } from "./opportunity/UpliftEvidenceCard";
 import { DirectionalHintBanner } from "./opportunity/DirectionalHintBanner";
 import { MethodologyDrawer } from "./opportunity/MethodologyDrawer";
 import { MethodologyEvidenceCard } from "@/components/methodology/MethodologyEvidenceCard";
@@ -312,6 +313,11 @@ export default function OpportunityDashboard({
                 <RoleFitCard row={selectedRow} />
                 <CohortPositionCard row={selectedRow} />
               </div>
+
+              {/* Sprint 90 — full-width uplift evidence card sits below the
+                  2x2 grid because the IQR band + top-3 historical comparables
+                  benefit from the wider layout. */}
+              <UpliftEvidenceCard row={selectedRow} />
 
               {report?.methodology ? (
                 <>

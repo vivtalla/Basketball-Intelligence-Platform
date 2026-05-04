@@ -2725,6 +2725,20 @@ export interface MvpCandidate {
 
 export type MvpScoringProfile = "box_first" | "balanced" | "impact_consensus";
 
+// Sprint 90 — live state of the Award Case modifier-weight calibration.
+// Surfaces on every MVP race response so callers can tell whether the
+// award_case scoring is using fitted weights (LOO-CV across historical
+// voting) or the Sprint 76 hand-tuned priors.
+export interface MvpCalibrationMetadata {
+  calibration_pending: boolean;
+  weights_source: "calibrated" | "default";
+  cross_validated_spearman: number;
+  fold_count: number;
+  last_calibrated_season: string | null;
+  weights: Record<string, number>;
+  notes: string[];
+}
+
 export interface MvpRaceResponse {
   season: string;
   as_of_date: string;
@@ -2732,6 +2746,7 @@ export interface MvpRaceResponse {
   weights: Record<string, number>;
   scoring_profile?: string;
   available_profiles?: string[];
+  calibration_metadata?: MvpCalibrationMetadata | null;
 }
 
 export interface MvpImpactConsensusMetric {
@@ -3297,6 +3312,26 @@ export interface OpportunityCompareHandoff {
   cohort_bucket: string;
 }
 
+// Sprint 79 Stream A2 / Sprint 90 — opportunity_v2 uplift evidence band.
+// Backend ships this on every OpportunityPlayerRow; Sprint 90 wires it into
+// the dashboard. `null` when fewer than 5 KNN neighbors qualify.
+export interface OpportunityUpliftComparable {
+  player_name: string;
+  from_season: string;
+  to_season: string;
+  usg_delta: number;
+  ts_delta: number;
+}
+
+export interface OpportunityUplift {
+  mean_uplift: number;
+  uplift_band_lower: number;
+  uplift_band_upper: number;
+  neighbor_count: number;
+  evidence_confidence: "high" | "medium" | "low";
+  comparable_examples: OpportunityUpliftComparable[];
+}
+
 export interface OpportunityPlayerRow {
   player_id: number;
   player_name: string;
@@ -3331,6 +3366,9 @@ export interface OpportunityPlayerRow {
   hint_basis: string[];
   top_driver: OpportunitySignal | null;
   compare_handoff: OpportunityCompareHandoff | null;
+  // Sprint 90 — historical TS% movement for comparable role-expansion cases.
+  // Null when KNN found fewer than 5 qualifying neighbors.
+  uplift: OpportunityUplift | null;
 }
 
 export interface OpportunityMethodology {

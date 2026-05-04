@@ -79,6 +79,47 @@ export function MethodologyDrawer({ methodology }: Props) {
             <li key={note}>{note}</li>
           ))}
         </ul>
+
+        {/* Sprint 90 — opportunity_v2 uplift methodology subsection. */}
+        <details className="rounded-lg border border-[var(--border)] bg-[var(--surface-alt)] p-3 text-xs leading-5">
+          <summary className="cursor-pointer list-none font-semibold text-[var(--foreground)]">
+            v2 uplift evidence (Role Expansion Uplift card)
+          </summary>
+          <div className="mt-2 space-y-2 text-[var(--muted-strong)]">
+            <p>
+              The Role Expansion Uplift card is a descriptive evidence band, not
+              a causal projection. It says: &ldquo;players similar to this one
+              who took on a comparable usage bump historically saw X TS%
+              shift.&rdquo;
+            </p>
+            <p>
+              <span className="font-semibold text-[var(--foreground)]">Source:</span>{" "}
+              KNN over <span className="tabular-nums">~286</span> historical
+              role-expansion observations materialized from{" "}
+              <code className="rounded bg-[var(--surface)] px-1 py-0.5 text-[10px]">
+                role_expansion_observations
+              </code>
+              .
+            </p>
+            <p>
+              <span className="font-semibold text-[var(--foreground)]">Distance:</span>{" "}
+              shrunk-Mahalanobis on archetype + USG + TS%. K=20 nearest
+              neighbors; minimum 5 to surface a band.
+            </p>
+            <p>
+              <span className="font-semibold text-[var(--foreground)]">Confidence bands:</span>{" "}
+              high ≥ 15 neighbors · medium ≥ 8 · low &lt; 8.
+            </p>
+            <p>
+              <span className="font-semibold text-[var(--foreground)]">Caveat:</span>{" "}
+              role expansion outcome depends on team context, lineup fit, and
+              role scope — none of which the KNN encodes. Read the band as
+              &ldquo;what happened historically&rdquo;, not &ldquo;what will
+              happen.&rdquo;
+            </p>
+          </div>
+        </details>
+
         <p className="text-[10px] text-[var(--muted)]">
           Methodology version: {methodology.version}
         </p>
