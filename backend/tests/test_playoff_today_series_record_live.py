@@ -198,6 +198,84 @@ def test_today_series_record_does_not_count_in_progress_game():
         session.close()
 
 
+def test_today_series_record_for_scoreboard_only_game():
+    """Production scenario: tonight's game is NOT in GameLog yet at all
+    (no DB row), it's appearing only via the live scoreboard. The fresh
+    series record must still bump correctly. This is the path that
+    `_build_scheduled_game_from_scoreboard` handles."""
+    session = _make_session()
+    try:
+        target = date(2026, 5, 13)
+        # Seed series with 5 prior games (DET 2 - ORL 3, mirrors the
+        # actual prod state when the user reported the bug).
+        det = Team(id=1610612765, abbreviation="DET", name="Detroit Pistons", city="Detroit")
+        orl = Team(id=1610612753, abbreviation="ORL", name="Orlando Magic", city="Orlando")
+        session.add_all([det, orl])
+        session.commit()
+        sid = "{0}-X-R1-DET-ORL".format(SEASON)
+        session.add(
+            PlayoffSeries(
+                season=SEASON, round=1, series_id=sid,
+                top_seed_team_id=det.id, bottom_seed_team_id=orl.id,
+                top_seed=4, bottom_seed=5,
+                top_wins=2, bottom_wins=3, status="active",
+            )
+        )
+        # 5 prior completed games matching prod state (DET 2 - ORL 3).
+        # Tuple shape: (home_team, home_pts, away_pts) where home is one of
+        # {"DET", "ORL"}. Mirrors the actual prod GameLog DET-ORL series.
+        prior_outcomes = [
+            ("DET", 101, 112),  # G1: ORL @ DET, ORL wins (101 < 112)
+            ("DET",  98,  83),  # G2: ORL @ DET, DET wins
+            ("ORL", 113, 105),  # G3: DET @ ORL, ORL wins
+            ("ORL",  94,  88),  # G4: DET @ ORL, ORL wins
+            ("DET", 116, 109),  # G5: ORL @ DET, DET wins
+        ]
+        team_by_abbr = {"DET": det, "ORL": orl}
+        for i, (home_abbr, home_pts, away_pts) in enumerate(prior_outcomes, start=1):
+            home_id = team_by_abbr[home_abbr].id
+            away_id = orl.id if home_abbr == "DET" else det.id
+            session.add(
+                GameLog(
+                    game_id="00425001{0:02d}".format(i),
+                    season=SEASON,
+                    game_date=date(2026, 4, 18 + i),
+                    home_team_id=home_id, away_team_id=away_id,
+                    home_score=home_pts, away_score=away_pts,
+                    season_type="Playoffs", series_id=sid, series_game_num=i,
+                )
+            )
+        session.commit()
+
+        # Tonight's G6 — NOT in GameLog at all. Scoreboard says DET 116, ORL 94, final.
+        scoreboard = {
+            "0042500106": {
+                "gameId": "0042500106",
+                "gameStatus": 3,
+                "gameTimeUTC": "2026-05-14T01:00:00Z",
+                "homeTeam": {"teamId": det.id, "teamTricode": "DET", "score": 116},
+                "awayTeam": {"teamId": orl.id, "teamTricode": "ORL", "score": 94},
+                "broadcasters": {"nationalTvBroadcasters": []},
+            }
+        }
+        with patch("routers.playoffs._scoreboard_games_for_today", return_value=scoreboard), \
+             patch("routers.playoffs._today_pacific", return_value=target):
+            response = get_today(date_param=target.isoformat(), db=session)
+
+        assert len(response.games) == 1
+        game = response.games[0]
+        assert game.home_team_abbr == "DET"
+        assert game.away_team_abbr == "ORL"
+        assert game.home_pts == 116
+        assert game.away_pts == 94
+        # The actual fix: DET (top seed) goes from 2 prior wins → 3 with tonight's win.
+        # ORL (bottom seed) stays at 3.
+        assert game.top_wins == 3, "DET should be 3-3 after tonight's win, not stale 2"
+        assert game.bottom_wins == 3
+    finally:
+        session.close()
+
+
 def test_today_series_record_ignores_stale_playoffseries_topwins():
     """Even if PlayoffSeries.top_wins claims 7-3 (corrupted/stale), the
     fresh GameLog count of 3-3 should win. Locks down the regression

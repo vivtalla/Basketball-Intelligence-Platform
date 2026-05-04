@@ -16,7 +16,7 @@ from __future__ import annotations
 
 import logging
 from datetime import date, datetime
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Set
 
 import pytz
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -441,8 +441,6 @@ def _build_scheduled_game_from_scoreboard(
     round_no: Optional[int] = None
     top_abbr: Optional[str] = None
     bot_abbr: Optional[str] = None
-    top_wins: Optional[int] = None
-    bot_wins: Optional[int] = None
     status = None
 
     if home_team_id is not None and away_team_id is not None:
@@ -459,14 +457,15 @@ def _build_scheduled_game_from_scoreboard(
             series_id = series_row.series_id
             season = series_row.season
             round_no = series_row.round
-            top_wins = series_row.top_wins
-            bot_wins = series_row.bottom_wins
             status = series_row.status
             top_team = db.query(Team).filter(Team.id == series_row.top_seed_team_id).first()
             bot_team = db.query(Team).filter(Team.id == series_row.bottom_seed_team_id).first()
             top_abbr = top_team.abbreviation if top_team else None
             bot_abbr = bot_team.abbreviation if bot_team else None
 
+    # Sprint 90 hotfix — top_wins/bottom_wins are intentionally None here;
+    # `get_today` patches them in its single post-pass after computing the
+    # fresh series win count from GameLog + live scoreboard finals.
     return PlayoffSeriesGameWithMatchup(
         game_id=game_id,
         game_date=target,
@@ -483,8 +482,8 @@ def _build_scheduled_game_from_scoreboard(
         round=round_no,
         top_seed_team_abbr=top_abbr,
         bottom_seed_team_abbr=bot_abbr,
-        top_wins=top_wins,
-        bottom_wins=bot_wins,
+        top_wins=None,
+        bottom_wins=None,
         status=status,
         headline_storyline=None,
         tipoff_utc=tipoff_utc,
@@ -541,25 +540,11 @@ def get_today(
         )
     series_lookup = {s.series_id: s for s in series_rows}
 
-    # Sprint 90 hotfix — compute series win counts fresh from GameLog instead
-    # of reading PlayoffSeries.top_wins/bottom_wins, which only updates at the
-    # nightly sync. Without this, the live scoreboard overlay below shows
-    # tonight's just-completed score correctly but the series record renders
-    # the pre-game state (e.g. "Series tied 3-3" while the score reads
-    # "DET 110 - ORL 105 final" — should be "DET leads 4-3").
-    series_completed_wins: Dict[str, Dict[int, int]] = {sid: {} for sid in series_ids}
-    if series_ids:
-        completed_rows = (
-            db.query(GameLog)
-            .filter(GameLog.series_id.in_(series_ids))
-            .all()
-        )
-        for completed in completed_rows:
-            winner_id = _winner_team_id(completed)
-            if winner_id is None or completed.series_id is None:
-                continue
-            series_bucket = series_completed_wins.setdefault(completed.series_id, {})
-            series_bucket[winner_id] = series_bucket.get(winner_id, 0) + 1
+    # Sprint 90 hotfix — series_completed_wins is built up below as we
+    # discover which series are involved in today's slate (DB-row games AND
+    # scoreboard-only games not yet ingested into GameLog). Final patch of
+    # every game's top_wins / bottom_wins happens in a single post-pass.
+    series_completed_wins: Dict[str, Dict[int, int]] = {}
 
     needed_team_ids: List[int] = []
     for row in rows:
@@ -616,27 +601,6 @@ def get_today(
                 live_home_pts = (sb_game.get("homeTeam") or {}).get("score")
                 live_away_pts = (sb_game.get("awayTeam") or {}).get("score")
 
-        # Sprint 90 hotfix — if today's game just went final on the scoreboard
-        # but the DB row hasn't been ingested yet, the win still needs to count
-        # toward the series record. Only count when status == 3 (final): an
-        # in-progress game (status 2) shouldn't move the W-L tally yet.
-        if (
-            row.series_id
-            and not db_had_score
-            and sb_status == 3
-            and live_home_pts is not None
-            and live_away_pts is not None
-        ):
-            if live_home_pts > live_away_pts:
-                live_winner_id = row.home_team_id
-            elif live_away_pts > live_home_pts:
-                live_winner_id = row.away_team_id
-            else:
-                live_winner_id = None
-            if live_winner_id is not None:
-                bucket = series_completed_wins.setdefault(row.series_id, {})
-                bucket[live_winner_id] = bucket.get(live_winner_id, 0) + 1
-
         games.append(
             PlayoffSeriesGameWithMatchup(
                 game_id=row.game_id,
@@ -654,21 +618,12 @@ def get_today(
                 round=series.round if series is not None else None,
                 top_seed_team_abbr=top_team.abbreviation if top_team is not None else None,
                 bottom_seed_team_abbr=bottom_team.abbreviation if bottom_team is not None else None,
-                # Sprint 90 hotfix — surface live-computed series wins (see
-                # series_completed_wins build above), so the record updates the
-                # moment the scoreboard finalizes a game even before the
-                # nightly PlayoffSeries sync runs. Falls back to the persisted
-                # value only when the series_id isn't in our lookup.
-                top_wins=(
-                    series_completed_wins.get(series.series_id, {}).get(series.top_seed_team_id, 0)
-                    if series is not None
-                    else None
-                ),
-                bottom_wins=(
-                    series_completed_wins.get(series.series_id, {}).get(series.bottom_seed_team_id, 0)
-                    if series is not None
-                    else None
-                ),
+                # Sprint 90 hotfix — set placeholders here; we'll patch from
+                # series_completed_wins in a single post-pass below so the
+                # record reflects every win source uniformly (DB-row games,
+                # in-flight scoreboard finals not yet ingested into GameLog).
+                top_wins=None,
+                bottom_wins=None,
                 status=series.status if series is not None else None,
                 headline_storyline=storyline,
                 tipoff_utc=sb_tipoff,
@@ -678,12 +633,102 @@ def get_today(
 
     # Append any scoreboard games that weren't already in the DB (true
     # "upcoming" games not yet ingested).
+    scoreboard_only_finals: List[PlayoffSeriesGameWithMatchup] = []
     for game_id, sb_game in scoreboard_lookup.items():
         if game_id in db_game_ids:
             continue
         scheduled = _build_scheduled_game_from_scoreboard(sb_game, target, db)
-        if scheduled is not None:
-            games.append(scheduled)
+        if scheduled is None:
+            continue
+        # Sprint 90 hotfix — track scoreboard-only finals so the post-pass
+        # below counts them toward the series record (live final → +1 win
+        # before the nightly GameLog ingest catches up). Skip live (status=2)
+        # and scheduled (status=1): only finals book a win.
+        if (
+            sb_game.get("gameStatus") == 3
+            and scheduled.series_id
+            and scheduled.winner_team_id is not None
+        ):
+            scoreboard_only_finals.append(scheduled)
+        games.append(scheduled)
+
+    # ---------------------------------------------------------------------
+    # Sprint 90 hotfix — single post-pass that computes the series win
+    # record fresh and patches every game's top_wins / bottom_wins. The
+    # PlayoffSeries.top_wins/bottom_wins denormalized cache is bypassed
+    # entirely on this endpoint; GameLog + live scoreboard finals are
+    # authoritative.
+    # ---------------------------------------------------------------------
+
+    all_series_ids: Set[str] = {g.series_id for g in games if g.series_id}
+    if all_series_ids:
+        # Pull every PlayoffSeries we'll need to map team_id → top/bottom seed,
+        # which may include series for tonight's scoreboard-only games whose
+        # series_id wasn't in the original `series_ids` set.
+        all_series_rows = (
+            db.query(PlayoffSeries)
+            .filter(PlayoffSeries.series_id.in_(all_series_ids))
+            .all()
+        )
+        series_seed_lookup: Dict[str, Dict[str, Optional[int]]] = {
+            s.series_id: {"top": s.top_seed_team_id, "bottom": s.bottom_seed_team_id}
+            for s in all_series_rows
+        }
+
+        # Count wins from completed GameLog rows across every relevant series.
+        completed_rows = (
+            db.query(GameLog)
+            .filter(GameLog.series_id.in_(all_series_ids))
+            .all()
+        )
+        for completed in completed_rows:
+            winner_id = _winner_team_id(completed)
+            if winner_id is None or completed.series_id is None:
+                continue
+            bucket = series_completed_wins.setdefault(completed.series_id, {})
+            bucket[winner_id] = bucket.get(winner_id, 0) + 1
+
+        # Also count tonight's just-final scoreboard games (no GameLog row yet
+        # OR GameLog row exists but has NULL scores). For DB rows whose score
+        # was null but the live overlay supplied final scores, we re-detect
+        # "final via overlay" by checking the scoreboard status here.
+        for db_row in rows:
+            sb_game = scoreboard_lookup.get(db_row.game_id)
+            if sb_game is None:
+                continue
+            if db_row.home_score is not None and db_row.away_score is not None:
+                continue  # already counted via completed_rows above
+            if sb_game.get("gameStatus") != 3:
+                continue
+            home_pts_sb = (sb_game.get("homeTeam") or {}).get("score")
+            away_pts_sb = (sb_game.get("awayTeam") or {}).get("score")
+            if home_pts_sb is None or away_pts_sb is None:
+                continue
+            if home_pts_sb > away_pts_sb:
+                live_winner_id = db_row.home_team_id
+            elif away_pts_sb > home_pts_sb:
+                live_winner_id = db_row.away_team_id
+            else:
+                live_winner_id = None
+            if live_winner_id is not None and db_row.series_id:
+                bucket = series_completed_wins.setdefault(db_row.series_id, {})
+                bucket[live_winner_id] = bucket.get(live_winner_id, 0) + 1
+
+        # Scoreboard-only finals (no GameLog row at all yet).
+        for scheduled in scoreboard_only_finals:
+            bucket = series_completed_wins.setdefault(scheduled.series_id, {})
+            bucket[scheduled.winner_team_id] = bucket.get(scheduled.winner_team_id, 0) + 1
+
+        # Patch every game's record.
+        for g in games:
+            if not g.series_id:
+                continue
+            seeds = series_seed_lookup.get(g.series_id)
+            if not seeds:
+                continue
+            bucket = series_completed_wins.get(g.series_id, {})
+            g.top_wins = bucket.get(seeds["top"], 0) if seeds["top"] is not None else 0
+            g.bottom_wins = bucket.get(seeds["bottom"], 0) if seeds["bottom"] is not None else 0
 
     games.sort(key=lambda g: (g.tipoff_utc or "9999", g.game_id))
 
