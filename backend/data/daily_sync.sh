@@ -25,6 +25,21 @@
 set -e
 cd "$(dirname "$0")/.."
 
+# Sprint 91 hotfix — fail fast if DATABASE_URL didn't propagate from
+# /etc/bip/env. The pre-Sprint-91 cron form (`. /etc/bip/env && bash
+# data/daily_sync.sh`) silently dropped exports because the env file is in
+# `KEY=value` (no `export`) format; the python subprocesses then crashed
+# with `fe_sendauth: no password supplied` and the failure was only visible
+# in /var/log/bip-sync.log. Cron entries in infra/cron.txt now wrap the
+# source with `set -a; . /etc/bip/env; set +a` — this guard catches any
+# future regression of that pattern at the start of the run, before we
+# spend NBA API quota on calls whose results we can't persist.
+if [ -z "${DATABASE_URL:-}" ]; then
+  echo "ERROR: DATABASE_URL not set. Source /etc/bip/env with 'set -a' wrapper before invoking." >&2
+  echo "  set -a && . /etc/bip/env && set +a && bash data/daily_sync.sh" >&2
+  exit 1
+fi
+
 # Sprint 82d — cron context explicitly allows live NBA API calls. Public-mode
 # user-facing requests run with NBA_API_USER_FETCH_DISABLED=true so they only
 # read the cache; this export guarantees the nightly sync still fetches live,
