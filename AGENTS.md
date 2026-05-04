@@ -1,6 +1,6 @@
 # Agent Coordination
 
-Last updated: 2026-05-03 by Claude (Sprint 88 closeout — data foundation shipped end-to-end; biggest user win: hustle + tracking tables now populated in regular season)
+Last updated: 2026-05-03 by Claude (Sprint 89 kickoff — team-side player fit on `/teams/[abbr]`)
 
 > Both agents read this file before touching code at the start of every session.
 > The canonical source of truth is the clean `master` checkout at `/Users/viv/Documents/Basketball Intelligence Platform`.
@@ -15,12 +15,12 @@ Last updated: 2026-05-03 by Claude (Sprint 88 closeout — data foundation shipp
 | Field | Value |
 |-------|-------|
 | Sprint | 89 |
-| Goal | TBD — awaiting Vivek's sprint kickoff |
-| Started | TBD |
-| Target merge | TBD |
-| Sprint shape | TBD |
-| Branch | `master` until Sprint 89 kickoff |
-| Worker policy | No active sprint; set at kickoff |
+| Goal | Add team-side player fit to `/teams/[abbr]`: rank current roster + top league candidates against the team's needs, with explainable 3-component fit score |
+| Started | 2026-05-03 |
+| Target merge | 2026-05-03 |
+| Sprint shape | Single sequential branch — refactor → service → router → frontend → tests → docs |
+| Branch | `feature/sprint-89-team-roster-fit` (worktree at `/Users/viv/Documents/bip-s89`) |
+| Worker policy | None — single-stream main session; tightly coupled across A→B→C |
 
 **Production status:** CourtVue Labs is publicly live at `https://courtvue.app` (Vercel) + `https://api.courtvue.app` (Hetzner CPX11, `ubuntu@5.78.114.15`). Sprint 88 shipped data foundation work — hustle + tracking tables now populated in regular season (was empty 6 months/year), 8 missing DB indexes added, N+1 query patterns fixed, SQLAlchemy pool explicit, weekly VACUUM ANALYZE, cache observability via `/api/health/cache-stats`, `infra/deploy.sh` auto-syncs systemd units. 500 backend tests, 0 lint errors. **Stream D ISR was partial** — exports added but client-component pages don't get edge-cached (real fix is server-component refactor, filed as Sprint 89 candidate).
 
@@ -206,12 +206,12 @@ If repo state, sprint numbering, or shipped features appear to disagree across l
 ## Current Assignments
 
 ### Claude
-- Branch: TBD at kickoff
-- Scope: No active sprint assignment
-- Status: Not started
+- Branch: `feature/sprint-89-team-roster-fit`
+- Scope: All Sprint 89 streams (A refactor + service, B router + cache, C frontend, D tests, E docs)
+- Status: In progress
 
 ### Codex
-- Branch: TBD at kickoff
+- Branch: —
 - Scope: No active sprint assignment
 - Status: Not started
 
