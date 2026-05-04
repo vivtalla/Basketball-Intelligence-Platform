@@ -119,16 +119,51 @@ Cloudflare's edge cache is what protects the VM from a sudden traffic spike. Wit
 
 **When to update rule 4:** any new endpoint family that follows the daily-sync cadence (e.g. future shooting splits, advanced stats by player or team) should be added to the regex inside the existing rule rather than creating a new rule (free tier is at the 5-rule cap).
 
-### Backup retention (Sprint 87 — recommended next Cloudflare touch)
+### Backup retention (Sprint 87 deferred — recommended next Cloudflare touch)
 
-`bip-backup-prune.sh` enforces 7 daily / 4 weekly / 3 monthly retention via shell logic. As a second-layer safety net (in case the prune script silently fails), add an R2 lifecycle rule auto-deleting objects older than 90 days:
+`bip-backup-prune.sh` enforces 7 daily / 4 weekly / 3 monthly retention via shell logic. As a second-layer safety net (in case the prune script silently fails), add an R2 lifecycle rule auto-deleting objects older than 90 days. **~5 minutes in the Cloudflare dashboard:**
 
-- Cloudflare dashboard → R2 → bucket settings → Object lifecycle rules → Add rule
-- Apply to: all objects in the bucket
-- Delete after: 90 days
-- OR via API once the AWS CLI is configured: `aws --endpoint=$R2_ENDPOINT s3api put-bucket-lifecycle-configuration --bucket=$R2_BUCKET --lifecycle-configuration file://r2-lifecycle.json`
+1. Log in to Cloudflare → click the R2 product (left sidebar)
+2. Click the bucket holding the bip backups (named whatever you set when creating it; check `/etc/bip/env` → `R2_BUCKET` if you forget)
+3. **Settings** tab → scroll to **Object lifecycle rules** → **Add rule**
+4. Rule name: `bip-backup-cleanup`
+5. Apply to: **All objects in this bucket**
+6. Action: **Delete objects** after **90 days** since upload
+7. Save
 
-Audit-flagged but deferred from Sprint 87 because it's a Cloudflare UI step (different domain per the Deferral Policy).
+Verify it's listed under Lifecycle rules with status **Active**. The rule runs server-side; nothing to verify locally — just trust the dashboard.
+
+Alternative (if AWS CLI is set up against R2 endpoint):
+```bash
+aws --endpoint=$R2_ENDPOINT s3api put-bucket-lifecycle-configuration \
+  --bucket=$R2_BUCKET --lifecycle-configuration file://r2-lifecycle.json
+```
+
+Audit-flagged but deferred from Sprint 87 (and re-confirmed Sprint 90) because it's a Cloudflare UI step — different domain per the Deferral Policy.
+
+### Cache effectiveness baseline (Sprint 88 → 90)
+
+Sprint 88's `/api/health/cache-stats` endpoint exposes the SQLite `cache.db` hit/miss/expired counters per gunicorn worker. The counter is per-process (not aggregated across workers), so a single curl reads only one worker's view — useful for spot-checking, not for whole-fleet aggregation.
+
+**2026-05-03 baseline snapshot** (post-Sprint-89 deploy):
+```
+{
+    "hit": 0,
+    "miss": 0,
+    "expired": 0,
+    "total": 0,
+    "row_count": 535,
+    "size_bytes": 16388096
+}
+```
+
+`row_count=535` says the cache has 535 active entries (NBA API responses, calibration result, roster-fit results). `size_bytes=16MB` is healthy — well under the disk pressure threshold. `hit/miss=0` is expected on a freshly-restarted worker that hasn't served traffic yet; revisit after a few hours of organic traffic to get a real hit-rate read.
+
+**When to revisit:** if hit-rate sits below ~50% on a populated worker after a few hours, bump TTLs in `nba_client.py` for the cold key prefixes (likely candidates: per-player tracking + hustle, where current_season TTL is short relative to actual change rate).
+
+### `/api/health` bypass-cache rule (Sprint 88 — RESOLVED, not needed)
+
+Sprint 88 closeout filed this as a Cloudflare UI deferred item. On Sprint 90 review the rule is **not needed**: the catch-all rule (rule 5 above, 2-hour TTL) covers `/api/health` and the request is cheap enough that a 2-hour stale window is fine. If `/api/health` is ever returning a stale response that masks an outage, UptimeRobot will catch it with a direct `https://api.courtvue.app/api/health` probe (which Cloudflare may or may not edge-cache — UptimeRobot retries directly against origin via Cloudflare every 5 min). The BACKLOG entry has been removed.
 
 ## One-time logrotate install (Sprint 87)
 
