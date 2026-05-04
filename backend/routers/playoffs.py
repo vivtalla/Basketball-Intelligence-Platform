@@ -541,6 +541,26 @@ def get_today(
         )
     series_lookup = {s.series_id: s for s in series_rows}
 
+    # Sprint 90 hotfix — compute series win counts fresh from GameLog instead
+    # of reading PlayoffSeries.top_wins/bottom_wins, which only updates at the
+    # nightly sync. Without this, the live scoreboard overlay below shows
+    # tonight's just-completed score correctly but the series record renders
+    # the pre-game state (e.g. "Series tied 3-3" while the score reads
+    # "DET 110 - ORL 105 final" — should be "DET leads 4-3").
+    series_completed_wins: Dict[str, Dict[int, int]] = {sid: {} for sid in series_ids}
+    if series_ids:
+        completed_rows = (
+            db.query(GameLog)
+            .filter(GameLog.series_id.in_(series_ids))
+            .all()
+        )
+        for completed in completed_rows:
+            winner_id = _winner_team_id(completed)
+            if winner_id is None or completed.series_id is None:
+                continue
+            series_bucket = series_completed_wins.setdefault(completed.series_id, {})
+            series_bucket[winner_id] = series_bucket.get(winner_id, 0) + 1
+
     needed_team_ids: List[int] = []
     for row in rows:
         if row.home_team_id is not None:
@@ -589,11 +609,33 @@ def get_today(
         # Live game with no DB scores yet — pull current scores from scoreboard.
         live_home_pts = row.home_score
         live_away_pts = row.away_score
+        db_had_score = row.home_score is not None and row.away_score is not None
+        sb_status = sb_game.get("gameStatus") if sb_game else None
         if sb_game and (live_home_pts is None or live_away_pts is None):
-            game_status = sb_game.get("gameStatus")
-            if game_status in (2, 3):  # live or final
+            if sb_status in (2, 3):  # live or final
                 live_home_pts = (sb_game.get("homeTeam") or {}).get("score")
                 live_away_pts = (sb_game.get("awayTeam") or {}).get("score")
+
+        # Sprint 90 hotfix — if today's game just went final on the scoreboard
+        # but the DB row hasn't been ingested yet, the win still needs to count
+        # toward the series record. Only count when status == 3 (final): an
+        # in-progress game (status 2) shouldn't move the W-L tally yet.
+        if (
+            row.series_id
+            and not db_had_score
+            and sb_status == 3
+            and live_home_pts is not None
+            and live_away_pts is not None
+        ):
+            if live_home_pts > live_away_pts:
+                live_winner_id = row.home_team_id
+            elif live_away_pts > live_home_pts:
+                live_winner_id = row.away_team_id
+            else:
+                live_winner_id = None
+            if live_winner_id is not None:
+                bucket = series_completed_wins.setdefault(row.series_id, {})
+                bucket[live_winner_id] = bucket.get(live_winner_id, 0) + 1
 
         games.append(
             PlayoffSeriesGameWithMatchup(
@@ -612,8 +654,21 @@ def get_today(
                 round=series.round if series is not None else None,
                 top_seed_team_abbr=top_team.abbreviation if top_team is not None else None,
                 bottom_seed_team_abbr=bottom_team.abbreviation if bottom_team is not None else None,
-                top_wins=series.top_wins if series is not None else None,
-                bottom_wins=series.bottom_wins if series is not None else None,
+                # Sprint 90 hotfix — surface live-computed series wins (see
+                # series_completed_wins build above), so the record updates the
+                # moment the scoreboard finalizes a game even before the
+                # nightly PlayoffSeries sync runs. Falls back to the persisted
+                # value only when the series_id isn't in our lookup.
+                top_wins=(
+                    series_completed_wins.get(series.series_id, {}).get(series.top_seed_team_id, 0)
+                    if series is not None
+                    else None
+                ),
+                bottom_wins=(
+                    series_completed_wins.get(series.series_id, {}).get(series.bottom_seed_team_id, 0)
+                    if series is not None
+                    else None
+                ),
                 status=series.status if series is not None else None,
                 headline_storyline=storyline,
                 tipoff_utc=sb_tipoff,
