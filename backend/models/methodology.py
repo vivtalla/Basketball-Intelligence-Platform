@@ -59,6 +59,12 @@ class MethodologyDomain(BaseModel):
     last_validation_date: Optional[str] = None
     docs_path: str = "specs/platform-methodology.md"
     implementation_refs: List[str] = Field(default_factory=list)
+    # Sprint 90 — optional runtime augmentation surfaced when a domain has a
+    # live calibration / fit step that can be in or out of date relative to
+    # the static methodology spec. Populated by the registry endpoint when
+    # `db` is available; absent otherwise. Generic Dict to avoid coupling
+    # the methodology model to per-domain runtime shapes.
+    runtime_calibration: Optional[Dict[str, object]] = None
 
 
 class MethodologyRegistryResponse(BaseModel):

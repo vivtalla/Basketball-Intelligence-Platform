@@ -7,6 +7,16 @@ For detailed per-sprint records, see the individual closeout files in this direc
 
 ---
 
+### Sprint 90 — Deferred Items Cleanup (Award Calibration + Opportunity Uplift UI + Cloudflare)
+
+- Focus on formally-deferred items per Deferral Policy. Single branch (`feature/sprint-90-deferred-items`), 4 commits, end-to-end. 513 backend tests (was 509, +4 new), `npm run build` clean, `npm run lint` 0/0.
+- Stream A — MVP Award Case voter calibration activation: `_get_calibration_state(db)` helper in `mvp_service.py` runs `calibrate_award_case_weights(db)` once per request, cached 24h in SQLite. `_build_ranked_candidates` uses live weights instead of the module-level `CALIBRATED_AWARD_CASE_WEIGHTS`. New `MvpCalibrationMetadata` Pydantic model on `MvpRaceResponse`. New optional `runtime_calibration: Dict` field on `MethodologyDomain` populated for the `mvp` domain when `db` is passed (other domains pass through unchanged). 4 new integration tests for activation roundtrip + cache short-circuit + registry augmentation. Behavior unchanged when `calibration_pending=True`.
+- Stream B — Opportunity Uplift UI surface: append `OpportunityUpliftComparable` + `OpportunityUplift` + `MvpCalibrationMetadata` to `types.ts`; new `UpliftEvidenceCard.tsx` rendering mean + IQR band + top-3 historical comparables + descriptive caveat (Sprint 58 evidence-card visual pattern); mounted full-width below the existing 2×2 grid in `OpportunityDashboard.tsx`; compact one-line uplift hint in `OpportunityRow.tsx`; `MethodologyDrawer.tsx` adds collapsible "v2 uplift evidence" subsection.
+- Stream C — Cloudflare deferrals + cache-effectiveness baseline: refined R2 backup lifecycle UI instructions in `infra/README.md` (precise dashboard click order); added Sprint 88 cache-stats baseline snapshot (row_count=535, size_bytes=16MB, hit/miss=0); retired the Sprint 88 deferred `/api/health` bypass-cache rule as not-needed (catch-all 2hr TTL covers it; UptimeRobot reaches origin every 5 min).
+- Workflow lesson: "static methodology + runtime augmentation" pattern (registry stays declarative, runtime state surfaces via optional field) preserves the registry's role as canonical methodology document while letting callers see whether the methodology is actually doing what it documents. Worth reusing as other domains gain calibration steps.
+- Deferred (2 remaining, both genuine): R2 backup lifecycle rule (Cloudflare UI, ~5 min — Why: different domain), MVP voter calibration cohort expansion (data-blocked on basketball-reference CSV scrape — Why: blocked on data we don't have).
+- Closeout: `specs/sprint-90-closeout.md`.
+
 ### Sprint 89 — Team-Side Player Fit (Roster + League)
 
 - New `fit` tab on `/teams/[abbr]` answering "how well does each rostered player fit?" + "which league players would fit this team?". Single branch (`feature/sprint-89-team-roster-fit`), 4 sequential commits, end-to-end backend → frontend → tests → docs. 509 backend tests (was 500, +9), `npm run build` clean, `npm run lint` 0/0.

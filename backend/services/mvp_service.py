@@ -1,10 +1,14 @@
 """MVP Award Race case-building service."""
 from __future__ import annotations
 
+import logging
 import statistics
 from collections import defaultdict
 from datetime import date, timedelta
 from typing import Dict, Iterable, List, Optional, Sequence, Set, Tuple
+
+
+log = logging.getLogger(__name__)
 
 from fastapi import HTTPException
 from sqlalchemy import desc, func
@@ -51,6 +55,7 @@ from models.mvp import (
     MvpOpponentContext,
     MvpPlayStyleRow,
     MvpQualitativeLens,
+    MvpCalibrationMetadata,
     MvpRaceResponse,
     MvpScorePillar,
     MvpSensitivityPlayer,
@@ -68,7 +73,11 @@ from models.mvp import (
     MvpVoterRoomCategory,
     MvpVoterRoomResponse,
 )
-from services.award_calibration_service import CALIBRATED_AWARD_CASE_WEIGHTS
+from services.award_calibration_service import (
+    CALIBRATED_AWARD_CASE_WEIGHTS,
+    DEFAULT_AWARD_CASE_WEIGHTS,
+    calibrate_award_case_weights,
+)
 from services.gravity_service import build_gravity_profile
 from services.reliability_service import weight_sensitivity_analysis
 
@@ -147,6 +156,59 @@ ACTION_FAMILIES: Dict[str, str] = {
     "post_mismatch": "Post / Mismatch",
     "handoff_pnr_proxy": "Handoff / PNR Proxy",
 }
+
+
+# Sprint 90 — per-request live calibration of Award Case modifier weights.
+# Cached in SQLite cache.db with a 24h TTL keyed on `award_case_calibration:v1`
+# so repeated MVP race requests don't re-run LOO-CV. Underlying tables
+# (award_voting + award_case_candidates) only change at materialization time,
+# which is rare (manual ops step). Returns the full result envelope from
+# award_calibration_service so callers can build calibration_metadata.
+
+CALIBRATION_CACHE_KEY = "award_case_calibration:v1"
+CALIBRATION_CACHE_TTL = 86400  # 24h
+
+
+def _get_calibration_state(db: Session) -> Dict[str, object]:
+    """Fetch the live calibration result, cached for 24h.
+
+    On cache miss, runs LOO-CV via calibrate_award_case_weights(db). On any
+    error, falls back silently to the hand-tuned defaults so the MVP race
+    request never fails on calibration issues.
+    """
+    from data.cache import CacheManager
+
+    cached = CacheManager.get(CALIBRATION_CACHE_KEY)
+    if cached is not None:
+        return cached
+
+    try:
+        result = calibrate_award_case_weights(db)
+    except Exception as exc:  # pragma: no cover — defensive; calibration must never break MVP race
+        log.warning("Award case calibration failed: %s; falling back to defaults", exc)
+        result = {
+            "weights": dict(DEFAULT_AWARD_CASE_WEIGHTS),
+            "cross_validated_spearman": 0.0,
+            "fold_count": 0,
+            "last_calibrated_season": None,
+            "calibration_pending": True,
+            "notes": ["Calibration raised an error; using hand-tuned defaults."],
+        }
+    CacheManager.set(CALIBRATION_CACHE_KEY, result, ttl_seconds=CALIBRATION_CACHE_TTL)
+    return result
+
+
+def _calibration_metadata(state: Dict[str, object]) -> MvpCalibrationMetadata:
+    pending = bool(state.get("calibration_pending", True))
+    return MvpCalibrationMetadata(
+        calibration_pending=pending,
+        weights_source="default" if pending else "calibrated",
+        cross_validated_spearman=float(state.get("cross_validated_spearman", 0.0) or 0.0),
+        fold_count=int(state.get("fold_count", 0) or 0),
+        last_calibrated_season=state.get("last_calibrated_season") or None,
+        weights={k: float(v) for k, v in (state.get("weights") or {}).items()},
+        notes=list(state.get("notes") or []),
+    )
 
 
 def _safe_float(value) -> Optional[float]:
@@ -1690,11 +1752,12 @@ def _build_ranked_candidates(
     min_gp: int,
     position: Optional[str],
     profile: str = DEFAULT_PROFILE,
-) -> Tuple[List[MvpCandidate], str, Optional[MvpWeightSensitivity]]:
+) -> Tuple[List[MvpCandidate], str, Optional[MvpWeightSensitivity], Dict[str, object]]:
     profile = _resolve_profile_name(profile)
+    calibration_state = _get_calibration_state(db)
     stat_rows = _candidate_rows(db, season, min_gp=min_gp, position=position)
     if not stat_rows:
-        return [], str(date.today()), None
+        return [], str(date.today()), None, calibration_state
 
     player_ids = [player.id for _, player in stat_rows]
     on_off_by_player = {
@@ -1918,19 +1981,20 @@ def _build_ranked_candidates(
         sum(REFINED_VALUE_WEIGHTS[key] * pillars.get(key, 0.0) for key in REFINED_VALUE_WEIGHTS)
         for pillars in value_pillar_raw
     ]
-    # Sprint 79 Stream A1 — modifier weights now sourced from
-    # award_calibration_service.CALIBRATED_AWARD_CASE_WEIGHTS. Defaults match
-    # the original hand-tuned priors (0.08/0.08/0.06/0.05/0.05); when historical
-    # mvp_service runs are backfilled and calibrate_award_case_weights flips
-    # ``calibration_pending`` to False, these become evidence-fit weights
-    # without code changes here.
+    # Sprint 90 — modifier weights pulled from the live calibration state
+    # (cached 24h). When `calibration_pending=True` the state still returns
+    # the hand-tuned priors so behavior matches the Sprint 76 baseline; when
+    # LOO-CV passes the Spearman gate, fitted weights flow in here without a
+    # restart. The state is also surfaced on the response as
+    # `calibration_metadata` so callers can tell which weights were used.
+    live_award_weights = calibration_state.get("weights") or DEFAULT_AWARD_CASE_WEIGHTS
     award_case_raw_scores = [
         basketball_value_raw_scores[index]
-        + CALIBRATED_AWARD_CASE_WEIGHTS["team_framing"] * award_modifier_raw[index]["team_framing"]
-        + CALIBRATED_AWARD_CASE_WEIGHTS["eligibility_pressure"] * award_modifier_raw[index]["eligibility_pressure"]
-        + CALIBRATED_AWARD_CASE_WEIGHTS["clutch"] * award_modifier_raw[index]["clutch"]
-        + CALIBRATED_AWARD_CASE_WEIGHTS["momentum"] * award_modifier_raw[index]["momentum"]
-        + CALIBRATED_AWARD_CASE_WEIGHTS["signature_games"] * award_modifier_raw[index]["signature_games"]
+        + live_award_weights["team_framing"] * award_modifier_raw[index]["team_framing"]
+        + live_award_weights["eligibility_pressure"] * award_modifier_raw[index]["eligibility_pressure"]
+        + live_award_weights["clutch"] * award_modifier_raw[index]["clutch"]
+        + live_award_weights["momentum"] * award_modifier_raw[index]["momentum"]
+        + live_award_weights["signature_games"] * award_modifier_raw[index]["signature_games"]
         for index in range(len(stat_rows))
     ]
     raw_scores_by_profile["basketball_value"] = basketball_value_raw_scores
@@ -2205,6 +2269,7 @@ def _build_ranked_candidates(
         candidates,
         str(latest_date) if latest_date else str(date.today()),
         weight_sensitivity,
+        calibration_state,
     )
 
 
@@ -2275,7 +2340,7 @@ def build_mvp_race(
     profile: Optional[str] = None,
 ) -> MvpRaceResponse:
     resolved = _resolve_profile_name(profile)
-    candidates, as_of, weight_sensitivity = _build_ranked_candidates(
+    candidates, as_of, weight_sensitivity, calibration_state = _build_ranked_candidates(
         db=db,
         season=season,
         top=top,
@@ -2291,6 +2356,7 @@ def build_mvp_race(
         scoring_profile=SCORING_PROFILE,
         available_profiles=AVAILABLE_PROFILES,
         weight_sensitivity=weight_sensitivity,
+        calibration_metadata=_calibration_metadata(calibration_state),
     )
 
 
@@ -2421,7 +2487,7 @@ def build_mvp_candidate_case(
     profile: Optional[str] = None,
 ) -> MvpCandidateCaseResponse:
     resolved = _resolve_profile_name(profile)
-    candidates, as_of, _ = _build_ranked_candidates(
+    candidates, as_of, _, _ = _build_ranked_candidates(
         db=db,
         season=season,
         top=25,
@@ -2536,7 +2602,7 @@ def build_mvp_voter_room(
     player_ids: Sequence[int],
     min_gp: int = MIN_GP,
 ) -> MvpVoterRoomResponse:
-    candidates, as_of, _ = _build_ranked_candidates(
+    candidates, as_of, _, _ = _build_ranked_candidates(
         db=db,
         season=season,
         top=25,
@@ -2693,7 +2759,7 @@ def build_mvp_coverage(
     top: int = 10,
     min_gp: int = MIN_GP,
 ) -> MvpCoverageResponse:
-    candidates, as_of, _ = _build_ranked_candidates(
+    candidates, as_of, _, _ = _build_ranked_candidates(
         db=db,
         season=season,
         top=top,
@@ -2810,7 +2876,7 @@ def build_mvp_context_map(
     profile: Optional[str] = None,
 ) -> MvpContextMapResponse:
     resolved = _resolve_profile_name(profile)
-    candidates, as_of, _ = _build_ranked_candidates(
+    candidates, as_of, _, _ = _build_ranked_candidates(
         db=db,
         season=season,
         top=top,
@@ -2872,7 +2938,7 @@ def build_mvp_gravity_leaderboard(
     min_gp: int = MIN_GP,
     position: Optional[str] = None,
 ) -> MvpGravityLeaderboardResponse:
-    candidates, as_of, _ = _build_ranked_candidates(
+    candidates, as_of, _, _ = _build_ranked_candidates(
         db=db,
         season=season,
         top=max(top, 25),
@@ -2908,7 +2974,7 @@ def build_mvp_sensitivity(
     Returns a lightweight shape for the ranking-shift slope chart; the top-N set
     is chosen by the default profile so the visual compares the same cohort.
     """
-    candidates, as_of, _ = _build_ranked_candidates(
+    candidates, as_of, _, _ = _build_ranked_candidates(
         db=db,
         season=season,
         top=max(top, 10),

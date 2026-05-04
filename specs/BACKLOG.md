@@ -15,7 +15,7 @@ Guidelines:
 
 ---
 
-## Sprint 90 Candidates
+## Sprint 91 Candidates
 
 ### Salary + contract integration → trade-feasibility filtering (Sprint 89 D follow-on)
 Why it matters:
@@ -77,12 +77,10 @@ Likely shape:
 - One commit, ~30 min after data is collected.
 
 ### R2 backup lifecycle rule (Sprint 87 deferred — Cloudflare UI step)
-**Why deferred:** Cloudflare R2 dashboard UI configuration step, not code. Per Deferral Policy "different domain". Documented in `infra/README.md`.
+**Why deferred:** Cloudflare R2 dashboard UI configuration step, not code. Per Deferral Policy "different domain". Click-by-click instructions live in `infra/README.md` ("Backup retention" section); ~5 min in the dashboard.
 
-### Cloudflare `/api/health` bypass-cache rule (Sprint 88 deferred — Cloudflare UI step)
-**Why deferred:** Cloudflare cache rules dashboard UI step, not code. Per Deferral Policy "different domain". Documented in `infra/README.md`.
-
-Both Cloudflare deferrals are ~5 min combined when next touching the Cloudflare dashboard.
+### ~~Cloudflare `/api/health` bypass-cache rule~~ — RESOLVED in Sprint 90 as not-needed
+On Sprint 90 review, the rule is unnecessary: the catch-all 2hr cache TTL covers `/api/health`, and UptimeRobot reaches origin every 5 min for direct health probes. The README already implicitly said this; Sprint 90 made it explicit + removed this BACKLOG entry.
 
 ---
 
@@ -91,8 +89,10 @@ Both Cloudflare deferrals are ~5 min combined when next touching the Cloudflare 
 ### Award calibration cohort expansion
 **Why deferred:** Blocked on data we don't have yet. Requires sourcing historical NBA voting data back to 2008-09 (~80 ballot rows across 4 seasons + DPOY/MIP/6MOY ballots) before any code work. Per the Deferral Policy, this qualifies as "blocked on data we don't have yet."
 
+**Sprint 90 update:** Sprint 90 wired the calibration through end-to-end and ran the production materialization. If the LOO-CV Spearman against the existing 13-season cohort fell short of 0.7, this entry is the unblocker — sourcing more seasons widens the fold count and gives the modifier vectors more signal to fit against. Check `/api/methodology/mvp` `runtime_calibration.cross_validated_spearman` to see whether this is still needed.
+
 Why it matters:
-Sprint 81 shipped the `mvp_case_v5` calibration activation, but it requires LOO-CV Spearman ≥ 0.7 to flip `calibration_pending=False`. The seeded `award_voting` table has 57 rows across 13 seasons. If LOO-CV in production fails to clear the bar, the next move is more historical data.
+Sprint 79 shipped the `mvp_case_v5` calibration code; Sprint 90 ran the materialization + wired live calibration through to MVP race responses. The seeded `award_voting` table has 57 rows across 13 seasons (2012-13 → 2024-25). If LOO-CV in production stays below 0.7, the next move is more historical data — calibration falls back to the Sprint 76 hand-tuned priors and `calibration_pending` stays `True` (honestly reported).
 
 Data acquisition path (the unblocking work, NOT a sprint):
 - Source: `https://www.basketball-reference.com/awards/awards_{year}.html` has voting tables back to 1980 (well before 2008-09)
@@ -100,9 +100,10 @@ Data acquisition path (the unblocking work, NOT a sprint):
 - Option B: manual CSV editing — 4 seasons × ~20 rows each = ~80 entries, ~2-3 hr of focused effort
 - **Recommendation:** manual CSV editing as a one-shot task that doesn't need a sprint allocation. Vivek can do whenever motivated.
 
-Once data is sourced, the implementation work is ~2-3 hr:
+Once data is sourced, the implementation work is ~30 min (no code change, just data + re-materialization):
 - extend `award_voting_seed.csv` backward to 2008-09 (+4 seasons, ~20 more rows) for a wider LOO-CV set
 - add DPOY / MIP / 6MOY ballot rows — same code path, different `award_type` filter
+- re-run `python data/materialize_award_modifiers.py` and the calibration cache invalidates on next request (24h TTL); fitted weights re-fit against the wider cohort
 - iterate on the modifier proxies in `materialize_award_modifiers.py` (especially `_clutch_proxy` and `_signature_games_proxy`) as PBP-derived clutch + signature-game data becomes available for older seasons
 
 ---

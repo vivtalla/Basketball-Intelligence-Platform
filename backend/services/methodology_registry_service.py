@@ -1,8 +1,9 @@
 from __future__ import annotations
 
-from typing import Dict, List
+from typing import Dict, List, Optional
 
 from fastapi import HTTPException
+from sqlalchemy.orm import Session
 
 from models.methodology import MethodologyDetailResponse, MethodologyDomain, MethodologyRegistryResponse
 
@@ -270,19 +271,54 @@ _DOMAINS: List[MethodologyDomain] = [
 _DOMAIN_MAP: Dict[str, MethodologyDomain] = {domain.domain: domain for domain in _DOMAINS}
 
 
-def list_methodologies() -> MethodologyRegistryResponse:
-    return MethodologyRegistryResponse(version=REGISTRY_VERSION, domains=_DOMAINS)
+def _mvp_runtime_calibration(db: Session) -> Optional[Dict[str, object]]:
+    """Sprint 90 — augment the mvp domain with live calibration state.
+
+    Returns a compact dict (calibration_pending, weights_source, Spearman,
+    fold_count, last_calibrated_season, weights, notes) so /api/methodology
+    consumers see whether the live MVP scorer is using fitted weights or the
+    Sprint 76 hand-tuned priors. Cached transparently via mvp_service's 24h
+    SQLite cache.
+    """
+    from services.mvp_service import _get_calibration_state  # local import — avoid cycle at import time
+    state = _get_calibration_state(db)
+    pending = bool(state.get("calibration_pending", True))
+    return {
+        "calibration_pending": pending,
+        "weights_source": "default" if pending else "calibrated",
+        "cross_validated_spearman": float(state.get("cross_validated_spearman", 0.0) or 0.0),
+        "fold_count": int(state.get("fold_count", 0) or 0),
+        "last_calibrated_season": state.get("last_calibrated_season"),
+        "weights": {k: float(v) for k, v in (state.get("weights") or {}).items()},
+        "notes": list(state.get("notes") or []),
+    }
 
 
-def get_methodology_detail(domain: str) -> MethodologyDetailResponse:
+def _augment_with_runtime(item: MethodologyDomain, db: Optional[Session]) -> MethodologyDomain:
+    """Return a copy of `item` with `runtime_calibration` populated when live
+    state is available for that domain. Currently only the `mvp` domain has a
+    live calibration step; other domains pass through unchanged."""
+    if db is None or item.domain != "mvp":
+        return item
+    augmented = item.model_copy(update={"runtime_calibration": _mvp_runtime_calibration(db)})
+    return augmented
+
+
+def list_methodologies(db: Optional[Session] = None) -> MethodologyRegistryResponse:
+    domains = [_augment_with_runtime(d, db) for d in _DOMAINS]
+    return MethodologyRegistryResponse(version=REGISTRY_VERSION, domains=domains)
+
+
+def get_methodology_detail(domain: str, db: Optional[Session] = None) -> MethodologyDetailResponse:
     key = domain.strip().lower().replace("-", "_")
     item = _DOMAIN_MAP.get(key)
     if item is None:
         raise HTTPException(status_code=404, detail="Methodology domain '{0}' not found.".format(domain))
+    augmented = _augment_with_runtime(item, db)
     related = [candidate.domain for candidate in _DOMAINS if candidate.domain != item.domain][:4]
     steps = [
         "Keep raw descriptive output visible alongside adjusted or reliability-weighted output.",
         "Add validation fixtures before changing score weights or label thresholds.",
         "Update specs/platform-methodology.md when this methodology materially changes.",
     ]
-    return MethodologyDetailResponse(**item.model_dump(), related_domains=related, recommended_next_steps=steps)
+    return MethodologyDetailResponse(**augmented.model_dump(), related_domains=related, recommended_next_steps=steps)

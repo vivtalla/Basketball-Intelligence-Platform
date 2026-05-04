@@ -85,6 +85,28 @@ export function OpportunityRow({ row, rank, isSelected, onSelect }: Props) {
             : null}
         </div>
       ) : null}
+      {/* Sprint 90 — compact uplift hint so users browsing the rail see
+          historical-comparable evidence at a glance without expanding
+          into the detail panel. Only renders when uplift is non-null. */}
+      {row.uplift ? (
+        <div
+          className={`mt-2 text-[11px] ${
+            row.uplift.mean_uplift > 0.001
+              ? "text-[var(--accent-strong)]"
+              : row.uplift.mean_uplift < -0.001
+              ? "text-[var(--danger-ink)]"
+              : "text-[var(--muted-strong)]"
+          }`}
+          title={`KNN uplift band [${row.uplift.uplift_band_lower.toFixed(4)}, ${row.uplift.uplift_band_upper.toFixed(4)}] over ${row.uplift.neighbor_count} comparable role expansions`}
+        >
+          Uplift{" "}
+          <span className="font-semibold tabular-nums">
+            {row.uplift.mean_uplift > 0 ? "+" : ""}
+            {row.uplift.mean_uplift.toFixed(4)}
+          </span>{" "}
+          TS · {row.uplift.neighbor_count} comps
+        </div>
+      ) : null}
     </button>
   );
 }
