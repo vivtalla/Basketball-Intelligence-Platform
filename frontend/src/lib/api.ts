@@ -2152,3 +2152,15 @@ export async function getTeamHustle(
     `/api/teams/${encodeURIComponent(abbr)}/hustle?season=${encodeURIComponent(season)}&is_playoff=${isPlayoff}`
   );
 }
+
+// Sprint 89 — team-side player fit (current roster + league candidates).
+export async function getTeamRosterFit(
+  abbr: string,
+  season: string,
+  seasonType: string = "Regular Season",
+  limit: number = 25
+): Promise<import("./types").TeamRosterFitResponse> {
+  return fetchApi<import("./types").TeamRosterFitResponse>(
+    `/api/teams/${encodeURIComponent(abbr)}/roster-fit?season=${encodeURIComponent(season)}&season_type=${encodeURIComponent(seasonType)}&limit=${limit}`
+  );
+}

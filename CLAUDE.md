@@ -323,6 +323,18 @@ CourtVue Labs uses a hybrid sprint model: major feature sprints typically run as
 
 > Full history → `specs/sprint-history.md`
 
+### Sprint 89 — Team-Side Player Fit (Roster + League)
+
+- **New `fit` tab on `/teams/[abbr]`** answering two questions the platform had no surface for: (1) how well does each rostered player fit the rest of the roster? (2) which players around the league would fit this team? Single branch (`feature/sprint-89-team-roster-fit`), 4 sequential commits, end-to-end backend → frontend → tests → docs. 509 backend tests (was 500, +9 new), `npm run build` clean, `npm run lint` 0/0.
+- **Stream A — backend service** (`backend/services/team_roster_fit_service.py` NEW + `backend/models/team_roster_fit.py` NEW): inverts player-side `team_fit_v3` — fix the team, score many players. Reuses `_score_team_fit`, `_team_overlap_flags`, `_build_drivers`, etc. from `team_fit_service` directly so player-side and team-side reads use identical math (45 / 30 / 25 weighting on 13 z-scored features). Adds **self-exclusion** for current-roster scoring (subject removed from comparison so Role Competition isn't inflated by self-overlap), a **`team_need_vector`** (roster-weighted average z per feature, deduped across `SIMILARITY_STATS_V2`'s repeated `stl_pg`/`blk_pg`), and **position-cohort percentile** (G / F / C — display-only, score formula keeps using global norms so cross-position rankings stay coherent).
+- **Stream B — endpoint + cache** (`a36c8e8`): `GET /api/teams/{abbr}/roster-fit?season=...&season_type=...&limit=N` mounted on the existing teams router (Sprint 86 pattern, no `main.py` change). 24h SQLite `cache.db` TTL keyed on `(abbr, season, season_type, limit)` — cold compute ~1-7s depending on data, cache hit <50ms. Aligns with daily-sync cadence.
+- **Stream C — frontend** (`77fdcce`): new `fit` tab between `lineups` (7) and `arc` (8). `TeamRosterFitPanel.tsx` (NEW, 400+ LOC) renders team need vector chips, sortable current-roster table with click-to-expand drivers + overlap + cohort percentiles, league-candidates grid with position filter + click-to-expand details, and methodology drawer with explicit "no salary / availability" disclosure. Reuses player-side `TeamFitPanel`'s visual language.
+- **Stream D — tests** (`eb01ed5`): 9 new tests in `test_sprint89_team_roster_fit.py` covering self-exclusion, position-cohort tagging, low-confidence gating, team-need-vector correctness on a constructed 3-point-poor roster, cache round-trip, 404, determinism, and league-candidate exclusion. Backend suite goes 500 → 509, zero regressions.
+- **Stream E — docs**: `specs/platform-methodology.md` extended with a "Team-Side Roster Fit (Sprint 89)" subsection under §6.
+- **Workflow lesson:** the planned "extract internals into shared module" refactor commit was skipped — importing `team_fit_service`'s underscore functions directly achieves the same single-source-of-truth without code churn. Don't introduce abstractions ahead of the second caller actually needing them.
+- **Deferred:** none. Every plan item shipped. 4 Sprint 90 candidates filed (salary/contract integration, shot location overlap, defensive scheme clustering, play-type compatibility) — all "different domain" sister features per Deferral Policy.
+- Closeout: `specs/sprint-89-closeout.md`.
+
 ### Sprint 88 — Data Foundation Audit + Full Implementation
 
 - **Audit-driven sprint** based on 3 parallel Explore agents (DB structure, caching, sync pipeline). 500 backend tests pass, `npm run build` clean, `npm run lint` 0/0. Single branch (`feature/sprint-88-data-foundation`), sequential commits A → B → C → D → E.
@@ -348,7 +360,7 @@ CourtVue Labs uses a hybrid sprint model: major feature sprints typically run as
 - **Deferred (1, with Why):** R2 backup lifecycle rule (Cloudflare UI step, "different domain" per Deferral Policy). Documented in `infra/README.md` for the next Cloudflare-touch session.
 - Closeout: `specs/sprint-87-closeout.md`.
 
-*Sprint 86 and older moved to `specs/sprint-history.md`.*
+*Sprint 87 and older moved to `specs/sprint-history.md`.*
 
 ---
 

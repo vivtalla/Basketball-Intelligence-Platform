@@ -52,6 +52,7 @@ import TeamBenchAnalyticsPanel from "@/components/TeamBenchAnalyticsPanel";
 import TeamArcPanel from "@/components/team-arc/TeamArcPanel";
 import TeamTrackingPanel from "@/components/TeamTrackingPanel";
 import TeamHustlePanel from "@/components/TeamHustlePanel";
+import { TeamRosterFitPanel } from "@/components/team-fit/TeamRosterFitPanel";
 import type { TeamPrepQueueItem, TeamRosterPlayer } from "@/lib/types";
 
 const DEFAULT_SEASON = "2024-25";
@@ -66,7 +67,7 @@ function coverageTone(status: "none" | "partial" | "ready") {
   return "bg-[var(--surface-alt)] text-[var(--muted)]";
 }
 
-type Tab = "decision" | "prep" | "intelligence" | "roster" | "analytics" | "splits" | "lineups" | "opponent_matchup" | "arc";
+type Tab = "decision" | "prep" | "intelligence" | "roster" | "analytics" | "splits" | "lineups" | "fit" | "opponent_matchup" | "arc";
 
 const ALL_TABS: Tab[] = [
   "decision",
@@ -76,6 +77,7 @@ const ALL_TABS: Tab[] = [
   "analytics",
   "splits",
   "lineups",
+  "fit",
   "arc",
   "opponent_matchup",
 ];
@@ -910,6 +912,13 @@ function TeamDetailPageInner() {
           {splitView === "shooting" && teamShootingSplits && !shootingSplitsLoading && (
             <TeamShootingSplitsPanel splits={teamShootingSplits} />
           )}
+        </section>
+      )}
+
+      {/* Fit tab — Sprint 89 — team-side player fit (roster + league candidates) */}
+      {activeTab === "fit" && teamAbbreviation && (
+        <section>
+          <TeamRosterFitPanel teamAbbr={teamAbbreviation} season={effectiveSeason} />
         </section>
       )}
 

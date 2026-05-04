@@ -7,6 +7,17 @@ For detailed per-sprint records, see the individual closeout files in this direc
 
 ---
 
+### Sprint 89 — Team-Side Player Fit (Roster + League)
+
+- New `fit` tab on `/teams/[abbr]` answering "how well does each rostered player fit?" + "which league players would fit this team?". Single branch (`feature/sprint-89-team-roster-fit`), 4 sequential commits, end-to-end backend → frontend → tests → docs. 509 backend tests (was 500, +9), `npm run build` clean, `npm run lint` 0/0.
+- Stream A: `team_roster_fit_service.py` + `models/team_roster_fit.py` (NEW). Inverts player-side `team_fit_v3` — fix the team, score many players. Reuses `_score_team_fit`/`_team_overlap_flags`/`_build_drivers` from `team_fit_service` directly so player-side and team-side reads use identical math (45/30/25 weights on 13 z-scored features). Adds self-exclusion for current-roster scoring (no self-overlap inflation), `team_need_vector` (roster-weighted average z per feature, deduped across `SIMILARITY_STATS_V2`'s repeated stl/blk), and position-cohort percentile (G/F/C — display-only).
+- Stream B: `GET /api/teams/{abbr}/roster-fit` mounted on existing teams router (Sprint 86 inline pattern). 24h SQLite cache keyed on `(abbr, season, season_type, limit)`. Cold ~1-7s, warm <50ms.
+- Stream C: `TeamRosterFitPanel.tsx` (NEW, 400+ LOC) — team need vector chips, sortable current-roster table with click-to-expand, league-candidates grid with G/F/C position filter, methodology drawer with explicit "no salary/availability/scheme" disclosure. Reuses player-side `TeamFitPanel` visual language.
+- Stream D: 9 tests covering self-exclusion, position-cohort tagging, low-confidence gating, team-need-vector correctness on a constructed 3-point-poor roster, cache round-trip, 404, determinism, league-candidate exclusion.
+- Stream E: `specs/platform-methodology.md` extended with Team-Side Roster Fit (Sprint 89) subsection under §6.
+- Workflow lesson: skipped the planned "extract internals into shared module" refactor — importing `team_fit_service` underscore functions directly achieves single-source-of-truth without code churn. Don't introduce abstractions ahead of the second caller actually needing them.
+- Deferred: none. 4 Sprint 90 candidates filed (salary/contract integration, shot location overlap, defensive scheme clustering, play-type compatibility) — all "different domain" per Deferral Policy. Closeout: `specs/sprint-89-closeout.md`.
+
 ### Sprint 83 — MVP Launch Readiness
 **Branches:** `feature/sprint-83a-blockers`, `feature/sprint-83b-launch-polish`, `feature/sprint-83c-playoff-polish` (all merged to master)
 
