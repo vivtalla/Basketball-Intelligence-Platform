@@ -389,6 +389,23 @@ class MvpWeightSensitivity(BaseModel):
     interpretation: str
 
 
+class MvpCalibrationMetadata(BaseModel):
+    """Sprint 90 — live state of the Award Case modifier-weight calibration.
+
+    Surfaces on every MVP race response so callers can tell whether the
+    award_case scoring is using fitted weights (LOO-CV across historical
+    voting) or the Sprint 76 hand-tuned priors (when calibration is pending
+    or the Spearman target was missed).
+    """
+    calibration_pending: bool
+    weights_source: Literal["calibrated", "default"]
+    cross_validated_spearman: float
+    fold_count: int
+    last_calibrated_season: Optional[str] = None
+    weights: Dict[str, float] = Field(default_factory=dict)
+    notes: List[str] = Field(default_factory=list)
+
+
 class MvpRaceResponse(BaseModel):
     season: str
     as_of_date: str                     # ISO date of most-recent game log row used
@@ -399,6 +416,7 @@ class MvpRaceResponse(BaseModel):
         default_factory=lambda: ["box_first", "balanced", "impact_consensus"]
     )
     weight_sensitivity: Optional[MvpWeightSensitivity] = None
+    calibration_metadata: Optional[MvpCalibrationMetadata] = None
 
 
 class MvpNearbyCandidate(BaseModel):
