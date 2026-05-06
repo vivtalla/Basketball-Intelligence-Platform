@@ -1,6 +1,7 @@
 "use client";
 
 import { usePlayerArchetype } from "@/hooks/usePlayerArchetype";
+import { humanizeMethodologyVersion } from "@/lib/methodology";
 import type { ArchetypeConfidence } from "@/lib/types";
 import { ArchetypeContributors } from "./ArchetypeContributors";
 import { ArchetypeMethodologyDrawer } from "./ArchetypeMethodologyDrawer";
@@ -77,7 +78,7 @@ export function PlayerArchetypeProfile({ playerId, season }: Props) {
         <p className="mt-3 text-sm leading-5 text-[var(--muted-strong)]">{data.reason}</p>
         <p className="mt-3 text-[11px] text-[var(--muted)]">
           Peer pool: {data.sample.peer_pool_size} rotation players · GP {data.sample.gp} ·{" "}
-          {data.sample.min_pg.toFixed(1)} min/g · methodology {data.methodology_version}
+          {data.sample.min_pg.toFixed(1)} min/g · {humanizeMethodologyVersion(data.methodology_version)}
         </p>
       </div>
 

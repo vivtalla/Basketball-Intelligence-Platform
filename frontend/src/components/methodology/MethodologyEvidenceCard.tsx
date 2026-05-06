@@ -2,6 +2,7 @@
 
 import type { AnalysisMetadata } from "@/lib/types";
 import { useMethodologyDomain } from "@/hooks/useMethodology";
+import { humanizeMethodologyVersion } from "@/lib/methodology";
 
 function pct(value: number | null | undefined) {
   return value == null ? "n/a" : `${Math.round(value)}%`;
@@ -19,7 +20,8 @@ export function MethodologyEvidenceCard({
   compact?: boolean;
 }) {
   const { data } = useMethodologyDomain(domain);
-  const version = metadata?.methodology_version ?? data?.methodology_version ?? "methodology";
+  const versionRaw = metadata?.methodology_version ?? data?.methodology_version ?? null;
+  const version = humanizeMethodologyVersion(versionRaw);
   const limitations = metadata?.limitations?.length ? metadata.limitations : data?.known_limitations ?? [];
   const validation = metadata?.validation_notes?.length ? metadata.validation_notes : data?.validation_notes ?? [];
   const drivers = metadata?.driver_breakdown ?? [];

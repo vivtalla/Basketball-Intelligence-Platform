@@ -83,7 +83,7 @@ export function MethodologyDrawer({ methodology }: Props) {
         {/* Sprint 90 — opportunity_v2 uplift methodology subsection. */}
         <details className="rounded-lg border border-[var(--border)] bg-[var(--surface-alt)] p-3 text-xs leading-5">
           <summary className="cursor-pointer list-none font-semibold text-[var(--foreground)]">
-            v2 uplift evidence (Role Expansion Uplift card)
+            How the Role Expansion Uplift card works
           </summary>
           <div className="mt-2 space-y-2 text-[var(--muted-strong)]">
             <p>

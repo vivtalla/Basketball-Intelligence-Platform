@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { getTeamArc, getTeamArcWithLevers } from "@/lib/api";
+import { humanizeMethodologyVersion } from "@/lib/methodology";
 import type {
   TeamArcIncomingPick,
   TeamArcIncomingSigning,
@@ -178,7 +179,7 @@ export default function TeamArcPanel({ teamAbbreviation, baseSeason }: TeamArcPa
       {methodologyOpen && (
         <div className="rounded-2xl border border-[var(--border)] bg-[var(--surface-alt)] p-5 text-sm leading-6 text-[var(--muted-strong)]">
           <h3 className="text-sm font-semibold text-[var(--foreground)]">
-            Methodology — {response.methodology_version}
+            Methodology — {humanizeMethodologyVersion(response.methodology_version)}
           </h3>
           <ul className="mt-2 list-disc pl-5 space-y-1">
             <li>

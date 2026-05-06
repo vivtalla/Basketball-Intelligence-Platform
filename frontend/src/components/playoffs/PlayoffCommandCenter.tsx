@@ -502,7 +502,8 @@ function LineupList({ title, lineups }: { title: string; lineups: PlayoffLineupE
           ))
         ) : (
           <p className="rounded-xl bg-[var(--surface-alt)] p-3 text-xs text-[var(--muted)] leading-5">
-            Lineup Chess activates after ~25 possessions per 5-man group. Check back after Game 2 of the series.
+            Lineup matchups appear once a 5-man unit has played enough together
+            to read against. Usually that&apos;s after Game 2.
           </p>
         )}
       </div>

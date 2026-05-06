@@ -40,7 +40,7 @@ export function GravityMethodologyModal({ open, onClose }: Props) {
               How Gravity is Calculated
             </h2>
             <p className="mt-1 text-xs text-[var(--muted)]">
-              Methodology version: <span className="tabular-nums">gravity_proxy_v1</span>
+              Gravity Proxy (v1)
             </p>
           </div>
           <button

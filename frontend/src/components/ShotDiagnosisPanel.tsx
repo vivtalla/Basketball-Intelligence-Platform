@@ -1,6 +1,7 @@
 "use client";
 
 import { usePlayerShotDiagnosis } from "@/hooks/usePlayerShotDiagnosis";
+import { humanizeMethodologyVersion } from "@/lib/methodology";
 import type {
   ShotDiagnosisGrade,
   ShotDiagnosisSentiment,
@@ -108,7 +109,7 @@ export function ShotDiagnosisPanel({ playerId, season }: Props) {
 
       <p className="mt-4 text-[11px] leading-4 text-[var(--muted)]">
         {data.total_shots} shots analyzed · {data.sample_confidence} sample confidence ·
-        methodology {data.methodology_version}
+        {" "}{humanizeMethodologyVersion(data.methodology_version)}
       </p>
     </section>
   );

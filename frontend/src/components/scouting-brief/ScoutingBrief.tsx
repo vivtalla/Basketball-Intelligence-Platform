@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePlayerScoutingBrief } from "@/hooks/usePlayerShotDiagnosis";
 import { MethodologyEvidenceCard } from "@/components/methodology/MethodologyEvidenceCard";
+import { humanizeMethodologyVersion } from "@/lib/methodology";
 import type {
   ScoutingBriefCard,
   ScoutingCardConfidence,
@@ -102,7 +103,7 @@ export function ScoutingBrief({ playerId, season }: Props) {
           Scouting Brief
         </h2>
         <span className="text-[10px] text-[var(--muted)]">
-          {ordered.length} of {CARD_ORDER.length} cards · {data.methodology_version}
+          {ordered.length} of {CARD_ORDER.length} cards · {humanizeMethodologyVersion(data.methodology_version)}
         </span>
       </div>
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">

@@ -7,6 +7,7 @@ import {
   refreshShotQualityBaseline,
   refreshStaleShotPlayers,
 } from "@/lib/api";
+import { humanizeMethodologyVersion } from "@/lib/methodology";
 import type {
   ShotIntelligenceOpsResponse,
   ShotIntelligenceOpsTeam,
@@ -92,7 +93,7 @@ export default function ShotIntelligenceOpsPanel({ season, seasonType = "Regular
             Shot Intelligence Ops · {season}
           </h2>
           <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
-            Roster-wide shot lab readiness · methodology {data?.methodology_version ?? "shot_quality_v2"}
+            Roster-wide shot lab readiness · {humanizeMethodologyVersion(data?.methodology_version)}
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">

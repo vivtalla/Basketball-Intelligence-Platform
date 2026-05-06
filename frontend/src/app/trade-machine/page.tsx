@@ -8,6 +8,7 @@ import {
   validateTrade,
 } from "@/lib/api";
 import { useTeams } from "@/hooks/usePlayerStats";
+import { humanizeMethodologyVersion } from "@/lib/methodology";
 import type {
   TeamContractEntry,
   TeamContractsResponse,
@@ -463,7 +464,7 @@ function ImpactCard({
     <section className="bip-panel rounded-2xl p-5 flex flex-col gap-4">
       <header className="flex items-center gap-2">
         <Kicker>Impact Projection</Kicker>
-        <Pill tone="default">{impact.methodology_version}</Pill>
+        <Pill tone="default">{humanizeMethodologyVersion(impact.methodology_version)}</Pill>
       </header>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-3">

@@ -1,6 +1,7 @@
 "use client";
 
 import { usePlayerArchetypeHistory } from "@/hooks/usePlayerArchetype";
+import { humanizeMethodologyVersion } from "@/lib/methodology";
 import type { ArchetypeConfidence, ArchetypeHistoryEntry } from "@/lib/types";
 
 interface Props {
@@ -88,7 +89,7 @@ export function ArchetypeEvolutionTimeline({ playerId }: Props) {
       <p className="mt-2 text-[11px] leading-4 text-[var(--muted)]">
         Each season is classified against its own peer pool. Dot color reflects
         classification confidence (green = high, amber = medium, muted = low).
-        Methodology {data.methodology_version}.
+        {humanizeMethodologyVersion(data.methodology_version)}.
       </p>
     </section>
   );
