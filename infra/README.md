@@ -105,19 +105,21 @@ In Cloudflare dashboard → Security → WAF → Custom rules:
 
 ### Cache rules (Cloudflare → Caching → Cache Rules)
 
-The daily cron refreshes data overnight. Cache TTLs aligned with that cadence. Free tier allows 5 cache rules.
+The daily cron refreshes data overnight. Cache TTLs aligned with that cadence. Free tier allows 5 cache rules and enforces a 2-hour minimum on custom Edge TTLs — anything that needs faster freshness has to use the **Bypass cache** action instead.
 
-| Rule | Pattern (priority order) | Cache TTL | Why |
-|------|-------------------------|-----------|-----|
-| 1 | `hostname=api.courtvue.app AND URI starts_with /api/playoffs/` | 1 minute | Playoff series + bracket + per-series player logs (Sprint 85 B). Lowered from 2hr in Sprint 91 — `/api/playoffs/today` powers the home-page LiveTicker (polled every 60s), and a 2hr edge cache made "live" scores up to 2 hours stale even when the origin was healthy. 1 minute matches the client refresh interval and still protects gunicorn from a viral spike (max 1 origin req per minute per cache key). |
-| 2 | `hostname=api.courtvue.app AND URI starts_with /api/standings` | 2 hours | Refreshed post-game |
+| Rule | Pattern (priority order) | Cache action | Why |
+|------|-------------------------|--------------|-----|
+| 1 | `hostname=api.courtvue.app AND URI starts_with /api/playoffs/today` | **Bypass cache** | Powers the home-page LiveTicker (polled every 60s). Free-tier 2hr Edge TTL minimum made "live" scores up to 2 hours stale, so this endpoint bypasses the edge entirely. Origin load is bounded by the LiveTicker's 60s poll and Cloudflare's 100 req/10 min/IP rate-limit rule, so the 2-worker gunicorn is fine without spike protection here. Added Sprint 91 in response to a 38-hour Postgres outage where the demo-fallback masked an ongoing 500. |
+| 2 | `hostname=api.courtvue.app AND URI starts_with /api/playoffs/` | 2 hours | Bracket + series detail + per-series player logs (Sprint 85 B). Refreshes post-game; 2hr is fine. |
 | 3 | `hostname=api.courtvue.app AND URI starts_with /api/leaderboards` | 6 hours | Updated nightly |
 | 4 | `hostname=api.courtvue.app AND URI matches "^/api/(players\|teams)/.*/(splits\|play-types\|tracking\|hustle)$"` | 12 hours | Daily-synced player + team stat dashboards (Sprint 81 splits/play-types + Sprint 85/86 tracking + hustle). Sprint 86 broadened from `/api/players/*/splits` to cover the new endpoints. |
-| 5 | `hostname=api.courtvue.app` (catch-all) | 2 hours | Default for `/api/health`, search, anything not matched above. Health bypass is unnecessary because requests are cheap and the catch-all TTL is short. |
+| 5 | `hostname=api.courtvue.app` (catch-all) | 2 hours | Default for `/api/standings`, `/api/teams`, `/api/health`, search, and anything not matched above. Standings used to have its own rule; dropped Sprint 91 because the catch-all TTL matched and the slot was needed for rule 1. Health bypass is unnecessary because requests are cheap and the catch-all TTL is short. |
 
-Cloudflare's edge cache is what protects the VM from a sudden traffic spike. Without it, a viral moment would fall straight through to the 2-worker gunicorn.
+Cloudflare's edge cache is what protects the VM from a sudden traffic spike. Without it, a viral moment would fall straight through to the 2-worker gunicorn — which is why only `/api/playoffs/today` bypasses; every other endpoint has at least a 2hr edge cache to absorb traffic.
 
 **When to update rule 4:** any new endpoint family that follows the daily-sync cadence (e.g. future shooting splits, advanced stats by player or team) should be added to the regex inside the existing rule rather than creating a new rule (free tier is at the 5-rule cap).
+
+**If you ever need another always-fresh endpoint:** you can't shrink the existing 2hr/6hr/12hr TTLs on free tier. The only way to add a second "live" endpoint is either (a) collapse it into rule 1's pattern via regex, or (b) upgrade to Pro ($20/mo), which drops the Edge TTL minimum to 1 second.
 
 ### Backup retention (Sprint 87 deferred — recommended next Cloudflare touch)
 
