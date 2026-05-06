@@ -32,8 +32,12 @@ function flattenSeries(
 }
 
 function seriesLabel(series: PlayoffSeriesResponse): string {
-  const top = series.top_seed_team_abbr ?? `#${series.top_seed}`;
-  const bottom = series.bottom_seed_team_abbr ?? `#${series.bottom_seed}`;
+  const top =
+    series.top_seed_team_abbr ??
+    (series.top_seed != null ? `#${series.top_seed}` : "TBD");
+  const bottom =
+    series.bottom_seed_team_abbr ??
+    (series.bottom_seed != null ? `#${series.bottom_seed}` : "TBD");
   const round =
     series.round === 1
       ? "R1"

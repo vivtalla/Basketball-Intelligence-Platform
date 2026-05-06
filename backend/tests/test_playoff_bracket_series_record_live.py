@@ -252,3 +252,269 @@ def test_today_does_not_overwrite_existing_gamelog_scores():
         assert g6.away_score == 99
     finally:
         session.close()
+
+
+# ---------------------------------------------------------------------------
+# Sprint 91 Phase A — bracket auto-advancement + series-id team-pair attach
+# ---------------------------------------------------------------------------
+
+
+def test_today_advances_child_series_when_parent_clinches():
+    """When a /today scoreboard final brings a parent series to 4 wins,
+    the child series's empty seed slot must auto-populate with the winner
+    so the next bracket read shows R2 wired up correctly. Reproduces the
+    user-reported "#null v Detroit" scenario where R1-CLE-TOR closed but
+    R2-BOT's top_seed_team_id never advanced.
+    """
+    session = _make_session()
+    try:
+        target = date(2026, 5, 13)
+        # Seed CLE-TOR R1 with CLE up 3-0 going into G4 today.
+        cle = Team(id=1610612739, abbreviation="CLE", name="Cleveland Cavaliers", city="Cleveland")
+        tor = Team(id=1610612761, abbreviation="TOR", name="Toronto Raptors", city="Toronto")
+        det = Team(id=1610612765, abbreviation="DET", name="Detroit Pistons", city="Detroit")
+        session.add_all([cle, tor, det])
+        session.commit()
+
+        r1_id = "{0}-X-R1-CLE-TOR".format(SEASON)
+        session.add(
+            PlayoffSeries(
+                season=SEASON, round=1, series_id=r1_id,
+                top_seed_team_id=cle.id, bottom_seed_team_id=tor.id,
+                top_seed=8, bottom_seed=13,
+                top_wins=3, bottom_wins=0, status="active",
+            )
+        )
+        # 3 prior CLE wins.
+        for i in range(1, 4):
+            session.add(
+                GameLog(
+                    game_id="00425001{0:02d}".format(i),
+                    season=SEASON,
+                    game_date=date(2026, 5, 1 + i),
+                    home_team_id=cle.id, away_team_id=tor.id,
+                    home_score=110, away_score=99,
+                    season_type="Playoffs", series_id=r1_id, series_game_num=i,
+                )
+            )
+        # G4 today, NULL scores in DB. Scoreboard says CLE 105 - TOR 92, final.
+        g4_id = "0042500104"
+        session.add(
+            GameLog(
+                game_id=g4_id, season=SEASON, game_date=target,
+                home_team_id=tor.id, away_team_id=cle.id,
+                home_score=None, away_score=None,
+                season_type="Playoffs", series_id=r1_id, series_game_num=4,
+            )
+        )
+        # Pre-existing R2-BOT row in the broken state (parent_top_series_id
+        # populated but top seed slot still null).
+        r2_id = "{0}-X-R2-BOT".format(SEASON)
+        session.add(
+            PlayoffSeries(
+                season=SEASON, round=2, series_id=r2_id,
+                top_seed_team_id=None, bottom_seed_team_id=det.id,
+                top_seed=None, bottom_seed=3,
+                top_wins=0, bottom_wins=0, status="scheduled",
+                parent_top_series_id=r1_id, parent_bottom_series_id=None,
+            )
+        )
+        session.commit()
+
+        scoreboard = {
+            g4_id: {
+                "gameStatus": 3,
+                "gameTimeUTC": "2026-05-14T01:00:00Z",
+                "homeTeam": {"score": 92},
+                "awayTeam": {"score": 105},
+                "broadcasters": {"nationalTvBroadcasters": []},
+            }
+        }
+        with patch("routers.playoffs._scoreboard_games_for_today", return_value=scoreboard), \
+             patch("routers.playoffs._today_pacific", return_value=target):
+            get_today(date_param=target.isoformat(), db=session)
+
+        session.expire_all()
+        # Parent series clinched and closed.
+        r1 = session.query(PlayoffSeries).filter_by(series_id=r1_id).first()
+        assert r1.status == "closed", "R1 should flip to closed on 4th win"
+        assert r1.winner_team_id == cle.id, "CLE wins R1"
+
+        # Child series's top seed advanced to CLE.
+        r2 = session.query(PlayoffSeries).filter_by(series_id=r2_id).first()
+        assert r2.top_seed_team_id == cle.id, "R2 top slot must auto-populate with CLE"
+        assert r2.top_seed == 8, "winner's seed propagates to child"
+        # Child becomes active now that both seeds are filled.
+        assert r2.status == "active", "R2 flips active once both seeds are populated"
+    finally:
+        session.close()
+
+
+def test_today_advancement_is_idempotent():
+    """A second /today call after advancement must not re-flip status or
+    overwrite already-populated child seeds. Locks down the case where
+    LiveTicker polls /today every 60s — we'd otherwise repeatedly mutate
+    the same rows without need."""
+    session = _make_session()
+    try:
+        target = date(2026, 5, 13)
+        # Seed an already-clinched R1 (CLE 4 wins, status already closed)
+        # and an already-advanced R2 (CLE wired in as top seed).
+        cle = Team(id=1610612739, abbreviation="CLE", name="Cleveland Cavaliers", city="Cleveland")
+        tor = Team(id=1610612761, abbreviation="TOR", name="Toronto Raptors", city="Toronto")
+        det = Team(id=1610612765, abbreviation="DET", name="Detroit Pistons", city="Detroit")
+        session.add_all([cle, tor, det])
+        session.commit()
+
+        r1_id = "{0}-X-R1-CLE-TOR".format(SEASON)
+        session.add(
+            PlayoffSeries(
+                season=SEASON, round=1, series_id=r1_id,
+                top_seed_team_id=cle.id, bottom_seed_team_id=tor.id,
+                top_seed=8, bottom_seed=13,
+                top_wins=4, bottom_wins=0, status="closed",
+                winner_team_id=cle.id,
+            )
+        )
+        for i in range(1, 5):
+            session.add(
+                GameLog(
+                    game_id="00425001{0:02d}".format(i),
+                    season=SEASON,
+                    game_date=date(2026, 5, 1 + i),
+                    home_team_id=cle.id, away_team_id=tor.id,
+                    home_score=110, away_score=99,
+                    season_type="Playoffs", series_id=r1_id, series_game_num=i,
+                )
+            )
+        r2_id = "{0}-X-R2-BOT".format(SEASON)
+        session.add(
+            PlayoffSeries(
+                season=SEASON, round=2, series_id=r2_id,
+                top_seed_team_id=cle.id, bottom_seed_team_id=det.id,
+                top_seed=8, bottom_seed=3,
+                top_wins=0, bottom_wins=0, status="active",
+                parent_top_series_id=r1_id, parent_bottom_series_id=None,
+            )
+        )
+        session.commit()
+
+        # Today: a R2 game (DET-CLE), no scoreboard final (in progress).
+        session.add(
+            GameLog(
+                game_id="0042500201", season=SEASON, game_date=target,
+                home_team_id=det.id, away_team_id=cle.id,
+                home_score=None, away_score=None,
+                season_type="Playoffs", series_id=r2_id, series_game_num=1,
+            )
+        )
+        session.commit()
+
+        with patch("routers.playoffs._scoreboard_games_for_today", return_value={}), \
+             patch("routers.playoffs._today_pacific", return_value=target):
+            get_today(date_param=target.isoformat(), db=session)
+
+        session.expire_all()
+        r2 = session.query(PlayoffSeries).filter_by(series_id=r2_id).first()
+        # Nothing should have changed — already-advanced state is preserved.
+        assert r2.top_seed_team_id == cle.id
+        assert r2.top_seed == 8
+        assert r2.status == "active"
+    finally:
+        session.close()
+
+
+def test_today_attaches_series_id_when_gamelog_missing_it():
+    """If a today's GameLog row has no series_id but its team-pair matches
+    an existing PlayoffSeries, /today must attach the series_id (and
+    persist it to the row). Reproduces the production state where today's
+    CLE-DET R2 game shipped with series_id=null because the bracket
+    builder hadn't yet linked it."""
+    session = _make_session()
+    try:
+        target = date(2026, 5, 13)
+        cle = Team(id=1610612739, abbreviation="CLE", name="Cleveland Cavaliers", city="Cleveland")
+        det = Team(id=1610612765, abbreviation="DET", name="Detroit Pistons", city="Detroit")
+        session.add_all([cle, det])
+        session.commit()
+
+        r2_id = "{0}-X-R2-BOT".format(SEASON)
+        session.add(
+            PlayoffSeries(
+                season=SEASON, round=2, series_id=r2_id,
+                top_seed_team_id=cle.id, bottom_seed_team_id=det.id,
+                top_seed=8, bottom_seed=3,
+                top_wins=0, bottom_wins=0, status="active",
+            )
+        )
+        # Today's R2 G1: scores final, but series_id=NULL on the row.
+        g1_id = "0042500201"
+        session.add(
+            GameLog(
+                game_id=g1_id, season=SEASON, game_date=target,
+                home_team_id=det.id, away_team_id=cle.id,
+                home_score=111, away_score=101,
+                season_type="Playoffs", series_id=None, series_game_num=None,
+            )
+        )
+        session.commit()
+
+        with patch("routers.playoffs._scoreboard_games_for_today", return_value={}), \
+             patch("routers.playoffs._today_pacific", return_value=target):
+            response = get_today(date_param=target.isoformat(), db=session)
+
+        # The response carries the matched series_id.
+        assert len(response.games) == 1
+        assert response.games[0].series_id == r2_id
+        assert response.games[0].top_seed_team_abbr == "CLE"
+
+        # And the row was persisted with the series_id attached.
+        session.expire_all()
+        g1 = session.query(GameLog).filter_by(game_id=g1_id).first()
+        assert g1.series_id == r2_id, "series_id must be persisted to GameLog"
+    finally:
+        session.close()
+
+
+def test_today_does_not_attach_series_id_across_seasons():
+    """A team pair could match a series in a different season's bracket.
+    The match must require season equality to avoid wiring this season's
+    games to a historical series."""
+    session = _make_session()
+    try:
+        target = date(2026, 5, 13)
+        cle = Team(id=1610612739, abbreviation="CLE", name="Cleveland Cavaliers", city="Cleveland")
+        det = Team(id=1610612765, abbreviation="DET", name="Detroit Pistons", city="Detroit")
+        session.add_all([cle, det])
+        session.commit()
+
+        # Historical CLE-DET series from a prior season.
+        old_id = "2023-24-X-R2-BOT"
+        session.add(
+            PlayoffSeries(
+                season="2023-24", round=2, series_id=old_id,
+                top_seed_team_id=cle.id, bottom_seed_team_id=det.id,
+                top_seed=8, bottom_seed=3,
+                top_wins=4, bottom_wins=2, status="closed",
+            )
+        )
+        # Today's game — current season, no series_id on row.
+        session.add(
+            GameLog(
+                game_id="0042500201", season=SEASON, game_date=target,
+                home_team_id=det.id, away_team_id=cle.id,
+                home_score=111, away_score=101,
+                season_type="Playoffs", series_id=None,
+            )
+        )
+        session.commit()
+
+        with patch("routers.playoffs._scoreboard_games_for_today", return_value={}), \
+             patch("routers.playoffs._today_pacific", return_value=target):
+            response = get_today(date_param=target.isoformat(), db=session)
+
+        # No match found (current season has no CLE-DET series). series_id
+        # remains None — we must not wire it to the historical series.
+        assert response.games[0].series_id is None
+    finally:
+        session.close()

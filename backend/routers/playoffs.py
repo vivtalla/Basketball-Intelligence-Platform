@@ -20,6 +20,7 @@ from typing import Dict, List, Optional, Set
 
 import pytz
 from fastapi import APIRouter, Depends, HTTPException, Query
+from sqlalchemy import or_
 from sqlalchemy.orm import Session
 
 from data.nba_client import get_todays_scoreboard
@@ -104,6 +105,136 @@ def _winner_team_id(game: GameLog) -> Optional[int]:
     if game.away_score > game.home_score:
         return game.away_team_id
     return None
+
+
+def _attach_series_id_to_unmatched_rows(db: Session, rows: List[GameLog]) -> None:
+    """Sprint 91 — when the daily sync hasn't yet stamped a Round 2+ game
+    with a series_id, match it to the right PlayoffSeries by team-pair.
+
+    Mutates each row's ``series_id`` in place; the caller's commit at the
+    end of /today persists the change. Idempotent — only touches rows
+    whose ``series_id`` is currently None.
+    """
+    from db.models import PlayoffSeries  # local import — avoids a router cycle
+
+    unmatched = [
+        r
+        for r in rows
+        if r.series_id is None
+        and r.home_team_id is not None
+        and r.away_team_id is not None
+        and r.season is not None
+    ]
+    if not unmatched:
+        return
+
+    seasons = {r.season for r in unmatched}
+    candidates = (
+        db.query(PlayoffSeries)
+        .filter(PlayoffSeries.season.in_(seasons))
+        .filter(PlayoffSeries.top_seed_team_id.isnot(None))
+        .filter(PlayoffSeries.bottom_seed_team_id.isnot(None))
+        .all()
+    )
+    pair_index: Dict[tuple, str] = {}
+    for s in candidates:
+        # Sort the team-id pair so home/away order doesn't matter.
+        team_pair = tuple(sorted([s.top_seed_team_id, s.bottom_seed_team_id]))
+        pair_index[(s.season, team_pair)] = s.series_id
+
+    for r in unmatched:
+        team_pair = tuple(sorted([r.home_team_id, r.away_team_id]))
+        sid = pair_index.get((r.season, team_pair))
+        if sid is not None:
+            r.series_id = sid
+
+
+def _maybe_advance_clinched_series(
+    db: Session,
+    series_completed_wins: Dict[str, Dict[int, int]],
+) -> None:
+    """Sprint 91 — when a series reaches 4 wins for one team, mark it
+    closed, set ``winner_team_id``, and propagate the winner into any
+    child series's empty top/bottom slot. Triggered from /today's
+    write-through path so the bracket reflects round advancement within
+    ~60s of a clinching game ending instead of waiting for the 6am sync.
+
+    Idempotent — guards on ``status != closed`` and ``seed is None`` so
+    repeated calls are safe.
+    """
+    from db.models import PlayoffSeries  # local import
+
+    for parent_series_id, bucket in series_completed_wins.items():
+        winner_id: Optional[int] = None
+        for team_id, wins in bucket.items():
+            if wins >= 4:
+                winner_id = team_id
+                break
+        if winner_id is None:
+            continue
+
+        parent = (
+            db.query(PlayoffSeries)
+            .filter(PlayoffSeries.series_id == parent_series_id)
+            .first()
+        )
+        if parent is None:
+            continue
+
+        if parent.status != "closed":
+            parent.status = "closed"
+        if parent.winner_team_id != winner_id:
+            parent.winner_team_id = winner_id
+
+        # Determine winner's seed from whichever side they were on.
+        if winner_id == parent.top_seed_team_id:
+            winner_seed = parent.top_seed
+        elif winner_id == parent.bottom_seed_team_id:
+            winner_seed = parent.bottom_seed
+        else:
+            # Winner doesn't match either persisted seed slot — bail rather
+            # than guess (likely a data inconsistency, surface in logs).
+            logger.warning(
+                "winner team_id=%s for series=%s doesn't match top_seed_team_id=%s "
+                "or bottom_seed_team_id=%s; skipping advancement",
+                winner_id,
+                parent_series_id,
+                parent.top_seed_team_id,
+                parent.bottom_seed_team_id,
+            )
+            continue
+
+        children = (
+            db.query(PlayoffSeries)
+            .filter(
+                or_(
+                    PlayoffSeries.parent_top_series_id == parent_series_id,
+                    PlayoffSeries.parent_bottom_series_id == parent_series_id,
+                )
+            )
+            .all()
+        )
+        for child in children:
+            if (
+                child.parent_top_series_id == parent_series_id
+                and child.top_seed_team_id is None
+            ):
+                child.top_seed_team_id = winner_id
+                child.top_seed = winner_seed
+            if (
+                child.parent_bottom_series_id == parent_series_id
+                and child.bottom_seed_team_id is None
+            ):
+                child.bottom_seed_team_id = winner_id
+                child.bottom_seed = winner_seed
+            # Once both seeds are populated, the child round can flip
+            # from "scheduled" to "active".
+            if (
+                child.top_seed_team_id is not None
+                and child.bottom_seed_team_id is not None
+                and child.status == "scheduled"
+            ):
+                child.status = "active"
 
 
 def _games_for_series(
@@ -545,6 +676,12 @@ def get_today(
         .all()
     )
 
+    # Sprint 91 — attach a series_id to any row whose GameLog.series_id is
+    # null (e.g. Round 2+ games inserted before the bracket builder linked
+    # them up). Done before the series lookups below so downstream code
+    # picks up the freshly-matched series naturally.
+    _attach_series_id_to_unmatched_rows(db, rows)
+
     # Fetch scoreboard supplements only for today — historical dates don't
     # need a live CDN call.
     scoreboard_lookup: Dict[str, dict] = {}
@@ -747,6 +884,12 @@ def get_today(
         for scheduled in scoreboard_only_finals:
             bucket = series_completed_wins.setdefault(scheduled.series_id, {})
             bucket[scheduled.winner_team_id] = bucket.get(scheduled.winner_team_id, 0) + 1
+
+        # Sprint 91 — once every win source has fed series_completed_wins,
+        # check for clinching series and advance the bracket. Idempotent:
+        # safe to call on every /today request even after the parent is
+        # already closed (guards on status / null-seed slots inside).
+        _maybe_advance_clinched_series(db, series_completed_wins)
 
         # Patch every game's record.
         for g in games:

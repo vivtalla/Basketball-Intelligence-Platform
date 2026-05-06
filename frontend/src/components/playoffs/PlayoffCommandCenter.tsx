@@ -37,8 +37,12 @@ function flattenSeries(bracket: PlayoffBracketResponse): PlayoffSeriesResponse[]
 }
 
 function seriesLabel(series: PlayoffSeriesResponse): string {
-  const top = series.top_seed_team_abbr ?? `#${series.top_seed}`;
-  const bottom = series.bottom_seed_team_abbr ?? `#${series.bottom_seed}`;
+  const top =
+    series.top_seed_team_abbr ??
+    (series.top_seed != null ? `#${series.top_seed}` : "TBD");
+  const bottom =
+    series.bottom_seed_team_abbr ??
+    (series.bottom_seed != null ? `#${series.bottom_seed}` : "TBD");
   return `${top} vs ${bottom}`;
 }
 
@@ -652,8 +656,12 @@ export default function PlayoffCommandCenter({
     if (initialSeriesId && allSeries.some((s) => s.series_id === initialSeriesId)) {
       return initialSeriesId;
     }
-    const active = allSeries.find((series) => series.status === "active");
-    const scheduled = allSeries.find((series) => series.status === "scheduled");
+    // Sprint 91 — prefer the highest-round active series so the command
+    // center surfaces R2/R3/Finals once they start instead of staying
+    // pinned on a stale R1 entry.
+    const byRoundDesc = [...allSeries].sort((a, b) => b.round - a.round);
+    const active = byRoundDesc.find((s) => s.status === "active");
+    const scheduled = byRoundDesc.find((s) => s.status === "scheduled");
     return active?.series_id ?? scheduled?.series_id ?? allSeries[0]?.series_id ?? null;
   }, [allSeries, initialSeriesId]);
   const [selectedSeriesId, setSelectedSeriesId] = useState<string | null>(null);
