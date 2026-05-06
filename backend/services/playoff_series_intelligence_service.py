@@ -278,8 +278,16 @@ def _star_burden_for_team(
     team_abbr: Optional[str],
     limit: int = 5,
 ) -> List[PlayoffStarBurdenEntry]:
+    if not team_abbr:
+        return []
+    # Sprint 91 — try playoff rows first; fall back to regular-season rows
+    # so the panel has content before Game 1 of the series finalizes.
     rows = _team_player_rows(db, team_abbr, season, True)
-    if not team_abbr or not rows:
+    data_source = "playoffs"
+    if not rows:
+        rows = _team_player_rows(db, team_abbr, season, False)
+        data_source = "regular_season"
+    if not rows:
         return []
     players = _player_lookup(db, [row.player_id for row in rows])
     total_points = sum(float(row.pts or 0) for row in rows)
@@ -313,13 +321,14 @@ def _star_burden_for_team(
                 bpm=_safe_float(row.bpm),
                 share_team_points=_rate(float(row.pts or 0), total_points) if total_points > 0 else None,
                 share_team_usage=_rate(float(row.usg_pct or 0), total_usage) if total_usage > 0 else None,
+                data_source=data_source,
             )
         )
     return entries
 
 
 def _shooting_split_rows(
-    db: Session, team_id: Optional[int], season: str
+    db: Session, team_id: Optional[int], season: str, is_playoff: bool = True
 ) -> List[TeamShootingSplitStat]:
     if team_id is None:
         return []
@@ -328,7 +337,7 @@ def _shooting_split_rows(
         .filter(
             TeamShootingSplitStat.team_id == team_id,
             TeamShootingSplitStat.season == season,
-            TeamShootingSplitStat.is_playoff == True,  # noqa: E712
+            TeamShootingSplitStat.is_playoff == is_playoff,  # noqa: E712
         )
         .all()
     )
@@ -366,15 +375,32 @@ def _shot_diet_for_team(
     aggregate: Dict[str, Optional[float]],
 ) -> PlayoffShotDietEntry:
     abbr = _team_abbr(team) or "TBD"
-    rows = _shooting_split_rows(db, team.id if team is not None else None, season)
+    team_id = team.id if team is not None else None
+    # Sprint 91 — try playoff splits first; if no playoff zone-shot rows
+    # exist yet for this team, fall back to regular-season splits so the
+    # panel renders meaningful frequencies before the series matures.
+    rows = _shooting_split_rows(db, team_id, season, is_playoff=True)
+    data_source = "playoffs"
     shot_rows = [
         row for row in rows
         if "shot" in (row.split_family or "").lower() or "dashboard" in (row.split_family or "").lower()
     ]
+    if sum(float(row.fga or 0) for row in shot_rows) <= 0:
+        rs_rows = _shooting_split_rows(db, team_id, season, is_playoff=False)
+        rs_shot_rows = [
+            row for row in rs_rows
+            if "shot" in (row.split_family or "").lower() or "dashboard" in (row.split_family or "").lower()
+        ]
+        if sum(float(row.fga or 0) for row in rs_shot_rows) > 0:
+            rows = rs_rows
+            shot_rows = rs_shot_rows
+            data_source = "regular_season"
     total_fga = sum(float(row.fga or 0) for row in shot_rows)
     notes: List[str] = []
     if total_fga <= 0:
-        notes.append("No playoff team shooting-split rows yet; showing roster-derived FTr/3PAr only.")
+        notes.append("Shooting splits will populate once the series gets a few games of data.")
+    elif data_source == "regular_season":
+        notes.append("Showing regular-season shot diet — playoff sample populates after Game 1.")
     return PlayoffShotDietEntry(
         team_abbreviation=abbr,
         rim_frequency=_share_for_tokens(shot_rows, total_fga, ["restricted"]),
@@ -386,6 +412,7 @@ def _shot_diet_for_team(
         par3=aggregate.get("par3"),
         assisted_fg_rate=_assisted_rate(rows),
         notes=notes,
+        data_source=data_source if total_fga > 0 else None,
     )
 
 
@@ -779,8 +806,15 @@ def build_playoff_series_intelligence(
     metrics, top_uses_rs_baseline, bottom_uses_rs_baseline = _build_metric_edges(
         db, series.season, top_team, bottom_team
     )
+    # Sprint 91 — fall back to regular-season player rows when no playoff
+    # rows have been ingested yet so derived rates (FTr, 3PAr, usage) used
+    # by shot-diet still render meaningful values pre-Game-1.
     top_rows = _team_player_rows(db, top_abbr, series.season, True)
+    if not top_rows:
+        top_rows = _team_player_rows(db, top_abbr, series.season, False)
     bottom_rows = _team_player_rows(db, bottom_abbr, series.season, True)
+    if not bottom_rows:
+        bottom_rows = _team_player_rows(db, bottom_abbr, series.season, False)
     top_agg = _team_player_aggregate(top_rows)
     bottom_agg = _team_player_aggregate(bottom_rows)
 

@@ -103,6 +103,21 @@ function StatusDot({ active }: { active: boolean }) {
   );
 }
 
+// Sprint 91 — small inline badge surfaced when the intelligence service had
+// to fall back from playoff sample to regular-season rows. Renders nothing
+// when the source is "playoffs" (or null/undefined for older rows).
+function DataSourceBadge({ source }: { source: "playoffs" | "regular_season" | null | undefined }) {
+  if (source !== "regular_season") return null;
+  return (
+    <span
+      title="Showing regular-season baseline. Playoff series sample populates after Game 1."
+      className="ml-2 inline-flex items-center rounded-full border border-[var(--border)] bg-[var(--surface-alt)] px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.1em] text-[var(--muted)]"
+    >
+      Regular season
+    </span>
+  );
+}
+
 function SeriesRail({
   series,
   selectedSeriesId,
@@ -340,19 +355,30 @@ function FourFactorsPanel({ data }: { data: PlayoffSeriesIntelligenceResponse })
 }
 
 function StarTable({ stars }: { stars: PlayoffStarBurdenEntry[] }) {
+  // If any row in the table came from a regular-season fallback, surface
+  // a single header-level badge rather than tagging every row.
+  const fallbackInUse = stars.some((s) => s.data_source === "regular_season");
   return (
     <section className="bip-panel rounded-[1.8rem] p-6">
       <div className="flex flex-wrap items-baseline justify-between gap-3">
-        <div>
+        <div className="flex items-baseline">
           <p className="bip-kicker">Star Burden</p>
-          <h3 className="bip-display mt-1 text-2xl font-semibold text-[var(--foreground)]">
-            Who is carrying creation.
-          </h3>
+          {fallbackInUse ? <DataSourceBadge source="regular_season" /> : null}
         </div>
         <span className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--muted)]">
           Usage sorted
         </span>
       </div>
+      <h3 className="bip-display mt-1 text-2xl font-semibold text-[var(--foreground)]">
+        Who is carrying creation.
+      </h3>
+      {fallbackInUse ? (
+        <p className="mt-2 text-xs leading-5 text-[var(--muted)]">
+          Series sample is too thin yet — showing each team&apos;s regular-season
+          usage so the matchup is still readable. Updates to playoff numbers
+          once Game 1 finalizes.
+        </p>
+      ) : null}
       {stars.length ? (
         <div className="mt-4 overflow-x-auto">
           <table className="min-w-full text-left text-sm">
@@ -393,7 +419,7 @@ function StarTable({ stars }: { stars: PlayoffStarBurdenEntry[] }) {
         </div>
       ) : (
         <p className="mt-4 text-sm text-[var(--muted)]">
-          No playoff player season rows yet for this series.
+          Player stats for this series will populate after Game 1 finalizes.
         </p>
       )}
     </section>
@@ -411,7 +437,10 @@ function ShotDietCard({ diet }: { diet: PlayoffShotDietEntry }) {
   ];
   return (
     <div className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-4">
-      <p className="text-sm font-semibold text-[var(--foreground)]">{diet.team_abbreviation}</p>
+      <p className="flex items-baseline text-sm font-semibold text-[var(--foreground)]">
+        {diet.team_abbreviation}
+        <DataSourceBadge source={diet.data_source} />
+      </p>
       <div className="mt-3 grid grid-cols-2 gap-2">
         {rows.map(([label, value]) => (
           <div key={label} className="rounded-xl bg-[var(--surface-alt)] px-3 py-2">

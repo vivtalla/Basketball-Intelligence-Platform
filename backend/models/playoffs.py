@@ -180,6 +180,10 @@ class PlayoffStarBurdenEntry(BaseModel):
     bpm: Optional[float] = None
     share_team_points: Optional[float] = None
     share_team_usage: Optional[float] = None
+    # Sprint 91 — "playoffs" when this season's playoff sample is non-empty,
+    # else "regular_season" when the service fell back to RS rows so the
+    # series command center has something to show before Game 1 finalizes.
+    data_source: Optional[str] = None
 
 
 class PlayoffShotDietEntry(BaseModel):
@@ -193,6 +197,8 @@ class PlayoffShotDietEntry(BaseModel):
     par3: Optional[float] = None
     assisted_fg_rate: Optional[float] = None
     notes: List[str] = Field(default_factory=list)
+    # Sprint 91 — same semantics as PlayoffStarBurdenEntry.data_source.
+    data_source: Optional[str] = None
 
 
 class PlayoffLineupEntry(BaseModel):

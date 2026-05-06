@@ -4355,6 +4355,9 @@ export interface PlayoffStarBurdenEntry {
   bpm: number | null;
   share_team_points: number | null;
   share_team_usage: number | null;
+  // Sprint 91 — "playoffs" when this season's playoff sample exists,
+  // "regular_season" when the service fell back to RS rows.
+  data_source: "playoffs" | "regular_season" | null;
 }
 
 export interface PlayoffShotDietEntry {
@@ -4368,6 +4371,8 @@ export interface PlayoffShotDietEntry {
   par3: number | null;
   assisted_fg_rate: number | null;
   notes: string[];
+  // Sprint 91 — same semantics as PlayoffStarBurdenEntry.data_source.
+  data_source: "playoffs" | "regular_season" | null;
 }
 
 export interface PlayoffLineupEntry {

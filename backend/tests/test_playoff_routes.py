@@ -585,6 +585,100 @@ def test_series_intelligence_falls_back_to_regular_season_baseline():
     assert any("HOU" in w for w in baseline_warnings)
 
 
+def test_star_burden_falls_back_to_regular_season_when_no_playoff_rows():
+    """Sprint 91 — when no SeasonStat rows exist with is_playoff=True for a
+    team, _star_burden_for_team must fall back to is_playoff=False rows
+    and tag every entry with data_source='regular_season' so the UI can
+    render a "Regular season" badge until Game 1 finalizes."""
+    SessionLocal = _make_session_factory()
+    session = SessionLocal()
+    try:
+        season = "2024-25"
+        series_id = _seed_series_with_games(session, season=season)
+        # Regular-season player rows for OKC and HOU (no is_playoff=True rows
+        # present — the fallback should kick in).
+        session.add_all(
+            [
+                SeasonStat(
+                    player_id=1, season=season, team_abbreviation="OKC",
+                    is_playoff=False, gp=75, min_total=2400, min_pg=32.0,
+                    usg_pct=0.32, pts_pg=29.0, ts_pct=0.62, bpm=8.1,
+                    fga=1500, fta=620, fg3a=420, pts=2200,
+                ),
+                SeasonStat(
+                    player_id=11, season=season, team_abbreviation="HOU",
+                    is_playoff=False, gp=72, min_total=2200, min_pg=30.5,
+                    usg_pct=0.27, pts_pg=22.0, ts_pct=0.58, bpm=4.4,
+                    fga=1200, fta=410, fg3a=120, pts=1700,
+                ),
+            ]
+        )
+        session.commit()
+        response = get_series_intelligence(series_id=series_id, db=session)
+    finally:
+        session.close()
+
+    assert response.star_burden, "fallback should produce non-empty star_burden"
+    assert all(
+        e.data_source == "regular_season" for e in response.star_burden
+    ), "every fallback row should be tagged regular_season so the UI can show the badge"
+    # Both teams represented.
+    teams = {e.team_abbreviation for e in response.star_burden}
+    assert "OKC" in teams and "HOU" in teams
+
+
+def test_shot_diet_falls_back_to_regular_season_splits():
+    """Sprint 91 — _shot_diet_for_team falls back to regular-season
+    TeamShootingSplitStat rows when no playoff splits exist yet, and tags
+    the entry with data_source='regular_season'."""
+    from db.models import TeamShootingSplitStat
+
+    SessionLocal = _make_session_factory()
+    session = SessionLocal()
+    try:
+        season = "2024-25"
+        series_id = _seed_series_with_games(session, season=season)
+        # Regular-season shooting splits for both teams (no is_playoff=True
+        # rows). Token "Restricted Area" in label so _share_for_tokens
+        # produces a non-zero rim_frequency.
+        session.add_all(
+            [
+                TeamShootingSplitStat(
+                    team_id=1610612760, season=season, is_playoff=False,
+                    split_family="ShotDashboard", split_value="rim",
+                    label="Restricted Area", fga=2000, fgm=1300,
+                ),
+                TeamShootingSplitStat(
+                    team_id=1610612760, season=season, is_playoff=False,
+                    split_family="ShotDashboard", split_value="paint",
+                    label="In The Paint (Non-RA)", fga=900, fgm=420,
+                ),
+                TeamShootingSplitStat(
+                    team_id=1610612745, season=season, is_playoff=False,
+                    split_family="ShotDashboard", split_value="rim",
+                    label="Restricted Area", fga=1700, fgm=1090,
+                ),
+                TeamShootingSplitStat(
+                    team_id=1610612745, season=season, is_playoff=False,
+                    split_family="ShotDashboard", split_value="paint",
+                    label="In The Paint (Non-RA)", fga=850, fgm=380,
+                ),
+            ]
+        )
+        session.commit()
+        response = get_series_intelligence(series_id=series_id, db=session)
+    finally:
+        session.close()
+
+    assert len(response.shot_diet) == 2
+    for entry in response.shot_diet:
+        assert entry.data_source == "regular_season"
+        assert entry.rim_frequency is not None and entry.rim_frequency > 0
+        assert any(
+            "regular-season" in note.lower() for note in entry.notes
+        ), "fallback note must be present"
+
+
 # ---------------------------------------------------------------------------
 # Sprint 85 — Bracket auto-advancement
 # ---------------------------------------------------------------------------
