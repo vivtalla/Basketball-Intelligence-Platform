@@ -109,7 +109,7 @@ The daily cron refreshes data overnight. Cache TTLs aligned with that cadence. F
 
 | Rule | Pattern (priority order) | Cache TTL | Why |
 |------|-------------------------|-----------|-----|
-| 1 | `hostname=api.courtvue.app AND URI starts_with /api/playoffs/` | 2 hours | Playoff series + bracket + per-series player logs (Sprint 85 B). Refreshes post-game. |
+| 1 | `hostname=api.courtvue.app AND URI starts_with /api/playoffs/` | 1 minute | Playoff series + bracket + per-series player logs (Sprint 85 B). Lowered from 2hr in Sprint 91 — `/api/playoffs/today` powers the home-page LiveTicker (polled every 60s), and a 2hr edge cache made "live" scores up to 2 hours stale even when the origin was healthy. 1 minute matches the client refresh interval and still protects gunicorn from a viral spike (max 1 origin req per minute per cache key). |
 | 2 | `hostname=api.courtvue.app AND URI starts_with /api/standings` | 2 hours | Refreshed post-game |
 | 3 | `hostname=api.courtvue.app AND URI starts_with /api/leaderboards` | 6 hours | Updated nightly |
 | 4 | `hostname=api.courtvue.app AND URI matches "^/api/(players\|teams)/.*/(splits\|play-types\|tracking\|hustle)$"` | 12 hours | Daily-synced player + team stat dashboards (Sprint 81 splits/play-types + Sprint 85/86 tracking + hustle). Sprint 86 broadened from `/api/players/*/splits` to cover the new endpoints. |

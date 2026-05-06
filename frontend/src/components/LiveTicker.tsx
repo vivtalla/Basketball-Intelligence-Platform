@@ -73,15 +73,28 @@ function mapPlayoffGames(data: PlayoffTodayResponse | undefined): TickerGame[] {
 export default function LiveTicker() {
   const { isPlayoffs } = useSeasonPhase();
 
-  const { data: today } = useSWR<PlayoffTodayResponse>(
+  const { data: today, error } = useSWR<PlayoffTodayResponse>(
     isPlayoffs ? ["playoffs-today-ticker"] : null,
     () => getPlayoffsToday(),
-    { refreshInterval: 60_000, revalidateOnFocus: true }
+    { refreshInterval: 60_000, revalidateOnFocus: true, shouldRetryOnError: true }
   );
 
   const liveGames = useMemo<TickerGame[]>(() => mapPlayoffGames(today), [today]);
-  const games = liveGames.length > 0 ? liveGames : DEMO_GAMES;
-  const isDemo = liveGames.length === 0;
+
+  // Three render modes:
+  //   error       — fetch failed (e.g. backend 500); show static "unavailable"
+  //                 kicker, no marquee, so a real outage isn't masked by demo.
+  //   demo        — off-season or empty slate (no error, no live games); show
+  //                 DEMO_GAMES with the existing "Demo · Live scores" label.
+  //   live        — real games to render.
+  const showError = !!error && liveGames.length === 0;
+  const games = showError ? [] : liveGames.length > 0 ? liveGames : DEMO_GAMES;
+  const isDemo = !showError && liveGames.length === 0;
+  const kickerLabel = showError
+    ? "Scores unavailable"
+    : isDemo
+      ? "Demo · Live scores"
+      : "Today's slate";
 
   // Double the games array so the marquee scrolls seamlessly.
   const doubled = [...games, ...games];
@@ -135,7 +148,7 @@ export default function LiveTicker() {
             whiteSpace: "nowrap",
           }}
         >
-          {isDemo ? "Demo · Live scores" : "Today's slate"}
+          {kickerLabel}
         </span>
       </div>
 
