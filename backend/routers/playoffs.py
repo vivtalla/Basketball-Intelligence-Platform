@@ -239,6 +239,27 @@ def _series_to_response(
                 parent_bottom_team_abbrs,
             ) = _resolve_parent_label_fields(db, parent_bottom_series_id)
 
+    # Sprint 91 — bypass the stale PlayoffSeries.top_wins/bottom_wins
+    # denormalized cache (only updated by the 6am daily sync). Count fresh
+    # from the games list, which is built from GameLog rows whose scores
+    # are write-through-updated by /today's scoreboard overlay. Same
+    # pattern Sprint 90 applied to /today; now /bracket and /series/{id}
+    # see fresh records the moment a game finishes.
+    fresh_top_wins = sum(
+        1
+        for g in games
+        if g.winner_team_id is not None
+        and series.top_seed_team_id is not None
+        and g.winner_team_id == series.top_seed_team_id
+    )
+    fresh_bottom_wins = sum(
+        1
+        for g in games
+        if g.winner_team_id is not None
+        and series.bottom_seed_team_id is not None
+        and g.winner_team_id == series.bottom_seed_team_id
+    )
+
     return PlayoffSeriesResponse(
         season=series.season,
         round=series.round,
@@ -249,8 +270,8 @@ def _series_to_response(
         bottom_seed_team_abbr=bottom.abbreviation if bottom is not None else None,
         top_seed=series.top_seed,
         bottom_seed=series.bottom_seed,
-        top_wins=series.top_wins or 0,
-        bottom_wins=series.bottom_wins or 0,
+        top_wins=fresh_top_wins,
+        bottom_wins=fresh_bottom_wins,
         status=series.status,
         winner_team_id=series.winner_team_id,
         games=games,
@@ -711,6 +732,14 @@ def get_today(
             else:
                 live_winner_id = None
             if live_winner_id is not None and db_row.series_id:
+                # Sprint 91 — write-through: persist the scoreboard final
+                # to GameLog so subsequent /bracket and /series/{id} reads
+                # see the fresh winner_team_id (which the new fresh-count
+                # in _series_to_response keys off of). Without this, the
+                # bracket page would still show yesterday's series record
+                # until the 6am daily sync.
+                db_row.home_score = home_pts_sb
+                db_row.away_score = away_pts_sb
                 bucket = series_completed_wins.setdefault(db_row.series_id, {})
                 bucket[live_winner_id] = bucket.get(live_winner_id, 0) + 1
 
@@ -731,6 +760,15 @@ def get_today(
             g.bottom_wins = bucket.get(seeds["bottom"], 0) if seeds["bottom"] is not None else 0
 
     games.sort(key=lambda g: (g.tipoff_utc or "9999", g.game_id))
+
+    # Sprint 91 — flush any GameLog write-through scoreboard finals from
+    # the overlay block above. Wrap so a commit failure can't take down
+    # the /today response — the in-memory `games` list is already correct
+    # for this request even if the persist fails.
+    try:
+        db.commit()
+    except Exception:  # noqa: BLE001 — defensive; in-memory response still valid
+        db.rollback()
 
     return PlayoffTodayResponse(date=target, games=games)
 

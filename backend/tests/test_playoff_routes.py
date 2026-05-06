@@ -176,11 +176,16 @@ def _seed_series_with_games(session, season="2024-25"):
     session.add(series)
 
     # Insert games out of order to verify ordering by series_game_num.
+    # Sprint 91 — outcomes match the persisted top_wins=3, bottom_wins=1
+    # (OKC wins G1/G2/G4; HOU wins G3). Pre-Sprint-91 the series record
+    # was read from the denormalized cache so the fixture got away with
+    # OKC sweeping all 4. Now _series_to_response counts wins fresh from
+    # GameLog, so the fixture has to be self-consistent.
     games_meta = [
-        (4, "0042500004", date(2026, 4, 27), okc.id, hou.id, 116, 102),
-        (1, "0042500001", date(2026, 4, 18), okc.id, hou.id, 110, 99),
-        (3, "0042500003", date(2026, 4, 24), hou.id, okc.id, 105, 112),
-        (2, "0042500002", date(2026, 4, 21), okc.id, hou.id, 108, 101),
+        (4, "0042500004", date(2026, 4, 27), okc.id, hou.id, 116, 102),  # OKC
+        (1, "0042500001", date(2026, 4, 18), okc.id, hou.id, 110, 99),   # OKC
+        (3, "0042500003", date(2026, 4, 24), hou.id, okc.id, 112, 105),  # HOU
+        (2, "0042500002", date(2026, 4, 21), okc.id, hou.id, 108, 101),  # OKC
     ]
     for game_num, gid, gdate, home_id, away_id, hs, as_ in games_meta:
         session.add(
