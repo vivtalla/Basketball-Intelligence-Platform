@@ -613,6 +613,7 @@ def _build_scheduled_game_from_scoreboard(
     bot_abbr: Optional[str] = None
     status = None
 
+    series_game_num_val: Optional[int] = None
     if home_team_id is not None and away_team_id is not None:
         series_row = (
             db.query(PlayoffSeries)
@@ -632,6 +633,15 @@ def _build_scheduled_game_from_scoreboard(
             bot_team = db.query(Team).filter(Team.id == series_row.bottom_seed_team_id).first()
             top_abbr = top_team.abbreviation if top_team else None
             bot_abbr = bot_team.abbreviation if bot_team else None
+            # Sprint 92 — derive series_game_num for scoreboard-only games
+            # (those without a GameLog row yet). Count of prior series games
+            # plus this one — same logic the GameLog write-through path uses.
+            prior_count = (
+                db.query(GameLog)
+                .filter(GameLog.series_id == series_row.series_id)
+                .count()
+            )
+            series_game_num_val = prior_count + 1
 
     # Sprint 90 hotfix — top_wins/bottom_wins are intentionally None here;
     # `get_today` patches them in its single post-pass after computing the
@@ -646,7 +656,7 @@ def _build_scheduled_game_from_scoreboard(
         home_pts=home_pts,
         away_pts=away_pts,
         winner_team_id=winner_team_id,
-        series_game_num=None,  # not always reliable from scoreboard
+        series_game_num=series_game_num_val,
         series_id=series_id,
         season=season,
         round=round_no,
