@@ -183,12 +183,38 @@ def _team_abbr(db: Session, team_id: int, cache: Dict[int, str]) -> str:
     return abbr
 
 
+# Sprint 92 — static fallback for `Team.conference` when the DB column is
+# empty. Without this the bracket builder collapses every R1-winner into a
+# conference="X" R2 slot regardless of E/W, which is the bug that put OKC
+# (West) and PHI (East) in the same R2-TOP row in production. Mirrors the
+# same fallback the playoffs router uses to group bracket east/west columns.
+_EAST_ABBRS_FALLBACK = {
+    "ATL", "BOS", "BKN", "CHA", "CHI", "CLE", "DET", "IND", "MIA",
+    "MIL", "NYK", "ORL", "PHI", "TOR", "WAS",
+}
+_WEST_ABBRS_FALLBACK = {
+    "DAL", "DEN", "GSW", "HOU", "LAC", "LAL", "MEM", "MIN", "NOP",
+    "OKC", "PHX", "POR", "SAC", "SAS", "UTA",
+}
+
+
 def _team_conference(db: Session, team_id: int, cache: Dict[int, str]) -> str:
     if team_id in cache:
         return cache[team_id]
     team = db.query(Team).filter(Team.id == team_id).first()
     conf = (getattr(team, "conference", "") or "").strip().upper() if team else ""
-    short = conf[:1] if conf else "X"
+    short = conf[:1] if conf else ""
+    if not short and team is not None:
+        # Sprint 92 — Team.conference may be unpopulated (production was in
+        # this state pre-fix). Fall back to the static abbr→conference map
+        # rather than emit "X", which collapses cross-conference R2 slots.
+        abbr = (getattr(team, "abbreviation", "") or "").strip().upper()
+        if abbr in _EAST_ABBRS_FALLBACK:
+            short = "E"
+        elif abbr in _WEST_ABBRS_FALLBACK:
+            short = "W"
+    if not short:
+        short = "X"
     cache[team_id] = short
     return short
 
@@ -292,6 +318,20 @@ def _compute_next_round_slot(
         return None
 
     conf = (conference_token or "X").upper()[:1] or "X"
+    # Sprint 92 — refuse to mint cross-conference slot ids. If the caller
+    # passed a conference we couldn't resolve, surfacing None lets the
+    # builder skip the advance step rather than collapse East and West
+    # winners into a shared "X" slot. Fix Team.conference at the source
+    # before re-running the builder.
+    if conf == "X":
+        logger.warning(
+            "_compute_next_round_slot: refusing to advance series with "
+            "unresolved conference (top_seed=%s, round=%s). Populate "
+            "Team.conference for the source teams and re-run the builder.",
+            top_seed,
+            round_number,
+        )
+        return None
 
     if next_round == 2:
         # Two arms per conference; slot_id encodes the arm so both R1 parents

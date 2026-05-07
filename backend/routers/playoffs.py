@@ -147,6 +147,24 @@ def _attach_series_id_to_unmatched_rows(db: Session, rows: List[GameLog]) -> Non
         sid = pair_index.get((r.season, team_pair))
         if sid is not None:
             r.series_id = sid
+            # Sprint 92 — also derive series_game_num so the UI can render
+            # "G3" / "G4" labels for newly-attached games. Count includes
+            # the row itself: existing games for the series with an earlier
+            # game_date or game_id, plus this one.
+            if r.series_game_num is None:
+                prior_count = (
+                    db.query(GameLog)
+                    .filter(GameLog.series_id == sid)
+                    .filter(
+                        (GameLog.game_date < r.game_date)
+                        | (
+                            (GameLog.game_date == r.game_date)
+                            & (GameLog.game_id < r.game_id)
+                        )
+                    )
+                    .count()
+                )
+                r.series_game_num = prior_count + 1
 
 
 def _maybe_advance_clinched_series(

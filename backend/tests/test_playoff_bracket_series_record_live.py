@@ -518,3 +518,68 @@ def test_today_does_not_attach_series_id_across_seasons():
         assert response.games[0].series_id is None
     finally:
         session.close()
+
+
+def test_today_attach_derives_series_game_num_from_prior_completed_games():
+    """Sprint 92 — when /today attaches a series_id to an unmatched row,
+    it must also derive series_game_num so the UI can render "G2" / "G3"
+    labels. The number = count of prior series games + 1, ordered by
+    (game_date, game_id)."""
+    session = _make_session()
+    try:
+        target = date(2026, 5, 13)
+        cle = Team(id=1610612739, abbreviation="CLE", name="Cleveland Cavaliers", city="Cleveland")
+        det = Team(id=1610612765, abbreviation="DET", name="Detroit Pistons", city="Detroit")
+        session.add_all([cle, det])
+        session.commit()
+
+        r2_id = "{0}-E-R2-BOT".format(SEASON)
+        session.add(
+            PlayoffSeries(
+                season=SEASON, round=2, series_id=r2_id,
+                top_seed_team_id=cle.id, bottom_seed_team_id=det.id,
+                top_seed=8, bottom_seed=3,
+                top_wins=0, bottom_wins=0, status="active",
+            )
+        )
+        # Two prior R2 games, both with series_id stamped (G1 + G2).
+        for i, gdate in enumerate([date(2026, 5, 10), date(2026, 5, 11)], start=1):
+            session.add(
+                GameLog(
+                    game_id="00425001{0:02d}".format(i),
+                    season=SEASON, game_date=gdate,
+                    home_team_id=det.id, away_team_id=cle.id,
+                    home_score=111, away_score=101,
+                    season_type="Playoffs", series_id=r2_id, series_game_num=i,
+                )
+            )
+        # Today's G3, no series_id stamped (the bug we're closing).
+        g3_id = "0042500103"
+        session.add(
+            GameLog(
+                game_id=g3_id, season=SEASON, game_date=target,
+                home_team_id=cle.id, away_team_id=det.id,
+                home_score=110, away_score=99,
+                season_type="Playoffs", series_id=None, series_game_num=None,
+            )
+        )
+        session.commit()
+
+        with patch("routers.playoffs._scoreboard_games_for_today", return_value={}), \
+             patch("routers.playoffs._today_pacific", return_value=target):
+            response = get_today(date_param=target.isoformat(), db=session)
+
+        # Response carries the derived game number.
+        today_game = next(g for g in response.games if g.game_id == g3_id)
+        assert today_game.series_id == r2_id
+        assert today_game.series_game_num == 3, (
+            "third game in the series should be labeled G3"
+        )
+
+        # And the row was persisted so subsequent reads see it.
+        session.expire_all()
+        g3 = session.query(GameLog).filter_by(game_id=g3_id).first()
+        assert g3.series_id == r2_id
+        assert g3.series_game_num == 3
+    finally:
+        session.close()

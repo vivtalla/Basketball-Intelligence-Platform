@@ -1200,3 +1200,150 @@ def test_series_response_omits_parent_fields_for_round_1():
     assert response.parent_bottom_seed is None
     assert response.parent_top_team_abbrs is None
     assert response.parent_bottom_team_abbrs is None
+
+
+# ---------------------------------------------------------------------------
+# Sprint 92 — bracket builder conference resolution + slot-id guard
+# ---------------------------------------------------------------------------
+
+
+def test_team_conference_falls_back_to_static_abbr_map_when_db_column_empty():
+    """Production hit a state where every Team.conference was empty, which
+    made `_team_conference` return "X" for every team. That collapsed all
+    R1 winners into shared `<season>-X-R2-TOP` / `R2-BOT` slots regardless
+    of conference (one R2-TOP row contained OKC West + PHI East). The fix
+    is a static abbreviation→conference fallback inside `_team_conference`."""
+    from services.playoff_bracket_service import _team_conference
+
+    SessionLocal = _make_session_factory()
+    session = SessionLocal()
+    try:
+        # Real abbrs, but Team.conference is intentionally left empty/null.
+        session.add(Team(id=1610612760, abbreviation="OKC", name="Oklahoma City Thunder"))
+        session.add(Team(id=1610612765, abbreviation="DET", name="Detroit Pistons"))
+        session.add(Team(id=1, abbreviation="ZZZ", name="Made-up team"))
+        session.commit()
+
+        cache = {}
+        assert _team_conference(session, 1610612760, cache) == "W"
+        assert _team_conference(session, 1610612765, cache) == "E"
+        # Unknown abbr still falls through to "X" — fallback is conservative.
+        assert _team_conference(session, 1, cache) == "X"
+    finally:
+        session.close()
+
+
+def test_compute_next_round_slot_refuses_unresolved_conference():
+    """`_compute_next_round_slot` must refuse to mint cross-conference R2
+    slot ids. If conference resolution returns "X", the auto-advance
+    should bail rather than collapse East+West winners into one row."""
+    from services.playoff_bracket_service import _compute_next_round_slot
+
+    # A normal East R1-1v8 → R2 slot should resolve cleanly.
+    east_slot = _compute_next_round_slot(
+        season="2025-26", conference_token="E", round_number=1,
+        top_seed=1, bottom_seed=8,
+    )
+    assert east_slot is not None
+    assert east_slot["slot_id"] == "2025-26-E-R2-TOP"
+
+    # Same shape with an unresolved conference must return None.
+    blocked = _compute_next_round_slot(
+        season="2025-26", conference_token="X", round_number=1,
+        top_seed=1, bottom_seed=8,
+    )
+    assert blocked is None, (
+        "advance must not produce -X- slot ids; populate Team.conference instead"
+    )
+
+    # Empty / None conf token also blocked.
+    assert (
+        _compute_next_round_slot(
+            season="2025-26", conference_token=None, round_number=1,
+            top_seed=1, bottom_seed=8,
+        )
+        is None
+    )
+
+
+def test_build_or_refresh_bracket_routes_east_and_west_into_separate_slots():
+    """Reproduce the production bug at the integration level: with
+    Team.conference NULL but real abbrs, the builder must still route
+    East and West R1 winners into separate R2 slots (`-E-R2-TOP` vs
+    `-W-R2-TOP`), not collapse them into shared `-X-R2-TOP`."""
+    from services.playoff_bracket_service import build_or_refresh_bracket
+
+    SessionLocal = _make_session_factory()
+    session = SessionLocal()
+    try:
+        season = "2025-26"
+        # Two teams from each conference, no Team.conference column set —
+        # mimicking the production state.
+        bos = Team(id=1610612738, abbreviation="BOS", name="Boston Celtics")
+        mia = Team(id=1610612748, abbreviation="MIA", name="Miami Heat")
+        okc = Team(id=1610612760, abbreviation="OKC", name="Oklahoma City Thunder")
+        hou = Team(id=1610612745, abbreviation="HOU", name="Houston Rockets")
+        session.add_all([bos, mia, okc, hou])
+        # Regular-season W% so _seed_lookup ranks them.
+        session.add_all([
+            TeamSeasonStat(team_id=bos.id, season=season, is_playoff=False, gp=82, w_pct=0.78),
+            TeamSeasonStat(team_id=mia.id, season=season, is_playoff=False, gp=82, w_pct=0.51),
+            TeamSeasonStat(team_id=okc.id, season=season, is_playoff=False, gp=82, w_pct=0.80),
+            TeamSeasonStat(team_id=hou.id, season=season, is_playoff=False, gp=82, w_pct=0.49),
+        ])
+        # BOS sweeps MIA 4-0 (East 1v8), OKC sweeps HOU 4-0 (West 1v8).
+        for i, (home, away) in enumerate([
+            (bos, mia), (bos, mia), (mia, bos), (mia, bos),
+            (okc, hou), (okc, hou), (hou, okc), (hou, okc),
+        ], start=1):
+            home_score = 110 if home in (bos, okc) else 95
+            away_score = 95 if home in (bos, okc) else 110
+            session.add(
+                GameLog(
+                    game_id="00425{0:05d}".format(i),
+                    season=season,
+                    game_date=date(2026, 4, 18 + i),
+                    home_team_id=home.id, away_team_id=away.id,
+                    home_score=home_score, away_score=away_score,
+                    season_type="Playoffs",
+                )
+            )
+        session.commit()
+        build_or_refresh_bracket(session, season)
+
+        # Two distinct R2 slots — one E, one W. NOT a single -X- row.
+        # (Whether the E series ends up TOP or BOT and the W series TOP or
+        # BOT depends on _seed_lookup's global w_pct ranking, which isn't
+        # what we're locking down here. The bug was both teams collapsing
+        # into a *shared* X-R2 row regardless of conference — that's the
+        # invariant under test.)
+        r2_rows = (
+            session.query(PlayoffSeries)
+            .filter(PlayoffSeries.season == season, PlayoffSeries.round == 2)
+            .all()
+        )
+        slot_ids = sorted(r.series_id for r in r2_rows)
+        e_slots = [sid for sid in slot_ids if sid.startswith("2025-26-E-R2-")]
+        w_slots = [sid for sid in slot_ids if sid.startswith("2025-26-W-R2-")]
+        x_slots = [sid for sid in slot_ids if "-X-R2" in sid]
+        assert e_slots, "East R2 slot must exist (bug: collapsed to X)"
+        assert w_slots, "West R2 slot must exist separately from East"
+        assert not x_slots, (
+            "must not produce cross-conference X-R2 slot ids; "
+            "got: {0}".format(x_slots)
+        )
+        # The East slot must hold an East team; the West slot must hold a
+        # West team — never crossed.
+        for r in r2_rows:
+            if r.series_id.startswith("2025-26-E-R2-"):
+                team_id = r.top_seed_team_id or r.bottom_seed_team_id
+                assert team_id in (bos.id, mia.id), (
+                    "E slot must hold an East team, got team_id={0}".format(team_id)
+                )
+            elif r.series_id.startswith("2025-26-W-R2-"):
+                team_id = r.top_seed_team_id or r.bottom_seed_team_id
+                assert team_id in (okc.id, hou.id), (
+                    "W slot must hold a West team, got team_id={0}".format(team_id)
+                )
+    finally:
+        session.close()
