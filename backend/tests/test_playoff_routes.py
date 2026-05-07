@@ -1266,6 +1266,65 @@ def test_compute_next_round_slot_refuses_unresolved_conference():
     )
 
 
+def test_seed_lookup_ranks_within_conference_not_league_wide():
+    """Sprint 92 — a team's playoff seed must be its rank within its
+    conference, not its rank league-wide. Pre-fix, CLE with the 8th-best
+    league record was being labeled seed 8 even though they had the
+    4th-best East record (true East 4 seed). The downstream seed-arm
+    mapping assumes within-conference 1-8 seeding, so league-wide ranks
+    silently broke the bracket auto-advance."""
+    from services.playoff_bracket_service import _seed_lookup
+
+    SessionLocal = _make_session_factory()
+    session = SessionLocal()
+    try:
+        season = "2025-26"
+        # Real abbrs so the static conference fallback can resolve E/W.
+        # Teams with the actual 2025-26 record gradient that produced the
+        # CLE-as-8 bug in production.
+        teams = [
+            (1610612760, "OKC", "West", 0.795),
+            (1610612759, "SAS", "West", 0.759),
+            (1610612765, "DET", "East", 0.722),
+            (1610612738, "BOS", "East", 0.679),
+            (1610612752, "NYK", "East", 0.646),
+            (1610612747, "LAL", "West", 0.641),
+            (1610612743, "DEN", "West", 0.641),
+            (1610612739, "CLE", "East", 0.633),
+        ]
+        for team_id, abbr, _, _ in teams:
+            session.add(Team(id=team_id, abbreviation=abbr, name=abbr))
+        for team_id, _, _, w_pct in teams:
+            session.add(
+                TeamSeasonStat(
+                    team_id=team_id,
+                    season=season,
+                    is_playoff=False,
+                    gp=82,
+                    w_pct=w_pct,
+                )
+            )
+        session.commit()
+
+        # League-wide: CLE is 8th. Within East: CLE is 4th (DET, BOS, NYK ahead).
+        assert _seed_lookup(1610612739, season, session) == 4, (
+            "CLE must be East 4 seed (not league-wide rank 8)"
+        )
+        # East ordering: DET 1, BOS 2, NYK 3, CLE 4.
+        assert _seed_lookup(1610612765, season, session) == 1, "DET = East 1"
+        assert _seed_lookup(1610612738, season, session) == 2, "BOS = East 2"
+        assert _seed_lookup(1610612752, season, session) == 3, "NYK = East 3"
+        # West ordering: OKC 1, SAS 2, LAL 3 (or DEN 3 — tie).
+        assert _seed_lookup(1610612760, season, session) == 1, "OKC = West 1"
+        assert _seed_lookup(1610612759, season, session) == 2, "SAS = West 2"
+        # LAL and DEN tie at 0.641; deterministic by team_id.
+        lal_seed = _seed_lookup(1610612747, season, session)
+        den_seed = _seed_lookup(1610612743, season, session)
+        assert {lal_seed, den_seed} == {3, 4}, "LAL and DEN should be West 3 and 4"
+    finally:
+        session.close()
+
+
 def test_build_or_refresh_bracket_routes_east_and_west_into_separate_slots():
     """Reproduce the production bug at the integration level: with
     Team.conference NULL but real abbrs, the builder must still route

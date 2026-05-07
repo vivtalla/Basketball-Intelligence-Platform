@@ -117,9 +117,15 @@ def _seed_lookup(team_id: int, season: str, db: Session) -> Optional[int]:
     """Best-effort seed inference for a team in a given season.
 
     Looks for an explicit playoff-rank field on `team_season_stats` first;
-    falls back to ranking by regular-season ``w_pct`` within the league. If
-    nothing is available, returns ``None`` so the caller can fall through to
-    the seed=99 placeholder.
+    falls back to ranking by regular-season ``w_pct`` **within the team's
+    conference**. Sprint 92 — pre-fix this ranked league-wide, which gave
+    e.g. CLE seed 8 (8th-best record overall) instead of seed 4 (4th-best
+    in the East). The downstream `_R1_ARM_FOR_TOP_SEED` mapping assumes
+    within-conference 1-8 seeding, so league-wide ranks broke the bracket
+    auto-advance.
+
+    Returns ``None`` if the team's seed can't be determined so callers
+    fall through to the seed=99 placeholder.
     """
     row = (
         db.query(TeamSeasonStat)
@@ -142,11 +148,11 @@ def _seed_lookup(team_id: int, season: str, db: Session) -> Optional[int]:
         except (TypeError, ValueError):
             pass
 
-    # Fallback: derive seed from regular-season W% rank within the league.
-    # The first 8 teams by W% map to seeds 1..8 (rough — pre-play-in this
-    # is fine; play-in winners may be misranked but get reseeded once
-    # series start, which our caller can override with explicit ranks
-    # when available).
+    # Fallback: derive seed from regular-season W% rank within the team's
+    # conference. Standard NBA seeds are 1-8 within each conference; ranking
+    # league-wide here would silently put 8th-best-record-overall teams at
+    # seed 8 even when they're 4th-best in their conference.
+    target_conf = _team_conference(db, team_id, {})
     all_team_rows = (
         db.query(TeamSeasonStat)
         .filter(
@@ -157,6 +163,19 @@ def _seed_lookup(team_id: int, season: str, db: Session) -> Optional[int]:
     )
     if not all_team_rows:
         return None
+    # Filter to the target's conference using the same fallback-aware
+    # resolver. If we can't determine a conference for the target team
+    # we fall back to league-wide ranking (the old behavior) so we never
+    # return None when we previously would have returned a number.
+    conf_cache: Dict[int, str] = {}
+    if target_conf and target_conf != "X":
+        same_conf_rows = [
+            r
+            for r in all_team_rows
+            if _team_conference(db, r.team_id, conf_cache) == target_conf
+        ]
+        if same_conf_rows:
+            all_team_rows = same_conf_rows
     sorted_rows = sorted(
         all_team_rows,
         key=lambda r: (-(r.w_pct or 0.0), r.team_id),
