@@ -1266,6 +1266,98 @@ def test_compute_next_round_slot_refuses_unresolved_conference():
     )
 
 
+def test_build_or_refresh_self_heals_when_partner_parent_already_advanced():
+    """Sprint 92 — when two R1 parents share an R2 slot (e.g. 1v8 and
+    4v5 both feed R2-TOP), the self-heal path must fire for BOTH parents
+    on a re-run, not just the first. Pre-fix, the second parent's
+    self-heal saw a non-null next_row and skipped, leaving the partner
+    seat empty.
+
+    Reproduces the production scenario: the repair script wipes R2+ and
+    re-runs the builder against existing closed R1 rows (so
+    was_closed_before=True for everyone). The first iteration's
+    self-heal creates R2-TOP with one seat filled; the second
+    iteration's self-heal must fire too to fill the partner seat."""
+    from services.playoff_bracket_service import build_or_refresh_bracket
+
+    SessionLocal = _make_session_factory()
+    session = SessionLocal()
+    try:
+        season = "2025-26"
+        # 8 East teams so we have a true 1v8 + 4v5 pair both feeding TOP arm.
+        bos = Team(id=1610612738, abbreviation="BOS", name="Boston Celtics")
+        nyk = Team(id=1610612752, abbreviation="NYK", name="New York Knicks")
+        mil = Team(id=1610612749, abbreviation="MIL", name="Milwaukee Bucks")
+        phi = Team(id=1610612755, abbreviation="PHI", name="Philadelphia 76ers")
+        mia = Team(id=1610612748, abbreviation="MIA", name="Miami Heat")
+        cle = Team(id=1610612739, abbreviation="CLE", name="Cleveland Cavaliers")
+        tor = Team(id=1610612761, abbreviation="TOR", name="Toronto Raptors")
+        det = Team(id=1610612765, abbreviation="DET", name="Detroit Pistons")
+        session.add_all([bos, nyk, mil, phi, mia, cle, tor, det])
+        # Records produce BOS=1, NYK=2, MIL=3, PHI=4, MIA=5, CLE=6, TOR=7, DET=8.
+        rs = [
+            (bos, 0.80), (nyk, 0.74), (mil, 0.70), (phi, 0.65),
+            (mia, 0.60), (cle, 0.55), (tor, 0.50), (det, 0.45),
+        ]
+        for team, w in rs:
+            session.add(TeamSeasonStat(team_id=team.id, season=season, is_playoff=False, gp=82, w_pct=w))
+
+        # 1v8: BOS sweeps DET 4-0. 4v5: PHI sweeps MIA 4-0.
+        gid = [1]
+
+        def _emit(home, away, hs, as_, gdate):
+            session.add(
+                GameLog(
+                    game_id="00425{0:05d}".format(gid[0]),
+                    season=season, game_date=gdate,
+                    home_team_id=home.id, away_team_id=away.id,
+                    home_score=hs, away_score=as_,
+                    season_type="Playoffs",
+                )
+            )
+            gid[0] += 1
+
+        for d in range(4):
+            _emit(bos, det, 110, 95, date(2026, 4, 18 + d))
+        for d in range(4):
+            _emit(phi, mia, 110, 95, date(2026, 4, 19 + d))
+        session.commit()
+
+        # First run — R1 series get created and closed; R2 gets populated
+        # via the was_closed_before=False direct-advance path.
+        build_or_refresh_bracket(session, season)
+
+        # Repair-style: wipe R2 to simulate the production scenario the
+        # repair script triggers — re-running the builder against R1 rows
+        # that are already closed.
+        session.query(PlayoffSeries).filter(
+            PlayoffSeries.season == season,
+            PlayoffSeries.round >= 2,
+        ).delete()
+        session.commit()
+
+        # Second run — was_closed_before=True for both R1 series. Self-heal
+        # path must fire for BOTH 1v8 (BOS) and 4v5 (PHI), not just the
+        # first one to be iterated.
+        build_or_refresh_bracket(session, season)
+
+        # E-R2-TOP must have BOTH seats filled.
+        r2_top = (
+            session.query(PlayoffSeries)
+            .filter(PlayoffSeries.season == season, PlayoffSeries.series_id == "2025-26-E-R2-TOP")
+            .first()
+        )
+        assert r2_top is not None, "E-R2-TOP must exist after self-heal"
+        assert r2_top.top_seed_team_id == bos.id, "BOS (East 1) fills top seat"
+        assert r2_top.bottom_seed_team_id == phi.id, (
+            "PHI (East 4) must fill bot seat after self-heal — pre-fix, "
+            "the second parent's advance was skipped because the row "
+            "already existed when self-heal checked it"
+        )
+    finally:
+        session.close()
+
+
 def test_seed_lookup_ranks_within_conference_not_league_wide():
     """Sprint 92 — a team's playoff seed must be its rank within its
     conference, not its rank league-wide. Pre-fix, CLE with the 8th-best

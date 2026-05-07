@@ -658,6 +658,19 @@ def build_or_refresh_bracket(db: Session, season: str) -> int:
                     )
                     if next_row is None:
                         should_advance = True
+                    else:
+                        # Sprint 92 — also self-heal when the row exists but
+                        # the seat THIS parent feeds is still empty. Without
+                        # this, two parents that target the same R2 slot
+                        # (e.g. 1v8 and 4v5 both feeding R2-TOP) only landed
+                        # the first one's winner — the second self-heal saw
+                        # a non-null next_row and skipped, leaving the bot
+                        # seat empty.
+                        child_slot = str(slot_info["child_slot"])
+                        if child_slot == "TOP" and next_row.top_seed_team_id is None:
+                            should_advance = True
+                        elif child_slot == "BOT" and next_row.bottom_seed_team_id is None:
+                            should_advance = True
             if should_advance:
                 _auto_advance_closed_series(
                     db=db,
