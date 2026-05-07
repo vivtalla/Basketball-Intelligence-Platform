@@ -583,3 +583,134 @@ def test_today_attach_derives_series_game_num_from_prior_completed_games():
         assert g3.series_game_num == 3
     finally:
         session.close()
+
+
+def test_today_inserts_gamelog_row_for_scoreboard_only_finals():
+    """Sprint 92 — when /today encounters a scoreboard-only final (no
+    GameLog row exists), it must INSERT a row so that /bracket and
+    /series/{id} reflect the win on their next read instead of lagging
+    by one daily-sync cycle. Reproduces the production state where R2
+    games existed only on the live scoreboard for ~12 hours after a
+    game ended until the 6am sync caught up."""
+    session = _make_session()
+    try:
+        target = date(2026, 5, 13)
+        cle = Team(id=1610612739, abbreviation="CLE", name="Cleveland Cavaliers", city="Cleveland")
+        det = Team(id=1610612765, abbreviation="DET", name="Detroit Pistons", city="Detroit")
+        session.add_all([cle, det])
+        session.commit()
+
+        r2_id = "{0}-E-R2-BOT".format(SEASON)
+        session.add(
+            PlayoffSeries(
+                season=SEASON, round=2, series_id=r2_id,
+                top_seed_team_id=cle.id, bottom_seed_team_id=det.id,
+                top_seed=8, bottom_seed=3,
+                top_wins=0, bottom_wins=0, status="active",
+            )
+        )
+        session.commit()
+
+        # Today's G1 — DET wins 111-101 — exists only in the scoreboard
+        # payload, NOT in GameLog yet.
+        g1_id = "0042500201"
+        scoreboard = {
+            g1_id: {
+                "gameId": g1_id,
+                "gameStatus": 3,
+                "gameTimeUTC": "2026-05-14T01:00:00Z",
+                "homeTeam": {"teamId": det.id, "teamTricode": "DET", "score": 111},
+                "awayTeam": {"teamId": cle.id, "teamTricode": "CLE", "score": 101},
+                "broadcasters": {"nationalTvBroadcasters": []},
+            }
+        }
+        with patch("routers.playoffs._scoreboard_games_for_today", return_value=scoreboard), \
+             patch("routers.playoffs._today_pacific", return_value=target):
+            response = get_today(date_param=target.isoformat(), db=session)
+
+        # Response shows the live final.
+        assert len(response.games) == 1
+        assert response.games[0].series_id == r2_id
+        assert response.games[0].home_pts == 111
+        assert response.games[0].away_pts == 101
+
+        # And — the new behavior — a GameLog row was inserted.
+        session.expire_all()
+        log = session.query(GameLog).filter_by(game_id=g1_id).first()
+        assert log is not None, (
+            "scoreboard-only final must INSERT a GameLog row so /bracket "
+            "doesn't lag by a daily-sync cycle"
+        )
+        assert log.season == SEASON
+        assert log.season_type == "Playoffs"
+        assert log.home_team_id == det.id
+        assert log.away_team_id == cle.id
+        assert log.home_score == 111
+        assert log.away_score == 101
+        assert log.series_id == r2_id
+        assert log.series_game_num == 1, "first game in the series should be G1"
+
+        # /bracket counts wins fresh from GameLog (Sprint 91), so this win
+        # should now be visible to bracket reads.
+        bracket_resp = get_bracket(season=SEASON, db=session)
+        all_series = (
+            bracket_resp.east + bracket_resp.west
+            + ([bracket_resp.finals] if bracket_resp.finals else [])
+        )
+        match = next(s for s in all_series if s.series_id == r2_id)
+        assert match.bottom_wins == 1, (
+            "DET (bottom seed) win should be reflected in /bracket immediately"
+        )
+        assert match.top_wins == 0
+    finally:
+        session.close()
+
+
+def test_today_does_not_insert_gamelog_for_in_progress_scoreboard_games():
+    """Only finals (gameStatus=3) trigger the GameLog insert. Live games
+    (status=2) and scheduled tipoffs (status=1) are still ephemeral —
+    inserting incomplete rows would race the daily sync and pollute
+    GameLog with mid-game scores that aren't authoritative."""
+    session = _make_session()
+    try:
+        target = date(2026, 5, 13)
+        cle = Team(id=1610612739, abbreviation="CLE", name="Cleveland Cavaliers", city="Cleveland")
+        det = Team(id=1610612765, abbreviation="DET", name="Detroit Pistons", city="Detroit")
+        session.add_all([cle, det])
+        session.commit()
+
+        r2_id = "{0}-E-R2-BOT".format(SEASON)
+        session.add(
+            PlayoffSeries(
+                season=SEASON, round=2, series_id=r2_id,
+                top_seed_team_id=cle.id, bottom_seed_team_id=det.id,
+                top_seed=8, bottom_seed=3,
+                top_wins=0, bottom_wins=0, status="active",
+            )
+        )
+        session.commit()
+
+        g1_id = "0042500201"
+        # gameStatus=2 (in progress)
+        scoreboard = {
+            g1_id: {
+                "gameId": g1_id,
+                "gameStatus": 2,
+                "gameTimeUTC": "2026-05-14T01:00:00Z",
+                "homeTeam": {"teamId": det.id, "teamTricode": "DET", "score": 78},
+                "awayTeam": {"teamId": cle.id, "teamTricode": "CLE", "score": 72},
+                "broadcasters": {"nationalTvBroadcasters": []},
+            }
+        }
+        with patch("routers.playoffs._scoreboard_games_for_today", return_value=scoreboard), \
+             patch("routers.playoffs._today_pacific", return_value=target):
+            get_today(date_param=target.isoformat(), db=session)
+
+        session.expire_all()
+        log = session.query(GameLog).filter_by(game_id=g1_id).first()
+        assert log is None, (
+            "in-progress games must not trigger a GameLog insert — "
+            "let the daily sync write the authoritative final later"
+        )
+    finally:
+        session.close()

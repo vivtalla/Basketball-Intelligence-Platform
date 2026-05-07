@@ -836,6 +836,26 @@ def get_today(
             and scheduled.winner_team_id is not None
         ):
             scoreboard_only_finals.append(scheduled)
+            # Sprint 92 — also persist a GameLog row for the just-final
+            # game so /bracket and /series/{id} see the win on their next
+            # read instead of waiting for the 6am daily sync. Idempotent:
+            # we only reach this branch for game_ids not in db_game_ids,
+            # so we cannot create a duplicate; the daily sync will UPSERT
+            # later if it runs against the same game_id with no conflict.
+            db.add(
+                GameLog(
+                    game_id=game_id,
+                    season=scheduled.season,
+                    game_date=target,
+                    home_team_id=scheduled.home_team_id,
+                    away_team_id=scheduled.away_team_id,
+                    home_score=scheduled.home_pts,
+                    away_score=scheduled.away_pts,
+                    season_type="Playoffs",
+                    series_id=scheduled.series_id,
+                    series_game_num=scheduled.series_game_num,
+                )
+            )
         games.append(scheduled)
 
     # ---------------------------------------------------------------------
