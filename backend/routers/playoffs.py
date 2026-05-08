@@ -444,7 +444,7 @@ def _series_to_response(
 
 @router.get("/bracket", response_model=PlayoffBracketResponse)
 def get_bracket(
-    season: SeasonStr = Query(...),
+    season: SeasonStr,
     db: Session = Depends(get_db),
 ) -> PlayoffBracketResponse:
     """Return the full playoff bracket for ``season`` grouped by conference."""
