@@ -30,6 +30,7 @@ import ShotLabControls from "./ShotLabControls";
 import ShotSnapshotButton from "./ShotSnapshotButton";
 import ShotIntelligencePanel from "./ShotIntelligencePanel";
 import { ShotDiagnosisPanel } from "./ShotDiagnosisPanel";
+import { SafeBoundary } from "./SafeBoundary";
 
 const ShotLab3DScene = dynamic(() => import("./three/ShotLab3DScene"), {
   ssr: false,
@@ -693,7 +694,9 @@ export default function ShotChart({
         )}
 
         {chartView === "three" && activeShotChart && activeShotChart.shots.length > 0 && (
-          <ShotLab3DScene shots={activeShotChart.shots} />
+          <SafeBoundary>
+            <ShotLab3DScene shots={activeShotChart.shots} />
+          </SafeBoundary>
         )}
 
         <div className={chartView === "value" || chartView === "sprawl" || chartView === "three" || isIntelligenceView ? "hidden" : ""}>

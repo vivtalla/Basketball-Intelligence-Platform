@@ -5,6 +5,11 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from config import CORS_ORIGINS
 from data.cache import CacheManager
+from rate_limiting import limiter, _slowapi_available
+
+if _slowapi_available:
+    from slowapi import _rate_limit_exceeded_handler  # type: ignore[import]
+    from slowapi.errors import RateLimitExceeded  # type: ignore[import]
 from routers import (
     advanced,
     archetype,
@@ -46,6 +51,13 @@ from routers import (
 logging.basicConfig(level=logging.INFO)
 
 app = FastAPI(title="CourtVue Labs", version="0.2.0")
+
+# Sprint 93 — application-layer rate limiting as secondary defence behind
+# Cloudflare's 100 req/10 min WAF rule.  Targets expensive endpoints only.
+# Set ENABLE_RATE_LIMIT=false in /etc/bip/env to disable without a redeploy.
+app.state.limiter = limiter
+if _slowapi_available:
+    app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
 app.add_middleware(
     CORSMiddleware,

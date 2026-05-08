@@ -6,6 +6,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 
 from db.database import get_db
+from dependencies import require_admin_key
 from models.warehouse import (
     WarehouseCompletenessSummary,
     IngestionJobResponse,
@@ -47,7 +48,7 @@ from services.warehouse_service import (
     sync_schedule,
 )
 
-router = APIRouter()
+router = APIRouter(dependencies=[Depends(require_admin_key)])
 
 
 def _job_response(row) -> IngestionJobResponse:

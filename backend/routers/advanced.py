@@ -7,6 +7,7 @@ from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from db.database import get_db
+from dependencies import require_admin_key
 from db.models import (
     PlayerGameLog,
     PlayerOnOff,
@@ -254,7 +255,7 @@ def _build_pbp_dashboard(
 
 
 @router.post("/sync-season")
-def sync_season_pbp(season: str, force_refresh: bool = False):
+def sync_season_pbp(season: str, force_refresh: bool = False, _: None = Depends(require_admin_key)):
     """Fetch or reuse season play-by-play and rebuild derived season metrics."""
     try:
         return sync_pbp_for_season(season, force_refresh=force_refresh)
@@ -263,7 +264,7 @@ def sync_season_pbp(season: str, force_refresh: bool = False):
 
 
 @router.post("/{player_id}/sync-pbp")
-def sync_player_pbp(player_id: int, season: str, force_refresh: bool = False):
+def sync_player_pbp(player_id: int, season: str, force_refresh: bool = False, _: None = Depends(require_admin_key)):
     """Fetch or reuse player-season play-by-play and rebuild player-level derived stats."""
     try:
         return sync_pbp_for_player(player_id, season, force_refresh=force_refresh)

@@ -33,6 +33,8 @@ from db.models import (  # noqa: E402
     TeamSeasonStat,
     TeamShootingSplitStat,
 )
+from unittest.mock import MagicMock  # noqa: E402
+
 from routers.playoffs import (  # noqa: E402
     get_bracket,
     get_series,
@@ -40,6 +42,11 @@ from routers.playoffs import (  # noqa: E402
     get_series_player_logs,
     get_series_simulation,
 )
+
+# Minimal Request stand-in for route handlers that accept request: Request
+# for slowapi rate-limit decoration.  The no-op limiter in tests doesn't
+# actually inspect the request, so a plain MagicMock is sufficient.
+_MOCK_REQUEST = MagicMock()
 from services.playoff_simulator_service import simulate_series  # noqa: E402
 
 
@@ -490,7 +497,7 @@ def test_series_intelligence_returns_edges_star_burden_and_metadata():
     session = SessionLocal()
     try:
         series_id = _seed_series_intelligence_data(session, season="2024-25")
-        response = get_series_intelligence(series_id=series_id, db=session)
+        response = get_series_intelligence(request=_MOCK_REQUEST, series_id=series_id, db=session)
     finally:
         session.close()
 
@@ -513,7 +520,7 @@ def test_series_intelligence_surfaces_thin_data_warnings():
     session = SessionLocal()
     try:
         series_id = _seed_series_with_games(session, season="2024-25")
-        response = get_series_intelligence(series_id=series_id, db=session)
+        response = get_series_intelligence(request=_MOCK_REQUEST, series_id=series_id, db=session)
     finally:
         session.close()
 
@@ -564,7 +571,7 @@ def test_series_intelligence_falls_back_to_regular_season_baseline():
             ]
         )
         session.commit()
-        response = get_series_intelligence(series_id=series_id, db=session)
+        response = get_series_intelligence(request=_MOCK_REQUEST, series_id=series_id, db=session)
     finally:
         session.close()
 
@@ -614,7 +621,7 @@ def test_star_burden_falls_back_to_regular_season_when_no_playoff_rows():
             ]
         )
         session.commit()
-        response = get_series_intelligence(series_id=series_id, db=session)
+        response = get_series_intelligence(request=_MOCK_REQUEST, series_id=series_id, db=session)
     finally:
         session.close()
 
@@ -666,7 +673,7 @@ def test_shot_diet_falls_back_to_regular_season_splits():
             ]
         )
         session.commit()
-        response = get_series_intelligence(series_id=series_id, db=session)
+        response = get_series_intelligence(request=_MOCK_REQUEST, series_id=series_id, db=session)
     finally:
         session.close()
 

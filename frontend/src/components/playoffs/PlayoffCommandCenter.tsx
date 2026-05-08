@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useMemo, useState } from "react";
 import useSWR from "swr";
+import { ErrorPanel } from "@/components/ErrorPanel";
 import { MethodologyEvidenceCard } from "@/components/methodology/MethodologyEvidenceCard";
 import {
   getPlayoffSeriesIntelligence,
@@ -629,7 +630,7 @@ function IntelligenceDetail({
 }: {
   selectedSeriesId: string | null;
 }) {
-  const { data, error, isLoading } = useSWR<PlayoffSeriesIntelligenceResponse>(
+  const { data, error, isLoading, mutate } = useSWR<PlayoffSeriesIntelligenceResponse>(
     selectedSeriesId ? ["playoff-series-intelligence", selectedSeriesId] : null,
     () => getPlayoffSeriesIntelligence(selectedSeriesId as string)
   );
@@ -646,8 +647,11 @@ function IntelligenceDetail({
 
   if (error || !data) {
     return (
-      <div className="bip-panel rounded-[1.8rem] p-6 text-sm text-[var(--muted)]">
-        Could not load series intelligence for {selectedSeriesId}.
+      <div className="rounded-[1.8rem] p-2">
+        <ErrorPanel
+          message="Could not load series intelligence. Check your connection and try again."
+          onRetry={() => mutate()}
+        />
       </div>
     );
   }

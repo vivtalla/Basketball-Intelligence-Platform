@@ -36,6 +36,15 @@ DATABASE_URL = os.getenv("DATABASE_URL", "postgresql://localhost/bip")
 # postseason window so live brackets stay fresh during games).
 PLAYOFF_CACHE_TTL = 7200  # 2 hours during playoff window
 
+# Sprint 93 — Admin endpoint protection.
+# Set in /etc/bip/env on production. When unset, admin endpoints are open
+# (dev mode). Never commit a real value.
+ADMIN_API_KEY = os.getenv("ADMIN_API_KEY", None)
+
+# Sprint 93 — Application-layer rate limiting (slowapi).
+# Set ENABLE_RATE_LIMIT=false in /etc/bip/env to disable without a redeploy.
+ENABLE_RATE_LIMIT = os.getenv("ENABLE_RATE_LIMIT", "true").lower() == "true"
+
 # Sprint 82d — Public hosting safety flag.
 # When True, nba_client raises LiveFetchBlockedError on cache miss instead of
 # calling stats.nba.com. Cron scripts (daily_sync.sh) explicitly opt into live

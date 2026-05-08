@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import List, Literal, Optional
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from sqlalchemy.orm import Session
 
 
@@ -10,6 +10,7 @@ SeasonType = Literal["Regular Season", "Playoffs"]
 
 from db.database import get_db
 from db.models import Player, SeasonStat, Team, TeamSeasonStat, TeamShootingSplitStat, TeamSplitStat
+from rate_limiting import limiter, RATE_LIMIT_ROSTER_FIT
 from models.team_arc import TeamArcLeversRequest, TeamArcResponse
 from models.team import (
     BenchAnalyticsResponse,
@@ -506,7 +507,9 @@ def team_hustle_endpoint(
 
 
 @router.get("/{abbr}/roster-fit")
+@limiter.limit(RATE_LIMIT_ROSTER_FIT)
 def team_roster_fit_endpoint(
+    request: Request,
     abbr: str,
     season: str = Query("2024-25"),
     season_type: SeasonType = Query("Regular Season"),

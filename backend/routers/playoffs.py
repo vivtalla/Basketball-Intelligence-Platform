@@ -19,12 +19,14 @@ from datetime import date, datetime
 from typing import Dict, List, Optional, Set
 
 import pytz
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from sqlalchemy import or_
 from sqlalchemy.orm import Session
 
 from data.nba_client import get_todays_scoreboard
 from db.database import get_db
+from rate_limiting import limiter, RATE_LIMIT_INTELLIGENCE
+from validators import SeasonStr, SeriesIdStr
 from db.models import GameLog, Team
 from models.playoffs import (
     PlayoffBracketResponse,
@@ -442,7 +444,7 @@ def _series_to_response(
 
 @router.get("/bracket", response_model=PlayoffBracketResponse)
 def get_bracket(
-    season: str = Query(...),
+    season: SeasonStr = Query(...),
     db: Session = Depends(get_db),
 ) -> PlayoffBracketResponse:
     """Return the full playoff bracket for ``season`` grouped by conference."""
@@ -523,8 +525,10 @@ def get_series(
 
 
 @router.get("/series/{series_id}/intelligence", response_model=PlayoffSeriesIntelligenceResponse)
+@limiter.limit(RATE_LIMIT_INTELLIGENCE)
 def get_series_intelligence(
-    series_id: str,
+    request: Request,
+    series_id: SeriesIdStr,
     db: Session = Depends(get_db),
 ) -> PlayoffSeriesIntelligenceResponse:
     """Return deterministic coach/analyst intelligence for one playoff series."""

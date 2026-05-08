@@ -7,6 +7,7 @@ import { useParams, useSearchParams } from "next/navigation";
 import { startTransition, useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
 import { useGameDetail, useGameSummary, useGameVisualization } from "@/hooks/usePlayerStats";
 import GameContextBanner from "@/components/GameContextBanner";
+import { SafeBoundary } from "@/components/SafeBoundary";
 import ScoreboardChrome from "@/components/broadsheet/game-detail/ScoreboardChrome";
 import GameVariantToggle, {
   type GameVariant,
@@ -952,7 +953,9 @@ function GameDetailPageInner() {
 
             {explorerMode === "three" && visualization && visualization.steps.length > 0 ? (
               <div className="mt-5">
-                <GameVisualization3D data={visualization} />
+                <SafeBoundary>
+                  <GameVisualization3D data={visualization} />
+                </SafeBoundary>
               </div>
             ) : null}
 
