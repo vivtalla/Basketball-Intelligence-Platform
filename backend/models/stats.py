@@ -1,3 +1,4 @@
+from enum import Enum
 from typing import Any, Dict, List, Optional
 
 from pydantic import BaseModel
@@ -98,6 +99,92 @@ class OnOffStats(BaseModel):
     on_drtg: Optional[float] = None
     off_ortg: Optional[float] = None
     off_drtg: Optional[float] = None
+
+
+class ImpactClassification(str, Enum):
+    TWO_WAY_ELITE = "Two-Way Elite"
+    OFFENSIVE_ENGINE = "Offensive Engine"
+    DEFENSIVE_ANCHOR = "Defensive Anchor"
+    NEUTRAL = "Neutral"
+    LIABILITY = "Liability"
+
+
+class ConfidenceTier(str, Enum):
+    HIGH = "high"
+    MEDIUM = "medium"
+    LOW = "low"
+    INSUFFICIENT = "insufficient"
+
+
+class OnOffDecomposition(BaseModel):
+    ortg_impact: Optional[float] = None
+    drtg_impact: Optional[float] = None
+    marginal_net: Optional[float] = None
+
+
+class LineupSlot(BaseModel):
+    lineup_key: str
+    player_ids: List[int]
+    player_names: List[str]
+    net_rating: Optional[float] = None
+    ortg: Optional[float] = None
+    drtg: Optional[float] = None
+    possessions: Optional[int] = None
+    minutes: Optional[float] = None
+
+
+class ExternalValidation(BaseModel):
+    rapm: Optional[float] = None
+    epm: Optional[float] = None
+    pipm: Optional[float] = None
+    agreement_note: Optional[str] = None
+
+
+class EnhancedOnOffStats(BaseModel):
+    player_id: int
+    season: str
+    on_minutes: Optional[float] = None
+    off_minutes: Optional[float] = None
+    on_net_rating: Optional[float] = None
+    off_net_rating: Optional[float] = None
+    on_off_net: Optional[float] = None
+    on_ortg: Optional[float] = None
+    on_drtg: Optional[float] = None
+    off_ortg: Optional[float] = None
+    off_drtg: Optional[float] = None
+    confidence_tier: ConfidenceTier
+    impact_classification: Optional[ImpactClassification] = None
+    decomposition: Optional[OnOffDecomposition] = None
+    top_lineups: List[LineupSlot] = []
+    worst_lineups: List[LineupSlot] = []
+    external_validation: Optional[ExternalValidation] = None
+    team_net_rating: Optional[float] = None
+
+
+class EnhancedLeaderboardEntry(BaseModel):
+    player_id: int
+    player_name: str
+    team_abbreviation: Optional[str] = None
+    on_minutes: Optional[float] = None
+    on_net_rating: Optional[float] = None
+    off_net_rating: Optional[float] = None
+    on_off_net: Optional[float] = None
+    on_ortg: Optional[float] = None
+    on_drtg: Optional[float] = None
+    off_ortg: Optional[float] = None
+    off_drtg: Optional[float] = None
+    ortg_impact: Optional[float] = None
+    drtg_impact: Optional[float] = None
+    marginal_net: Optional[float] = None
+    confidence_tier: ConfidenceTier
+    impact_classification: Optional[ImpactClassification] = None
+    rapm: Optional[float] = None
+    epm: Optional[float] = None
+
+
+class EnhancedOnOffLeaderboardResult(BaseModel):
+    season: str
+    players: List[EnhancedLeaderboardEntry]
 
 
 class PbpCoverage(BaseModel):

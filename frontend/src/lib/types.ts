@@ -383,6 +383,87 @@ export interface OnOffLeaderboardResult {
   players: OnOffLeaderboardEntry[];
 }
 
+// Sprint 94 — Enhanced On/Off Impact types
+export type ConfidenceTier = "high" | "medium" | "low" | "insufficient";
+
+export type ImpactClassification =
+  | "Two-Way Elite"
+  | "Offensive Engine"
+  | "Defensive Anchor"
+  | "Neutral"
+  | "Liability";
+
+export interface OnOffDecomposition {
+  ortg_impact: number | null;
+  drtg_impact: number | null;
+  marginal_net: number | null;
+}
+
+export interface LineupSlot {
+  lineup_key: string;
+  player_ids: number[];
+  player_names: string[];
+  net_rating: number | null;
+  ortg: number | null;
+  drtg: number | null;
+  possessions: number | null;
+  minutes: number | null;
+}
+
+export interface ExternalValidation {
+  rapm: number | null;
+  epm: number | null;
+  pipm: number | null;
+  agreement_note: string | null;
+}
+
+export interface EnhancedOnOffStats {
+  player_id: number;
+  season: string;
+  on_minutes: number | null;
+  off_minutes: number | null;
+  on_net_rating: number | null;
+  off_net_rating: number | null;
+  on_off_net: number | null;
+  on_ortg: number | null;
+  on_drtg: number | null;
+  off_ortg: number | null;
+  off_drtg: number | null;
+  confidence_tier: ConfidenceTier;
+  impact_classification: ImpactClassification | null;
+  decomposition: OnOffDecomposition | null;
+  top_lineups: LineupSlot[];
+  worst_lineups: LineupSlot[];
+  external_validation: ExternalValidation | null;
+  team_net_rating: number | null;
+}
+
+export interface EnhancedLeaderboardEntry {
+  player_id: number;
+  player_name: string;
+  team_abbreviation: string | null;
+  on_minutes: number | null;
+  on_net_rating: number | null;
+  off_net_rating: number | null;
+  on_off_net: number | null;
+  on_ortg: number | null;
+  on_drtg: number | null;
+  off_ortg: number | null;
+  off_drtg: number | null;
+  ortg_impact: number | null;
+  drtg_impact: number | null;
+  marginal_net: number | null;
+  confidence_tier: ConfidenceTier;
+  impact_classification: ImpactClassification | null;
+  rapm: number | null;
+  epm: number | null;
+}
+
+export interface EnhancedOnOffLeaderboardResult {
+  season: string;
+  players: EnhancedLeaderboardEntry[];
+}
+
 export interface GameLogEntry {
   game_id: string;
   game_date: string;

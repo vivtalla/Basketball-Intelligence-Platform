@@ -20,11 +20,17 @@ from db.models import (
     WarehouseGame,
 )
 from models.stats import (
+    EnhancedOnOffLeaderboardResult,
+    EnhancedOnOffStats,
     PbpCoverage,
     PbpCoverageDashboard,
     PbpCoveragePlayerRow,
     PbpCoverageSeasonSummary,
     PbpCoverageTeamRow,
+)
+from services.on_off_impact_service import (
+    build_enhanced_on_off,
+    build_enhanced_on_off_leaderboard,
 )
 from services.pbp_sync_service import sync_pbp_for_player, sync_pbp_for_season
 
@@ -559,7 +565,7 @@ def get_lineups(
     return {"season": season, "lineups": results}
 
 
-@router.get("/on-off-leaderboard")
+@router.get("/on-off-leaderboard", response_model=EnhancedOnOffLeaderboardResult)
 def get_on_off_leaderboard(
     season: str = "2024-25",
     season_type: SeasonType = Query("Regular Season"),
@@ -567,38 +573,27 @@ def get_on_off_leaderboard(
     limit: int = 25,
     db: Session = Depends(get_db),
 ):
-    """Return players ranked by on/off net rating differential."""
-    is_playoff = season_type == "Playoffs"
-    rows = (
-        db.query(PlayerOnOff)
-        .filter(
-            PlayerOnOff.season == season,
-            PlayerOnOff.is_playoff == is_playoff,
-            PlayerOnOff.on_minutes >= min_minutes,
-            PlayerOnOff.on_off_net.isnot(None),
-        )
-        .order_by(PlayerOnOff.on_off_net.desc())
-        .limit(limit)
-        .all()
+    """Return players ranked by on/off net rating differential with ORTG/DRTG decomposition."""
+    return build_enhanced_on_off_leaderboard(
+        db=db,
+        season=season,
+        season_type=season_type,
+        min_minutes=min_minutes,
+        limit=limit,
     )
 
-    # Sprint 88 (B2) — batch player lookup; was 1 query per row (limit+1 total).
-    player_ids = [r.player_id for r in rows]
-    players_by_id = {
-        p.id: p.full_name
-        for p in db.query(Player).filter(Player.id.in_(player_ids)).all()
-    } if player_ids else {}
 
-    results = [
-        {
-            "player_id": row.player_id,
-            "player_name": players_by_id.get(row.player_id, str(row.player_id)),
-            "on_minutes": row.on_minutes,
-            "on_net_rating": row.on_net_rating,
-            "off_net_rating": row.off_net_rating,
-            "on_off_net": row.on_off_net,
-        }
-        for row in rows
-    ]
-
-    return {"season": season, "players": results}
+@router.get("/{player_id}/on-off-enhanced", response_model=EnhancedOnOffStats)
+def get_enhanced_on_off(
+    player_id: int,
+    season: str = "2024-25",
+    season_type: SeasonType = Query("Regular Season"),
+    db: Session = Depends(get_db),
+):
+    """Return coaching-grade on/off impact breakdown for one player."""
+    return build_enhanced_on_off(
+        db=db,
+        player_id=player_id,
+        season=season,
+        season_type=season_type,
+    )

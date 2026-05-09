@@ -7,11 +7,12 @@ import Link from "next/link";
 import Image from "next/image";
 import {
   useLeaderboard,
-  useOnOffLeaderboard,
+  useEnhancedOnOffLeaderboard,
   useLineups,
   useCareerLeaderboard,
 } from "@/hooks/usePlayerStats";
-import type { LeaderboardEntry } from "@/lib/types";
+import type { LeaderboardEntry, ImpactClassification, EnhancedLeaderboardEntry } from "@/lib/types";
+import ImpactScatterChart from "@/components/on-off/ImpactScatterChart";
 import { getAvailableSeasons, syncSeasonPbp, getLeaderboardTeams } from "@/lib/api";
 import { GravityMethodologyModal } from "@/components/GravityMethodologyModal";
 
@@ -306,7 +307,22 @@ function PlayerStatsPageContent() {
   const [teamFilter, setTeamFilter] = useState(searchParams.get("team") || "");
   const [seasons, setSeasons] = useState<string[]>([]);
   const [teams, setTeams] = useState<string[]>([]);
-  const [onOffMinMinutes, setOnOffMinMinutes] = useState(parsePositiveIntParam(searchParams.get("onMin"), 200));
+  const [onOffMinMinutes, setOnOffMinMinutes] = useState<200 | 400 | 800>(
+    (([200, 400, 800].includes(parsePositiveIntParam(searchParams.get("onMin"), 200))
+      ? parsePositiveIntParam(searchParams.get("onMin"), 200)
+      : 200) as 200 | 400 | 800)
+  );
+  const [onOffClassFilter, setOnOffClassFilter] = useState<ImpactClassification | "All">(
+    (searchParams.get("onOffClass") as ImpactClassification | "All") || "All"
+  );
+  const [showQuadrant, setShowQuadrant] = useState(false);
+  const [expandedOnOffRow, setExpandedOnOffRow] = useState<number | null>(null);
+  const [onOffSortKey, setOnOffSortKey] = useState<keyof EnhancedLeaderboardEntry>(
+    (searchParams.get("onOffSort") as keyof EnhancedLeaderboardEntry) || "on_off_net"
+  );
+  const [onOffSortDir, setOnOffSortDir] = useState<"asc" | "desc">(
+    (searchParams.get("onOffDir") as "asc" | "desc") || "desc"
+  );
   const [lineupMinMinutes, setLineupMinMinutes] = useState(parsePositiveIntParam(searchParams.get("lineupMin"), 15));
   const [isSyncingSeason, setIsSyncingSeason] = useState(false);
   const [seasonSyncMessage, setSeasonSyncMessage] = useState<string | null>(null);
@@ -386,7 +402,7 @@ function PlayerStatsPageContent() {
   const careerBoard = useCareerLeaderboard(mode === "career" ? careerStat : null);
 
   // ── On/off and lineup boards
-  const onOffBoard = useOnOffLeaderboard(mode === "onoff" ? season : null, onOffMinMinutes, 25);
+  const onOffBoard = useEnhancedOnOffLeaderboard(mode === "onoff" ? season : null, onOffMinMinutes, 25);
   const lineupsBoard = useLineups(mode === "lineups" ? season : null, undefined, lineupMinMinutes, 25);
 
   // ── Build per-player stat lookup from filter fetches
@@ -724,16 +740,26 @@ function PlayerStatsPageContent() {
           )}
 
           {mode === "onoff" && (
-            <label className="space-y-1.5">
+            <div className="space-y-1.5">
               <span className="block text-[11px] font-bold uppercase tracking-[0.18em] text-[var(--surface-ink)]">
-                Min On-Court Minutes
+                Sample Size
               </span>
-              <input
-                type="number" min={0} step={10} value={onOffMinMinutes}
-                onChange={(e) => setOnOffMinMinutes(Number(e.target.value) || 0)}
-                className="w-32 rounded-md border border-[rgba(53,41,33,0.16)] bg-white px-3 py-2 text-sm font-medium text-[var(--foreground)] shadow-sm focus:outline-none focus:ring-2 focus:ring-[rgba(33,72,59,0.22)]"
-              />
-            </label>
+              <div className="flex gap-1">
+                {([200, 400, 800] as const).map((v) => (
+                  <button
+                    key={v}
+                    onClick={() => setOnOffMinMinutes(v)}
+                    className={`rounded-md px-3 py-1.5 text-xs font-semibold transition-colors ${
+                      onOffMinMinutes === v
+                        ? "bg-[var(--accent)] text-white"
+                        : "border border-[rgba(53,41,33,0.16)] bg-white text-[var(--foreground)] hover:bg-gray-50"
+                    }`}
+                  >
+                    {v === 200 ? "200+ min" : v === 400 ? "400+ min" : "800+ min"}
+                  </button>
+                ))}
+              </div>
+            </div>
           )}
 
           {mode === "lineups" && (
@@ -1240,57 +1266,242 @@ function PlayerStatsPageContent() {
           </table>
         )}
 
-        {/* On/Off mode */}
-        {mode === "onoff" && (
-          <table className="w-full">
-            <thead>
-              <tr className="border-b border-gray-200 dark:border-gray-700">
-                <th className="text-left text-xs font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500 px-4 py-3 w-10">#</th>
-                <th className="text-left text-xs font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500 px-4 py-3">Player</th>
-                <th className="text-right text-xs font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500 px-4 py-3 hidden sm:table-cell">On Min</th>
-                <th className="text-right text-xs font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500 px-4 py-3 hidden sm:table-cell">On Net</th>
-                <th className="text-right text-xs font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500 px-4 py-3 hidden sm:table-cell">Off Net</th>
-                <th className="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wider text-teal-700 dark:text-teal-300">On/Off</th>
-              </tr>
-            </thead>
-            <tbody>
-              {isLoading && Array.from({ length: 10 }).map((_, i) => (
-                <tr key={i} className="border-b border-gray-100 dark:border-gray-700/50 animate-pulse">
-                  <td className="px-4 py-3"><div className="h-4 w-4 bg-gray-200 dark:bg-gray-700 rounded" /></td>
-                  <td className="px-4 py-3"><div className="h-4 w-40 bg-gray-200 dark:bg-gray-700 rounded" /></td>
-                  <td className="px-4 py-3 hidden sm:table-cell"><div className="h-4 w-16 bg-gray-200 dark:bg-gray-700 rounded ml-auto" /></td>
-                  <td className="px-4 py-3 hidden sm:table-cell"><div className="h-4 w-12 bg-gray-200 dark:bg-gray-700 rounded ml-auto" /></td>
-                  <td className="px-4 py-3 hidden sm:table-cell"><div className="h-4 w-12 bg-gray-200 dark:bg-gray-700 rounded ml-auto" /></td>
-                  <td className="px-4 py-3"><div className="h-4 w-12 bg-gray-200 dark:bg-gray-700 rounded ml-auto" /></td>
-                </tr>
-              ))}
-              {!isLoading && onOffBoard.data?.players.length === 0 && (
-                <tr>
-                  <td colSpan={6} className="text-center py-12 text-gray-400 dark:text-gray-500 text-sm">
-                    <div className="mx-auto max-w-md space-y-2">
-                      <p className="text-sm font-semibold text-gray-700 dark:text-gray-200">No on/off rows are ready for this season.</p>
-                      <p>Local play-by-play coverage may still be catching up. Run the season sync if you expect this board to be populated already.</p>
-                    </div>
-                  </td>
-                </tr>
+        {/* On/Off mode — Impact Command Center */}
+        {mode === "onoff" && (() => {
+          const CLASS_LABELS: Array<ImpactClassification | "All"> = [
+            "All", "Two-Way Elite", "Offensive Engine", "Defensive Anchor", "Neutral", "Liability",
+          ];
+          const CLASS_COLORS: Record<string, string> = {
+            "Two-Way Elite": "bg-teal-100 text-teal-800 dark:bg-teal-900/40 dark:text-teal-300",
+            "Offensive Engine": "bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300",
+            "Defensive Anchor": "bg-indigo-100 text-indigo-800 dark:bg-indigo-900/40 dark:text-indigo-300",
+            "Neutral": "bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300",
+            "Liability": "bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300",
+          };
+          const CONFIDENCE_STYLE: Record<string, string> = {
+            high: "border-solid border-teal-500 text-teal-700 dark:text-teal-300",
+            medium: "border-dashed border-amber-500 text-amber-700 dark:text-amber-300",
+            low: "border-dotted border-gray-400 text-gray-500",
+            insufficient: "border-dotted border-gray-300 text-gray-400",
+          };
+
+          function fmtImpact(v: number | null) {
+            if (v == null) return "—";
+            return (v >= 0 ? "+" : "") + v.toFixed(1);
+          }
+          function impactColor(v: number | null) {
+            if (v == null) return "";
+            return v > 0
+              ? "text-green-600 dark:text-green-400"
+              : v < 0
+              ? "text-red-500 dark:text-red-400"
+              : "text-gray-500";
+          }
+
+          const allPlayers = onOffBoard.data?.players ?? [];
+          const filtered = onOffClassFilter === "All"
+            ? allPlayers
+            : allPlayers.filter((p) => p.impact_classification === onOffClassFilter);
+          const sorted = [...filtered].sort((a, b) => {
+            const aVal = a[onOffSortKey] as number | null ?? 0;
+            const bVal = b[onOffSortKey] as number | null ?? 0;
+            return onOffSortDir === "desc" ? bVal - aVal : aVal - bVal;
+          });
+
+          function SortHeader({ col, label, hidden }: { col: keyof EnhancedLeaderboardEntry; label: string; hidden?: boolean }) {
+            const active = onOffSortKey === col;
+            return (
+              <th
+                className={`px-4 py-3 text-right text-xs font-semibold uppercase tracking-wider cursor-pointer select-none transition-colors ${
+                  active ? "text-teal-700 dark:text-teal-300" : "text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300"
+                } ${hidden ? "hidden sm:table-cell" : ""}`}
+                onClick={() => {
+                  if (active) setOnOffSortDir((d) => d === "desc" ? "asc" : "desc");
+                  else { setOnOffSortKey(col); setOnOffSortDir("desc"); }
+                }}
+              >
+                {label}{active ? (onOffSortDir === "desc" ? " ↓" : " ↑") : ""}
+              </th>
+            );
+          }
+
+          return (
+            <div className="space-y-4">
+              {/* Classification filter pills */}
+              <div className="flex flex-wrap gap-1.5 px-4 pt-2">
+                {CLASS_LABELS.map((cls) => (
+                  <button
+                    key={cls}
+                    onClick={() => setOnOffClassFilter(cls)}
+                    className={`rounded-full px-2.5 py-1 text-xs font-semibold transition-colors ${
+                      onOffClassFilter === cls
+                        ? cls === "All"
+                          ? "bg-[var(--accent)] text-white"
+                          : CLASS_COLORS[cls]
+                        : "bg-gray-100 text-gray-500 dark:bg-gray-700 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600"
+                    }`}
+                  >
+                    {cls}
+                  </button>
+                ))}
+                <button
+                  onClick={() => setShowQuadrant((v) => !v)}
+                  className="ml-auto rounded-full px-2.5 py-1 text-xs font-semibold border border-gray-200 dark:border-gray-600 text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+                >
+                  {showQuadrant ? "Hide Quadrant" : "Quadrant View"}
+                </button>
+              </div>
+
+              {/* Quadrant scatter chart */}
+              {showQuadrant && allPlayers.length > 0 && (
+                <div className="px-4">
+                  <ImpactScatterChart players={allPlayers} />
+                </div>
               )}
-              {!isLoading && onOffBoard.data?.players.map((entry, idx) => (
-                <tr key={entry.player_id} className="border-b border-gray-100 dark:border-gray-700/50 last:border-0 hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors">
-                  <td className="px-4 py-3 text-sm text-gray-400 dark:text-gray-500 font-mono">{idx + 1}</td>
-                  <td className="px-4 py-3">
-                    <Link href={`/players/${entry.player_id}`} className="font-medium text-gray-900 transition-colors hover:text-teal-700 dark:text-gray-100 dark:hover:text-teal-300">
-                      {entry.player_name}
-                    </Link>
-                  </td>
-                  <td className="px-4 py-3 text-right text-sm text-gray-500 dark:text-gray-400 hidden sm:table-cell tabular-nums">{entry.on_minutes?.toFixed(1) ?? "-"}</td>
-                  <td className="px-4 py-3 text-right text-sm text-gray-500 dark:text-gray-400 hidden sm:table-cell tabular-nums">{formatSigned(entry.on_net_rating)}</td>
-                  <td className="px-4 py-3 text-right text-sm text-gray-500 dark:text-gray-400 hidden sm:table-cell tabular-nums">{formatSigned(entry.off_net_rating)}</td>
-                  <td className="px-4 py-3 text-right font-semibold tabular-nums text-teal-700 dark:text-teal-300">{formatSigned(entry.on_off_net)}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        )}
+
+              {/* Enhanced table */}
+              <table className="w-full">
+                <thead>
+                  <tr className="border-b border-gray-200 dark:border-gray-700">
+                    <th className="text-left text-xs font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500 px-4 py-3 w-10">#</th>
+                    <th className="text-left text-xs font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500 px-4 py-3">Player</th>
+                    <th className="text-right text-xs font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500 px-4 py-3 hidden md:table-cell">Team</th>
+                    <SortHeader col="on_minutes" label="On Min" hidden />
+                    <SortHeader col="ortg_impact" label="ORTG Δ" hidden />
+                    <SortHeader col="drtg_impact" label="DRTG Δ" hidden />
+                    <SortHeader col="on_off_net" label="On/Off" />
+                    <SortHeader col="marginal_net" label="vs Team" hidden />
+                    <th className="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500 hidden lg:table-cell">Confidence</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {isLoading && Array.from({ length: 10 }).map((_, i) => (
+                    <tr key={i} className="border-b border-gray-100 dark:border-gray-700/50 animate-pulse">
+                      <td className="px-4 py-3"><div className="h-4 w-4 bg-gray-200 dark:bg-gray-700 rounded" /></td>
+                      <td className="px-4 py-3"><div className="h-4 w-40 bg-gray-200 dark:bg-gray-700 rounded" /></td>
+                      <td className="px-4 py-3 hidden md:table-cell"><div className="h-4 w-10 bg-gray-200 dark:bg-gray-700 rounded ml-auto" /></td>
+                      <td className="px-4 py-3 hidden sm:table-cell"><div className="h-4 w-14 bg-gray-200 dark:bg-gray-700 rounded ml-auto" /></td>
+                      <td className="px-4 py-3 hidden sm:table-cell"><div className="h-4 w-12 bg-gray-200 dark:bg-gray-700 rounded ml-auto" /></td>
+                      <td className="px-4 py-3 hidden sm:table-cell"><div className="h-4 w-12 bg-gray-200 dark:bg-gray-700 rounded ml-auto" /></td>
+                      <td className="px-4 py-3"><div className="h-4 w-12 bg-gray-200 dark:bg-gray-700 rounded ml-auto" /></td>
+                      <td className="px-4 py-3 hidden sm:table-cell"><div className="h-4 w-12 bg-gray-200 dark:bg-gray-700 rounded ml-auto" /></td>
+                      <td className="px-4 py-3 hidden lg:table-cell"><div className="h-4 w-16 bg-gray-200 dark:bg-gray-700 rounded ml-auto" /></td>
+                    </tr>
+                  ))}
+                  {!isLoading && sorted.length === 0 && (
+                    <tr>
+                      <td colSpan={9} className="text-center py-12 text-gray-400 dark:text-gray-500 text-sm">
+                        <div className="mx-auto max-w-md space-y-2">
+                          <p className="text-sm font-semibold text-gray-700 dark:text-gray-200">
+                            {onOffBoard.data?.players.length === 0
+                              ? "No on/off data for this season."
+                              : "No players match the selected filter."}
+                          </p>
+                          {onOffBoard.data?.players.length === 0 && (
+                            <p>Play-by-play coverage may still be catching up. Run the season sync if you expect data.</p>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  )}
+                  {!isLoading && sorted.map((entry, idx) => (
+                    <>
+                      <tr
+                        key={entry.player_id}
+                        className="border-b border-gray-100 dark:border-gray-700/50 hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors cursor-pointer"
+                        onClick={() => setExpandedOnOffRow(expandedOnOffRow === entry.player_id ? null : entry.player_id)}
+                      >
+                        <td className="px-4 py-3 text-sm text-gray-400 dark:text-gray-500 font-mono">{idx + 1}</td>
+                        <td className="px-4 py-3">
+                          <div className="flex flex-col gap-0.5">
+                            <Link
+                              href={`/players/${entry.player_id}`}
+                              className="font-medium text-gray-900 transition-colors hover:text-teal-700 dark:text-gray-100 dark:hover:text-teal-300"
+                              onClick={(e) => e.stopPropagation()}
+                            >
+                              {entry.player_name}
+                            </Link>
+                            {entry.impact_classification && (
+                              <span className={`inline-flex w-fit rounded-full px-2 py-0.5 text-[10px] font-semibold ${CLASS_COLORS[entry.impact_classification] ?? ""}`}>
+                                {entry.impact_classification}
+                              </span>
+                            )}
+                          </div>
+                        </td>
+                        <td className="px-4 py-3 text-right text-sm text-gray-500 dark:text-gray-400 hidden md:table-cell tabular-nums">
+                          {entry.team_abbreviation ?? "—"}
+                        </td>
+                        <td className="px-4 py-3 text-right text-sm text-gray-500 dark:text-gray-400 hidden sm:table-cell tabular-nums">
+                          {entry.on_minutes?.toFixed(0) ?? "—"}
+                        </td>
+                        <td className={`px-4 py-3 text-right text-sm hidden sm:table-cell tabular-nums font-semibold ${impactColor(entry.ortg_impact)}`}>
+                          {fmtImpact(entry.ortg_impact)}
+                        </td>
+                        <td className={`px-4 py-3 text-right text-sm hidden sm:table-cell tabular-nums font-semibold ${impactColor(entry.drtg_impact)}`}>
+                          {fmtImpact(entry.drtg_impact)}
+                        </td>
+                        <td className="px-4 py-3 text-right font-bold tabular-nums text-teal-700 dark:text-teal-300">
+                          {formatSigned(entry.on_off_net)}
+                        </td>
+                        <td className={`px-4 py-3 text-right text-sm hidden sm:table-cell tabular-nums ${impactColor(entry.marginal_net)}`}>
+                          {fmtImpact(entry.marginal_net)}
+                        </td>
+                        <td className="px-4 py-3 text-right hidden lg:table-cell">
+                          <span className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-semibold ${CONFIDENCE_STYLE[entry.confidence_tier] ?? ""}`}>
+                            {entry.confidence_tier}
+                          </span>
+                        </td>
+                      </tr>
+                      {expandedOnOffRow === entry.player_id && (
+                        <tr key={`${entry.player_id}-expanded`} className="border-b border-gray-100 dark:border-gray-700/50 bg-gray-50 dark:bg-gray-800/50">
+                          <td colSpan={9} className="px-6 py-3">
+                            <div className="flex flex-wrap gap-6 text-xs text-gray-600 dark:text-gray-300">
+                              <div>
+                                <span className="font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500 text-[10px]">On Net</span>
+                                <p className={`text-base font-bold ${impactColor(entry.on_net_rating)}`}>{formatSigned(entry.on_net_rating)}</p>
+                              </div>
+                              <div>
+                                <span className="font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500 text-[10px]">Off Net</span>
+                                <p className={`text-base font-bold ${impactColor(entry.off_net_rating)}`}>{formatSigned(entry.off_net_rating)}</p>
+                              </div>
+                              <div>
+                                <span className="font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500 text-[10px]">ORTG On</span>
+                                <p className="text-base font-bold">{entry.on_ortg?.toFixed(1) ?? "—"}</p>
+                              </div>
+                              <div>
+                                <span className="font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500 text-[10px]">DRTG On</span>
+                                <p className="text-base font-bold">{entry.on_drtg?.toFixed(1) ?? "—"}</p>
+                              </div>
+                              {entry.rapm != null && (
+                                <div>
+                                  <span className="font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500 text-[10px]">RAPM</span>
+                                  <p className={`text-base font-bold ${impactColor(entry.rapm)}`}>{fmtImpact(entry.rapm)}</p>
+                                </div>
+                              )}
+                              {entry.epm != null && (
+                                <div>
+                                  <span className="font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500 text-[10px]">EPM</span>
+                                  <p className={`text-base font-bold ${impactColor(entry.epm)}`}>{fmtImpact(entry.epm)}</p>
+                                </div>
+                              )}
+                              <Link
+                                href={`/players/${entry.player_id}`}
+                                className="ml-auto self-center text-teal-600 dark:text-teal-400 hover:underline font-semibold"
+                                onClick={(e) => e.stopPropagation()}
+                              >
+                                Full profile →
+                              </Link>
+                            </div>
+                          </td>
+                        </tr>
+                      )}
+                    </>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          );
+        })()}
 
         {/* Lineups mode */}
         {mode === "lineups" && (

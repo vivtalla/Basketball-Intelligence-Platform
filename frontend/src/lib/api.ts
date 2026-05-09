@@ -21,6 +21,8 @@ import type {
   ClutchStats,
   LineupsResult,
   OnOffLeaderboardResult,
+  EnhancedOnOffLeaderboardResult,
+  EnhancedOnOffStats,
   PbpSyncResult,
   GameDetailResponse,
   SimilarityResponse,
@@ -203,6 +205,35 @@ export async function getOnOffLeaderboard(
   });
   return fetchApi<OnOffLeaderboardResult>(
     `/api/advanced/on-off-leaderboard?${params.toString()}`
+  );
+}
+
+export async function getEnhancedOnOffLeaderboard(
+  season: string,
+  minMinutes = 200,
+  limit = 25
+): Promise<EnhancedOnOffLeaderboardResult> {
+  const params = new URLSearchParams({
+    season,
+    min_minutes: String(minMinutes),
+    limit: String(limit),
+  });
+  return fetchApi<EnhancedOnOffLeaderboardResult>(
+    `/api/advanced/on-off-leaderboard?${params.toString()}`
+  );
+}
+
+export async function getEnhancedPlayerOnOff(
+  playerId: number,
+  season: string,
+  seasonType = "Regular Season"
+): Promise<EnhancedOnOffStats> {
+  const params = new URLSearchParams({
+    season,
+    season_type: seasonType,
+  });
+  return fetchApi<EnhancedOnOffStats>(
+    `/api/advanced/${playerId}/on-off-enhanced?${params.toString()}`
   );
 }
 

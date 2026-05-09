@@ -32,6 +32,8 @@ import type {
   ClutchStats,
   LineupsResult,
   OnOffLeaderboardResult,
+  EnhancedOnOffLeaderboardResult,
+  EnhancedOnOffStats,
   DbFirstGameLogResponse,
   GameDetailResponse,
   SimilarityResponse,
@@ -114,6 +116,8 @@ import {
   getPlayerClutch,
   getLineups,
   getOnOffLeaderboard,
+  getEnhancedOnOffLeaderboard,
+  getEnhancedPlayerOnOff,
   getPlayerGameLogs,
   getGameDetail,
   getSimilarPlayers,
@@ -426,6 +430,28 @@ export function useOnOffLeaderboard(
   return useSWR<OnOffLeaderboardResult>(
     season ? `on-off-leaderboard-${season}-${minMinutes}-${limit}` : null,
     () => getOnOffLeaderboard(season!, minMinutes, limit)
+  );
+}
+
+export function useEnhancedOnOffLeaderboard(
+  season: string | null,
+  minMinutes = 200,
+  limit = 25
+) {
+  return useSWR<EnhancedOnOffLeaderboardResult>(
+    season ? `enhanced-on-off-leaderboard-${season}-${minMinutes}-${limit}` : null,
+    () => getEnhancedOnOffLeaderboard(season!, minMinutes, limit)
+  );
+}
+
+export function useEnhancedPlayerOnOff(
+  playerId: number | null,
+  season: string | null,
+  seasonType = "Regular Season"
+) {
+  return useSWR<EnhancedOnOffStats>(
+    playerId && season ? `enhanced-on-off-${playerId}-${season}-${seasonType}` : null,
+    () => getEnhancedPlayerOnOff(playerId!, season!, seasonType)
   );
 }
 

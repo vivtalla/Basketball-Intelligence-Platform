@@ -1153,7 +1153,65 @@ Implementation references:
 
 ---
 
-## 13. Global Interpretation Rules
+## 13. On/Off Impact Command Center (Sprint 94)
+
+### What it is
+
+A coaching-grade on/off surface that decomposes raw on/off splits by side of ball, contextualizes against team baseline, and attaches sample-size credibility markers. **This is not opponent-adjusted plus-minus.** It is raw on/off decomposed into offensive and defensive components.
+
+### Computed fields
+
+| Metric | Formula | Source |
+|--------|---------|--------|
+| ORTG Δ | `on_ortg − off_ortg` | `PlayerOnOff` |
+| DRTG Δ | `off_drtg − on_drtg` | `PlayerOnOff` (inverted: positive = better defense on) |
+| Marginal Net Rating | `on_net_rating − team_net_rating` | `PlayerOnOff` + `TeamSeasonStat` |
+
+### Impact classification
+
+Thresholds of ±3 pts/100 represent a meaningful single-player swing:
+
+| Label | Condition |
+|-------|-----------|
+| Two-Way Elite | ORTG Δ > 3 and DRTG Δ > 3 |
+| Offensive Engine | ORTG Δ > 3 and DRTG Δ < 1 |
+| Defensive Anchor | DRTG Δ > 3 and ORTG Δ < 1 |
+| Liability | Both < −2 |
+| Neutral | All other cases |
+
+### Confidence tiers
+
+| Tier | On-court minutes |
+|------|-----------------|
+| High | ≥ 800 |
+| Medium | 400–799 |
+| Low | 200–399 |
+| Insufficient | < 200 |
+
+The badge border style mirrors the tier: High = solid, Medium = dashed, Low = dotted, Insufficient = faded dashed.
+
+### Lineup context
+
+Qualifying lineups require ≥ 100 possessions together. Lineups are sourced from `LineupStats` with post-filter false-positive removal (LIKE queries on `lineup_key` can match partial IDs — IDs are parsed and verified explicitly).
+
+### External validation (RAPM, EPM, PIPM)
+
+Agreement note: "Consistent with RAPM" if gap < 3 pts; "Diverges from RAPM — small sample likely" if gap ≥ 8 pts. All external metrics are imported from public datasets, never platform-original.
+
+### Known caveats
+
+Bench-unit stagger, opponent shot-selection timing, garbage-time minutes, and lineup partner quality all move raw on/off. This panel is a directional coaching signal, not a one-number verdict. Pair with usage data, lineup context, and opponent quality before drawing conclusions.
+
+Implementation references:
+
+- `backend/services/on_off_impact_service.py`
+- `backend/models/stats.py` (EnhancedOnOffStats, EnhancedLeaderboardEntry, ImpactClassification, ConfidenceTier)
+- `backend/routers/advanced.py` (GET /on-off-leaderboard, GET /{player_id}/on-off-enhanced)
+- `frontend/src/components/on-off/OnOffImpactPanel.tsx` and siblings
+
+---
+
+## 14. Global Interpretation Rules
 
 Use these defaults when reading CourtVue methodology:
 
