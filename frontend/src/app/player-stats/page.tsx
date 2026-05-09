@@ -8,7 +8,6 @@ import Image from "next/image";
 import {
   useLeaderboard,
   useEnhancedOnOffLeaderboard,
-  useLineups,
   useCareerLeaderboard,
 } from "@/hooks/usePlayerStats";
 import type { LeaderboardEntry, ImpactClassification, EnhancedLeaderboardEntry } from "@/lib/types";
@@ -234,7 +233,7 @@ const MAX_FILTERS = 3;
 
 // ─── Mode ────────────────────────────────────────────────────────────────────
 
-type BoardMode = "players" | "onoff" | "lineups" | "career";
+type BoardMode = "players" | "onoff" | "career";
 
 const MODE_META: Record<BoardMode, { label: string; eyebrow: string; description: string }> = {
   players: {
@@ -246,11 +245,6 @@ const MODE_META: Record<BoardMode, { label: string; eyebrow: string; description
     label: "On/Off Impact",
     eyebrow: "Play-by-play impact board",
     description: "Track which players move team net rating most strongly when they are on versus off the floor.",
-  },
-  lineups: {
-    label: "Top Lineups",
-    eyebrow: "Five-man performance board",
-    description: "Review the best-performing lineup groups by minutes, possessions, and possession-based efficiency.",
   },
   career: {
     label: "Career Leaders",
@@ -323,7 +317,6 @@ function PlayerStatsPageContent() {
   const [onOffSortDir, setOnOffSortDir] = useState<"asc" | "desc">(
     (searchParams.get("onOffDir") as "asc" | "desc") || "desc"
   );
-  const [lineupMinMinutes, setLineupMinMinutes] = useState(parsePositiveIntParam(searchParams.get("lineupMin"), 15));
   const [isSyncingSeason, setIsSyncingSeason] = useState(false);
   const [seasonSyncMessage, setSeasonSyncMessage] = useState<string | null>(null);
 
@@ -367,7 +360,6 @@ function PlayerStatsPageContent() {
     if (filters.length > 0) params.set("filters", serializeFiltersParam(filters));
     if (showFilterPanel) params.set("panel", "1");
     if (onOffMinMinutes !== 200) params.set("onMin", String(onOffMinMinutes));
-    if (lineupMinMinutes !== 15) params.set("lineupMin", String(lineupMinMinutes));
     router.replace(`?${params.toString()}`, { scroll: false });
   }, [
     mode,
@@ -379,7 +371,6 @@ function PlayerStatsPageContent() {
     filters,
     showFilterPanel,
     onOffMinMinutes,
-    lineupMinMinutes,
     router,
   ]);
 
@@ -403,8 +394,6 @@ function PlayerStatsPageContent() {
 
   // ── On/off and lineup boards
   const onOffBoard = useEnhancedOnOffLeaderboard(mode === "onoff" ? season : null, onOffMinMinutes, 25);
-  const lineupsBoard = useLineups(mode === "lineups" ? season : null, undefined, lineupMinMinutes, 25);
-
   // ── Build per-player stat lookup from filter fetches
   // playerFilterValues[playerId][stat] = value
   const playerFilterValues = useMemo(() => {
@@ -439,8 +428,6 @@ function PlayerStatsPageContent() {
       ? playersBoard.isLoading
       : mode === "onoff"
       ? onOffBoard.isLoading
-      : mode === "lineups"
-      ? lineupsBoard.isLoading
       : careerBoard.isLoading;
 
   // ── Filter actions
@@ -469,7 +456,7 @@ function PlayerStatsPageContent() {
     setSeasonSyncMessage(null);
     try {
       const result = await syncSeasonPbp(season);
-      await Promise.all([onOffBoard.mutate(), lineupsBoard.mutate()]);
+      await onOffBoard.mutate();
       setSeasonSyncMessage(
         `Synced ${result.games_processed} games, updated ${result.players_updated} players, and rebuilt ${result.lineups_updated} lineups.`
       );
@@ -490,7 +477,6 @@ function PlayerStatsPageContent() {
   const playerResultsCount = filteredEntries.length;
   const playerSourceCount = playersBoard.data?.entries.length ?? 0;
   const onOffCount = onOffBoard.data?.players.length ?? 0;
-  const lineupCount = lineupsBoard.data?.lineups.length ?? 0;
   const careerCount = careerBoard.data?.entries.length ?? 0;
 
   const summaryCards =
@@ -501,13 +487,6 @@ function PlayerStatsPageContent() {
           { label: "Results", value: `${playerResultsCount}`, detail: filters.length > 0 ? `from top ${playerSourceCount}` : "ranked rows" },
           { label: "Filters", value: filters.length ? `${filters.length} active` : "None", detail: filters.length ? "All conditions must match" : "Optional narrow-downs" },
         ]
-      : mode === "career"
-      ? [
-          { label: "Board", value: careerStatMeta.label, detail: "Career average sort" },
-          { label: "Coverage", value: `${careerCount}`, detail: "ranked careers" },
-          { label: "Season rule", value: "15+ GP", detail: "per included season" },
-          { label: "Lens", value: "All saved seasons", detail: "database-backed only" },
-        ]
       : mode === "onoff"
       ? [
           { label: "Season", value: season || "Loading season", detail: `${onOffCount} player rows` },
@@ -516,10 +495,10 @@ function PlayerStatsPageContent() {
           { label: "Source", value: "Local PBP", detail: "derived possession data" },
         ]
       : [
-          { label: "Season", value: season || "Loading season", detail: `${lineupCount} lineups` },
-          { label: "Threshold", value: `${lineupMinMinutes} min`, detail: "minimum lineup sample" },
-          { label: "Sort", value: "Net Rating", detail: "possession-based ranks" },
-          { label: "Source", value: "Local PBP", detail: "five-man stint data" },
+          { label: "Board", value: careerStatMeta.label, detail: "Career average sort" },
+          { label: "Coverage", value: `${careerCount}`, detail: "ranked careers" },
+          { label: "Season rule", value: "15+ GP", detail: "per included season" },
+          { label: "Lens", value: "All saved seasons", detail: "database-backed only" },
         ];
 
   const spotlightCards =
@@ -531,14 +510,6 @@ function PlayerStatsPageContent() {
           value: formatStat(entry.stat_value, getStatMeta(stat).fmt),
           detail: summarizeScope([entry.team_abbreviation, `${entry.gp} GP`]),
         }))
-      : mode === "career"
-      ? (careerBoard.data?.entries ?? []).slice(0, 3).map((entry, index) => ({
-          key: `career-${entry.player_id}`,
-          label: index === 0 ? `Career leader` : `Rank ${index + 1}`,
-          title: entry.player_name,
-          value: formatStat(entry.stat_value, careerStatMeta.fmt),
-          detail: `${entry.seasons_played} seasons • ${entry.career_gp} GP`,
-        }))
       : mode === "onoff"
       ? (onOffBoard.data?.players ?? []).slice(0, 3).map((entry, index) => ({
           key: `onoff-${entry.player_id}`,
@@ -547,12 +518,12 @@ function PlayerStatsPageContent() {
           value: formatSigned(entry.on_off_net),
           detail: `${entry.on_minutes?.toFixed(1) ?? "-"} on-court min`,
         }))
-      : (lineupsBoard.data?.lineups ?? []).slice(0, 3).map((lineup, index) => ({
-          key: `lineup-${lineup.lineup_key}`,
-          label: index === 0 ? "Best lineup" : `Rank ${index + 1}`,
-          title: lineup.player_names.join(" • "),
-          value: formatSigned(lineup.net_rating),
-          detail: `${lineup.minutes?.toFixed(1) ?? "-"} min • ${lineup.possessions ?? 0} poss`,
+      : (careerBoard.data?.entries ?? []).slice(0, 3).map((entry, index) => ({
+          key: `career-${entry.player_id}`,
+          label: index === 0 ? `Career leader` : `Rank ${index + 1}`,
+          title: entry.player_name,
+          value: formatStat(entry.stat_value, careerStatMeta.fmt),
+          detail: `${entry.seasons_played} seasons • ${entry.career_gp} GP`,
         }));
   const stickyRankClass = "sticky left-0 z-10 bg-white dark:bg-gray-800";
   const stickyPlayerClass = "sticky left-10 z-10 bg-white dark:bg-gray-800";
@@ -560,11 +531,9 @@ function PlayerStatsPageContent() {
   const loadingMessage =
     mode === "players"
       ? "Loading leaderboard rows and filter context..."
-      : mode === "career"
-      ? "Loading saved career leaderboard..."
       : mode === "onoff"
       ? "Loading play-by-play impact board..."
-      : "Loading lineup performance board...";
+      : "Loading saved career leaderboard...";
 
   return (
     <div className="relative left-1/2 w-screen -translate-x-1/2 px-4 sm:px-6 lg:px-8">
@@ -623,7 +592,7 @@ function PlayerStatsPageContent() {
 
         {/* ── Mode tabs ── */}
         <div className="flex flex-wrap gap-1 bg-[rgba(43,37,33,0.92)] px-3 py-2">
-          {(["players", "onoff", "lineups", "career"] as BoardMode[]).map((m) => (
+          {(["players", "onoff", "career"] as BoardMode[]).map((m) => (
             <button
               key={m}
               onClick={() => setMode(m)}
@@ -633,7 +602,7 @@ function PlayerStatsPageContent() {
                   : "border border-[rgba(234,219,183,0.24)] bg-[rgba(234,219,183,0.12)] text-[#eadbb7] hover:border-[rgba(234,219,183,0.42)] hover:bg-[rgba(234,219,183,0.20)] hover:text-[#fff7ec]"
               }`}
             >
-              {m === "players" ? "Player Stats" : m === "onoff" ? "On/Off Impact" : m === "lineups" ? "Top Lineups" : "Career Leaders"}
+              {m === "players" ? "Player Stats" : m === "onoff" ? "On/Off Impact" : "Career Leaders"}
             </button>
           ))}
         </div>
@@ -760,19 +729,6 @@ function PlayerStatsPageContent() {
                 ))}
               </div>
             </div>
-          )}
-
-          {mode === "lineups" && (
-            <label className="space-y-1.5">
-              <span className="block text-[11px] font-bold uppercase tracking-[0.18em] text-[var(--surface-ink)]">
-                Min Lineup Minutes
-              </span>
-              <input
-                type="number" min={0} step={5} value={lineupMinMinutes}
-                onChange={(e) => setLineupMinMinutes(Number(e.target.value) || 0)}
-                className="w-32 rounded-md border border-[rgba(53,41,33,0.16)] bg-white px-3 py-2 text-sm font-medium text-[var(--foreground)] shadow-sm focus:outline-none focus:ring-2 focus:ring-[rgba(33,72,59,0.22)]"
-              />
-            </label>
           )}
 
           {mode !== "players" && mode !== "career" && season && (
@@ -1503,56 +1459,6 @@ function PlayerStatsPageContent() {
           );
         })()}
 
-        {/* Lineups mode */}
-        {mode === "lineups" && (
-          <table className="w-full">
-            <thead>
-              <tr className="border-b border-gray-200 dark:border-gray-700">
-                <th className="text-left text-xs font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500 px-4 py-3 w-10">#</th>
-                <th className="text-left text-xs font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500 px-4 py-3">Lineup</th>
-                <th className="text-right text-xs font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500 px-4 py-3 hidden sm:table-cell">Min</th>
-                <th className="text-right text-xs font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500 px-4 py-3 hidden sm:table-cell">ORTG</th>
-                <th className="text-right text-xs font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500 px-4 py-3 hidden sm:table-cell">DRTG</th>
-                <th className="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wider text-teal-700 dark:text-teal-300">NET</th>
-              </tr>
-            </thead>
-            <tbody>
-              {isLoading && Array.from({ length: 10 }).map((_, i) => (
-                <tr key={i} className="border-b border-gray-100 dark:border-gray-700/50 animate-pulse">
-                  <td className="px-4 py-3"><div className="h-4 w-4 bg-gray-200 dark:bg-gray-700 rounded" /></td>
-                  <td className="px-4 py-3"><div className="h-4 w-64 bg-gray-200 dark:bg-gray-700 rounded mb-1.5" /></td>
-                  <td className="px-4 py-3 hidden sm:table-cell"><div className="h-4 w-10 bg-gray-200 dark:bg-gray-700 rounded ml-auto" /></td>
-                  <td className="px-4 py-3 hidden sm:table-cell"><div className="h-4 w-10 bg-gray-200 dark:bg-gray-700 rounded ml-auto" /></td>
-                  <td className="px-4 py-3 hidden sm:table-cell"><div className="h-4 w-10 bg-gray-200 dark:bg-gray-700 rounded ml-auto" /></td>
-                  <td className="px-4 py-3"><div className="h-4 w-12 bg-gray-200 dark:bg-gray-700 rounded ml-auto" /></td>
-                </tr>
-              ))}
-              {!isLoading && lineupsBoard.data?.lineups.length === 0 && (
-                <tr>
-                  <td colSpan={6} className="text-center py-12 text-gray-400 dark:text-gray-500 text-sm">
-                    <div className="mx-auto max-w-md space-y-2">
-                      <p className="text-sm font-semibold text-gray-700 dark:text-gray-200">No lineup rows are ready for this season.</p>
-                      <p>Lineup ratings depend on the local play-by-play pipeline and the current minimum-minute threshold.</p>
-                    </div>
-                  </td>
-                </tr>
-              )}
-              {!isLoading && lineupsBoard.data?.lineups.map((lineup, idx) => (
-                <tr key={lineup.lineup_key} className="border-b border-gray-100 dark:border-gray-700/50 last:border-0 hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors">
-                  <td className="px-4 py-3 text-sm text-gray-400 dark:text-gray-500 font-mono">{idx + 1}</td>
-                  <td className="px-4 py-3 text-sm text-gray-900 dark:text-gray-100">
-                    <div className="font-medium">{lineup.player_names.join(" • ")}</div>
-                    <div className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">{lineup.possessions ?? 0} possessions</div>
-                  </td>
-                  <td className="px-4 py-3 text-right text-sm text-gray-500 dark:text-gray-400 hidden sm:table-cell tabular-nums">{lineup.minutes?.toFixed(1) ?? "-"}</td>
-                  <td className="px-4 py-3 text-right text-sm text-gray-500 dark:text-gray-400 hidden sm:table-cell tabular-nums">{lineup.ortg?.toFixed(1) ?? "-"}</td>
-                  <td className="px-4 py-3 text-right text-sm text-gray-500 dark:text-gray-400 hidden sm:table-cell tabular-nums">{lineup.drtg?.toFixed(1) ?? "-"}</td>
-                  <td className="px-4 py-3 text-right font-semibold tabular-nums text-teal-700 dark:text-teal-300">{formatSigned(lineup.net_rating)}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        )}
       </div>
 
       <p className="text-xs text-gray-400 dark:text-gray-500 mt-3 text-center">
@@ -1562,9 +1468,7 @@ function PlayerStatsPageContent() {
             : 'Min. 15 games played. Use "Regular Season" for current-year comparisons.'
           : mode === "career"
           ? "Career averages across all seasons with ≥15 games played. Includes all available seasons in the database."
-          : mode === "onoff"
-          ? "On/Off depends on local play-by-play-derived coverage and the minimum on-court minutes threshold."
-          : "Lineup ratings are possession-based and filtered by minimum lineup minutes."}
+          : "On/Off depends on local play-by-play-derived coverage and the minimum on-court minutes threshold."}
       </p>
 
       <GravityMethodologyModal
