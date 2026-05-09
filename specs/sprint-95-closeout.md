@@ -1,8 +1,8 @@
 # Sprint 95 Closeout — Lineup Lab
 
 **Branch:** `feature/sprint-95-lineup-lab`
-**Merged:** TBD
-**Date:** 2026-05-08
+**Merged:** 2026-05-09
+**Date:** 2026-05-08 – 2026-05-09
 
 ---
 
@@ -62,6 +62,7 @@ Built the Lineup Lab — a dedicated `/lineups` page with a league-wide leaderbo
 - `frontend/src/hooks/usePlayerStats.ts` — 2 new SWR hooks
 - `frontend/src/components/NavLinks.tsx` — "Lineup Lab" added to More dropdown
 - `frontend/src/app/teams/[abbr]/page.tsx` — 2-man + 3-man sub-lineup sections in lineups tab
+- `frontend/src/app/player-stats/page.tsx` — "Top Lineups" tab removed (112 lines deleted); superseded by Lineup Lab
 
 ### Methodology doc
 - `specs/platform-methodology.md` — §14 Lineup Lab added (computed fields, archetype classification, What-If mechanics, sub-lineup aggregation, caveats)
@@ -71,9 +72,10 @@ Built the Lineup Lab — a dedicated `/lineups` page with a league-wide leaderbo
 ## Verification
 
 - **Backend tests:** 32 new, 581 total passing (excluding pre-existing `test_playoff_sync.py::test_daily_sync_post_game_dry_run` failure on master)
-- **`npm run build`:** clean (TypeScript ✓, Turbopack ✓)
+- **`npm run build`:** clean (TypeScript ✓, Turbopack ✓) — verified after all changes including lineup tab removal
 - **`npm run lint`:** 0 errors, 0 warnings
 - **Pre-existing failure confirmed:** `test_playoff_sync.py::test_daily_sync_post_game_dry_run` fails on master with no sprint-95 changes — not introduced by this sprint
+- **Production deploy:** backend restarted on Hetzner (health check passed), frontend auto-deployed via Vercel push to master
 
 ---
 

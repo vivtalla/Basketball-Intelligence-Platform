@@ -334,6 +334,7 @@ CourtVue Labs uses a hybrid sprint model: major feature sprints typically run as
 - **Stream F — Frontend types/api/hooks**: 8 new types in `types.ts`, 3 new API functions (including `postLineupBuilder` as direct POST), 2 new SWR hooks.
 - **Stream G — Frontend UI**: `/lineups` page with Leaderboard tab (ORTG×DRTG Recharts scatter with reversed Y-axis, 12-column sortable table, team+min-poss filters) and What-If Studio tab (5 pre-allocated player slots, match quality banner, player removal impact grid). 7 new components in `components/lineups/`. NavLinks More dropdown updated. Teams page gains 2-man + 3-man sub-lineup `<details>` sections using compact `LineupLeaderboardTable`.
 - **Stream H — Tests**: 32 new tests — 18 leaderboard (confidence, shrunk formula, all 5 archetypes + unclassified, filters, sort), 8 builder (exact/partial/none, order-independent key, removal impact, delta sign, small-sample warning, false-positive filter), 6 sublineup (C(5,2)=10, C(5,3)=10, poss gate, aggregation, weighted nr, sorted output).
+- **Post-merge:** "Top Lineups" tab removed from `/player-stats` (112 lines deleted) — superseded by Lineup Lab's richer leaderboard.
 - **Deferred:** none. Closeout: `specs/sprint-95-closeout.md`.
 
 ### Sprint 94 — On/Off Impact Command Center
