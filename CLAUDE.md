@@ -323,30 +323,27 @@ CourtVue Labs uses a hybrid sprint model: major feature sprints typically run as
 
 > Full history → `specs/sprint-history.md`
 
+### Sprint 95 — Lineup Lab
+
+- **New `/lineups` page with league-wide leaderboard and interactive What-If Studio.** Single branch (`feature/sprint-95-lineup-lab`), 1 commit, 23 files changed. 581 backend tests (was 549, +32 new), `npm run build` clean, `npm run lint` 0/0.
+- **Stream A — Backend models** (`backend/models/lineups.py` NEW): 6 Pydantic models — `LineupLeaderboardEntry`, `LineupLeaderboardResult`, `LineupBuilderRequest`, `PlayerRemovalImpact`, `LineupBuilderResult`, `SublineupsResult`. `LineupArchetype` + `LineupConfidence` literal types.
+- **Stream B — Leaderboard service** (`backend/services/lineup_leaderboard_service.py` NEW): `_lineup_confidence` (poss ≥200 → high/≥80 → medium/else → low), `_classify_lineup` (Elite/Offensive Wall/Defensive Wall/Negative/Balanced/Unclassified), `_shrink` (Bayesian formula with prior=150), `build_lineup_leaderboard` (3 batch queries, zero N+1).
+- **Stream C — Builder service** (`backend/services/lineup_builder_service.py` NEW): exact match by sorted player_ids key, partial match by overlap score (top 3), WOWY player-removal impacts (LIKE + post-parse false-positive defense reused from Sprint 94), small-sample warnings (<80 poss).
+- **Stream D — Sub-lineup service** (`backend/services/lineup_sublineup_service.py` NEW): `itertools.combinations(sorted(ids), size)` over 5-man data; possession-weighted net_rating; 2-man/3-man aggregated combos per team.
+- **Stream E — Router** (`backend/routers/lineups.py` NEW): `GET /api/lineups/leaderboard`, `POST /api/lineups/builder`, `GET /api/lineups/sublineups`. Registered in `backend/main.py`. Backward compatible: `/api/advanced/lineups` untouched.
+- **Stream F — Frontend types/api/hooks**: 8 new types in `types.ts`, 3 new API functions (including `postLineupBuilder` as direct POST), 2 new SWR hooks.
+- **Stream G — Frontend UI**: `/lineups` page with Leaderboard tab (ORTG×DRTG Recharts scatter with reversed Y-axis, 12-column sortable table, team+min-poss filters) and What-If Studio tab (5 pre-allocated player slots, match quality banner, player removal impact grid). 7 new components in `components/lineups/`. NavLinks More dropdown updated. Teams page gains 2-man + 3-man sub-lineup `<details>` sections using compact `LineupLeaderboardTable`.
+- **Stream H — Tests**: 32 new tests — 18 leaderboard (confidence, shrunk formula, all 5 archetypes + unclassified, filters, sort), 8 builder (exact/partial/none, order-independent key, removal impact, delta sign, small-sample warning, false-positive filter), 6 sublineup (C(5,2)=10, C(5,3)=10, poss gate, aggregation, weighted nr, sorted output).
+- **Deferred:** none. Closeout: `specs/sprint-95-closeout.md`.
+
 ### Sprint 94 — On/Off Impact Command Center
 
 - **Complete revamp of on/off surface into a coaching-grade command center.** Single branch (`feature/sprint-94-on-off-impact-revamp`), 1 commit, 18 files changed. 552 backend tests (was 513, +17 new), `npm run build` clean, `npm run lint` 0/0.
-- **Stream A — Backend models** (`backend/models/stats.py`): 7 new models — `ImpactClassification` + `ConfidenceTier` enums, `OnOffDecomposition`, `LineupSlot`, `ExternalValidation`, `EnhancedOnOffStats`, `EnhancedLeaderboardEntry`, `EnhancedOnOffLeaderboardResult`.
-- **Stream B — Service** (`backend/services/on_off_impact_service.py` NEW): `_classify_impact` (ORTG/DRTG Δ thresholds — Two-Way Elite/Offensive Engine/Defensive Anchor/Liability/Neutral), `_confidence_tier` (HIGH ≥800/MEDIUM ≥400/LOW ≥200/INSUFFICIENT), `_lineup_slots_for_player` (LIKE + 3× over-fetch + post-filter for false positives by parsing `lineup_key`), `build_enhanced_on_off` + `build_enhanced_on_off_leaderboard` (4 batch queries total, zero N+1).
-- **Stream C — Router** (`backend/routers/advanced.py`): leaderboard response_model upgraded to `EnhancedOnOffLeaderboardResult`; new `GET /{player_id}/on-off-enhanced`; original `GET /{player_id}/on-off` untouched.
-- **Stream D — Frontend types/api/hooks**: 8 new types in `types.ts`, 2 new API functions, 2 new SWR hooks.
-- **Stream E — Leaderboard revamp** (`frontend/src/app/player-stats/page.tsx`): 3-button min-minutes toggle (200/400/800), classification filter pills, Quadrant View toggle + `ImpactScatterChart.tsx` (ORTG Δ × DRTG Δ scatter), 9-column sortable table (# / Player+badge / Team / On Min / ORTG Δ / DRTG Δ / On/Off / vs Team / Confidence), click-to-expand rows.
-- **Stream F — Player profile panel**: `PlayerPbpInsights.tsx` on/off grid replaced with `<OnOffImpactPanel>`; 7 new `components/on-off/` files (badge, confidence callout, decomposition bar, lineup panel, external validation panel, methodology drawer, main panel).
-- **Stream G — Tests**: 17 new tests covering classification thresholds, confidence tiers, decomposition math, LIKE false-positive filter, missing-team-stat handling, RAPM agreement notes, 404, leaderboard filtering/ordering/metrics.
-- **Workflow note:** LIKE false-positive for `lineup_key` (player_id=12 matches "112-120-130") is subtle data quality issue — 3× over-fetch + post-parse filter handles it without schema change.
+- **Stream A–G**: 7 new Pydantic models; `on_off_impact_service.py`; enhanced leaderboard + new `GET /{player_id}/on-off-enhanced` endpoint; 8 new types + 2 API functions + 2 SWR hooks; leaderboard revamp with scatter + 9-column table; `OnOffImpactPanel` on player profile (7 new components); 17 new tests.
+- **Workflow note:** LIKE false-positive for `lineup_key` (player_id=12 matches "112-120-130") — 3× over-fetch + post-parse filter handles it without schema change.
 - **Deferred:** none. Closeout: `specs/sprint-94-closeout.md`.
 
-### Sprint 90 — Deferred Items Cleanup (Award Calibration + Opportunity Uplift UI + Cloudflare)
-
-- **Focus on formally-deferred items** per Deferral Policy. Single branch (`feature/sprint-90-deferred-items`), 4 sequential commits, end-to-end. 513 backend tests (was 509, +4 new), `npm run build` clean, `npm run lint` 0/0.
-- **Stream A — MVP Award Case voter calibration activation**: wires live LOO-CV calibration through `_get_calibration_state(db)` helper (cached 24h in SQLite); `MvpCalibrationMetadata` on every `MvpRaceResponse`; `runtime_calibration` on methodology registry's `mvp` domain. 4 new integration tests.
-- **Stream B — Opportunity Uplift UI surface**: wires Sprint 79's `uplift` field through `types.ts` → `UpliftEvidenceCard.tsx` → `OpportunityDashboard.tsx` + `OpportunityRow.tsx` + `MethodologyDrawer.tsx`.
-- **Stream C — Cloudflare deferrals**: R2 backup lifecycle UI instructions in `infra/README.md`; cache-stats baseline snapshot; retired Sprint 88 deferred `/api/health` bypass-cache rule (not-needed).
-- **Workflow lesson:** "static methodology + runtime augmentation" pattern. Stale BACKLOG entries become invisible — link to docs that confirm the action when filing a deferral.
-- **Deferred (2 remaining):** R2 backup lifecycle rule, MVP voter calibration cohort expansion (data-blocked).
-- Closeout: `specs/sprint-90-closeout.md`.
-
-*Sprint 89 and earlier moved to `specs/sprint-history.md`.*
+*Sprint 90 and earlier moved to `specs/sprint-history.md`.*
 
 ---
 
@@ -398,6 +395,7 @@ CourtVue Labs uses a hybrid sprint model: major feature sprints typically run as
 | `feature/sprint-83b-launch-polish` | Claude | Merged to master |
 | `feature/sprint-83c-playoff-polish` | Claude | Merged to master |
 | `feature/sprint-94-on-off-impact-revamp` | Claude | Merged to master |
+| `feature/sprint-95-lineup-lab` | Claude | Merged to master |
 
 Sprint branches are created at kickoff and listed in `AGENTS.md`.
 
@@ -494,3 +492,10 @@ Sprint branches are created at kickoff and listed in `AGENTS.md`.
 | `OnOffLineupPanel` | `components/on-off/` | Two-column top/worst lineup grid; player name chips + net_rating + possessions (Sprint 94) |
 | `OnOffExternalValidationPanel` | `components/on-off/` | RAPM/EPM/PIPM chips + agreement note + public-dataset attribution disclaimer (Sprint 94) |
 | `OnOffMethodologyDrawer` | `components/on-off/` | Collapsible `<details>` — formulas, classification thresholds, confidence tiers, caveats (Sprint 94) |
+| `LineupLeaderboardTable` | `components/lineups/` | 12-column sortable table (Players/Team/MIN/POSS/ORTG/DRTG/Net Rtg/Shrunk/vs Team/Archetype/Conf); `compact` prop for sub-lineup sections (Sprint 95) |
+| `LineupScatterPanel` | `components/lineups/` | ORTG×DRTG Recharts scatter; Y-axis reversed (lower DRTG = better = top); bubble radius ∝ sqrt(minutes); color by archetype; reference lines at avg ORTG/DRTG (Sprint 95) |
+| `LineupArchetypePill` | `components/lineups/` | Archetype label pill: Elite=teal, Offensive Wall=amber, Defensive Wall=indigo, Balanced=gray, Negative=red, Unclassified=faded (Sprint 95) |
+| `LineupConfidenceBadge` | `components/lineups/` | Confidence badge (High/Med/Low) with possessions count inline; colors green/yellow/gray (Sprint 95) |
+| `LineupBuilderPanel` | `components/lineups/` | 5 pre-allocated searchable player slots; Build/Reset buttons; disabled until ≥2 slots filled (Sprint 95) |
+| `LineupBuilderResults` | `components/lineups/` | Match quality banner (green/yellow/red) + exact/closest lineup cards + player removal impact grid (Sprint 95) |
+| `LineupMethodologyDrawer` | `components/lineups/` | Collapsible `<details>`: shrinkage formula, archetype rules, confidence thresholds, What-If mechanics, sub-lineup aggregation, caveats (Sprint 95) |
