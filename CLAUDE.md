@@ -323,29 +323,30 @@ CourtVue Labs uses a hybrid sprint model: major feature sprints typically run as
 
 > Full history → `specs/sprint-history.md`
 
+### Sprint 94 — On/Off Impact Command Center
+
+- **Complete revamp of on/off surface into a coaching-grade command center.** Single branch (`feature/sprint-94-on-off-impact-revamp`), 1 commit, 18 files changed. 552 backend tests (was 513, +17 new), `npm run build` clean, `npm run lint` 0/0.
+- **Stream A — Backend models** (`backend/models/stats.py`): 7 new models — `ImpactClassification` + `ConfidenceTier` enums, `OnOffDecomposition`, `LineupSlot`, `ExternalValidation`, `EnhancedOnOffStats`, `EnhancedLeaderboardEntry`, `EnhancedOnOffLeaderboardResult`.
+- **Stream B — Service** (`backend/services/on_off_impact_service.py` NEW): `_classify_impact` (ORTG/DRTG Δ thresholds — Two-Way Elite/Offensive Engine/Defensive Anchor/Liability/Neutral), `_confidence_tier` (HIGH ≥800/MEDIUM ≥400/LOW ≥200/INSUFFICIENT), `_lineup_slots_for_player` (LIKE + 3× over-fetch + post-filter for false positives by parsing `lineup_key`), `build_enhanced_on_off` + `build_enhanced_on_off_leaderboard` (4 batch queries total, zero N+1).
+- **Stream C — Router** (`backend/routers/advanced.py`): leaderboard response_model upgraded to `EnhancedOnOffLeaderboardResult`; new `GET /{player_id}/on-off-enhanced`; original `GET /{player_id}/on-off` untouched.
+- **Stream D — Frontend types/api/hooks**: 8 new types in `types.ts`, 2 new API functions, 2 new SWR hooks.
+- **Stream E — Leaderboard revamp** (`frontend/src/app/player-stats/page.tsx`): 3-button min-minutes toggle (200/400/800), classification filter pills, Quadrant View toggle + `ImpactScatterChart.tsx` (ORTG Δ × DRTG Δ scatter), 9-column sortable table (# / Player+badge / Team / On Min / ORTG Δ / DRTG Δ / On/Off / vs Team / Confidence), click-to-expand rows.
+- **Stream F — Player profile panel**: `PlayerPbpInsights.tsx` on/off grid replaced with `<OnOffImpactPanel>`; 7 new `components/on-off/` files (badge, confidence callout, decomposition bar, lineup panel, external validation panel, methodology drawer, main panel).
+- **Stream G — Tests**: 17 new tests covering classification thresholds, confidence tiers, decomposition math, LIKE false-positive filter, missing-team-stat handling, RAPM agreement notes, 404, leaderboard filtering/ordering/metrics.
+- **Workflow note:** LIKE false-positive for `lineup_key` (player_id=12 matches "112-120-130") is subtle data quality issue — 3× over-fetch + post-parse filter handles it without schema change.
+- **Deferred:** none. Closeout: `specs/sprint-94-closeout.md`.
+
 ### Sprint 90 — Deferred Items Cleanup (Award Calibration + Opportunity Uplift UI + Cloudflare)
 
 - **Focus on formally-deferred items** per Deferral Policy. Single branch (`feature/sprint-90-deferred-items`), 4 sequential commits, end-to-end. 513 backend tests (was 509, +4 new), `npm run build` clean, `npm run lint` 0/0.
-- **Stream A — MVP Award Case voter calibration activation** (`d56bc81`, `046d287`): Sprint 79 shipped the LOO-CV calibration harness but left `CALIBRATED_AWARD_CASE_WEIGHTS` pinned to the Sprint 76 hand-tuned priors at module import. Sprint 90 wires the live calibration in: new `_get_calibration_state(db)` helper runs `calibrate_award_case_weights(db)` once per request, cached 24h in SQLite (key `award_case_calibration:v1`); `_build_ranked_candidates` uses live weights instead of the module-level constant; new `MvpCalibrationMetadata` Pydantic model surfaces on every `MvpRaceResponse`; new optional `runtime_calibration: Dict` field on `MethodologyDomain` populated for the `mvp` domain when `db` is passed through (other domains pass through unchanged — generic Dict to keep coupling loose). 4 new integration tests cover the activation roundtrip with synthetic 6-season fixtures, the SQLite cache short-circuit (sentinel + monkey-patched calibrate that raises if called), and the methodology-registry augmentation. Behavior unchanged when `calibration_pending=True` — same defaults flow through. Once `materialize_award_modifiers.py` runs in production, `/api/methodology/mvp` and `/api/mvp/race` will reflect fitted weights without a code change.
-- **Stream B — Opportunity Uplift UI surface** (`fbd4a42`): Sprint 79 shipped `opportunity_v2` KNN that produces an `uplift` sibling field on every `OpportunityPlayerRow` (mean_uplift / IQR band / neighbor_count / evidence_confidence / 3 named comparables) — the frontend has been ignoring it for ~3 months because the type wasn't mirrored. Stream B wires it through end-to-end: append-only `types.ts` adds `OpportunityUpliftComparable` + `OpportunityUplift` + `MvpCalibrationMetadata`; new `UpliftEvidenceCard.tsx` (Sprint 58 evidence-card visual pattern) renders mean + IQR band + top-3 historical comparables + descriptive caveat with empty state for `null` uplift; `OpportunityDashboard.tsx` mounts the card full-width below the existing 2×2 evidence grid; `OpportunityRow.tsx` gets a compact one-line uplift hint at the bottom; `MethodologyDrawer.tsx` adds a collapsible "v2 uplift evidence" subsection explaining KNN over 286 observations + descriptive (not causal) framing.
-- **Stream C — Cloudflare deferrals + cache-effectiveness baseline** (`882bb2f`): refined R2 backup lifecycle UI instructions in `infra/README.md` (precise dashboard click order so Vivek can do it in ~5 min); added Sprint 88 cache-stats baseline snapshot (row_count=535, size_bytes=16MB, hit/miss=0 on fresh worker); **retired the Sprint 88 deferred `/api/health` bypass-cache rule** as not-needed (catch-all 2hr TTL covers it, UptimeRobot reaches origin every 5 min) — README already implicitly said this, now made explicit + entry removed from BACKLOG.
-- **Workflow lesson:** the "static methodology + runtime augmentation" pattern (registry stays declarative, runtime state surfaces via optional `runtime_calibration` field) preserves the registry's role as the canonical methodology document while letting callers see whether the methodology is actually doing what it documents. Worth reusing as other domains gain calibration steps. Also: stale BACKLOG entries become invisible — when filing a deferral, link to the docs section that confirms the action; if the docs already disagree, don't file the deferral.
-- **Deferred (2 remaining, both genuine):** R2 backup lifecycle rule (Cloudflare UI, ~5 min — Why: different domain), MVP voter calibration cohort expansion (data-blocked on basketball-reference CSV scrape — Why: blocked on data we don't have).
+- **Stream A — MVP Award Case voter calibration activation**: wires live LOO-CV calibration through `_get_calibration_state(db)` helper (cached 24h in SQLite); `MvpCalibrationMetadata` on every `MvpRaceResponse`; `runtime_calibration` on methodology registry's `mvp` domain. 4 new integration tests.
+- **Stream B — Opportunity Uplift UI surface**: wires Sprint 79's `uplift` field through `types.ts` → `UpliftEvidenceCard.tsx` → `OpportunityDashboard.tsx` + `OpportunityRow.tsx` + `MethodologyDrawer.tsx`.
+- **Stream C — Cloudflare deferrals**: R2 backup lifecycle UI instructions in `infra/README.md`; cache-stats baseline snapshot; retired Sprint 88 deferred `/api/health` bypass-cache rule (not-needed).
+- **Workflow lesson:** "static methodology + runtime augmentation" pattern. Stale BACKLOG entries become invisible — link to docs that confirm the action when filing a deferral.
+- **Deferred (2 remaining):** R2 backup lifecycle rule, MVP voter calibration cohort expansion (data-blocked).
 - Closeout: `specs/sprint-90-closeout.md`.
 
-### Sprint 89 — Team-Side Player Fit (Roster + League)
-
-- **New `fit` tab on `/teams/[abbr]`** answering two questions the platform had no surface for: (1) how well does each rostered player fit the rest of the roster? (2) which players around the league would fit this team? Single branch (`feature/sprint-89-team-roster-fit`), 4 sequential commits, end-to-end backend → frontend → tests → docs. 509 backend tests (was 500, +9 new), `npm run build` clean, `npm run lint` 0/0.
-- **Stream A — backend service** (`backend/services/team_roster_fit_service.py` NEW + `backend/models/team_roster_fit.py` NEW): inverts player-side `team_fit_v3` — fix the team, score many players. Reuses `_score_team_fit`, `_team_overlap_flags`, `_build_drivers`, etc. from `team_fit_service` directly so player-side and team-side reads use identical math (45 / 30 / 25 weighting on 13 z-scored features). Adds **self-exclusion** for current-roster scoring (subject removed from comparison so Role Competition isn't inflated by self-overlap), a **`team_need_vector`** (roster-weighted average z per feature, deduped across `SIMILARITY_STATS_V2`'s repeated `stl_pg`/`blk_pg`), and **position-cohort percentile** (G / F / C — display-only, score formula keeps using global norms so cross-position rankings stay coherent).
-- **Stream B — endpoint + cache** (`a36c8e8`): `GET /api/teams/{abbr}/roster-fit?season=...&season_type=...&limit=N` mounted on the existing teams router (Sprint 86 pattern, no `main.py` change). 24h SQLite `cache.db` TTL keyed on `(abbr, season, season_type, limit)` — cold compute ~1-7s depending on data, cache hit <50ms. Aligns with daily-sync cadence.
-- **Stream C — frontend** (`77fdcce`): new `fit` tab between `lineups` (7) and `arc` (8). `TeamRosterFitPanel.tsx` (NEW, 400+ LOC) renders team need vector chips, sortable current-roster table with click-to-expand drivers + overlap + cohort percentiles, league-candidates grid with position filter + click-to-expand details, and methodology drawer with explicit "no salary / availability" disclosure. Reuses player-side `TeamFitPanel`'s visual language.
-- **Stream D — tests** (`eb01ed5`): 9 new tests in `test_sprint89_team_roster_fit.py` covering self-exclusion, position-cohort tagging, low-confidence gating, team-need-vector correctness on a constructed 3-point-poor roster, cache round-trip, 404, determinism, and league-candidate exclusion. Backend suite goes 500 → 509, zero regressions.
-- **Stream E — docs**: `specs/platform-methodology.md` extended with a "Team-Side Roster Fit (Sprint 89)" subsection under §6.
-- **Workflow lesson:** the planned "extract internals into shared module" refactor commit was skipped — importing `team_fit_service`'s underscore functions directly achieves the same single-source-of-truth without code churn. Don't introduce abstractions ahead of the second caller actually needing them.
-- **Deferred:** none. Every plan item shipped. 4 Sprint 90 candidates filed (salary/contract integration, shot location overlap, defensive scheme clustering, play-type compatibility) — all "different domain" sister features per Deferral Policy.
-- Closeout: `specs/sprint-89-closeout.md`.
-
-*Sprint 88 and earlier moved to `specs/sprint-history.md`. Workflow note: Sprint 88's deferred `/api/health` bypass-cache rule was retired as not-needed in Sprint 90.*
+*Sprint 89 and earlier moved to `specs/sprint-history.md`.*
 
 ---
 
@@ -396,6 +397,7 @@ CourtVue Labs uses a hybrid sprint model: major feature sprints typically run as
 | `feature/sprint-83a-blockers` | Claude | Merged to master |
 | `feature/sprint-83b-launch-polish` | Claude | Merged to master |
 | `feature/sprint-83c-playoff-polish` | Claude | Merged to master |
+| `feature/sprint-94-on-off-impact-revamp` | Claude | Merged to master |
 
 Sprint branches are created at kickoff and listed in `AGENTS.md`.
 
@@ -484,3 +486,11 @@ Sprint branches are created at kickoff and listed in `AGENTS.md`.
 | `PlayerSplitsPanel` | `components/` | Official NBA situational splits with family toggle (Location, Win/Loss, Days Rest, Month, Pre/Post All-Star) and 18-column stat table with W%/+/- color coding (Sprint 82) |
 | `PlayTypePanel` | `components/` | Synergy play-type breakdown: hybrid table with inline possession-share bars + PPP/percentile coloring; min 10 possessions filter (Sprint 82) |
 | `ExternalMetricsAttribution` | `components/` | Reusable source-attribution UI with `footer` (subtle) + `banner` (prominent amber) variants for LEBRON/RAPTOR/EPM/PIPM/RAPM disclosure (Sprint 82) |
+| `ImpactScatterChart` | `components/on-off/` | ORTG Δ × DRTG Δ scatter; bubble size ∝ on-court minutes; color by impact_classification; reference lines at 0 and ±3 (Sprint 94) |
+| `OnOffImpactPanel` | `components/on-off/` | Main coaching panel for player profile: badge + confidence callout, hero chips, decomposition bars, lineup context, external validation, methodology drawer (Sprint 94) |
+| `OnOffImpactBadge` | `components/on-off/` | Classification pill; border style mirrors confidence tier — solid/dashed/dotted (Sprint 94) |
+| `OnOffConfidenceCallout` | `components/on-off/` | Single-line confidence tier chip with on-court minutes label (Sprint 94) |
+| `OnOffDecompositionBar` | `components/on-off/` | Recharts BarChart for ORTG Δ / DRTG Δ; zero + ±3 reference lines; marginal_net annotation (Sprint 94) |
+| `OnOffLineupPanel` | `components/on-off/` | Two-column top/worst lineup grid; player name chips + net_rating + possessions (Sprint 94) |
+| `OnOffExternalValidationPanel` | `components/on-off/` | RAPM/EPM/PIPM chips + agreement note + public-dataset attribution disclaimer (Sprint 94) |
+| `OnOffMethodologyDrawer` | `components/on-off/` | Collapsible `<details>` — formulas, classification thresholds, confidence tiers, caveats (Sprint 94) |
