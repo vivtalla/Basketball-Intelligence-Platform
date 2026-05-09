@@ -22,6 +22,7 @@ from routers import (
     injuries,
     insights,
     leaderboards,
+    lineups,
     metrics,
     methodology,
     milestones,
@@ -109,6 +110,7 @@ app.include_router(trade.router, prefix="/api/trade", tags=["trade"])
 app.include_router(free_agency.router, prefix="/api/free-agency", tags=["free-agency"])
 app.include_router(draft.router, prefix="/api/draft", tags=["draft"])
 app.include_router(picks.router, prefix="/api/picks", tags=["picks"])
+app.include_router(lineups.router, prefix="/api/lineups", tags=["lineups"])
 
 
 @app.on_event("startup")

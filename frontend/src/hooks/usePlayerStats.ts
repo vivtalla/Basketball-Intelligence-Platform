@@ -86,6 +86,8 @@ import type {
   MvpSnapshotFreshness,
   MvpTimelineResponse,
   MvpVoterRoomResponse,
+  LineupLeaderboardResult,
+  SublineupsResult,
 } from "@/lib/types";
 import {
   getPlayerProfile,
@@ -179,6 +181,8 @@ import {
   getPlayerPlayTypes,
   getPlayerTracking,
   getPlayerHustle,
+  getLineupLeaderboard,
+  getSublineups,
 } from "@/lib/api";
 
 const DEFAULT_SHOT_LAB_FILTERS: ShotLabFilters = {
@@ -1398,5 +1402,38 @@ export function usePlayerHustle(
   return useSWR<PlayerHustleResponse>(
     playerId && season ? `player-hustle-${playerId}-${season}-${isPlayoff}` : null,
     () => getPlayerHustle(playerId!, season!, isPlayoff)
+  );
+}
+
+// Sprint 95 — Lineup Lab
+export function useLineupLeaderboard(
+  season: string | null,
+  seasonType: "Regular Season" | "Playoffs" = "Regular Season",
+  teamId?: number,
+  minPossessions: number = 100,
+  sortBy: string = "net_rating",
+  sortDir: "asc" | "desc" = "desc",
+  limit: number = 50
+) {
+  return useSWR<LineupLeaderboardResult>(
+    season
+      ? `lineup-leaderboard-${season}-${seasonType}-${teamId ?? "all"}-${minPossessions}-${sortBy}-${sortDir}-${limit}`
+      : null,
+    () => getLineupLeaderboard(season!, seasonType, teamId, minPossessions, sortBy, sortDir, limit)
+  );
+}
+
+export function useSublineups(
+  season: string | null,
+  teamId: number | null,
+  size: 2 | 3 | 5 = 5,
+  seasonType: "Regular Season" | "Playoffs" = "Regular Season",
+  minPossessions: number = 50
+) {
+  return useSWR<SublineupsResult>(
+    season && teamId
+      ? `sublineups-${season}-${teamId}-${size}-${seasonType}-${minPossessions}`
+      : null,
+    () => getSublineups(season!, teamId!, size, seasonType, minPossessions)
   );
 }

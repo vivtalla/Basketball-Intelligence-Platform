@@ -2195,3 +2195,52 @@ export async function getTeamRosterFit(
     `/api/teams/${encodeURIComponent(abbr)}/roster-fit?season=${encodeURIComponent(season)}&season_type=${encodeURIComponent(seasonType)}&limit=${limit}`
   );
 }
+
+// Sprint 95 — Lineup Lab
+export async function getLineupLeaderboard(
+  season: string,
+  seasonType: "Regular Season" | "Playoffs" = "Regular Season",
+  teamId?: number,
+  minPossessions: number = 100,
+  sortBy: string = "net_rating",
+  sortDir: "asc" | "desc" = "desc",
+  limit: number = 50
+): Promise<import("./types").LineupLeaderboardResult> {
+  const params = new URLSearchParams({
+    season,
+    season_type: seasonType,
+    min_possessions: String(minPossessions),
+    sort_by: sortBy,
+    sort_dir: sortDir,
+    limit: String(limit),
+  });
+  if (teamId != null) params.set("team_id", String(teamId));
+  return fetchApi<import("./types").LineupLeaderboardResult>(`/api/lineups/leaderboard?${params.toString()}`);
+}
+
+export async function postLineupBuilder(
+  request: import("./types").LineupBuilderRequest
+): Promise<import("./types").LineupBuilderResult> {
+  return fetchApi<import("./types").LineupBuilderResult>("/api/lineups/builder", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(request),
+  });
+}
+
+export async function getSublineups(
+  season: string,
+  teamId: number,
+  size: 2 | 3 | 5 = 5,
+  seasonType: "Regular Season" | "Playoffs" = "Regular Season",
+  minPossessions: number = 50
+): Promise<import("./types").SublineupsResult> {
+  const params = new URLSearchParams({
+    season,
+    team_id: String(teamId),
+    size: String(size),
+    season_type: seasonType,
+    min_possessions: String(minPossessions),
+  });
+  return fetchApi<import("./types").SublineupsResult>(`/api/lineups/sublineups?${params.toString()}`);
+}
