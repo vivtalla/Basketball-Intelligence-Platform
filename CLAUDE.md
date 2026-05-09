@@ -311,7 +311,7 @@ Workflow:
 
 ## Sprint Process
 
-CourtVue Labs uses a hybrid sprint model: major feature sprints typically run as two parallel teams, while small or tightly coupled sprints use one sequential `Architect → Engineer → Reviewer → Optimizer` stream. Branch/worktree cleanup is part of the default operating model.
+CourtVue Labs uses a hybrid sprint model: major feature sprints typically run as two parallel teams, while small or tightly coupled sprints use one sequential `Architect → Engineer → Reviewer → Optimizer` stream. **Worktree cleanup is a required closeout step** — every sprint worktree under `~/Documents/` must be removed once its branch is confirmed merged to master (see Sprint Closeout Checklist in `AGENTS.md`, step 14). Stale worktrees clutter the filesystem and can be large (hundreds of MB due to node_modules).
 
 **Sprints are self-contained.** Every sprint ships its features in their final state — no "phase 1" with a tail of follow-on polish in the next sprint. If a feature has obvious next-step work (sortable columns on a new table, richer labels on a new component, backfill scripts for a new migration), that work belongs in the same sprint. Lengthen the sprint if scope grows; never ship the 60% solution and defer the rest.
 

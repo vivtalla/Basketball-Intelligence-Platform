@@ -344,6 +344,25 @@ Sprint 87 allocation — TBD at kickoff.
 11. **Verify frontend deploy** (Sprint 84+): wait ~2 min, check Vercel dashboard for "Ready" status on the new commit
 12. **Production smoke test** (Sprint 84+): `curl -sf https://api.courtvue.app/api/health`, load `https://courtvue.app` in a browser, walk through one changed surface end-to-end
 13. Confirm `master` contains the sprint closeout commit(s) AND production reflects the new code before declaring the sprint closed
+14. **Clean up git worktrees.** Once merge is confirmed, remove all sprint worktrees so they don't accumulate in `~/Documents/`:
+    ```bash
+    # List all worktrees — every non-master entry is a candidate for removal
+    git worktree list
+
+    # Remove each stale worktree (--force handles modified/untracked files)
+    git worktree remove /path/to/bip-worktree --force
+
+    # If a worktree has node_modules or large files that block --force, delete the dir directly:
+    find /path/to/bip-worktree -depth -delete
+    rmdir /path/to/bip-worktree 2>/dev/null
+
+    # Prune any leftover git metadata
+    git worktree prune
+
+    # Verify — should show only the canonical master worktree
+    git worktree list
+    ```
+    Only the main repo at `/Users/viv/Documents/Basketball Intelligence Platform` should remain.
 
 ---
 
