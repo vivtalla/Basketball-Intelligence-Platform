@@ -1,6 +1,6 @@
 # Agent Coordination
 
-Last updated: 2026-05-08 by Claude (Sprint 94 closeout — On/Off Impact Command Center: side-of-ball decomposition, classification, confidence tiers, lineup context, external validation on both leaderboard and player profile)
+Last updated: 2026-05-08 by Claude (Sprint 95 closeout — Lineup Lab: leaderboard, What-If Studio, sub-lineup aggregation, Bayesian shrinkage, archetype classification, player-removal WOWY impacts)
 
 > Both agents read this file before touching code at the start of every session.
 > The canonical source of truth is the clean `master` checkout at `/Users/viv/Documents/Basketball Intelligence Platform`.
@@ -14,15 +14,15 @@ Last updated: 2026-05-08 by Claude (Sprint 94 closeout — On/Off Impact Command
 
 | Field | Value |
 |-------|-------|
-| Sprint | 95 |
+| Sprint | 96 |
 | Goal | TBD — awaiting Vivek's sprint kickoff |
 | Started | TBD |
 | Target merge | TBD |
 | Sprint shape | TBD |
-| Branch | `master` until Sprint 95 kickoff |
+| Branch | `master` until Sprint 96 kickoff |
 | Worker policy | No active sprint; set at kickoff |
 
-**Production status:** CourtVue Labs is publicly live at `https://courtvue.app` (Vercel) + `https://api.courtvue.app` (Hetzner CPX11, `ubuntu@5.78.114.15`). Sprint 94 shipped the On/Off Impact Command Center: side-of-ball decomposition (ORTG Δ / DRTG Δ), impact classification (Two-Way Elite / Offensive Engine / Defensive Anchor / Liability / Neutral), confidence tiers, lineup context (top/worst 3 five-man lineups), and external validation (RAPM/EPM/PIPM) on both the enhanced leaderboard and individual player profile. 552 backend tests (was 513, +17 new + prior sprint tests), 0 lint errors. 2 genuine deferrals remain: R2 backup lifecycle (Cloudflare UI, ~5 min) and MVP voter calibration cohort expansion (data-blocked).
+**Production status:** CourtVue Labs is publicly live at `https://courtvue.app` (Vercel) + `https://api.courtvue.app` (Hetzner CPX11, `ubuntu@5.78.114.15`). Sprint 95 shipped the Lineup Lab: `/lineups` page with a sortable league-wide leaderboard (ORTG×DRTG scatter, archetype pills, Bayesian-shrunk net rating, vs-team-baseline delta, confidence badges) and an interactive What-If Studio (5-player builder, exact/partial match, player-removal impact grid). Teams page gains 2-man + 3-man sub-lineup sections. 581 backend tests (was 549, +32 new), 0 lint errors. No genuine deferrals.
 
 ---
 

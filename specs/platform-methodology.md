@@ -1211,7 +1211,63 @@ Implementation references:
 
 ---
 
-## 14. Global Interpretation Rules
+## 14. Lineup Lab (Sprint 95)
+
+### Overview
+
+Lineup Lab is a dedicated analytical surface for 5-man lineup evaluation. It provides a league-wide sortable leaderboard, an interactive What-If Studio (WOWY), and 2-man/3-man sub-combination rollups per team. All metrics are computed at query time from `lineup_stats`, `players`, `teams`, and `team_season_stats` — no schema changes.
+
+**API endpoints:**
+- `GET /api/lineups/leaderboard` — league-wide lineup leaderboard with archetype labels and Bayesian shrinkage
+- `POST /api/lineups/builder` — submit 2–5 player IDs, get exact/closest match + player removal impacts
+- `GET /api/lineups/sublineups` — 2-man or 3-man combination aggregations for a given team
+
+### Computed Fields
+
+| Metric | Formula | Source |
+|--------|---------|--------|
+| Net vs Baseline | `lineup_net_rating − team_net_rating` | `lineup_stats` + `team_season_stats` |
+| Shrunk Net Rating | `nr × (poss / (poss + 150)) + team_nr × (150 / (poss + 150))` | Bayesian shrinkage, prior = 150 possessions |
+| Confidence | poss ≥ 200 → "high"; ≥ 80 → "medium"; else "low" | Smaller thresholds than player on/off because lineup samples are inherently smaller |
+| Archetype | 5-class label based on net_vs_baseline + ORTG/DRTG vs team baseline | See classification below |
+
+### Archetype Classification
+
+| Label | Condition |
+|-------|-----------|
+| Elite | net_vs_baseline ≥ 5 |
+| Offensive Wall | lineup_ortg ≥ team_off_rating + 4 AND team_def_rating − lineup_drtg < −2 |
+| Defensive Wall | team_def_rating − lineup_drtg ≥ 4 AND lineup_ortg < team_off_rating + 1 |
+| Negative | net_vs_baseline ≤ −4 |
+| Balanced | everything else |
+| Unclassified | no TeamSeasonStat row available for team baseline |
+
+### What-If Studio (Builder)
+
+1. User submits 2–5 player IDs. Service builds a sorted lineup key and queries for an exact match.
+2. If no exact match: scores all lineups in the season by player overlap (post-parse false-positive defense from Sprint 94). Returns top 3 closest.
+3. **Player removal impact**: for each submitted player, finds lineups containing the remaining players but NOT the removed player. Averages their net ratings; delta = avg_without − full_lineup_nr.
+4. Small-sample warning when exact match possessions < 80.
+
+### Sub-lineup Aggregation (2-man / 3-man)
+
+Computed on-the-fly from 5-man data: for each qualifying 5-man lineup (≥ 25 possessions), generate all C(5, size) sub-combinations, accumulate possessions and possession-weighted net rating, filter combined ≥ 50 possessions, sort by weighted avg net rating desc. Limit 20.
+
+### Caveats
+
+- All lineup data from PBP stint tracking — gaps in PBP coverage mean incomplete lineup pools.
+- Shrunk net rating should always be preferred over observed net rating for small samples.
+- 2-man/3-man combination ratings are possession-weighted averages across 5-man contexts, not direct measurements.
+- LIKE-based player ID lookups use the established false-positive defense: parse `lineup_key.split("-")` to avoid numeric substring collisions (e.g., player_id=12 false-matching "112-120-130").
+
+### Implementation References
+
+- `backend/models/lineups.py`, `backend/services/lineup_leaderboard_service.py`, `backend/services/lineup_builder_service.py`, `backend/services/lineup_sublineup_service.py`, `backend/routers/lineups.py`
+- `frontend/src/app/lineups/page.tsx`, `frontend/src/components/lineups/` (7 components)
+
+---
+
+## 15. Global Interpretation Rules
 
 Use these defaults when reading CourtVue methodology:
 

@@ -5462,3 +5462,73 @@ export interface TeamRosterFitResponse {
   warnings: string[];
   generated_at: string;
 }
+
+// Sprint 95 — Lineup Lab
+export type LineupArchetype =
+  | "Elite"
+  | "Offensive Wall"
+  | "Defensive Wall"
+  | "Balanced"
+  | "Negative"
+  | "Unclassified";
+
+export type LineupConfidence = "high" | "medium" | "low";
+
+export interface LineupLeaderboardEntry {
+  lineup_key: string;
+  player_ids: number[];
+  player_names: string[];
+  team_id: number | null;
+  team_abbreviation: string | null;
+  season: string;
+  minutes: number | null;
+  possessions: number | null;
+  net_rating: number | null;
+  ortg: number | null;
+  drtg: number | null;
+  plus_minus: number | null;
+  shrunk_net_rating: number | null;
+  team_net_baseline: number | null;
+  net_vs_baseline: number | null;
+  confidence: LineupConfidence;
+  archetype: LineupArchetype;
+}
+
+export interface LineupLeaderboardResult {
+  season: string;
+  total: number;
+  lineups: LineupLeaderboardEntry[];
+}
+
+export interface LineupBuilderRequest {
+  player_ids: number[];
+  season: string;
+  season_type: "Regular Season" | "Playoffs";
+}
+
+export interface PlayerRemovalImpact {
+  player_id: number;
+  player_name: string;
+  lineups_without_count: number;
+  avg_net_rating_without: number | null;
+  delta_vs_full: number | null;
+  note: string;
+}
+
+export interface LineupBuilderResult {
+  submitted_player_ids: number[];
+  submitted_player_names: string[];
+  exact_match: LineupLeaderboardEntry | null;
+  closest_matches: LineupLeaderboardEntry[];
+  player_removal_impacts: PlayerRemovalImpact[];
+  match_quality: "exact" | "partial" | "none";
+  warnings: string[];
+}
+
+export interface SublineupsResult {
+  team_id: number;
+  team_abbreviation: string;
+  season: string;
+  size: number;
+  lineups: LineupLeaderboardEntry[];
+}

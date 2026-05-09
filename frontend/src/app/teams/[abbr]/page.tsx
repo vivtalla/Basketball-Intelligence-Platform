@@ -27,6 +27,7 @@ import {
   useTeamNetRatingSeries,
   useTeamPeriodScoring,
   useTeamBenchAnalytics,
+  useSublineups,
 } from "@/hooks/usePlayerStats";
 import { useSeasonPhase } from "@/hooks/useSeasonPhase";
 import { getBracket } from "@/lib/api";
@@ -50,6 +51,7 @@ import TeamNetRatingChart from "@/components/TeamNetRatingChart";
 import TeamPeriodScoringPanel from "@/components/TeamPeriodScoringPanel";
 import TeamBenchAnalyticsPanel from "@/components/TeamBenchAnalyticsPanel";
 import TeamArcPanel from "@/components/team-arc/TeamArcPanel";
+import LineupLeaderboardTable from "@/components/lineups/LineupLeaderboardTable";
 import TeamTrackingPanel from "@/components/TeamTrackingPanel";
 import TeamHustlePanel from "@/components/TeamHustlePanel";
 import { TeamRosterFitPanel } from "@/components/team-fit/TeamRosterFitPanel";
@@ -319,6 +321,10 @@ function TeamDetailPageInner() {
     activeTab === "lineups" ? teamAbbreviation : null,
     effectiveSeason
   );
+
+  const activeLineupTeamId = activeTab === "lineups" && roster ? roster.team_id : null;
+  const { data: sublineups2 } = useSublineups(effectiveSeason, activeLineupTeamId, 2);
+  const { data: sublineups3 } = useSublineups(effectiveSeason, activeLineupTeamId, 3);
 
   const decisionReason =
     reasonParam ??
@@ -934,6 +940,41 @@ function TeamDetailPageInner() {
         <section className="space-y-6">
           {teamBenchAnalytics && <TeamBenchAnalyticsPanel teamAbbreviation={teamAbbreviation ?? ""} season={effectiveSeason} />}
           <TeamLineupsPanel teamId={roster.team_id} season={effectiveSeason} />
+
+          {/* 2-man and 3-man sub-lineup combinations */}
+          {sublineups2 && sublineups2.lineups.length > 0 && (
+            <details className="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800">
+              <summary className="cursor-pointer select-none px-4 py-3 text-sm font-semibold text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700/40">
+                2-Man Combinations · top {sublineups2.lineups.length} (≥ 50 combined possessions)
+              </summary>
+              <div className="px-4 pb-4 pt-2">
+                <LineupLeaderboardTable
+                  lineups={sublineups2.lineups}
+                  sortBy="net_rating"
+                  sortDir="desc"
+                  onSort={() => {}}
+                  compact
+                />
+              </div>
+            </details>
+          )}
+
+          {sublineups3 && sublineups3.lineups.length > 0 && (
+            <details className="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800">
+              <summary className="cursor-pointer select-none px-4 py-3 text-sm font-semibold text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700/40">
+                3-Man Combinations · top {sublineups3.lineups.length} (≥ 50 combined possessions)
+              </summary>
+              <div className="px-4 pb-4 pt-2">
+                <LineupLeaderboardTable
+                  lineups={sublineups3.lineups}
+                  sortBy="net_rating"
+                  sortDir="desc"
+                  onSort={() => {}}
+                  compact
+                />
+              </div>
+            </details>
+          )}
         </section>
       )}
 

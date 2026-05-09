@@ -84,6 +84,9 @@ export default function NavLinks() {
             <Link href="/mvp" onClick={closeMore} className={moreItemClass}>
               MVP Race
             </Link>
+            <Link href="/lineups" onClick={closeMore} className={moreItemClass}>
+              Lineup Lab
+            </Link>
             <Link href="/insights" onClick={closeMore} className={moreItemClass}>
               Insights
             </Link>
