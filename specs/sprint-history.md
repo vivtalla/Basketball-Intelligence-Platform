@@ -7,6 +7,15 @@ For detailed per-sprint records, see the individual closeout files in this direc
 
 ---
 
+### Sprint 94 — On/Off Impact Command Center
+
+- Complete revamp of on/off surface into a coaching-grade command center. Single branch (`feature/sprint-94-on-off-impact-revamp`), 1 commit, 18 files changed. 552 backend tests (was 513, +17 new), `npm run build` clean, `npm run lint` 0/0.
+- Streams A–G: 7 new Pydantic models in `models/stats.py` (`ImpactClassification` + `ConfidenceTier` enums, `OnOffDecomposition`, `LineupSlot`, `ExternalValidation`, `EnhancedOnOffStats`, `EnhancedLeaderboardEntry`, `EnhancedOnOffLeaderboardResult`); `services/on_off_impact_service.py` (NEW) with `_classify_impact` (ORTG/DRTG Δ thresholds ±3), `_confidence_tier` (HIGH ≥800/MEDIUM ≥400/LOW ≥200), `_lineup_slots_for_player` (LIKE + 3× over-fetch + post-filter false positives by parsing `lineup_key`), `build_enhanced_on_off`, `build_enhanced_on_off_leaderboard` (4 batch queries, no N+1); `routers/advanced.py` leaderboard body replaced with `build_enhanced_on_off_leaderboard()`, new `GET /{player_id}/on-off-enhanced` endpoint; original `GET /{player_id}/on-off` untouched.
+- Frontend: `types.ts` append-only (8 new types/interfaces), `api.ts` 2 new functions, `usePlayerStats.ts` 2 new SWR hooks. `/player-stats` on/off tab: 3-button min-minutes toggle, classification filter pills, Quadrant View toggle + `ImpactScatterChart.tsx`, 9-column sortable table. `PlayerPbpInsights.tsx` on/off grid replaced with `<OnOffImpactPanel>`; 7 new `components/on-off/` files.
+- 17 tests: classify thresholds, confidence tiers, decomposition correctness, lineup LIKE false-positive filter, missing-team-stat graceful handling, RAPM agreement notes, 404, leaderboard ordering, external metrics surfacing.
+- Workflow note: LIKE false-positive for `lineup_key` (player_id=12 matches "112-120-130") is subtle — the 3× over-fetch + post-parse filter pattern handles it cleanly without schema change. Reused as the WOWY core in Sprint 95's Lineup Lab.
+- Deferred: none. Closeout: `specs/sprint-94-closeout.md`.
+
 ### Sprint 90 — Deferred Items Cleanup (Award Calibration + Opportunity Uplift UI + Cloudflare)
 
 - Focus on formally-deferred items per Deferral Policy. Single branch (`feature/sprint-90-deferred-items`), 4 commits, end-to-end. 513 backend tests (was 509, +4 new), `npm run build` clean, `npm run lint` 0/0.

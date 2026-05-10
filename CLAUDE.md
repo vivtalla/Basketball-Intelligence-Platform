@@ -323,6 +323,15 @@ CourtVue Labs uses a hybrid sprint model: major feature sprints typically run as
 
 > Full history → `specs/sprint-history.md`
 
+### Sprint 96 — Cleanup, Performance Pass, /beta Reorg
+
+- **Three parallel streams in one release.** Single branch (`feature/sprint-96-cleanup-and-perf`) + 1 hotfix on master, 11 commits, 90+ files changed. 588 backend tests (was 581, +4 new for `last_night_pulse_service`), `npm run build` clean, `npm run lint` 0/0. Deployed end-to-end to courtvue.app + api.courtvue.app.
+- **Stream A — Playoff freshness:** `SeriesTrackerStrip.pickTrackedSeries()` now filters to `status==="active"` only and sorts round desc + combined wins desc (no backfill from closed/scheduled). New `LastNightPulse` component replaces `StoryRail` on `/` and `/playoffs` — three game-driven tiles (Tonight's Headliner / Last Night's Hero / Series Momentum) computed from `PlayerGameLog` last-36h + `PlayoffSeries.updated_at`. New service + endpoint + 4 tests. `StoryRail.tsx`, `getPlayoffStoryRail`, `PlayoffStoryTile`/`Response` types, `story_rail_service.py`, and `GET /api/playoffs/story-rail` deleted end-to-end. Cloudflare cache rule 1 expanded to bypass `/today`, `/bracket`, `/last-night-pulse` via free-tier compound OR. VM crontab tightened from `*/30` to `*/15`. Hotfix `b26f28a`: `_series_to_response` and `/today` post-pass derive `status="active"` when stored `"scheduled"` but observed wins > 0 (production R2 series rows persist as scheduled because flip-to-active only fires when *parent* clinches).
+- **Stream B — Performance pass:** Two N+1 fixes in `routers/teams.py` — `list_teams` collapsed from 1+30 queries to a grouped LEFT-OUTER-JOIN; `team_roster` from 1+N to 1+1 batched `IN (...)`. Image optimization on 5 components — dropped `unoptimized` and added explicit `sizes` (FavoritesList 36px, PlayerHeader 160px, MvpRacePanel 48/80px, HomeMvpTeaser 48px). Recharts code-split via `next/dynamic({ ssr: false })` on three tab-conditional charts (`LineupScatterPanel`, `StandingsBumpChart`, `ImpactScatterChart`). `@next/bundle-analyzer` wired behind `ANALYZE=1`.
+- **Stream C — `/beta` reorganization:** 19 directories moved under `frontend/src/app/beta/` via `git mv`. Kept at root: `/`, `/playoffs`, `/bracket`, `/player-stats`, `/standings`, `/og`, `/admin/*`. `next.config.ts` returns 308 redirects from every old path with `:path*`. One-shot codemod rewrote ~90 internal href / router / object-property path literals (then deleted). `NavLinks.tsx` restructured: primary tabs + "Beta" dropdown listing all 19 routes alphabetized. New `frontend/src/app/beta/layout.tsx` adds a one-line beta banner.
+- **Workflow note:** First codemod pass missed bare path literals in object properties (`{href: "/teams"}`), template-literal builders (`return_to: \`/teams/...\``), and string-array entries in `sitemap.ts` — added `(?<!/api)(?<!\w)["\`]/<route>` patterns with negative lookbehind on second pass. Free-tier Cloudflare Cache Rules don't have `matches regex` — use `Edit expression` with `starts_with` OR-compounds instead.
+- **Deferred:** B5 keep-list ISR refactor (`/player-stats`, `/standings`, `/playoffs` server-component conversion). **Why:** different domain — same kind of work as the per-page `/beta` graduation pattern; deserves its own focused sprint per page. Closeout: `specs/sprint-96-closeout.md`.
+
 ### Sprint 95 — Lineup Lab
 
 - **New `/lineups` page with league-wide leaderboard and interactive What-If Studio.** Single branch (`feature/sprint-95-lineup-lab`), 1 commit, 23 files changed. 581 backend tests (was 549, +32 new), `npm run build` clean, `npm run lint` 0/0.
@@ -337,14 +346,7 @@ CourtVue Labs uses a hybrid sprint model: major feature sprints typically run as
 - **Post-merge:** "Top Lineups" tab removed from `/player-stats` (112 lines deleted) — superseded by Lineup Lab's richer leaderboard.
 - **Deferred:** none. Closeout: `specs/sprint-95-closeout.md`.
 
-### Sprint 94 — On/Off Impact Command Center
-
-- **Complete revamp of on/off surface into a coaching-grade command center.** Single branch (`feature/sprint-94-on-off-impact-revamp`), 1 commit, 18 files changed. 552 backend tests (was 513, +17 new), `npm run build` clean, `npm run lint` 0/0.
-- **Stream A–G**: 7 new Pydantic models; `on_off_impact_service.py`; enhanced leaderboard + new `GET /{player_id}/on-off-enhanced` endpoint; 8 new types + 2 API functions + 2 SWR hooks; leaderboard revamp with scatter + 9-column table; `OnOffImpactPanel` on player profile (7 new components); 17 new tests.
-- **Workflow note:** LIKE false-positive for `lineup_key` (player_id=12 matches "112-120-130") — 3× over-fetch + post-parse filter handles it without schema change.
-- **Deferred:** none. Closeout: `specs/sprint-94-closeout.md`.
-
-*Sprint 90 and earlier moved to `specs/sprint-history.md`.*
+*Sprint 94 and earlier moved to `specs/sprint-history.md`.*
 
 ---
 
@@ -397,6 +399,7 @@ CourtVue Labs uses a hybrid sprint model: major feature sprints typically run as
 | `feature/sprint-83c-playoff-polish` | Claude | Merged to master |
 | `feature/sprint-94-on-off-impact-revamp` | Claude | Merged to master |
 | `feature/sprint-95-lineup-lab` | Claude | Merged to master |
+| `feature/sprint-96-cleanup-and-perf` | Claude | Merged to master |
 
 Sprint branches are created at kickoff and listed in `AGENTS.md`.
 
@@ -500,3 +503,4 @@ Sprint branches are created at kickoff and listed in `AGENTS.md`.
 | `LineupBuilderPanel` | `components/lineups/` | 5 pre-allocated searchable player slots; Build/Reset buttons; disabled until ≥2 slots filled (Sprint 95) |
 | `LineupBuilderResults` | `components/lineups/` | Match quality banner (green/yellow/red) + exact/closest lineup cards + player removal impact grid (Sprint 95) |
 | `LineupMethodologyDrawer` | `components/lineups/` | Collapsible `<details>`: shrinkage formula, archetype rules, confidence thresholds, What-If mechanics, sub-lineup aggregation, caveats (Sprint 95) |
+| `LastNightPulse` | `components/broadsheet/` | Three game-driven tiles for the playoffs surface: Tonight's Headliner / Last Night's Hero / Series Momentum. Powered by `useLastNightPulse` SWR hook (5 min refresh) (Sprint 96) |

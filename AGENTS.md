@@ -1,6 +1,6 @@
 # Agent Coordination
 
-Last updated: 2026-05-09 by Claude (Sprint 96 kickoff — playoff freshness + performance pass + /beta reorg, three parallel streams)
+Last updated: 2026-05-10 by Claude (Sprint 96 closeout — three streams shipped: playoff freshness, performance pass, /beta reorg)
 
 > Both agents read this file before touching code at the start of every session.
 > The canonical source of truth is the clean `master` checkout at `/Users/viv/Documents/Basketball Intelligence Platform`.
@@ -14,15 +14,15 @@ Last updated: 2026-05-09 by Claude (Sprint 96 kickoff — playoff freshness + pe
 
 | Field | Value |
 |-------|-------|
-| Sprint | 96 |
-| Goal | Cleanup + performance pass: fix playoff home staleness, ship the top performance wins, move 20 routes into `/beta` so the platform's surface stays focused while pages get reworked |
-| Started | 2026-05-09 |
-| Target merge | 2026-05-12 |
-| Sprint shape | Three parallel streams on a single sprint branch (one worktree). Merge order within branch: A → B → C |
-| Branch | `feature/sprint-96-cleanup-and-perf` (worktree at `/Users/viv/Documents/bip-s96`) |
-| Worker policy | Workers may be spawned per stream for bounded subtasks (per Worker Deployment Rules) — e.g. backend N+1 fix, codemod link rewrite. Main session owns all integration commits |
+| Sprint | 97 |
+| Goal | TBD — awaiting Vivek's sprint kickoff |
+| Started | TBD |
+| Target merge | TBD |
+| Sprint shape | TBD |
+| Branch | `master` until Sprint 97 kickoff |
+| Worker policy | No active sprint; set at kickoff |
 
-**Production status:** CourtVue Labs is publicly live at `https://courtvue.app` (Vercel) + `https://api.courtvue.app` (Hetzner CPX11, `ubuntu@5.78.114.15`). Sprint 95 shipped the Lineup Lab: `/lineups` page with a sortable league-wide leaderboard (ORTG×DRTG scatter, archetype pills, Bayesian-shrunk net rating, vs-team-baseline delta, confidence badges) and an interactive What-If Studio (5-player builder, exact/partial match, player-removal impact grid). Teams page gains 2-man + 3-man sub-lineup sections. 581 backend tests (was 549, +32 new), 0 lint errors. No genuine deferrals.
+**Production status:** CourtVue Labs is publicly live at `https://courtvue.app` (Vercel) + `https://api.courtvue.app` (Hetzner CPX11, `ubuntu@5.78.114.15`). Sprint 96 shipped three parallel streams: (A) playoff home freshness — round-aware tracker, `LastNightPulse` replacement for `StoryRail`, Cloudflare bypass-cache rule for `/today` + `/bracket` + `/last-night-pulse`, 15-min post-game cron, and a hotfix deriving `status="active"` from observed wins; (B) performance pass — two N+1 fixes in `routers/teams.py`, image optimization on 5 components, Recharts code-split via `next/dynamic`, `@next/bundle-analyzer` wired; (C) /beta reorganization — 19 routes moved under `/beta/` with 308 redirects, `NavLinks.tsx` restructured, beta layout banner. 588 backend tests (was 581, +4 new), 0 lint errors. One deferral: B5 keep-list ISR refactor (different domain — per-page graduation work).
 
 ---
 
@@ -206,17 +206,14 @@ If repo state, sprint numbering, or shipped features appear to disagree across l
 ## Current Assignments
 
 ### Claude
-- Branch: `feature/sprint-96-cleanup-and-perf` (worktree: `/Users/viv/Documents/bip-s96`)
-- Scope: All three streams (solo sprint).
-  - **Stream A — Playoff Home Freshness:** Cloudflare cache strategy for `/api/playoffs/bracket` + `story-rail`, round-aware sort in `SeriesTrackerStrip.pickTrackedSeries()`, replace `StoryRail` with `LastNightPulse` (new service + endpoint + component, driven by last-36h `PlayerGameLog`)
-  - **Stream B — Performance Pass:** N+1 fixes in `backend/routers/teams.py` (list + roster), image optimization on 5 `<Image unoptimized />` instances, code-split Recharts via `next/dynamic`, ISR/SSR conversion for keep-list pages (`/player-stats`, `/standings`, `/playoffs`)
-  - **Stream C — `/beta` Reorganization:** move 20 routes under `frontend/src/app/beta/`, codemod ~70 internal hrefs, restructure `NavLinks.tsx`, add beta `layout.tsx` banner, add 308 redirects in `next.config.ts`. Keep at root: `/`, `/playoffs`, `/bracket`, `/player-stats`, `/standings`, `/og`, `/admin/*`
-- Status: In progress (kickoff complete)
+- Branch: TBD at kickoff
+- Scope: No active sprint assignment
+- Status: Not started
 
 ### Codex
-- Branch: None this sprint
-- Scope: No active assignment
-- Status: Not engaged for Sprint 96
+- Branch: TBD at kickoff
+- Scope: No active sprint assignment
+- Status: Not started
 
 ---
 
@@ -229,27 +226,7 @@ Claim a shared file here before editing. If a file is already claimed, read that
 
 | File | Claimed by | Purpose |
 |------|------------|---------|
-| `frontend/src/lib/types.ts` | Claude (Stream A) | Append-only — add `LastNightPulseResponse` types for playoff home pulse module |
-| `frontend/src/lib/api.ts` | Claude (Stream A) | Append-only — add `getLastNightPulse()` |
-| `frontend/src/hooks/usePlayerStats.ts` | Claude (Stream A) | Append `useLastNightPulse` SWR hook |
-| `frontend/src/components/broadsheet/BroadsheetHero.tsx` | Claude (Stream A) | Swap `StoryRail` for `LastNightPulse` on playoffs surface |
-| `frontend/src/components/broadsheet/SeriesTrackerStrip.tsx` | Claude (Stream A) | Round-aware `pickTrackedSeries()` rewrite |
-| `backend/routers/playoffs.py` | Claude (Stream A) | Mount new `/api/playoffs/last-night-pulse` endpoint |
-| `backend/data/daily_sync.sh` | Claude (Stream A) | Tighten post-game cron cadence + ensure `sync_official_season_stats` runs in post-game path |
-| `infra/README.md` | Claude (Stream A) | Document new Cloudflare cache rule for live playoff endpoints |
-| `backend/routers/teams.py` | Claude (Stream B) | Fix two N+1 patterns (team list + roster) |
-| `frontend/next.config.ts` | Claude (Stream B + C) | B: `@next/bundle-analyzer` behind `ANALYZE=1`. C: `redirects()` for 20 old → /beta paths. Both edits land together at end of Stream C merge |
-| `frontend/package.json` | Claude (Stream B) | Add `@next/bundle-analyzer` devDependency |
-| `frontend/src/app/player-stats/page.tsx` | Claude (Stream B) | Server-shell + client island for ISR |
-| `frontend/src/app/standings/page.tsx` | Claude (Stream B) | Server-shell + client island for ISR |
-| `frontend/src/app/playoffs/page.tsx` | Claude (Stream B) | Server-shell + client island for ISR |
-| `frontend/src/components/MvpRacePanel.tsx` | Claude (Stream B) | Image optimization (remove `unoptimized`, add `width`/`height`/`sizes`) |
-| `frontend/src/components/PlayerHeader.tsx` | Claude (Stream B) | Image optimization |
-| `frontend/src/components/ComparisonView.tsx` | Claude (Stream B) | Image optimization |
-| `frontend/src/components/HomeLeagueLeaders.tsx` | Claude (Stream B) | Image optimization |
-| `frontend/src/components/NavLinks.tsx` | Claude (Stream C) | Restructure: 4 primary tabs + Beta dropdown for 20 routes |
-| `frontend/src/app/<20 routes>` | Claude (Stream C) | Move via `git mv` to `frontend/src/app/beta/<route>` |
-| `frontend/src/app/beta/layout.tsx` | Claude (Stream C) | NEW — beta banner + section layout |
+| — | — | No active claims; claim here at the next sprint kickoff before editing shared files |
 
 ---
 
@@ -273,6 +250,8 @@ Specs or review notes written by one stream for another. Check this before start
 | `specs/sprint-89-closeout.md` | Sprint 89 | Next sprint | Reference — team-side player fit on `/teams/[abbr]`: same 3-component math as player-side `team_fit_v3` (45/30/25), inverted (fix team, score many players). Adds self-exclusion for current-roster scoring, team_need_vector (roster-weighted z), position-cohort percentile (display-only). 24h SQLite cache. Workflow lesson: skipped planned "extract internals" refactor — direct import from `team_fit_service` achieves same goal without churn. |
 | `specs/sprint-90-closeout.md` | Sprint 90 | Next sprint | Reference — deferred-items cleanup. MVP voter calibration activated end-to-end: per-request live LOO-CV (cached 24h), `MvpCalibrationMetadata` on race response, `runtime_calibration` on methodology registry's `mvp` domain. Opportunity Uplift UI surfaced (UpliftEvidenceCard + row hint + drawer subsection) — Sprint 79 backend has been producing the field for 3 months. Workflow pattern: "static methodology + runtime augmentation" preserves registry as canonical doc while letting callers see live state. Stale BACKLOG entry retired (`/api/health` bypass-cache rule was unnecessary all along). |
 | `specs/sprint-94-closeout.md` | Sprint 94 | Next sprint | Reference — On/Off Impact Command Center. Coaching-grade on/off surface: side-of-ball decomposition (ORTG Δ / DRTG Δ), impact classification (5 tiers), confidence tiers, lineup context (LIKE false-positive filter), external validation (RAPM/EPM/PIPM). Enhanced leaderboard + new per-player endpoint. 7 on-off components for player profile. 17 new tests, 552 total. |
+| `specs/sprint-95-closeout.md` | Sprint 95 | Next sprint | Reference — Lineup Lab. New `/lineups` page with sortable leaderboard (Bayesian-shrunk net rating, archetype classification, vs-team-baseline delta) + interactive What-If Studio (5-player builder, exact/partial match, player-removal WOWY impacts). 32 new tests. |
+| `specs/sprint-96-closeout.md` | Sprint 96 | Next sprint | Reference — three parallel streams shipped. (A) playoff freshness: round-aware tracker (active-only), `LastNightPulse` replaces `StoryRail`, Cloudflare bypass-cache for live endpoints, 15-min cron, hotfix deriving `status="active"` from observed wins. (B) performance: N+1 fixes in `routers/teams.py`, image opt on 5 components, Recharts code-split, `@next/bundle-analyzer` behind `ANALYZE=1`. (C) /beta reorg: 19 routes moved + 308 redirects + nav restructure. Codemod patterns: `(?<!/api)(?<!\w)["\`]/<route>` with negative lookbehind catches object-property and template-literal path strings. Cloudflare free tier doesn't have `matches regex` — use `Edit expression` with `starts_with` OR-compounds. |
 
 ---
 
@@ -284,15 +263,11 @@ TBD at kickoff. Next sprint branch/worktree is created at kickoff and merges bac
 
 ## Sprint Work Allocation
 
-Sprint 96 allocation — solo sprint, three parallel streams owned by Claude.
+Sprint 97 allocation — TBD at kickoff.
 
-| Stream | Area | Files | Owner |
-|--------|------|-------|-------|
-| A | Playoff home freshness | `infra/README.md`, `backend/data/daily_sync.sh`, `backend/services/last_night_pulse_service.py` (NEW), `backend/models/playoffs.py`, `backend/routers/playoffs.py`, `backend/tests/test_last_night_pulse_service.py` (NEW), `frontend/src/components/broadsheet/SeriesTrackerStrip.tsx`, `frontend/src/components/broadsheet/LastNightPulse.tsx` (NEW), `frontend/src/components/broadsheet/BroadsheetHero.tsx`, `frontend/src/lib/types.ts`, `frontend/src/lib/api.ts`, `frontend/src/hooks/usePlayerStats.ts` | Claude |
-| B | Performance pass | `backend/routers/teams.py`, `backend/tests/test_teams_router.py` (modify or add), `frontend/src/components/MvpRacePanel.tsx`, `frontend/src/components/PlayerHeader.tsx`, `frontend/src/components/ComparisonView.tsx`, `frontend/src/components/HomeLeagueLeaders.tsx`, `frontend/next.config.ts`, `frontend/package.json`, `frontend/src/app/player-stats/page.tsx`, `frontend/src/app/standings/page.tsx`, `frontend/src/app/playoffs/page.tsx`, page-level `next/dynamic` wrappers for chart components | Claude |
-| C | `/beta` reorganization | `frontend/src/app/<20 routes>` (move), `frontend/src/app/beta/layout.tsx` (NEW), `frontend/next.config.ts` (redirects), `frontend/src/components/NavLinks.tsx`, ~70 component/page hrefs across `frontend/src/`, `scripts/rewrite-beta-hrefs.sh` (one-shot, deleted in same sprint) | Claude |
-
-**Merge order (within sprint branch):** A → B → C. Stream C lands last so the codemod runs against final paths and href shapes.
+| Area | Files | Owner |
+|------|-------|-------|
+| — | — | — |
 
 ---
 
@@ -396,6 +371,8 @@ Sprint 96 allocation — solo sprint, three parallel streams owned by Claude.
 ## Notes
 
 *Free-form, dated, newest first. Use this for coordination and repo-state exceptions.*
+
+2026-05-10 (Claude): Sprint 96 closed. **Cleanup, performance pass, /beta reorg.** Single branch (`feature/sprint-96-cleanup-and-perf`) + 1 hotfix on master, 11 commits, 90+ files changed. 588 backend tests (was 581, +4 new for `last_night_pulse_service`), `npm run build` clean, `npm run lint` 0/0. Deployed end-to-end to courtvue.app + api.courtvue.app. **Stream A — Playoff freshness:** `SeriesTrackerStrip.pickTrackedSeries()` now filters `status==="active"` (no backfill from closed/scheduled). `LastNightPulse` replaces `StoryRail` on `/` and `/playoffs` — 3 game-driven tiles (Tonight's Headliner / Last Night's Hero / Series Momentum) computed from `PlayerGameLog` last-36h + `PlayoffSeries.updated_at`. `StoryRail.tsx` + `getPlayoffStoryRail` + `PlayoffStoryTile`/`Response` types + `story_rail_service.py` + `GET /api/playoffs/story-rail` deleted end-to-end. Cloudflare cache rule 1 expanded to bypass `/today`, `/bracket`, `/last-night-pulse` via free-tier compound OR (no `matches regex` available). VM crontab tightened from `*/30` to `*/15` during 21:00–05:30 UTC. **Hotfix `b26f28a`:** `_series_to_response` and `/today` post-pass derive `status="active"` when stored `"scheduled"` but observed wins > 0 — production R2 series rows persist as scheduled because flip-to-active only fires when *parent* clinches. **Stream B — Performance:** Two N+1 fixes in `routers/teams.py` (`list_teams` 1+30 → 1 grouped query; `team_roster` 1+N → 1+1 batched `IN(...)`). Image optimization on 5 components (FavoritesList 36px, PlayerHeader 160px, MvpRacePanel 48/80px, HomeMvpTeaser 48px). Recharts code-split via `next/dynamic({ ssr: false })` on `LineupScatterPanel` / `StandingsBumpChart` / `ImpactScatterChart`. `@next/bundle-analyzer` wired behind `ANALYZE=1`. **Stream C — `/beta` reorg:** 19 directories moved via `git mv` to `frontend/src/app/beta/` (history preserved). Kept at root: `/`, `/playoffs`, `/bracket`, `/player-stats`, `/standings`, `/og`, `/admin/*`. `next.config.ts` returns 308 redirects with `:path*` for sub-routes. One-shot codemod (then deleted) rewrote ~90 internal href / router / object-property path literals. `NavLinks.tsx` restructured: primary tabs + "Beta" dropdown alphabetized. New `frontend/src/app/beta/layout.tsx` adds beta banner. **Workflow notes:** First codemod pass missed object-property + template-literal + array-of-string path forms; added `(?<!/api)(?<!\w)["\`]/<route>` patterns with negative lookbehind on second pass. Cloudflare free tier doesn't have `matches regex` — use `Edit expression` with `starts_with` OR-compounds. Cloudflare reports bypass-cache rules as `cf-cache-status: MISS` (not `BYPASS`). Local DB couldn't reveal the real production bug (R2 series stuck scheduled despite games played) — production smoke caught it. **Deferred:** B5 keep-list ISR refactor (`/player-stats`, `/standings`, `/playoffs`) — Why: different domain, same kind of work as the per-page `/beta` graduation pattern. Closeout: `specs/sprint-96-closeout.md`.
 
 2026-05-09 (Claude): Sprint 96 kicked off. Branch `feature/sprint-96-cleanup-and-perf` created; worktree at `/Users/viv/Documents/bip-s96`. Plan saved at `~/.claude/plans/lets-plan-the-next-streamed-fog.md`. Three parallel streams owned by Claude: A = playoff home freshness (cache strategy + round-aware sort + `LastNightPulse` replacement for `StoryRail`), B = performance (N+1 fixes in `routers/teams.py`, image opt on 5 components, Recharts code-split, ISR for keep-list pages), C = `/beta` reorganization (move 20 routes, codemod ~70 hrefs, NavLinks restructure, 308 redirects). Keep at root: `/`, `/playoffs`, `/bracket`, `/player-stats`, `/standings`, `/og`, `/admin/*`. Merge order within branch: A → B → C (so codemod runs against final paths). Production health pre-kickoff: `/api/health` 200, `/` 307 (redirect to www, expected). Master at `b40467a`.
 

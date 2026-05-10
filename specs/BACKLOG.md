@@ -15,7 +15,47 @@ Guidelines:
 
 ---
 
-## Sprint 91 Candidates
+## Sprint 97 Candidates
+
+### Graduate first `/beta/*` page back to root (Sprint 96 follow-on)
+Why it matters:
+Sprint 96 moved 19 routes under `/beta/` with the explicit promise that pages graduate to root one at a time as each gets a focused rework. Pick the first candidate (likely `/beta/lineups` since it's the freshest from Sprint 95, or `/beta/teams` since it's high-traffic and central to the platform).
+
+Likely shape:
+- Pick the page with Vivek
+- Rework UI/UX to "complete" standard
+- `git mv frontend/src/app/beta/<page>` back to `frontend/src/app/<page>`
+- Drop the redirect entry from `next.config.ts`
+- Restore the primary nav link in `NavLinks.tsx`; remove from Beta dropdown
+- Add to the keep-list documented in Sprint 96 closeout
+
+### Persist `PlayoffSeries.status = "active"` flip on first game played (Sprint 96 follow-on)
+Why it matters:
+Sprint 96 hotfix `b26f28a` derives `status="active"` in `_series_to_response` and the `/today` post-pass when stored status is `"scheduled"` but observed wins > 0. The right home for the fix is the post-game sync path (`_maybe_advance_clinched_series` or a sibling helper). Removing the runtime derivation eliminates a "the truth lives in two places" smell.
+
+Likely shape:
+- Add a helper in `services/playoff_bracket_service.py` that flips any `scheduled` series with games played to `active`. Idempotent.
+- Call it from `daily_sync.sh --post-game` immediately after `build_or_refresh_bracket`.
+- Drop the response-layer derivation from `routers/playoffs.py`. Keep tests.
+- ~1-2 hr.
+
+### Bundle analyzer audit pass (Sprint 96 follow-on)
+Why it matters:
+Sprint 96 wired `@next/bundle-analyzer` behind `ANALYZE=1` but the audit pass was not run as part of the sprint. Document baseline chunk sizes per route; identify the next 2-3 `next/dynamic` candidates (likely Three.js scenes, the Compare page, the heavy `mvp` and `insights` workspaces).
+
+Likely shape:
+- `ANALYZE=1 npm run build`
+- Snapshot the per-route chunk sizes table into `specs/performance-baseline.md` (new doc).
+- Pick 2-3 dynamic-import candidates and ship them in the same sprint.
+- ~3-4 hr.
+
+### Eliminate `PlayoffSeries.top_wins`/`bottom_wins` denormalized cache (Sprint 96 follow-on)
+Why it matters:
+The denormalized `PlayoffSeries.top_wins/bottom_wins` columns are only updated by the 6am daily sync, drift between updates, and are bypassed by every consumer (Sprint 90 + 91 + 96 all added "compute fresh from `GameLog`" paths). The drift exists nowhere productive — the canonical truth is `GameLog`. Either remove the columns entirely or drive them via a trigger on game-completion.
+
+Likely shape:
+- Pick: drop the columns + Alembic migration, OR add a trigger / SQLAlchemy event listener to keep them current on `GameLog` insert/update.
+- Either is ~3-5 hr including migration testing on a snapshot.
 
 ### Salary + contract integration → trade-feasibility filtering (Sprint 89 D follow-on)
 Why it matters:
