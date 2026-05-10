@@ -72,16 +72,33 @@ function pickTrackedSeries(
     ...(bracket.finals ? [bracket.finals] : []),
   ];
 
-  // Sort: active first, then closed, then scheduled. Within each, prefer
-  // the highest combined wins (most narrative weight).
-  const order: Record<PlayoffSeriesResponse["status"], number> = {
+  // Sprint 96 — Round-aware ordering. The "live round" is the highest round
+  // number that has at least one started series (active or closed). Series
+  // in the live round always outrank earlier rounds, so a fresh R2 G1 takes
+  // priority over an R1 G7 even though R1 has more combined wins. When the
+  // live round has fewer than 4 series, we backfill from the next-most-
+  // recent round with the same internal sort.
+  const startedRounds = all
+    .filter((s) => s.status !== "scheduled")
+    .map((s) => s.round);
+  const liveRound = startedRounds.length > 0 ? Math.max(...startedRounds) : 0;
+
+  const statusOrder: Record<PlayoffSeriesResponse["status"], number> = {
     active: 0,
     closed: 1,
     scheduled: 2,
   };
   const sorted = [...all].sort((a, b) => {
-    const byStatus = order[a.status] - order[b.status];
+    // Live-round series first.
+    const aLive = a.round === liveRound ? 0 : 1;
+    const bLive = b.round === liveRound ? 0 : 1;
+    if (aLive !== bLive) return aLive - bLive;
+    // Active before closed before scheduled.
+    const byStatus = statusOrder[a.status] - statusOrder[b.status];
     if (byStatus !== 0) return byStatus;
+    // Within the same status, prefer the most recent round (descending).
+    if (a.round !== b.round) return b.round - a.round;
+    // Then prefer the most narrative-weighty (highest combined wins).
     const aPlayed = a.top_wins + a.bottom_wins;
     const bPlayed = b.top_wins + b.bottom_wins;
     return bPlayed - aPlayed;
