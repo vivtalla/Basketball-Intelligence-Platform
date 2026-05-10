@@ -5,15 +5,22 @@ import { useState, useEffect, useMemo, useId } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
+import dynamic from "next/dynamic";
 import {
   useLeaderboard,
   useEnhancedOnOffLeaderboard,
   useCareerLeaderboard,
 } from "@/hooks/usePlayerStats";
 import type { LeaderboardEntry, ImpactClassification, EnhancedLeaderboardEntry } from "@/lib/types";
-import ImpactScatterChart from "@/components/on-off/ImpactScatterChart";
 import { getAvailableSeasons, syncSeasonPbp, getLeaderboardTeams } from "@/lib/api";
 import { GravityMethodologyModal } from "@/components/GravityMethodologyModal";
+
+// Sprint 96: Recharts chunk is ~200KB gzipped — defer loading to render
+// (only mounts when the user toggles the on/off Quadrant View).
+const ImpactScatterChart = dynamic(
+  () => import("@/components/on-off/ImpactScatterChart"),
+  { ssr: false, loading: () => null }
+);
 
 // ─── Stat definitions ────────────────────────────────────────────────────────
 

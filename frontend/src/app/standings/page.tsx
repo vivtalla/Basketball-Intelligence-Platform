@@ -1,10 +1,16 @@
 "use client";
 
 import Link from "next/link";
+import dynamic from "next/dynamic";
 import { Fragment, type CSSProperties, type ReactNode, useMemo, useState } from "react";
 import { useStandings, useStandingsHistory } from "@/hooks/usePlayerStats";
 import type { StandingsEntry, StandingsHistoryEntry } from "@/lib/types";
-import StandingsBumpChart from "@/components/StandingsBumpChart";
+
+// Sprint 96: Recharts chunk is ~200KB gzipped — defer loading to render.
+const StandingsBumpChart = dynamic(
+  () => import("@/components/StandingsBumpChart"),
+  { ssr: false, loading: () => null }
+);
 
 const DEFAULT_SEASON = "2025-26";
 type StandingsStatGroup =
