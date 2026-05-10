@@ -36,13 +36,17 @@ PYTHON_BIN=/home/ubuntu/bip/backend/venv/bin/python
 0 6 * * *    set -a && . /etc/bip/env && set +a && cd /home/ubuntu/bip/backend && bash data/daily_sync.sh >> /var/log/bip-sync.log 2>&1
 
 # ── Post-game refresh ────────────────────────────────────────────────────────
-# Every 30 min within the NBA game-completion window: 21:00 UTC (5pm ET, end
+# Every 15 min within the NBA game-completion window: 21:00 UTC (5pm ET, end
 # of weekend afternoon slate) through 05:30 UTC (1:30am ET, late West Coast
 # OT). 16:00–21:00 UTC = noon-5pm ET is dead time on any schedule, so we
 # skip it. Each tick does real work (~32 nba_api calls for injuries + team
-# splits), so narrowing the window cuts traffic ~62% with no freshness loss.
-# The 6am full sync above is the safety net for anything missed.
-*/30 21-23,0-5 * * * set -a && . /etc/bip/env && set +a && cd /home/ubuntu/bip/backend && bash data/daily_sync.sh --post-game >> /var/log/bip-sync.log 2>&1
+# splits), comfortably under the ~6000 calls/hr rate-limit ceiling even at
+# the tighter cadence. The 6am full sync above is the safety net for anything
+# missed. Sprint 96 tightened from */30 to */15 so the home-page playoff
+# surfaces (bracket + LastNightPulse) reflect game completion within ~15 min
+# instead of ~30; the bypass-cache rule on /api/playoffs/(today|bracket|
+# last-night-pulse) closes the second half of the latency loop.
+*/15 21-23,0-5 * * * set -a && . /etc/bip/env && set +a && cd /home/ubuntu/bip/backend && bash data/daily_sync.sh --post-game >> /var/log/bip-sync.log 2>&1
 
 # ── Weekly backup verification ───────────────────────────────────────────────
 # Sunday 5am UTC: restore the latest R2 dump into a scratch DB and diff

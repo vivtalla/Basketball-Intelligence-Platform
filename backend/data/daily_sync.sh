@@ -10,7 +10,7 @@
 #
 # That installs:
 #   - daily full sync at 6am UTC
-#   - post-game refresh every 30 min (self-gates on season phase)
+#   - post-game refresh every 15 min during the active game window (Sprint 96)
 #   - nightly pg_dump → R2 backup at 4am UTC
 #   - weekly backup-restore verification on Sunday 5am UTC
 #
