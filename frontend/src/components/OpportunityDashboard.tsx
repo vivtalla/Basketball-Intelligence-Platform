@@ -268,7 +268,7 @@ export default function OpportunityDashboard({
                     </p>
                     <h2 className="mt-0.5 text-2xl font-semibold text-[var(--foreground)]">
                       <Link
-                        href={`/players/${selectedRow.player_id}`}
+                        href={`/beta/players/${selectedRow.player_id}`}
                         className="bip-link"
                       >
                         {selectedRow.player_name}
@@ -287,13 +287,13 @@ export default function OpportunityDashboard({
                   </div>
                   <div className="flex items-center gap-2">
                     <Link
-                      href={`/insights?tab=trajectory&team=${selectedRow.team_abbreviation}&season=${season}&player_id=${selectedRow.player_id}`}
+                      href={`/beta/insights?tab=trajectory&team=${selectedRow.team_abbreviation}&season=${season}&player_id=${selectedRow.player_id}`}
                       className="rounded-full border border-[var(--border)] bg-[var(--surface)] px-3 py-1 text-[11px] font-medium text-[var(--muted-strong)] transition hover:border-[var(--accent-strong)] hover:text-[var(--accent-strong)]"
                     >
                       See Trajectory →
                     </Link>
                     <Link
-                      href={`/players/${selectedRow.player_id}`}
+                      href={`/beta/players/${selectedRow.player_id}`}
                       className="rounded-full border border-[var(--border)] bg-[var(--surface)] px-3 py-1 text-[11px] font-medium text-[var(--muted-strong)] transition hover:border-[var(--accent-strong)] hover:text-[var(--accent-strong)]"
                     >
                       Player page →

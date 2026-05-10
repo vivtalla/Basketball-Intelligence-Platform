@@ -1161,7 +1161,7 @@ export async function getPlayerShotCoverage(
   filters?: import("./types").ShotLabFilters
 ): Promise<import("./types").ShotIntelligenceCoverage> {
   return fetchApi<import("./types").ShotIntelligenceCoverage>(
-    buildSituationalShotLabQuery(playerId, season, seasonType, filters, "/coverage")
+    buildSituationalShotLabQuery(playerId, season, seasonType, filters, "/beta/coverage")
   );
 }
 
@@ -1224,7 +1224,7 @@ export async function getTeamDefenseShotCoverage(
   filters?: import("./types").ShotLabFilters
 ): Promise<import("./types").ShotIntelligenceCoverage> {
   return fetchApi<import("./types").ShotIntelligenceCoverage>(
-    buildTeamDefenseShotLabQuery(teamId, season, seasonType, filters, "/coverage")
+    buildTeamDefenseShotLabQuery(teamId, season, seasonType, filters, "/beta/coverage")
   );
 }
 

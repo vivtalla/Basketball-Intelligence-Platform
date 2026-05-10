@@ -1079,7 +1079,7 @@ function PlayerStatsPageContent() {
                         </span>
                       </td>
                       <td className={`${stickyPlayerClass} px-4 ${rowPaddingClass}`}>
-                        <Link href={`/players/${entry.player_id}`} className="flex items-center gap-3 group">
+                        <Link href={`/beta/players/${entry.player_id}`} className="flex items-center gap-3 group">
                           <div className="relative w-8 h-8 rounded-full overflow-hidden bg-gray-100 dark:bg-gray-700 shrink-0">
                             {entry.headshot_url ? (
                               <Image
@@ -1196,7 +1196,7 @@ function PlayerStatsPageContent() {
                 >
                   <td className="px-4 py-3 text-sm text-gray-400 dark:text-gray-500 font-mono">{idx + 1}</td>
                   <td className="px-4 py-3">
-                    <Link href={`/players/${entry.player_id}`} className="flex items-center gap-3 group">
+                    <Link href={`/beta/players/${entry.player_id}`} className="flex items-center gap-3 group">
                       <div className="relative w-8 h-8 rounded-full overflow-hidden bg-gray-100 dark:bg-gray-700 shrink-0">
                         {entry.headshot_url ? (
                           <Image
@@ -1378,7 +1378,7 @@ function PlayerStatsPageContent() {
                         <td className="px-4 py-3">
                           <div className="flex flex-col gap-0.5">
                             <Link
-                              href={`/players/${entry.player_id}`}
+                              href={`/beta/players/${entry.player_id}`}
                               className="font-medium text-gray-900 transition-colors hover:text-teal-700 dark:text-gray-100 dark:hover:text-teal-300"
                               onClick={(e) => e.stopPropagation()}
                             >
@@ -1448,7 +1448,7 @@ function PlayerStatsPageContent() {
                                 </div>
                               )}
                               <Link
-                                href={`/players/${entry.player_id}`}
+                                href={`/beta/players/${entry.player_id}`}
                                 className="ml-auto self-center text-teal-600 dark:text-teal-400 hover:underline font-semibold"
                                 onClick={(e) => e.stopPropagation()}
                               >

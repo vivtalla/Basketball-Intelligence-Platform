@@ -67,7 +67,7 @@ export default function ArchiveVault() {
             {FINALS_ARCHIVE.map((entry) => (
               <Link
                 key={entry.year}
-                href={`/players/${entry.playerId}`}
+                href={`/beta/players/${entry.playerId}`}
                 className="bip-pill text-xs hover:border-[var(--accent)] hover:text-[var(--accent)] transition-colors"
               >
                 {entry.year} Finals &middot; {entry.displayName}

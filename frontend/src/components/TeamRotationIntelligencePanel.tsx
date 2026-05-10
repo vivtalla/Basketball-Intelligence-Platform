@@ -39,7 +39,7 @@ function PlayerDeltaRow({
 }) {
   return (
     <Link
-      href={`/players/${player.player_id}`}
+      href={`/beta/players/${player.player_id}`}
       className="bip-panel flex items-center justify-between gap-4 rounded-3xl p-4 transition-colors hover:border-[rgba(33,72,59,0.28)] hover:bg-[rgba(216,228,221,0.24)]"
     >
       <div className="min-w-0">
@@ -74,7 +74,7 @@ function PlayerDeltaRow({
 function StarterRow({ player }: { player: TeamRotationPlayerRow }) {
   return (
     <Link
-      href={`/players/${player.player_id}`}
+      href={`/beta/players/${player.player_id}`}
       className="bip-panel grid gap-3 rounded-3xl p-4 transition-colors hover:border-[rgba(33,72,59,0.28)] hover:bg-[rgba(216,228,221,0.24)] md:grid-cols-[minmax(0,1.2fr)_repeat(3,minmax(88px,0.6fr))]"
     >
       <div className="min-w-0">
@@ -112,7 +112,7 @@ function StarterRow({ player }: { player: TeamRotationPlayerRow }) {
 function AnchorRow({ anchor, rank }: { anchor: TeamImpactLeader; rank: number }) {
   return (
     <Link
-      href={`/players/${anchor.player_id}`}
+      href={`/beta/players/${anchor.player_id}`}
       className="bip-panel flex items-center justify-between gap-4 rounded-3xl p-4 transition-colors hover:border-[rgba(33,72,59,0.28)] hover:bg-[rgba(216,228,221,0.24)]"
     >
       <div className="min-w-0">
@@ -154,15 +154,15 @@ function ReviewGameCard({
 }) {
   const href =
     teamAbbreviation && season
-      ? `/games/${game.game_id}?${new URLSearchParams({
+      ? `/beta/games/${game.game_id}?${new URLSearchParams({
           source: "rotation-intelligence",
           source_id: `${teamAbbreviation}:${game.game_id}`,
           team: teamAbbreviation,
           season,
           reason: game.rotation_note,
-          return_to: returnHref ?? `/teams/${teamAbbreviation}?tab=intelligence`,
+          return_to: returnHref ?? `/beta/teams/${teamAbbreviation}?tab=intelligence`,
         }).toString()}`
-      : `/games/${game.game_id}`;
+      : `/beta/games/${game.game_id}`;
   return (
     <Link
       href={href}

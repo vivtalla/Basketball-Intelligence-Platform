@@ -35,7 +35,7 @@ export default function MvpPlayerCaseEmbed({ playerId, season }: { playerId: num
       <ul className="mt-3 space-y-1 text-sm leading-6 text-[var(--muted)]">
         {(candidate.case_summary ?? []).slice(0, 3).map((item) => <li key={item}>- {item}</li>)}
       </ul>
-      <Link href="/mvp" className="mt-3 inline-flex rounded-lg border border-[var(--border)] px-3 py-2 text-xs font-semibold text-[var(--foreground)]">
+      <Link href="/beta/mvp" className="mt-3 inline-flex rounded-lg border border-[var(--border)] px-3 py-2 text-xs font-semibold text-[var(--foreground)]">
         Open full MVP room
       </Link>
     </section>

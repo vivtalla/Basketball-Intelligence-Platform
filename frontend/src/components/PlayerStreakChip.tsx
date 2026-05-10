@@ -6,7 +6,7 @@
  * Renders a single small chip showing the player's longest active streak
  * (e.g. "6 STRAIGHT 30+ PT GAMES"). Only rendered when the player has at
  * least one active streak with length >= 2. Chip clicks deep-link to the
- * `/milestones` page so the streak can be viewed alongside league context.
+ * `/beta/milestones` page so the streak can be viewed alongside league context.
  *
  * Reads the league-wide active-streaks board and filters to the requested
  * player rather than introducing a per-player endpoint — the league-wide
@@ -45,7 +45,7 @@ export default function PlayerStreakChip({ playerId }: PlayerStreakChipProps) {
 
   return (
     <Link
-      href="/milestones"
+      href="/beta/milestones"
       title={`${top.length} consecutive ${top.streak_label} - view league streaks board`}
       className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-semibold uppercase tracking-[0.14em] bg-[var(--accent-soft)] text-[var(--accent-strong)] hover:bg-[var(--accent)] hover:text-white transition-colors"
     >

@@ -502,7 +502,7 @@ export default function AskWorkspace() {
     const trimmed = question.trim();
     if (!trimmed) return;
     setDraft(trimmed);
-    router.push(`/ask?q=${encodeURIComponent(trimmed)}`);
+    router.push(`/beta/ask?q=${encodeURIComponent(trimmed)}`);
   }
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
@@ -581,7 +581,7 @@ export default function AskWorkspace() {
               onClick={() => {
                 setActiveThreadId(null);
                 setDraft("");
-                router.push("/ask");
+                router.push("/beta/ask");
               }}
               className="w-full flex items-center justify-center gap-2 rounded-lg border border-[var(--border)] bg-[rgba(255,251,246,0.9)] px-3 py-2 text-xs font-semibold text-[var(--foreground)] transition hover:border-[var(--accent)] hover:text-[var(--accent)]"
             >
@@ -737,7 +737,7 @@ export default function AskWorkspace() {
                         {playerChips.map(({ name, id }) => (
                           <Link
                             key={id}
-                            href={`/players/${id}`}
+                            href={`/beta/players/${id}`}
                             className="inline-flex items-center gap-1.5 rounded-full border border-[var(--accent-soft)] bg-[rgba(33,72,59,0.07)] px-3 py-1.5 text-xs font-semibold text-[var(--accent-strong)] transition hover:bg-[rgba(33,72,59,0.14)] hover:border-[var(--accent)]"
                           >
                             {name}

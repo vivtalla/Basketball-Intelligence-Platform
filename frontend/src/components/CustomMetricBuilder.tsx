@@ -321,7 +321,7 @@ export function CustomMetricBuilder() {
   useEffect(() => {
     if (!season) return;
     const encoded = encodeMetricConfig(currentConfig);
-    router.replace(`/metrics?metric=${encodeURIComponent(encoded)}`, { scroll: false });
+    router.replace(`/beta/metrics?metric=${encodeURIComponent(encoded)}`, { scroll: false });
   }, [currentConfig, router, season]);
 
   function addComponent() {
@@ -400,7 +400,7 @@ export function CustomMetricBuilder() {
     if (typeof window === "undefined" || !season) return;
     const encoded = encodeMetricConfig(currentConfig);
     const shareUrl = new URL(window.location.href);
-    shareUrl.pathname = "/metrics";
+    shareUrl.pathname = "/beta/metrics";
     shareUrl.search = `metric=${encodeURIComponent(encoded)}`;
     try {
       await navigator.clipboard.writeText(shareUrl.toString());
@@ -805,13 +805,13 @@ export function CustomMetricBuilder() {
             {data?.player_rankings && data.player_rankings.length >= 2 ? (
               <div className="flex flex-wrap gap-3">
                 <Link
-                  href={`/compare?p1=${data.player_rankings[0].player_id}&p2=${data.player_rankings[1].player_id}`}
+                  href={`/beta/compare?p1=${data.player_rankings[0].player_id}&p2=${data.player_rankings[1].player_id}`}
                   className="inline-flex rounded-full border border-[var(--border-strong)] px-4 py-2 text-xs font-semibold uppercase tracking-[0.18em] text-[var(--accent-strong)] transition hover:bg-[rgba(33,72,59,0.08)]"
                 >
                   Compare Top Two
                 </Link>
                 <Link
-                  href={`/players/${data.player_rankings[0].player_id}`}
+                  href={`/beta/players/${data.player_rankings[0].player_id}`}
                   className="inline-flex rounded-full border border-[var(--border)] px-4 py-2 text-xs font-semibold uppercase tracking-[0.18em] text-[var(--muted-strong)] transition hover:bg-[rgba(244,238,223,0.7)]"
                 >
                   Open Top Player
@@ -963,7 +963,7 @@ export function CustomMetricBuilder() {
                     >
                       <td className="px-4 py-3 text-sm text-[var(--muted-strong)]">{row.rank}</td>
                       <td className="px-4 py-3 text-sm font-semibold text-[var(--foreground)]">
-                        <Link href={`/players/${row.player_id}`} className="bip-link">
+                        <Link href={`/beta/players/${row.player_id}`} className="bip-link">
                           {row.player_name}
                         </Link>
                       </td>

@@ -3,7 +3,7 @@
 import type { GameDetailResponse } from "@/lib/types";
 
 /**
- * Sprint 77 (EB4): Scoreboard chrome variant for `/games/[gameId]`.
+ * Sprint 77 (EB4): Scoreboard chrome variant for `/beta/games/[gameId]`.
  *
  * Wraps the StateBanner + ScoreBanner + Headline triplet into a single
  * dark stadium unit. Renders ONLY the top chrome — the 12 module bodies

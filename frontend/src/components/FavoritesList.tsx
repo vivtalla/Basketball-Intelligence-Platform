@@ -43,7 +43,7 @@ export default function FavoritesList() {
 
             <div className="min-w-0">
               <Link
-                href={`/players/${player.id}`}
+                href={`/beta/players/${player.id}`}
                 className="block text-sm font-medium text-[var(--foreground)] bip-link truncate"
               >
                 {player.name}

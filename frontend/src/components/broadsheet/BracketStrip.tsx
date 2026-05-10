@@ -47,7 +47,7 @@ function MiniSeriesRow({ series }: { series: PlayoffSeriesResponse }) {
 
   return (
     <Link
-      href={`/pre-read?series_id=${encodeURIComponent(series.series_id)}`}
+      href={`/beta/pre-read?series_id=${encodeURIComponent(series.series_id)}`}
       className="block rounded-md border px-2 py-1.5 hover:-translate-y-0.5 transition-transform"
       style={{
         background: "rgba(255,249,241,0.7)",

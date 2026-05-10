@@ -95,7 +95,7 @@ export default function LineupLeaderboardTable({ lineups, sortBy, sortDir, onSor
               {!compact && (
                 <td className="px-2 py-2 hidden sm:table-cell">
                   {row.team_abbreviation ? (
-                    <Link href={`/teams/${row.team_abbreviation}`} className="text-teal-600 dark:text-teal-400 hover:underline font-medium">
+                    <Link href={`/beta/teams/${row.team_abbreviation}`} className="text-teal-600 dark:text-teal-400 hover:underline font-medium">
                       {row.team_abbreviation}
                     </Link>
                   ) : "—"}

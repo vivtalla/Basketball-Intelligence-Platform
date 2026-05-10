@@ -242,7 +242,7 @@ export default function GameLogTable({ playerId, season }: GameLogTableProps) {
                     >
                       <td className="whitespace-nowrap px-4 py-2.5 text-xs tabular-nums text-[var(--muted)]">
                         <Link
-                          href={`/games/${game.game_id}`}
+                          href={`/beta/games/${game.game_id}`}
                           className="font-medium text-[var(--foreground)] transition-colors hover:text-[var(--accent)]"
                         >
                           {game.game_date}

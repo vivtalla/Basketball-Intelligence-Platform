@@ -75,38 +75,38 @@ export default function MobileNav() {
           <Link href="/standings" onClick={close} className={linkClass}>
             Standings
           </Link>
-          <Link href="/compare" onClick={close} className={linkClass}>
+          <Link href="/beta/compare" onClick={close} className={linkClass}>
             Compare
           </Link>
-          <Link href="/learn" onClick={close} className={linkClass}>
+          <Link href="/beta/learn" onClick={close} className={linkClass}>
             Learn
           </Link>
           <div className="my-1 border-t border-[var(--border)]" />
-          <Link href="/ask" onClick={close} className={linkClass}>
+          <Link href="/beta/ask" onClick={close} className={linkClass}>
             Ask
           </Link>
-          <Link href="/mvp" onClick={close} className={linkClass}>
+          <Link href="/beta/mvp" onClick={close} className={linkClass}>
             MVP Race
           </Link>
-          <Link href="/insights" onClick={close} className={linkClass}>
+          <Link href="/beta/insights" onClick={close} className={linkClass}>
             Insights
           </Link>
-          <Link href="/metrics" onClick={close} className={linkClass}>
+          <Link href="/beta/metrics" onClick={close} className={linkClass}>
             Metrics
           </Link>
-          <Link href="/pre-read" onClick={close} className={linkClass}>
+          <Link href="/beta/pre-read" onClick={close} className={linkClass}>
             Pre-Read
           </Link>
-          <Link href="/teams" onClick={close} className={linkClass}>
+          <Link href="/beta/teams" onClick={close} className={linkClass}>
             Teams
           </Link>
-          <Link href="/trade-machine" onClick={close} className={linkClass}>
+          <Link href="/beta/trade-machine" onClick={close} className={linkClass}>
             Trade Machine
           </Link>
-          <Link href="/free-agency" onClick={close} className={linkClass}>
+          <Link href="/beta/free-agency" onClick={close} className={linkClass}>
             Free Agency
           </Link>
-          <Link href="/draft" onClick={close} className={linkClass}>
+          <Link href="/beta/draft" onClick={close} className={linkClass}>
             Draft
           </Link>
           {isPlayoffs && (
@@ -114,13 +114,13 @@ export default function MobileNav() {
               Bracket
             </Link>
           )}
-          <Link href="/picks" onClick={close} className={linkClass}>
+          <Link href="/beta/picks" onClick={close} className={linkClass}>
             Picks
           </Link>
-          <Link href="/coverage" onClick={close} className={linkClass}>
+          <Link href="/beta/coverage" onClick={close} className={linkClass}>
             Coverage
           </Link>
-          <Link href="/milestones" onClick={close} className={linkClass}>
+          <Link href="/beta/milestones" onClick={close} className={linkClass}>
             Milestones
           </Link>
         </div>

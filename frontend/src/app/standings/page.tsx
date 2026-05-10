@@ -206,7 +206,7 @@ function TeamCell({
     <div className="flex items-center justify-end gap-1.5">
       {entry.abbreviation ? (
         <Link
-          href={`/teams/${entry.abbreviation}`}
+          href={`/beta/teams/${entry.abbreviation}`}
           className="font-medium text-[var(--foreground)] transition-colors hover:text-[var(--accent)]"
           title={name}
         >

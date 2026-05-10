@@ -186,7 +186,7 @@ export default function TeamDefenseShotLab({
               season: selectedSeason,
               season_type: seasonType,
               active_view: view,
-              route_path: `/teams/${teamAbbreviation}?tab=analytics`,
+              route_path: `/beta/teams/${teamAbbreviation}?tab=analytics`,
               filters: {
                 start_date: activeFilters.startDate,
                 end_date: activeFilters.endDate,
@@ -305,7 +305,7 @@ export default function TeamDefenseShotLab({
                   </p>
                 </div>
                 <a
-                  href={`/teams/${teamAbbreviation}?tab=splits&season=${selectedSeason}`}
+                  href={`/beta/teams/${teamAbbreviation}?tab=splits&season=${selectedSeason}`}
                   className="rounded-full border border-[rgba(25,52,42,0.18)] px-4 py-2 text-sm font-medium text-[var(--accent-strong)] transition hover:bg-[rgba(33,72,59,0.08)]"
                 >
                   Open shooting splits

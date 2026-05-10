@@ -228,7 +228,7 @@ export default function WhatIfPanel({
                     Open replay evidence
                   </Link>
                 ) : null}
-                <Link href={scenario?.launch_links.compare_url ?? `/compare?mode=styles&team_a=${teamAbbreviation}&team_b=${teamAbbreviation}&season=${season}`} className="rounded-full border border-[var(--border-strong)] px-4 py-2 text-sm font-medium text-[var(--accent-strong)] transition hover:bg-[rgba(33,72,59,0.08)]">
+                <Link href={scenario?.launch_links.compare_url ?? `/beta/compare?mode=styles&team_a=${teamAbbreviation}&team_b=${teamAbbreviation}&season=${season}`} className="rounded-full border border-[var(--border-strong)] px-4 py-2 text-sm font-medium text-[var(--accent-strong)] transition hover:bg-[rgba(33,72,59,0.08)]">
                   Open style compare
                 </Link>
               </div>

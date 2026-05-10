@@ -99,7 +99,7 @@ function PlatformIcon({ name, size = 18 }: { name: string; size?: number }) {
 
 const platformAreas = [
   {
-    href: "/ask",
+    href: "/beta/ask",
     eyebrow: "CourtVue Ask",
     icon: "beaker",
     title: "Ask a basketball question",
@@ -123,7 +123,7 @@ const platformAreas = [
       "Advanced, external, and play-by-play-informed leaderboards across every key stat.",
   },
   {
-    href: "/metrics",
+    href: "/beta/metrics",
     eyebrow: "Metrics Workspace",
     icon: "sparkle",
     title: "Build your own metric",
@@ -131,7 +131,7 @@ const platformAreas = [
       "Load starter presets, share metric links, and rank the player pool through your own weighted model.",
   },
   {
-    href: "/teams",
+    href: "/beta/teams",
     eyebrow: "Team Context",
     icon: "shield",
     title: "Browse team intelligence",
@@ -139,7 +139,7 @@ const platformAreas = [
       "Team efficiency ratings, four factors, roster leaders, and rotation intelligence.",
   },
   {
-    href: "/coverage",
+    href: "/beta/coverage",
     eyebrow: "Operations",
     icon: "microscope",
     title: "Audit PBP sync coverage",
@@ -147,7 +147,7 @@ const platformAreas = [
       "See which teams and players are ready, partial, or missing play-by-play-derived data.",
   },
   {
-    href: "/compare",
+    href: "/beta/compare",
     eyebrow: "Compare",
     icon: "scales",
     title: "Stack careers side by side",
@@ -155,7 +155,7 @@ const platformAreas = [
       "Put two players in the same frame to compare production, efficiency, and arc.",
   },
   {
-    href: "/pre-read",
+    href: "/beta/pre-read",
     eyebrow: "Coach Workflow",
     icon: "clipboard",
     title: "Build a pre-read deck",

@@ -53,7 +53,7 @@ export function ShotQualityDeltaCard({ row }: Props) {
         </div>
       </div>
       <Link
-        href={`/players/${row.player_id}?tab=shots`}
+        href={`/beta/players/${row.player_id}?tab=shots`}
         className="mt-3 inline-block text-[11px] font-semibold text-[var(--accent-strong)] hover:underline"
       >
         Open Shot Lab →

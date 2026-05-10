@@ -174,19 +174,19 @@ export default function LineupComparisonView({
         </p>
         <div className="mt-4 flex flex-wrap gap-3">
           <Link
-            href={`/teams/${teamAAbbr}?tab=lineups`}
+            href={`/beta/teams/${teamAAbbr}?tab=lineups`}
             className="rounded-full border border-[var(--border-strong)] px-4 py-2 text-sm font-medium text-[var(--accent-strong)] transition hover:bg-[rgba(33,72,59,0.08)]"
           >
             Open {teamAAbbr} lineups
           </Link>
           <Link
-            href={`/teams/${teamBAbbr}?tab=lineups`}
+            href={`/beta/teams/${teamBAbbr}?tab=lineups`}
             className="rounded-full border border-[var(--border-strong)] px-4 py-2 text-sm font-medium text-[var(--accent-strong)] transition hover:bg-[rgba(33,72,59,0.08)]"
           >
             Open {teamBAbbr} lineups
           </Link>
           <Link
-            href={`/pre-read?team=${teamAAbbr}&opponent=${teamBAbbr}&season=${season}`}
+            href={`/beta/pre-read?team=${teamAAbbr}&opponent=${teamBAbbr}&season=${season}`}
             className="rounded-full border border-[var(--border-strong)] px-4 py-2 text-sm font-medium text-[var(--accent-strong)] transition hover:bg-[rgba(33,72,59,0.08)]"
           >
             Open pre-read

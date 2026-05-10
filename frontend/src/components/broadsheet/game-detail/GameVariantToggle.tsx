@@ -2,7 +2,7 @@
 
 /**
  * Sprint 77 (EB4): two-pill toggle that lets a user override the auto-picked
- * `/games/[gameId]` chrome variant (Broadsheet vs Scoreboard).
+ * `/beta/games/[gameId]` chrome variant (Broadsheet vs Scoreboard).
  *
  * Lives in the page header, ABOVE the chrome. Auto-picks live/halftime games
  * into Scoreboard; final / pre-game into Broadsheet. The user override is

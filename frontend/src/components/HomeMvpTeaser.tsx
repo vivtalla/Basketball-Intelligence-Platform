@@ -33,7 +33,7 @@ function CandidateCard({ candidate, rank }: { candidate: MvpCandidate; rank: num
 
   return (
     <Link
-      href="/mvp"
+      href="/beta/mvp"
       className="group bip-panel rounded-[1.85rem] p-5 hover:-translate-y-1 hover:border-[var(--accent)] hover:shadow-[0_24px_60px_rgba(33,72,59,0.16)] transition-all duration-220 block"
     >
       {/* Top row: name + avatar */}
@@ -232,7 +232,7 @@ export default function HomeMvpTeaser() {
           </h2>
         </div>
         <Link
-          href="/mvp"
+          href="/beta/mvp"
           className="bip-link shrink-0 flex items-center gap-1.5 text-sm font-medium"
         >
           Open workspace →

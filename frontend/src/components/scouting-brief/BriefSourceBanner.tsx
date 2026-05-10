@@ -34,7 +34,7 @@ const CARD_LABELS: Record<string, string> = {
  * carry `source=brief`, so it's safe to drop anywhere without a parent guard.
  *
  * Mirrors the Sprint-65 `source=opportunity` / `source=scouting` banner
- * pattern from `/compare` and `/pre-read`.
+ * pattern from `/beta/compare` and `/beta/pre-read`.
  */
 export function BriefSourceBanner({ anchor }: { anchor: "archetype" | "shot-lab" }) {
   const searchParams = useSearchParams();

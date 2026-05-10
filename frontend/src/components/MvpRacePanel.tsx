@@ -518,7 +518,7 @@ function CandidateCase({ candidate, asOfDate, season }: { candidate: MvpCandidat
             Basketball Value asks who has delivered the strongest season on the floor. Award Case asks how that season translates to an MVP ballot after eligibility, team framing, clutch, momentum, and signature moments.
           </MethodNote>
         </div>
-        <Link href={`/players/${candidate.player_id}`} className="rounded-lg border border-[var(--border)] px-3 py-2 text-sm font-medium text-[var(--accent)] hover:border-[var(--accent)]">
+        <Link href={`/beta/players/${candidate.player_id}`} className="rounded-lg border border-[var(--border)] px-3 py-2 text-sm font-medium text-[var(--accent)] hover:border-[var(--accent)]">
           Player profile
         </Link>
       </div>

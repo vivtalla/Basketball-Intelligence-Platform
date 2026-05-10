@@ -96,7 +96,7 @@ function usePrefersReducedMotion(): boolean {
 function SeriesSummaryCard({ series }: { series: PlayoffSeriesResponse }) {
   return (
     <Link
-      href={`/pre-read?series_id=${encodeURIComponent(series.series_id)}`}
+      href={`/beta/pre-read?series_id=${encodeURIComponent(series.series_id)}`}
       className="block bip-panel rounded-[1.4rem] px-5 py-4 hover:-translate-y-0.5 hover:border-[var(--accent)] transition-all"
     >
       <p className="bip-kicker mb-1.5 text-[var(--accent)]">

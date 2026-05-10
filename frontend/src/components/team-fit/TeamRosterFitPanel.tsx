@@ -230,14 +230,14 @@ function CandidateCard({ entry }: { entry: RosterFitPlayerEntry }) {
         <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-2">
             <Link
-              href={`/players/${entry.player_id}`}
+              href={`/beta/players/${entry.player_id}`}
               className="text-base font-semibold text-[var(--foreground)] hover:text-[var(--accent)]"
             >
               {entry.full_name}
             </Link>
             {entry.current_team_abbr && (
               <Link
-                href={`/teams/${entry.current_team_abbr}`}
+                href={`/beta/teams/${entry.current_team_abbr}`}
                 className="rounded-full border border-[var(--border)] bg-[var(--surface-alt)] px-2 py-0.5 text-[10px] font-bold uppercase tracking-[0.12em] text-[var(--muted-strong)]"
               >
                 {entry.current_team_abbr}

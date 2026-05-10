@@ -117,7 +117,7 @@ function PlayerHeaderRow({
           )}
           <div className="min-w-0 flex-1">
             <Link
-              href={`/players/${player.player_id}`}
+              href={`/beta/players/${player.player_id}`}
               className="text-sm font-semibold text-[var(--foreground)] transition-colors hover:text-[var(--accent)]"
             >
               {player.player_name}
@@ -163,7 +163,7 @@ function GameRow({
           </span>
         ) : (
           <Link
-            href={`/games/${line.game_id}`}
+            href={`/beta/games/${line.game_id}`}
             className="font-semibold text-[var(--accent)] transition-colors hover:underline"
             aria-label={`View full game detail for ${gameLabel}`}
           >

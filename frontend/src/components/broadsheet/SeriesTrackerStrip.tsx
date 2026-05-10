@@ -192,7 +192,7 @@ function WinBar({ series }: { series: PlayoffSeriesResponse }) {
       // Game scheduled or in progress (has game_id but no winner yet).
       label = `Game ${i + 1} — in progress / scheduled`;
     }
-    const href = game ? `/games/${encodeURIComponent(game.game_id)}` : null;
+    const href = game ? `/beta/games/${encodeURIComponent(game.game_id)}` : null;
     cells.push({ color, href, label });
   }
 
@@ -304,7 +304,7 @@ function TrackerCard({ entry }: { entry: TrackerSeries }) {
       >
         <span>{recordSummary(series)}</span>
         <Link
-          href={`/pre-read?series_id=${encodeURIComponent(series.series_id)}&team=${encodeURIComponent(top)}&opponent=${encodeURIComponent(bot)}`}
+          href={`/beta/pre-read?series_id=${encodeURIComponent(series.series_id)}&team=${encodeURIComponent(top)}&opponent=${encodeURIComponent(bot)}`}
           className="bip-link"
         >
           {nextGameLabel(series)} →

@@ -537,7 +537,7 @@ export default function ShotChart({
               season: selectedSeason,
               season_type: seasonType,
               active_view: chartView,
-              route_path: `/players/${playerId}`,
+              route_path: `/beta/players/${playerId}`,
               filters: {
                 start_date: filters.startDate,
                 end_date: filters.endDate,

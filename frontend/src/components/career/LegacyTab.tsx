@@ -216,7 +216,7 @@ export default function LegacyTab({ playerId, seasons, birthDate }: LegacyTabPro
             {era_peers.map((peer) => (
               <a
                 key={peer.player_id}
-                href={`/players/${peer.player_id}`}
+                href={`/beta/players/${peer.player_id}`}
                 className="group block rounded-[1.5rem] border border-[var(--border)] bg-[rgba(255,251,246,0.78)] p-4 transition-colors hover:bg-[rgba(255,251,246,1)]"
               >
                 <div className="flex items-center gap-3">

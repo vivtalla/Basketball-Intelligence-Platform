@@ -91,7 +91,7 @@ function CompCard({ comp }: { comp: SimilarPlayerCompWithArchetype }) {
 
   return (
     <Link
-      href={`/players/${comp.player_id}`}
+      href={`/beta/players/${comp.player_id}`}
       className="bip-panel group flex items-center gap-3 rounded-xl p-3 transition-all hover:border-[rgba(33,72,59,0.28)]"
     >
       <div className="relative h-10 w-10 shrink-0 overflow-hidden rounded-full bg-[var(--surface-alt)]">

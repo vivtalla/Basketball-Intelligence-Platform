@@ -137,7 +137,7 @@ function SeriesRail({
         </h2>
         {selectedSeriesId ? (
           <Link
-            href={`/playoff-series/${encodeURIComponent(selectedSeriesId)}`}
+            href={`/beta/playoff-series/${encodeURIComponent(selectedSeriesId)}`}
             className="mt-3 inline-flex items-center gap-1 text-xs font-semibold text-[var(--accent)] transition-colors hover:underline"
           >
             View per-game player stats →

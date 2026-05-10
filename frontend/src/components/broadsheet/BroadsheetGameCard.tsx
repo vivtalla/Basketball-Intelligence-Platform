@@ -132,7 +132,7 @@ export default function BroadsheetGameCard({ game }: BroadsheetGameCardProps) {
         }
       `}</style>
       <Link
-      href={`/games/${encodeURIComponent(game.game_id)}`}
+      href={`/beta/games/${encodeURIComponent(game.game_id)}`}
       className="block bip-panel rounded-2xl overflow-hidden hover:-translate-y-0.5 transition-transform focus:outline-none focus:ring-2 focus:ring-[var(--accent)]"
       style={{
         background: "rgba(255,249,241,0.6)",
