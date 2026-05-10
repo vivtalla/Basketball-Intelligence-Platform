@@ -380,7 +380,7 @@ function CandidateRow({
           </div>
           <div className="relative h-12 w-12 shrink-0 overflow-hidden rounded-full bg-[var(--surface-alt)]">
             {candidate.headshot_url ? (
-              <Image src={candidate.headshot_url} alt={candidate.player_name} fill className="object-cover object-top" unoptimized />
+              <Image src={candidate.headshot_url} alt={candidate.player_name} fill sizes="48px" className="object-cover object-top" />
             ) : (
               <div className="flex h-full w-full items-center justify-center text-xs font-bold text-[var(--muted)]">
                 {candidate.player_name.split(" ").map((name) => name[0]).join("").slice(0, 2)}
@@ -491,7 +491,7 @@ function CandidateCase({ candidate, asOfDate, season }: { candidate: MvpCandidat
       <div className="flex flex-col gap-4 sm:flex-row sm:items-start">
         <div className="relative h-20 w-20 shrink-0 overflow-hidden rounded-full bg-[var(--surface-alt)]">
           {candidate.headshot_url ? (
-            <Image src={candidate.headshot_url} alt={candidate.player_name} fill className="object-cover object-top" unoptimized />
+            <Image src={candidate.headshot_url} alt={candidate.player_name} fill sizes="80px" className="object-cover object-top" />
           ) : (
             <div className="flex h-full w-full items-center justify-center text-lg font-bold text-[var(--muted)]">
               {candidate.player_name.split(" ").map((name) => name[0]).join("").slice(0, 2)}

@@ -32,8 +32,8 @@ export default function FavoritesList() {
                   src={player.headshot_url}
                   alt={player.name}
                   fill
+                  sizes="36px"
                   className="object-cover object-top"
-                  unoptimized
                   onError={(e) => {
                     (e.target as HTMLImageElement).style.display = "none";
                   }}

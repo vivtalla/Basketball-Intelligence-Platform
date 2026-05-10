@@ -79,8 +79,8 @@ function CandidateCard({ candidate, rank }: { candidate: MvpCandidate; rank: num
               src={candidate.headshot_url}
               alt={candidate.player_name}
               fill
+              sizes="48px"
               className="object-cover object-top"
-              unoptimized
             />
           )}
         </div>
