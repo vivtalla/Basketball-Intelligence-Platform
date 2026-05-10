@@ -4525,26 +4525,6 @@ export interface PlayoffLeadersResponse {
   leaders: PlayoffLeaderEntry[];
 }
 
-// Mirrors the backend `PlayoffStoryTile` / `PlayoffStoryRailResponse`
-// schemas returned by `GET /api/playoffs/story-rail?season=...`. Each
-// tile is auto-generated from current playoff stats and links to an
-// internal route only — never an external URL.
-export interface PlayoffStoryTile {
-  kicker: string;
-  headline: string;
-  subhead?: string | null;
-  byline: string;
-  href: string;
-  read_time?: string | null;
-}
-
-export interface PlayoffStoryRailResponse {
-  season: string;
-  tiles: PlayoffStoryTile[];
-  data_as_of?: string | null;
-  computed_at?: string | null;
-}
-
 // ── Sprint 77 (Stream A) — Game-detail enrichment fields ────────────────────
 // Mirrors backend Pydantic schemas in `backend/models/game.py`. These are
 // optional on the existing `GameDetailResponse`; we extend that interface
@@ -5531,4 +5511,50 @@ export interface SublineupsResult {
   season: string;
   size: number;
   lineups: LineupLeaderboardEntry[];
+}
+
+// Sprint 96 — Last Night Pulse (replaces StoryRail on the playoffs surface)
+export interface LastNightHeroTile {
+  player_id: number;
+  player_name: string;
+  team_abbreviation: string;
+  game_id: string;
+  game_date: string | null;
+  matchup: string | null;
+  pts: number;
+  reb: number;
+  ast: number;
+  line: string;
+  game_score: number;
+  href: string;
+}
+
+export interface TonightHeadlinerTile {
+  series_id: string | null;
+  game_id: string | null;
+  home_team_abbr: string | null;
+  away_team_abbr: string | null;
+  matchup: string;
+  round: number | null;
+  seeds_label: string | null;
+  series_state: string | null;
+  tipoff_utc: string | null;
+  href: string;
+}
+
+export interface SeriesMomentumTile {
+  series_id: string;
+  matchup: string;
+  summary: string;
+  round: number | null;
+  href: string;
+}
+
+export interface LastNightPulseResponse {
+  season: string;
+  last_night_hero: LastNightHeroTile | null;
+  tonight_headliner: TonightHeadlinerTile | null;
+  series_momentum: SeriesMomentumTile | null;
+  data_as_of: string | null;
+  computed_at: string | null;
 }

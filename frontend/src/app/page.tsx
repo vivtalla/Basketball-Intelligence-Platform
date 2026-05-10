@@ -20,7 +20,7 @@ import TodaysSlate from "@/components/broadsheet/TodaysSlate";
 import BracketStrip from "@/components/broadsheet/BracketStrip";
 import SeriesTrackerStrip from "@/components/broadsheet/SeriesTrackerStrip";
 import NarrativeLeaders from "@/components/broadsheet/NarrativeLeaders";
-import StoryRail from "@/components/broadsheet/StoryRail";
+import LastNightPulse from "@/components/broadsheet/LastNightPulse";
 import { useViewMode } from "@/hooks/useViewMode";
 import Link from "next/link";
 
@@ -201,7 +201,7 @@ function PlayoffHome() {
       <Reveal>
         <div className="grid grid-cols-1 lg:grid-cols-[2fr_1fr] gap-6">
           <NarrativeLeaders />
-          <StoryRail />
+          <LastNightPulse />
         </div>
       </Reveal>
     </div>

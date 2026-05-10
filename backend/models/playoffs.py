@@ -270,29 +270,6 @@ class PlayoffLeadersResponse(BaseModel):
     leaders: List[PlayoffLeaderEntry] = Field(default_factory=list)
 
 
-class PlayoffStoryTile(BaseModel):
-    """One tile in the broadsheet Story Rail.
-
-    Auto-generated from platform stats — `headline` and `subhead` are derived
-    from current playoff data, `href` deep-links to an internal route
-    (typically /players/{id}). Byline is always "CourtVue Numbers Desk" to
-    make it explicit these tiles are computed, not editorial.
-    """
-    kicker: str          # e.g. "Heat Check", "Efficiency Desk", "X-Factor"
-    headline: str        # the data-driven hook in serif prose
-    subhead: Optional[str] = None  # supporting one-liner
-    byline: str = "CourtVue Numbers Desk"
-    href: str            # internal route only — never an external URL
-    read_time: Optional[str] = None  # short fixture, e.g. "Updated tonight"
-
-
-class PlayoffStoryRailResponse(BaseModel):
-    season: str
-    tiles: List[PlayoffStoryTile] = Field(default_factory=list)
-    data_as_of: Optional[_date] = None
-    computed_at: Optional[datetime] = None
-
-
 # ---------------------------------------------------------------------------
 # Sprint 85 — Per-series detail page (per-team, per-game player stat lines)
 # ---------------------------------------------------------------------------

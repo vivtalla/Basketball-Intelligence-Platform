@@ -88,6 +88,7 @@ import type {
   MvpVoterRoomResponse,
   LineupLeaderboardResult,
   SublineupsResult,
+  LastNightPulseResponse,
 } from "@/lib/types";
 import {
   getPlayerProfile,
@@ -183,6 +184,7 @@ import {
   getPlayerHustle,
   getLineupLeaderboard,
   getSublineups,
+  getLastNightPulse,
 } from "@/lib/api";
 
 const DEFAULT_SHOT_LAB_FILTERS: ShotLabFilters = {
@@ -1435,5 +1437,14 @@ export function useSublineups(
       ? `sublineups-${season}-${teamId}-${size}-${seasonType}-${minPossessions}`
       : null,
     () => getSublineups(season!, teamId!, size, seasonType, minPossessions)
+  );
+}
+
+// Sprint 96 — Last Night Pulse (5-min refresh — tracks post-game cron cadence)
+export function useLastNightPulse(season: string | null) {
+  return useSWR<LastNightPulseResponse>(
+    season ? `last-night-pulse-${season}` : null,
+    () => getLastNightPulse(season!),
+    { refreshInterval: 5 * 60_000, revalidateOnFocus: true }
   );
 }

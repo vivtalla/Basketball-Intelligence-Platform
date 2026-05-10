@@ -37,7 +37,6 @@ from models.playoffs import (
     PlayoffSeriesGameWithMatchup,
     PlayoffSeriesPlayerLogsResponse,
     PlayoffSeriesResponse,
-    PlayoffStoryRailResponse,
     PlayoffTodayResponse,
     SeriesSimulationResponse,
 )
@@ -47,7 +46,6 @@ from services.playoff_leaders_service import compute_playoff_leaders
 from services.playoff_series_intelligence_service import build_playoff_series_intelligence
 from services.playoff_series_player_logs_service import build_series_player_logs
 from services.playoff_simulator_service import simulate_series
-from services.story_rail_service import compute_data_as_of, compute_story_rail
 
 logger = logging.getLogger(__name__)
 
@@ -996,26 +994,6 @@ def get_playoff_leaders(
     return PlayoffLeadersResponse(
         season=season,
         leaders=compute_playoff_leaders(db, season, limit),
-    )
-
-
-@router.get("/story-rail", response_model=PlayoffStoryRailResponse)
-def get_story_rail(
-    season: str = Query(..., description="Season string, e.g. '2025-26'."),
-    db: Session = Depends(get_db),
-) -> PlayoffStoryRailResponse:
-    """Return up to 3 auto-generated story tiles for the broadsheet rail.
-
-    Tiles are computed from current playoff data (heat checks, efficiency
-    leaders, x-factor contributors) and link to internal player routes.
-    No editorial copy or external content — every tile is data-driven and
-    refreshes whenever the underlying stats refresh.
-    """
-    return PlayoffStoryRailResponse(
-        season=season,
-        tiles=compute_story_rail(db, season),
-        data_as_of=compute_data_as_of(db, season),
-        computed_at=datetime.utcnow(),
     )
 
 
