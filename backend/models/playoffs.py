@@ -349,3 +349,63 @@ class PlayoffSeriesPlayerLogsResponse(BaseModel):
     series_id: str
     top_seed: List[SeriesPlayerLogs] = Field(default_factory=list)
     bottom_seed: List[SeriesPlayerLogs] = Field(default_factory=list)
+
+
+# ---------------------------------------------------------------------------
+# Sprint 96 — Last Night Pulse (replaces Story Rail on the playoffs surface).
+#
+# Three tiles driven by raw game data (PlayerGameLog rows from the last ~36h
+# and PlayoffSeries.updated_at), so freshness tracks the post-game sync
+# directly without waiting on SeasonStat aggregation.
+# ---------------------------------------------------------------------------
+
+
+class LastNightHeroTile(BaseModel):
+    """Top playoff stat line from games in the last ~36h, ranked by Game Score."""
+
+    player_id: int
+    player_name: str
+    team_abbreviation: str
+    game_id: str
+    game_date: Optional[_date] = None
+    matchup: Optional[str] = None
+    pts: int = 0
+    reb: int = 0
+    ast: int = 0
+    line: str
+    game_score: float
+    href: str
+
+
+class TonightHeadlinerTile(BaseModel):
+    """Tonight's biggest playoff matchup (lowest combined seed sum)."""
+
+    series_id: Optional[str] = None
+    game_id: Optional[str] = None
+    home_team_abbr: Optional[str] = None
+    away_team_abbr: Optional[str] = None
+    matchup: str
+    round: Optional[int] = None
+    seeds_label: Optional[str] = None
+    series_state: Optional[str] = None
+    tipoff_utc: Optional[str] = None
+    href: str
+
+
+class SeriesMomentumTile(BaseModel):
+    """Most recent series whose state changed in the last ~36h."""
+
+    series_id: str
+    matchup: str
+    summary: str
+    round: Optional[int] = None
+    href: str
+
+
+class LastNightPulseResponse(BaseModel):
+    season: str
+    last_night_hero: Optional[LastNightHeroTile] = None
+    tonight_headliner: Optional[TonightHeadlinerTile] = None
+    series_momentum: Optional[SeriesMomentumTile] = None
+    data_as_of: Optional[datetime] = None
+    computed_at: Optional[datetime] = None
