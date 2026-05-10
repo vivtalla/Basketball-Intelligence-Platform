@@ -72,33 +72,18 @@ function pickTrackedSeries(
     ...(bracket.finals ? [bracket.finals] : []),
   ];
 
-  // Sprint 96 — Round-aware ordering. The "live round" is the highest round
-  // number that has at least one started series (active or closed). Series
-  // in the live round always outrank earlier rounds, so a fresh R2 G1 takes
-  // priority over an R1 G7 even though R1 has more combined wins. When the
-  // live round has fewer than 4 series, we backfill from the next-most-
-  // recent round with the same internal sort.
-  const startedRounds = all
-    .filter((s) => s.status !== "scheduled")
-    .map((s) => s.round);
-  const liveRound = startedRounds.length > 0 ? Math.max(...startedRounds) : 0;
+  // Sprint 96 — only show ACTIVE (live, undecided) series. Closed series
+  // mean a team is already eliminated; scheduled means the round hasn't
+  // tipped off. Both pollute the "where the math sits" view, so we drop
+  // them entirely. If the platform is between rounds and no series is
+  // active, the tracker renders its empty state instead of backfilling
+  // with stale outcomes.
+  const active = all.filter((s) => s.status === "active");
 
-  const statusOrder: Record<PlayoffSeriesResponse["status"], number> = {
-    active: 0,
-    closed: 1,
-    scheduled: 2,
-  };
-  const sorted = [...all].sort((a, b) => {
-    // Live-round series first.
-    const aLive = a.round === liveRound ? 0 : 1;
-    const bLive = b.round === liveRound ? 0 : 1;
-    if (aLive !== bLive) return aLive - bLive;
-    // Active before closed before scheduled.
-    const byStatus = statusOrder[a.status] - statusOrder[b.status];
-    if (byStatus !== 0) return byStatus;
-    // Within the same status, prefer the most recent round (descending).
+  // Within the active set: most recent round first (so R2 G1 outranks
+  // R1 G7 the moment it tips), then narrative weight (combined wins).
+  const sorted = [...active].sort((a, b) => {
     if (a.round !== b.round) return b.round - a.round;
-    // Then prefer the most narrative-weighty (highest combined wins).
     const aPlayed = a.top_wins + a.bottom_wins;
     const bPlayed = b.top_wins + b.bottom_wins;
     return bPlayed - aPlayed;
