@@ -411,6 +411,15 @@ def _series_to_response(
         and g.winner_team_id == series.bottom_seed_team_id
     )
 
+    # Sprint 96 — derive status from observed games. Round-(N+1) rows are
+    # often inserted with status="scheduled" by the bracket builder before
+    # the auto-advance flip fires. If the series already has games played
+    # (winners present in GameLog) and isn't closed, it's effectively
+    # "active" and should render that way regardless of the stored value.
+    fresh_status = series.status
+    if fresh_status == "scheduled" and (fresh_top_wins > 0 or fresh_bottom_wins > 0):
+        fresh_status = "active"
+
     return PlayoffSeriesResponse(
         season=series.season,
         round=series.round,
@@ -423,7 +432,7 @@ def _series_to_response(
         bottom_seed=series.bottom_seed,
         top_wins=fresh_top_wins,
         bottom_wins=fresh_bottom_wins,
-        status=series.status,
+        status=fresh_status,
         winner_team_id=series.winner_team_id,
         games=games,
         # Sprint 85 — bracket auto-advancement parent pointers.
@@ -953,6 +962,15 @@ def get_today(
             bucket = series_completed_wins.get(g.series_id, {})
             g.top_wins = bucket.get(seeds["top"], 0) if seeds["top"] is not None else 0
             g.bottom_wins = bucket.get(seeds["bottom"], 0) if seeds["bottom"] is not None else 0
+            # Sprint 96 — derive status from observed wins. Round-(N+1)
+            # series rows often persist as "scheduled" even after Game 1 is
+            # played because the bracket builder inserts them that way and
+            # the flip-to-active step lives in `_maybe_advance_clinched_series`,
+            # which only fires when a *parent* clinches. Surface "active"
+            # here when the games list has progress so the home page sees
+            # the truth.
+            if g.status == "scheduled" and (g.top_wins > 0 or g.bottom_wins > 0):
+                g.status = "active"
 
     games.sort(key=lambda g: (g.tipoff_utc or "9999", g.game_id))
 
