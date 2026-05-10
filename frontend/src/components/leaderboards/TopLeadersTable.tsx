@@ -195,7 +195,7 @@ export default function TopLeadersTable({ season, seasonType }: TopLeadersTableP
                   </td>
                   <td className="px-2 py-2.5">
                     <Link
-                      href={`/players/${entry.player_id}`}
+                      href={`/beta/players/${entry.player_id}`}
                       className="font-semibold text-[var(--foreground)] hover:text-[var(--accent)] transition-colors"
                       style={{
                         fontFamily: "var(--font-display)",

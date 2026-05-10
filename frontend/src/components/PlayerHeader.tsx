@@ -198,8 +198,8 @@ export default function PlayerHeader({
               }
               alt={profile.full_name}
               fill
+              sizes="160px"
               className="object-cover"
-              unoptimized
             />
           </div>
         </div>

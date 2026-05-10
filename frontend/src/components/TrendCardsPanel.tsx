@@ -350,7 +350,7 @@ export default function TrendCardsPanel({
                 <div className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[var(--muted)]">
                   Pinned player
                 </div>
-                <Link href={`/players/${pinned.row.player_id}`} className="mt-1 block text-2xl font-semibold text-[var(--foreground)] hover:underline">
+                <Link href={`/beta/players/${pinned.row.player_id}`} className="mt-1 block text-2xl font-semibold text-[var(--foreground)] hover:underline">
                   {pinned.row.player_name}
                 </Link>
                 <div className="mt-2 flex items-center justify-between gap-3">
@@ -381,10 +381,10 @@ export default function TrendCardsPanel({
                   ))}
                 </div>
                 <div className="mt-5 flex flex-wrap gap-2">
-                  <Link href={`/insights?tab=trajectory&team=${teamAbbreviation}&season=${season}&player_id=${pinned.row.player_id}`} className="rounded-full border border-[var(--border-strong)] px-3 py-1 text-xs font-medium text-[var(--accent-strong)]">
+                  <Link href={`/beta/insights?tab=trajectory&team=${teamAbbreviation}&season=${season}&player_id=${pinned.row.player_id}`} className="rounded-full border border-[var(--border-strong)] px-3 py-1 text-xs font-medium text-[var(--accent-strong)]">
                     Trajectory
                   </Link>
-                  <Link href={`/insights?tab=usage&team=${teamAbbreviation}&season=${season}&player_id=${pinned.row.player_id}&signal=${pinned.row.primary_signal}`} className="rounded-full border border-[var(--border-strong)] px-3 py-1 text-xs font-medium text-[var(--accent-strong)]">
+                  <Link href={`/beta/insights?tab=usage&team=${teamAbbreviation}&season=${season}&player_id=${pinned.row.player_id}&signal=${pinned.row.primary_signal}`} className="rounded-full border border-[var(--border-strong)] px-3 py-1 text-xs font-medium text-[var(--accent-strong)]">
                     Opportunity
                   </Link>
                   <button type="button" onClick={() => onPlayerPin(null)} className="rounded-full border border-[var(--border)] px-3 py-1 text-xs text-[var(--muted-strong)]">

@@ -20,7 +20,7 @@ import TodaysSlate from "@/components/broadsheet/TodaysSlate";
 import BracketStrip from "@/components/broadsheet/BracketStrip";
 import SeriesTrackerStrip from "@/components/broadsheet/SeriesTrackerStrip";
 import NarrativeLeaders from "@/components/broadsheet/NarrativeLeaders";
-import StoryRail from "@/components/broadsheet/StoryRail";
+import LastNightPulse from "@/components/broadsheet/LastNightPulse";
 import { useViewMode } from "@/hooks/useViewMode";
 import Link from "next/link";
 
@@ -99,7 +99,7 @@ function PlatformIcon({ name, size = 18 }: { name: string; size?: number }) {
 
 const platformAreas = [
   {
-    href: "/ask",
+    href: "/beta/ask",
     eyebrow: "CourtVue Ask",
     icon: "beaker",
     title: "Ask a basketball question",
@@ -123,7 +123,7 @@ const platformAreas = [
       "Advanced, external, and play-by-play-informed leaderboards across every key stat.",
   },
   {
-    href: "/metrics",
+    href: "/beta/metrics",
     eyebrow: "Metrics Workspace",
     icon: "sparkle",
     title: "Build your own metric",
@@ -131,7 +131,7 @@ const platformAreas = [
       "Load starter presets, share metric links, and rank the player pool through your own weighted model.",
   },
   {
-    href: "/teams",
+    href: "/beta/teams",
     eyebrow: "Team Context",
     icon: "shield",
     title: "Browse team intelligence",
@@ -139,7 +139,7 @@ const platformAreas = [
       "Team efficiency ratings, four factors, roster leaders, and rotation intelligence.",
   },
   {
-    href: "/coverage",
+    href: "/beta/coverage",
     eyebrow: "Operations",
     icon: "microscope",
     title: "Audit PBP sync coverage",
@@ -147,7 +147,7 @@ const platformAreas = [
       "See which teams and players are ready, partial, or missing play-by-play-derived data.",
   },
   {
-    href: "/compare",
+    href: "/beta/compare",
     eyebrow: "Compare",
     icon: "scales",
     title: "Stack careers side by side",
@@ -155,7 +155,7 @@ const platformAreas = [
       "Put two players in the same frame to compare production, efficiency, and arc.",
   },
   {
-    href: "/pre-read",
+    href: "/beta/pre-read",
     eyebrow: "Coach Workflow",
     icon: "clipboard",
     title: "Build a pre-read deck",
@@ -201,7 +201,7 @@ function PlayoffHome() {
       <Reveal>
         <div className="grid grid-cols-1 lg:grid-cols-[2fr_1fr] gap-6">
           <NarrativeLeaders />
-          <StoryRail />
+          <LastNightPulse />
         </div>
       </Reveal>
     </div>

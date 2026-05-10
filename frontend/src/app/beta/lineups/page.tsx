@@ -1,14 +1,20 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import dynamic from "next/dynamic";
 import { useLineupLeaderboard } from "@/hooks/usePlayerStats";
 import { getAvailableSeasons, getTeams, postLineupBuilder } from "@/lib/api";
 import type { TeamSummary, LineupBuilderResult } from "@/lib/types";
 import LineupLeaderboardTable from "@/components/lineups/LineupLeaderboardTable";
-import LineupScatterPanel from "@/components/lineups/LineupScatterPanel";
 import LineupBuilderPanel from "@/components/lineups/LineupBuilderPanel";
 import LineupBuilderResults from "@/components/lineups/LineupBuilderResults";
 import LineupMethodologyDrawer from "@/components/lineups/LineupMethodologyDrawer";
+
+// Sprint 96: Recharts chunk is ~200KB gzipped — defer loading to render.
+const LineupScatterPanel = dynamic(
+  () => import("@/components/lineups/LineupScatterPanel"),
+  { ssr: false, loading: () => null }
+);
 
 type Tab = "leaderboard" | "builder";
 type SortKey = "net_rating" | "ortg" | "drtg" | "plus_minus" | "possessions" | "minutes" | "shrunk_net_rating" | "net_vs_baseline";

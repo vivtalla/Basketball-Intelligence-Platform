@@ -53,7 +53,7 @@ function buildGameExplorerHref(shot: ShotChartShot, season: string, index: numbe
     params.set("action_number", String(shot.action_number));
     params.set("focus_action_number", String(shot.action_number));
   }
-  return `/games/${shot.game_id}?${params.toString()}`;
+  return `/beta/games/${shot.game_id}?${params.toString()}`;
 }
 
 function linkageLabel(mode: string | null | undefined): string {

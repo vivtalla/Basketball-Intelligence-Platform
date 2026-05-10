@@ -85,7 +85,7 @@ function LineupMiniCard({
 function LeaderRow({ leader, rank }: { leader: TeamImpactLeader; rank: number }) {
   return (
     <Link
-      href={`/players/${leader.player_id}`}
+      href={`/beta/players/${leader.player_id}`}
       className="bip-panel flex items-center justify-between gap-4 rounded-3xl p-4 transition-colors hover:border-[rgba(33,72,59,0.28)] hover:bg-[rgba(216,228,221,0.24)]"
     >
       <div className="min-w-0">
@@ -466,7 +466,7 @@ export default function TeamIntelligencePanel({
               intelligence.recent_games.map((game) => (
                 <Link
                   key={game.game_id}
-                  href={`/games/${game.game_id}`}
+                  href={`/beta/games/${game.game_id}`}
                   className="bip-panel flex items-center justify-between gap-4 rounded-3xl p-4 transition-colors hover:border-[rgba(33,72,59,0.28)] hover:bg-[rgba(216,228,221,0.24)]"
                 >
                   <div>

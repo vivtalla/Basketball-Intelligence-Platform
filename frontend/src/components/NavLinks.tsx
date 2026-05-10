@@ -46,17 +46,16 @@ export default function NavLinks() {
       <Link href="/playoffs" className="text-sm font-medium text-[var(--accent)] whitespace-nowrap bip-link">
         Playoffs
       </Link>
+      {isPlayoffs && (
+        <Link href="/bracket" className="text-xs text-[var(--muted)] whitespace-nowrap bip-link">
+          Bracket
+        </Link>
+      )}
       <Link href="/player-stats" className="text-xs text-[var(--muted)] whitespace-nowrap bip-link">
         Player Stats
       </Link>
       <Link href="/standings" className="text-xs text-[var(--muted)] whitespace-nowrap bip-link">
         Standings
-      </Link>
-      <Link href="/compare" className="text-xs text-[var(--muted)] whitespace-nowrap bip-link">
-        Compare
-      </Link>
-      <Link href="/learn" className="text-xs text-[var(--muted)] whitespace-nowrap bip-link">
-        Learn
       </Link>
 
       <div ref={moreRef} className="relative">
@@ -67,7 +66,7 @@ export default function NavLinks() {
           onClick={() => setMoreOpen((o) => !o)}
           className="text-xs text-[var(--muted)] whitespace-nowrap bip-link inline-flex items-center gap-1"
         >
-          More
+          Beta
           <svg width="10" height="10" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
             <polyline points="3 4.5 6 8 9 4.5" />
           </svg>
@@ -75,52 +74,53 @@ export default function NavLinks() {
         {moreOpen && (
           <div
             role="menu"
-            aria-label="More navigation"
+            aria-label="Beta navigation — pages being reworked"
             className="absolute right-0 top-full mt-2 w-48 max-h-[70vh] overflow-y-auto rounded-xl border border-[var(--border)] bg-[var(--surface)] shadow-lg p-1.5 z-50"
           >
-            <Link href="/ask" onClick={closeMore} className={moreItemClass}>
+            <Link href="/beta/ask" onClick={closeMore} className={moreItemClass}>
               Ask
             </Link>
-            <Link href="/mvp" onClick={closeMore} className={moreItemClass}>
-              MVP Race
+            <Link href="/beta/compare" onClick={closeMore} className={moreItemClass}>
+              Compare
             </Link>
-            <Link href="/lineups" onClick={closeMore} className={moreItemClass}>
-              Lineup Lab
-            </Link>
-            <Link href="/insights" onClick={closeMore} className={moreItemClass}>
-              Insights
-            </Link>
-            <Link href="/metrics" onClick={closeMore} className={moreItemClass}>
-              Metrics
-            </Link>
-            <Link href="/pre-read" onClick={closeMore} className={moreItemClass}>
-              Pre-Read
-            </Link>
-            <Link href="/teams" onClick={closeMore} className={moreItemClass}>
-              Teams
-            </Link>
-            <Link href="/trade-machine" onClick={closeMore} className={moreItemClass}>
-              Trade Machine
-            </Link>
-            <Link href="/free-agency" onClick={closeMore} className={moreItemClass}>
-              Free Agency
-            </Link>
-            <Link href="/draft" onClick={closeMore} className={moreItemClass}>
-              Draft
-            </Link>
-            {isPlayoffs && (
-              <Link href="/bracket" onClick={closeMore} className={moreItemClass}>
-                Bracket
-              </Link>
-            )}
-            <Link href="/picks" onClick={closeMore} className={moreItemClass}>
-              Picks
-            </Link>
-            <Link href="/coverage" onClick={closeMore} className={moreItemClass}>
+            <Link href="/beta/coverage" onClick={closeMore} className={moreItemClass}>
               Coverage
             </Link>
-            <Link href="/milestones" onClick={closeMore} className={moreItemClass}>
+            <Link href="/beta/draft" onClick={closeMore} className={moreItemClass}>
+              Draft
+            </Link>
+            <Link href="/beta/free-agency" onClick={closeMore} className={moreItemClass}>
+              Free Agency
+            </Link>
+            <Link href="/beta/insights" onClick={closeMore} className={moreItemClass}>
+              Insights
+            </Link>
+            <Link href="/beta/learn" onClick={closeMore} className={moreItemClass}>
+              Learn
+            </Link>
+            <Link href="/beta/lineups" onClick={closeMore} className={moreItemClass}>
+              Lineup Lab
+            </Link>
+            <Link href="/beta/metrics" onClick={closeMore} className={moreItemClass}>
+              Metrics
+            </Link>
+            <Link href="/beta/milestones" onClick={closeMore} className={moreItemClass}>
               Milestones
+            </Link>
+            <Link href="/beta/mvp" onClick={closeMore} className={moreItemClass}>
+              MVP Race
+            </Link>
+            <Link href="/beta/picks" onClick={closeMore} className={moreItemClass}>
+              Picks
+            </Link>
+            <Link href="/beta/pre-read" onClick={closeMore} className={moreItemClass}>
+              Pre-Read
+            </Link>
+            <Link href="/beta/teams" onClick={closeMore} className={moreItemClass}>
+              Teams
+            </Link>
+            <Link href="/beta/trade-machine" onClick={closeMore} className={moreItemClass}>
+              Trade Machine
             </Link>
           </div>
         )}

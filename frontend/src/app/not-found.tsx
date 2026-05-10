@@ -25,7 +25,7 @@ export default function NotFound() {
             Player stats
           </Link>
           <Link
-            href="/teams"
+            href="/beta/teams"
             className="bip-toggle rounded-full px-5 py-2 text-sm font-semibold uppercase tracking-[0.12em]"
           >
             Teams

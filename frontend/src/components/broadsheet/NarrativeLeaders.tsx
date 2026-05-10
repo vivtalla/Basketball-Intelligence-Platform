@@ -130,7 +130,7 @@ function ImpactPill({ score }: { score: number }) {
 function LeaderRow({ entry }: { entry: PlayoffLeaderEntry }) {
   return (
     <Link
-      href={`/players/${entry.player_id}`}
+      href={`/beta/players/${entry.player_id}`}
       className="flex items-center gap-3 px-4 py-3 hover:bg-[rgba(33,72,59,0.06)] transition-colors"
     >
       {rankBadge(entry.rank)}
@@ -297,7 +297,7 @@ export default function NarrativeLeaders() {
           </h3>
         </div>
         <Link
-          href="/leaderboards?seasonType=Playoffs"
+          href="/beta/leaderboards?seasonType=Playoffs"
           className="text-xs bip-link shrink-0 font-medium"
         >
           All leaders →

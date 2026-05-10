@@ -71,6 +71,14 @@ function recordLine(
   game: PlayoffSeriesGameWithMatchup
 ): string | null {
   if (!abbr) return null;
+  // Sprint 96: don't render a misleading "Series 0-0" when the game's
+  // PlayoffSeries record hasn't been populated yet (e.g. a Round 2 game in
+  // GameLog before bracket auto-advance creates the parent series row).
+  // Without this guard both teams previously read "Series 0-0" even when
+  // the series was clearly mid-progression.
+  if (!game.series_id || (game.top_wins == null && game.bottom_wins == null)) {
+    return null;
+  }
   const top = game.top_wins ?? 0;
   const bot = game.bottom_wins ?? 0;
   if (isTopSeed) return `Series ${top}-${bot}`;
@@ -132,7 +140,7 @@ export default function BroadsheetGameCard({ game }: BroadsheetGameCardProps) {
         }
       `}</style>
       <Link
-      href={`/games/${encodeURIComponent(game.game_id)}`}
+      href={`/beta/games/${encodeURIComponent(game.game_id)}`}
       className="block bip-panel rounded-2xl overflow-hidden hover:-translate-y-0.5 transition-transform focus:outline-none focus:ring-2 focus:ring-[var(--accent)]"
       style={{
         background: "rgba(255,249,241,0.6)",

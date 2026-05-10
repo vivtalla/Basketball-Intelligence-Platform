@@ -124,7 +124,7 @@ function LeaderColumn({ stat, label, seasonType, unit, isPercent }: LeaderColumn
             return (
               <Link
                 key={entry.player_id}
-                href={`/players/${entry.player_id}`}
+                href={`/beta/players/${entry.player_id}`}
                 className="flex items-center gap-3 px-4 py-3 hover:bg-[rgba(33,72,59,0.08)] group"
               >
                 <span className="text-xs text-[var(--muted)] w-4 shrink-0 tabular-nums text-right">
@@ -286,14 +286,14 @@ export default function HomeLeagueLeaders() {
           <p className="mt-3 text-sm text-[var(--muted-strong)]">
             The 2025-26 season tips off in October. Until then, explore{" "}
             <Link
-              href="/milestones"
+              href="/beta/milestones"
               className="text-[var(--accent)] hover:underline"
             >
               historical records
             </Link>{" "}
             or check the{" "}
             <Link
-              href="/draft"
+              href="/beta/draft"
               className="text-[var(--accent)] hover:underline"
             >
               incoming prospects

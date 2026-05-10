@@ -1161,7 +1161,7 @@ export async function getPlayerShotCoverage(
   filters?: import("./types").ShotLabFilters
 ): Promise<import("./types").ShotIntelligenceCoverage> {
   return fetchApi<import("./types").ShotIntelligenceCoverage>(
-    buildSituationalShotLabQuery(playerId, season, seasonType, filters, "/coverage")
+    buildSituationalShotLabQuery(playerId, season, seasonType, filters, "/beta/coverage")
   );
 }
 
@@ -1224,7 +1224,7 @@ export async function getTeamDefenseShotCoverage(
   filters?: import("./types").ShotLabFilters
 ): Promise<import("./types").ShotIntelligenceCoverage> {
   return fetchApi<import("./types").ShotIntelligenceCoverage>(
-    buildTeamDefenseShotLabQuery(teamId, season, seasonType, filters, "/coverage")
+    buildTeamDefenseShotLabQuery(teamId, season, seasonType, filters, "/beta/coverage")
   );
 }
 
@@ -1897,17 +1897,6 @@ export async function getPlayoffLeaders(
   );
 }
 
-// ── Story Rail — auto-generated story tiles for the broadsheet rail.
-// All tiles link to internal routes only.
-export async function getPlayoffStoryRail(
-  season: string
-): Promise<import("./types").PlayoffStoryRailResponse> {
-  const params = new URLSearchParams({ season });
-  return fetchApi<import("./types").PlayoffStoryRailResponse>(
-    `/api/playoffs/story-rail?${params.toString()}`
-  );
-}
-
 // ── Sprint 77 (Stream B / EB3) — Game-detail enrichment ──────────────────────
 // `getGameDetail` already returns the augmented `GameDetailResponse` (see
 // `lib/types.ts`) with `win_probability`, `lead_tracker`, `possession_diary`,
@@ -2243,4 +2232,13 @@ export async function getSublineups(
     min_possessions: String(minPossessions),
   });
   return fetchApi<import("./types").SublineupsResult>(`/api/lineups/sublineups?${params.toString()}`);
+}
+
+// Sprint 96 — Last Night Pulse
+export async function getLastNightPulse(
+  season: string
+): Promise<import("./types").LastNightPulseResponse> {
+  return fetchApi<import("./types").LastNightPulseResponse>(
+    `/api/playoffs/last-night-pulse?season=${encodeURIComponent(season)}`
+  );
 }

@@ -159,7 +159,7 @@ function AlternativeCard({ team, season }: { team: TeamFitAlternativeTeam; seaso
 
   return (
     <Link
-      href={`/teams/${team.team_abbreviation}?season=${encodeURIComponent(season)}`}
+      href={`/beta/teams/${team.team_abbreviation}?season=${encodeURIComponent(season)}`}
       className="group rounded-[1.25rem] border border-[var(--border)] bg-[rgba(255,255,255,0.68)] p-4 transition-all hover:border-[rgba(33,72,59,0.28)]"
     >
       <div className="flex items-start justify-between gap-3">

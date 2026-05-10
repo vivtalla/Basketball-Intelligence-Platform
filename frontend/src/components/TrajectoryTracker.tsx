@@ -69,7 +69,7 @@ function PlayerListRow({ row, isSelected, onSelect }: PlayerListRowProps) {
           <div className="flex items-center gap-2">
             <span className="text-[10px] font-bold text-[var(--muted)]">#{row.rank}</span>
             <Link
-              href={`/players/${row.player_id}`}
+              href={`/beta/players/${row.player_id}`}
               onClick={(e) => e.stopPropagation()}
               className="truncate text-sm font-semibold text-[var(--foreground)] hover:underline"
             >
@@ -127,7 +127,7 @@ function DetailPanel({ row, lastNGames }: DetailPanelProps) {
       <div className="flex items-start justify-between gap-3">
         <div>
           <Link
-            href={`/players/${row.player_id}`}
+            href={`/beta/players/${row.player_id}`}
             className="text-2xl font-bold text-[var(--foreground)] hover:underline"
           >
             {row.player_name}

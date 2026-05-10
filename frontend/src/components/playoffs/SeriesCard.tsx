@@ -190,7 +190,7 @@ export default function SeriesCard({ series }: SeriesCardProps) {
 
   return (
     <Link
-      href={`/pre-read?series_id=${encodeURIComponent(series.series_id)}`}
+      href={`/beta/pre-read?series_id=${encodeURIComponent(series.series_id)}`}
       className="bip-panel block rounded-2xl overflow-hidden transition-transform hover:-translate-y-0.5 focus:outline-none focus:ring-2 focus:ring-[var(--accent)]"
       style={{ borderLeft: `4px solid ${topColor}` }}
     >

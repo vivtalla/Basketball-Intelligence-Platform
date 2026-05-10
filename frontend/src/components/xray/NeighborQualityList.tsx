@@ -40,7 +40,7 @@ export function NeighborQualityList({ neighbors, season }: Props) {
             >
               <div className="flex min-w-0 flex-col">
                 <Link
-                  href={`/teams/${n.team_abbreviation}?season=${season}`}
+                  href={`/beta/teams/${n.team_abbreviation}?season=${season}`}
                   className="truncate text-sm font-semibold text-[var(--foreground)] hover:text-[var(--accent-strong)]"
                 >
                   {n.team_abbreviation} · {n.team_name}

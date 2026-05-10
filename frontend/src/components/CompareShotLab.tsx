@@ -327,7 +327,7 @@ export default function CompareShotLab({
             season,
             season_type: seasonType,
             active_view: view,
-            route_path: `/compare`,
+            route_path: `/beta/compare`,
             filters: {
               start_date: filters.startDate,
               end_date: filters.endDate,

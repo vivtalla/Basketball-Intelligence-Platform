@@ -53,7 +53,7 @@ export default function PlayerSearchBar() {
             results.slice(0, 8).map((player) => (
               <Link
                 key={player.id}
-                href={`/players/${player.id}`}
+                href={`/beta/players/${player.id}`}
                 className="flex items-center justify-between px-4 py-3 hover:bg-[rgba(33,72,59,0.08)]"
               >
                 <span className="font-medium text-[var(--foreground)]">{player.full_name}</span>

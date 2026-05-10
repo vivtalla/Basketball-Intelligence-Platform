@@ -152,7 +152,7 @@ export default function ScoutingReportView({
           season,
           claim_ids: packet?.selection.claim_ids ?? undefined,
           clip_anchor_ids: packet?.selection.clip_anchor_ids ?? undefined,
-          return_to: `/pre-read?team=${teamAbbreviation}&opponent=${opponentAbbreviation}&season=${season}&mode=scouting`,
+          return_to: `/beta/pre-read?team=${teamAbbreviation}&opponent=${opponentAbbreviation}&season=${season}&mode=scouting`,
         });
         setExportMessage(`Exported ${response.clip_count} clip anchors for ${response.export_title}.`);
       } catch {
@@ -225,7 +225,7 @@ export default function ScoutingReportView({
                   const anchors = anchorsForClaim(claim.claim_id, report.clip_anchors);
                   const conf = claim.inference_confidence ?? null;
                   const compareHref =
-                    `/compare?mode=teams&team_a=${encodeURIComponent(report.team_abbreviation)}` +
+                    `/beta/compare?mode=teams&team_a=${encodeURIComponent(report.team_abbreviation)}` +
                     `&team_b=${encodeURIComponent(report.opponent_abbreviation)}` +
                     `&season=${encodeURIComponent(report.season)}` +
                     `&source=scouting` +

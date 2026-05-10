@@ -214,7 +214,7 @@ export default function TeamLineupsPanel({ teamId, season }: TeamLineupsPanelPro
       {!isLoading && displayed.length > 0 && (
         <div className="border-t border-[var(--border)] px-6 py-3 text-xs text-[var(--muted)]">
           Net rating = (ORTG − DRTG) per 100 possessions · Requires play-by-play sync ·{" "}
-          <Link href="/learn" className="bip-link">
+          <Link href="/beta/learn" className="bip-link">
             Learn more
           </Link>
         </div>

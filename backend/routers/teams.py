@@ -1,8 +1,9 @@
 from __future__ import annotations
 
-from typing import List, Literal, Optional
+from typing import Dict, List, Literal, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 
@@ -48,23 +49,27 @@ router = APIRouter()
 @router.get("", response_model=List[TeamSummary])
 def list_teams(db: Session = Depends(get_db)):
     """List all teams in the database with their synced player counts."""
-    teams = db.query(Team).order_by(Team.name).all()
-    result = []
-    for team in teams:
-        count = (
-            db.query(Player)
-            .filter(Player.team_id == team.id, Player.is_active == True)  # noqa: E712
-            .count()
+    # Single grouped query — was 1 + 30 (one player-count COUNT per team)
+    # before Sprint 96. Outer-join + GROUP BY collapses it to 1 round trip.
+    rows = (
+        db.query(Team, func.count(Player.id).label("player_count"))
+        .outerjoin(
+            Player,
+            (Player.team_id == Team.id) & (Player.is_active == True),  # noqa: E712
         )
-        result.append(
-            TeamSummary(
-                team_id=team.id,
-                abbreviation=team.abbreviation,
-                name=team.name,
-                player_count=count,
-            )
+        .group_by(Team.id)
+        .order_by(Team.name)
+        .all()
+    )
+    return [
+        TeamSummary(
+            team_id=team.id,
+            abbreviation=team.abbreviation,
+            name=team.name,
+            player_count=int(count or 0),
         )
-    return result
+        for team, count in rows
+    ]
 
 
 @router.get("/{abbr}", response_model=TeamRosterResponse)
@@ -86,15 +91,31 @@ def team_roster(
         .all()
     )
 
+    # Sprint 96: collapse the per-player latest-SeasonStat lookup into a
+    # single batched query. Was 1 (player list) + N (one per player) — typical
+    # 16+ DB round trips for a 15-man roster. Now 1 + 1.
+    player_ids = [p.id for p in players]
+    latest_stat: Dict[int, SeasonStat] = {}
+    if player_ids:
+        all_stats = (
+            db.query(SeasonStat)
+            .filter(
+                SeasonStat.player_id.in_(player_ids),
+                SeasonStat.is_playoff == is_playoff,
+            )
+            .order_by(SeasonStat.player_id, SeasonStat.season.desc())
+            .all()
+        )
+        # Rows are sorted by (player_id, season DESC) so the first occurrence
+        # for each player is the latest.
+        for stat in all_stats:
+            if stat.player_id not in latest_stat:
+                latest_stat[stat.player_id] = stat
+
     roster = []
     synced_count = 0
     for player in players:
-        stat = (
-            db.query(SeasonStat)
-            .filter(SeasonStat.player_id == player.id, SeasonStat.is_playoff == is_playoff)
-            .order_by(SeasonStat.season.desc())
-            .first()
-        )
+        stat = latest_stat.get(player.id)
         roster.append(
             TeamRosterPlayer(
                 player_id=player.id,

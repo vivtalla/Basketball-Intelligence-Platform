@@ -16,7 +16,7 @@ export default function NavSearch() {
   function selectPlayer(id: number) {
     setQuery("");
     setIsExpanded(false);
-    router.push(`/players/${id}`);
+    router.push(`/beta/players/${id}`);
   }
 
   return (

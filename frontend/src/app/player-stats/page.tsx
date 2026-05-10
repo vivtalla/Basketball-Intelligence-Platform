@@ -5,15 +5,22 @@ import { useState, useEffect, useMemo, useId } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
+import dynamic from "next/dynamic";
 import {
   useLeaderboard,
   useEnhancedOnOffLeaderboard,
   useCareerLeaderboard,
 } from "@/hooks/usePlayerStats";
 import type { LeaderboardEntry, ImpactClassification, EnhancedLeaderboardEntry } from "@/lib/types";
-import ImpactScatterChart from "@/components/on-off/ImpactScatterChart";
 import { getAvailableSeasons, syncSeasonPbp, getLeaderboardTeams } from "@/lib/api";
 import { GravityMethodologyModal } from "@/components/GravityMethodologyModal";
+
+// Sprint 96: Recharts chunk is ~200KB gzipped — defer loading to render
+// (only mounts when the user toggles the on/off Quadrant View).
+const ImpactScatterChart = dynamic(
+  () => import("@/components/on-off/ImpactScatterChart"),
+  { ssr: false, loading: () => null }
+);
 
 // ─── Stat definitions ────────────────────────────────────────────────────────
 
@@ -1072,7 +1079,7 @@ function PlayerStatsPageContent() {
                         </span>
                       </td>
                       <td className={`${stickyPlayerClass} px-4 ${rowPaddingClass}`}>
-                        <Link href={`/players/${entry.player_id}`} className="flex items-center gap-3 group">
+                        <Link href={`/beta/players/${entry.player_id}`} className="flex items-center gap-3 group">
                           <div className="relative w-8 h-8 rounded-full overflow-hidden bg-gray-100 dark:bg-gray-700 shrink-0">
                             {entry.headshot_url ? (
                               <Image
@@ -1189,7 +1196,7 @@ function PlayerStatsPageContent() {
                 >
                   <td className="px-4 py-3 text-sm text-gray-400 dark:text-gray-500 font-mono">{idx + 1}</td>
                   <td className="px-4 py-3">
-                    <Link href={`/players/${entry.player_id}`} className="flex items-center gap-3 group">
+                    <Link href={`/beta/players/${entry.player_id}`} className="flex items-center gap-3 group">
                       <div className="relative w-8 h-8 rounded-full overflow-hidden bg-gray-100 dark:bg-gray-700 shrink-0">
                         {entry.headshot_url ? (
                           <Image
@@ -1371,7 +1378,7 @@ function PlayerStatsPageContent() {
                         <td className="px-4 py-3">
                           <div className="flex flex-col gap-0.5">
                             <Link
-                              href={`/players/${entry.player_id}`}
+                              href={`/beta/players/${entry.player_id}`}
                               className="font-medium text-gray-900 transition-colors hover:text-teal-700 dark:text-gray-100 dark:hover:text-teal-300"
                               onClick={(e) => e.stopPropagation()}
                             >
@@ -1441,7 +1448,7 @@ function PlayerStatsPageContent() {
                                 </div>
                               )}
                               <Link
-                                href={`/players/${entry.player_id}`}
+                                href={`/beta/players/${entry.player_id}`}
                                 className="ml-auto self-center text-teal-600 dark:text-teal-400 hover:underline font-semibold"
                                 onClick={(e) => e.stopPropagation()}
                               >

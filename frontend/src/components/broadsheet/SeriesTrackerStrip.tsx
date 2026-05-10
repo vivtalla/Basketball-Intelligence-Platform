@@ -72,16 +72,18 @@ function pickTrackedSeries(
     ...(bracket.finals ? [bracket.finals] : []),
   ];
 
-  // Sort: active first, then closed, then scheduled. Within each, prefer
-  // the highest combined wins (most narrative weight).
-  const order: Record<PlayoffSeriesResponse["status"], number> = {
-    active: 0,
-    closed: 1,
-    scheduled: 2,
-  };
-  const sorted = [...all].sort((a, b) => {
-    const byStatus = order[a.status] - order[b.status];
-    if (byStatus !== 0) return byStatus;
+  // Sprint 96 — only show ACTIVE (live, undecided) series. Closed series
+  // mean a team is already eliminated; scheduled means the round hasn't
+  // tipped off. Both pollute the "where the math sits" view, so we drop
+  // them entirely. If the platform is between rounds and no series is
+  // active, the tracker renders its empty state instead of backfilling
+  // with stale outcomes.
+  const active = all.filter((s) => s.status === "active");
+
+  // Within the active set: most recent round first (so R2 G1 outranks
+  // R1 G7 the moment it tips), then narrative weight (combined wins).
+  const sorted = [...active].sort((a, b) => {
+    if (a.round !== b.round) return b.round - a.round;
     const aPlayed = a.top_wins + a.bottom_wins;
     const bPlayed = b.top_wins + b.bottom_wins;
     return bPlayed - aPlayed;
@@ -175,7 +177,7 @@ function WinBar({ series }: { series: PlayoffSeriesResponse }) {
       // Game scheduled or in progress (has game_id but no winner yet).
       label = `Game ${i + 1} — in progress / scheduled`;
     }
-    const href = game ? `/games/${encodeURIComponent(game.game_id)}` : null;
+    const href = game ? `/beta/games/${encodeURIComponent(game.game_id)}` : null;
     cells.push({ color, href, label });
   }
 
@@ -287,7 +289,7 @@ function TrackerCard({ entry }: { entry: TrackerSeries }) {
       >
         <span>{recordSummary(series)}</span>
         <Link
-          href={`/pre-read?series_id=${encodeURIComponent(series.series_id)}&team=${encodeURIComponent(top)}&opponent=${encodeURIComponent(bot)}`}
+          href={`/beta/pre-read?series_id=${encodeURIComponent(series.series_id)}&team=${encodeURIComponent(top)}&opponent=${encodeURIComponent(bot)}`}
           className="bip-link"
         >
           {nextGameLabel(series)} →

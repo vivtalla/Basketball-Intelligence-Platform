@@ -17,7 +17,7 @@ import TodaysSlate from "@/components/broadsheet/TodaysSlate";
 import SeriesTrackerStrip from "@/components/broadsheet/SeriesTrackerStrip";
 import BracketStrip from "@/components/broadsheet/BracketStrip";
 import NarrativeLeaders from "@/components/broadsheet/NarrativeLeaders";
-import StoryRail from "@/components/broadsheet/StoryRail";
+import LastNightPulse from "@/components/broadsheet/LastNightPulse";
 import { Kicker, Pill, Hardwood, Reveal, Stat } from "@/components/brand";
 
 const ACTIVE_SEASON_FALLBACK = "2025-26";
@@ -68,7 +68,7 @@ export default function PlayoffsPage() {
       <Reveal>
         <div className="grid grid-cols-1 lg:grid-cols-[2fr_1fr] gap-6">
           <NarrativeLeaders />
-          <StoryRail />
+          <LastNightPulse />
         </div>
       </Reveal>
 

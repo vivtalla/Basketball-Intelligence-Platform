@@ -474,7 +474,7 @@ export default function PlayerTrendIntelligencePanel({
                   {report.recommended_games.map((game) => (
                     <Link
                       key={game.game_id}
-                      href={`/games/${game.game_id}`}
+                      href={`/beta/games/${game.game_id}`}
                       className={`block rounded-3xl p-4 transition-colors hover:border-[rgba(33,72,59,0.28)] hover:bg-[rgba(216,228,221,0.24)] ${game.is_starter ? "bip-accent-card" : "bip-panel"}`}
                     >
                       <div className="flex items-start justify-between gap-4">

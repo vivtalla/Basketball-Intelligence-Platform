@@ -52,7 +52,7 @@ function styleLabel(currentAnalytics?: TeamAnalytics | null, priorAnalytics?: Te
 
 function buildCompareHref(teamAbbreviation: string, season: string, opponent: string | null, prepItem?: TeamPrepQueueItem | null) {
   if (prepItem?.compare_url) return prepItem.compare_url;
-  if (!opponent) return `/compare?mode=teams&team_a=${teamAbbreviation}&team_b=${teamAbbreviation}&season=${season}`;
+  if (!opponent) return `/beta/compare?mode=teams&team_a=${teamAbbreviation}&team_b=${teamAbbreviation}&season=${season}`;
   const params = new URLSearchParams({
     mode: "teams",
     team_a: teamAbbreviation,
@@ -61,9 +61,9 @@ function buildCompareHref(teamAbbreviation: string, season: string, opponent: st
     source_type: "team-decision",
     source_id: `${teamAbbreviation}:${opponent}:${season}`,
     reason: prepItem?.first_adjustment_label ?? "decision follow-through",
-    return_to: `/teams/${teamAbbreviation}?tab=decision&season=${season}&opponent=${opponent}`,
+    return_to: `/beta/teams/${teamAbbreviation}?tab=decision&season=${season}&opponent=${opponent}`,
   });
-  return `/compare?${params.toString()}`;
+  return `/beta/compare?${params.toString()}`;
 }
 
 export default function TeamDecisionToolsPanel({
@@ -151,7 +151,7 @@ export default function TeamDecisionToolsPanel({
           ) : null}
           <div className="mt-4 flex flex-wrap gap-3">
             <Link
-              href={prepItem?.pre_read_url ?? `/pre-read?team=${teamAbbreviation}&opponent=${selectedOpponent ?? teamAbbreviation}&season=${season}`}
+              href={prepItem?.pre_read_url ?? `/beta/pre-read?team=${teamAbbreviation}&opponent=${selectedOpponent ?? teamAbbreviation}&season=${season}`}
               className="bip-btn-primary rounded-full px-4 py-2 text-sm font-medium"
             >
               Open pre-read

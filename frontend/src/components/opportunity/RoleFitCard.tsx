@@ -87,7 +87,7 @@ export function RoleFitCard({ row }: Props) {
         <div className="flex items-center gap-1.5">
           {row.compare_handoff && row.compare_handoff.positional_peers.length > 0 ? (
             <Link
-              href={`/compare?mode=players&p1=${row.compare_handoff.pinned_player_id}&p2=${row.compare_handoff.positional_peers[0]}&source=opportunity&cohort=${row.compare_handoff.cohort_bucket}&peers=${row.compare_handoff.positional_peers.join(",")}`}
+              href={`/beta/compare?mode=players&p1=${row.compare_handoff.pinned_player_id}&p2=${row.compare_handoff.positional_peers[0]}&source=opportunity&cohort=${row.compare_handoff.cohort_bucket}&peers=${row.compare_handoff.positional_peers.join(",")}`}
               className="rounded-full border border-[var(--border)] bg-[var(--surface)] px-3 py-1 text-[11px] font-medium text-[var(--muted-strong)] transition hover:border-[var(--accent-strong)] hover:text-[var(--accent-strong)]"
               title={`Compare vs top positional peer (${row.compare_handoff.positional_peers.length} available)`}
             >
@@ -95,7 +95,7 @@ export function RoleFitCard({ row }: Props) {
             </Link>
           ) : null}
           <Link
-            href={`/players/${row.player_id}?tab=shots`}
+            href={`/beta/players/${row.player_id}?tab=shots`}
             className="rounded-full border border-[var(--border)] bg-[var(--surface)] px-3 py-1 text-[11px] font-medium text-[var(--muted-strong)] transition hover:border-[var(--accent-strong)] hover:text-[var(--accent-strong)]"
           >
             Open Shot Lab →
