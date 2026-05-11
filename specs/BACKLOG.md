@@ -15,26 +15,37 @@ Guidelines:
 
 ---
 
-## Sprint 97 Candidates
+## Sprint 98 Candidates
 
-### Harden round-transition game ingest (Sprint 96 production incident)
+### Alerting on /api/health/sync-status (Sprint 97 follow-on)
 Why it matters:
-On 2026-05-10 production review, all four R2 series were "off by one" — their actual G1 (played 5/4 or 5/5) was missing from `game_logs`, so the bracket counted what NBA recorded as G2 as our G1, undercounting every R2 series by one win. PHI-NYK rendered as 0-3 when it was 0-4. Backfill confirmed NBA's CDN had every missing game — the gap was in our ingest, not at the upstream.
-
-Pattern observed:
-- R1 G7 BOS-PHI on 5/2 ingested correctly
-- R1 G7 DET-ORL + CLE-TOR on 5/3 ingested correctly
-- R2 G1s on 5/4 and 5/5 (4 games across 4 series) all missing
-- R2 G2s on 5/6 and 5/7 ingested correctly and (incorrectly) tagged as G1 by `_attach_series_id_to_unmatched_rows`
-
-Likely cause: when R1 closes on a weekend and R2 G1s start a day later, the post-game cron tick (`*/15 21-23,0-5 UTC`) and the 6am daily sync collide with bracket-builder timing. The post-game `sync_today_playoff_finals.py` only fetches games whose `game_date == today` from the scoreboard endpoint, so if a game finishes during a cron-window gap (or the bracket builder hasn't yet created the parent R2 series), the row never makes it into `game_logs`.
+Sprint 97 shipped the `/api/health/sync-status` endpoint that surfaces playoff backfill events (and implicitly, sync health). Without a consumer that polls it and pages on anomalies, the data drift that bit us on 2026-05-10 could still happen silently for hours/days before a human notices. The cron was failing for ~5 days before the issue was caught visually.
 
 Likely shape:
-- New sync step in `daily_sync.sh --post-game` that scans the last 5 days of NBA `scoreboardv2` and inserts any final game whose `game_id` isn't in `game_logs`. Idempotent.
-- OR: after `build_or_refresh_bracket`, walk every PlayoffSeries with `status="active"` and verify NBA reports the same win count; backfill via `boxscoresummaryv2` for any gap. ~3-4 hr.
-- Validation: a `pytest` regression that constructs a R1→R2 transition fixture, simulates the cron-window gap, and asserts the post-game path recovers without manual intervention.
+- UptimeRobot HTTP monitor on `https://api.courtvue.app/api/health/sync-status` with a keyword/JSON check that fails if `playoff_backfill_last_24h.count > 0` OR `ran_at` is older than 30 min during the playoff window. Email/SMS on incident.
+- OR: a small `scripts/check-sync-health.sh` polled from a separate uptime service.
+- ~1 hr to set up, mostly UI work in the monitoring tool.
 
-Manual backfill on 2026-05-10 documented in commit history (Sprint 96 hotfix series).
+### Investigate cron env-propagation root cause (Sprint 97 follow-on)
+Why it matters:
+Sprint 97's self-source fallback in `daily_sync.sh` is the safety net, but I never identified why `set -a && . /etc/bip/env && set +a` in the crontab failed to export vars to the subshell. Manual ssh runs of the exact same command worked. The likely culprits (cron parsing the `&&` chain across processes, `/bin/sh` vs `/bin/bash` ambiguity, PAM session env stripping) are still unverified. If the self-source ever needs to be removed, we should understand the underlying issue first.
+
+Likely shape:
+- Add `env > /tmp/cron-env-$$.txt` and `ls -la /etc/bip/env` to the top of `daily_sync.sh` for one playoff-window week. Capture state.
+- Compare cron-env to ssh-env. Identify the missing/different vars.
+- Fix at the cron/crontab level. Document the fix in `infra/README.md`.
+- ~2-3 hr including a real reproduction.
+
+### Collapse dual R2-series-creation paths (Sprint 97 follow-on)
+Why it matters:
+`_auto_advance_closed_series` creates placeholder R2 rows with positional IDs (`YYYY-CONF-R2-TOP|BOT`); the build-from-games loop creates team-pair IDs (`YYYY-CONF-R2-TEAM-TEAM`). They were intended to converge as seeds get filled in, but in practice they diverge when conference arms aren't seed-symmetric, creating duplicate rows. Sprint 97's sibling-fallback patch prevents the duplicates but the underlying design smell remains.
+
+Likely shape:
+- Pick one canonical scheme — recommend team-pair IDs derived from game data, which is what the production state has converged to.
+- Update `_compute_next_round_slot` to return team-pair IDs (requires the closed parent's winner team_id, which is available).
+- Drop the placeholder-slot logic + sibling-fallback patch.
+- Migration: rewrite any historical positional-ID series_ids on a one-time pass; ensure foreign-key consistency (no game_logs reference them after Sprint 97 cleanup).
+- ~4-6 hr.
 
 ### Graduate first `/beta/*` page back to root (Sprint 96 follow-on)
 Why it matters:

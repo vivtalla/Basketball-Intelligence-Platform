@@ -323,6 +323,16 @@ CourtVue Labs uses a hybrid sprint model: major feature sprints typically run as
 
 > Full history → `specs/sprint-history.md`
 
+### Sprint 97 — Sync Gap Hardening
+
+- **Triggered by a Sprint-96 closeout-night incident.** Vivek noticed PHI-NYK R2 rendering 0-3 when actually 0-4 (NYK swept). All 4 R2 G1s missing from `game_logs` for ~5 days; NBA's CDN had every game. Root cause: the post-game cron had been silently failing every tick because Sprint 91's `DATABASE_URL` guard kept firing — somewhere between cron's shell and the script's bash invocation, `set -a && . /etc/bip/env && set +a` wasn't propagating. Branch `feature/sprint-97-sync-hardening`, 3 commits, 594 backend tests (was 588, +6 new). Manual production backfill landed pre-sprint in commit `9e65df4`; sprint follows up with permanent defense.
+- **Stream A — `services/playoff_series_backfill.py` (NEW):** walks every active/closed `PlayoffSeries`, parses series-slot prefix from existing game IDs (`0042500SSG` format), probes positions 1..max+1 against NBA's `boxscoresummaryv2`. Missing-and-final games get inserted with correct `series_id` + `series_game_num`. After any insert, `series_game_num` is renumbered so date order is canonical. Idempotent, rate-limited (0.6s between fetches). Hooked into `daily_sync.sh --post-game` before `build_or_refresh_bracket` so the bracket builder sees recovered games immediately. Non-fatal — a backfill failure logs and continues.
+- **Stream B — `daily_sync.sh` cron-env self-source:** if `DATABASE_URL` isn't set and `/etc/bip/env` exists, the script sources it itself. Robust to whatever cron quirk was eating the export; manual ssh runs still work via either path. Cron now executing successfully end-to-end (`backfill: no gaps found` → `bracket refreshed: 12` → `daily_sync post-game complete` per tick).
+- **Stream C — `GET /api/health/sync-status` (NEW) + `CacheManager.peek()`:** surfaces last backfill summary (count, ran_at, backfilled_ids, season) for monitoring. Empty payload = healthy steady state. New `peek` method reads cached values without incrementing hit/miss counters.
+- **Latent-bug fix surfaced mid-deploy:** when the cron started running again, `build_or_refresh_bracket` created 4 duplicate R2 placeholder rows (`R2-TOP|BOT` scheme) alongside the team-pair rows (`R2-NYK-PHI` etc.) — `_auto_advance_closed_series`'s sibling fallback only matched candidates by the closed parent's child-slot seat, but seat assignment for placeholder vs team-pair rows can disagree when arms aren't seed-symmetric. Patched fallback to accept any R2 row in the same round containing the winner in either seat. Cleaned up 4 orphan placeholders via inline DELETE.
+- **Workflow lesson:** "worked when I ran it via ssh" is not proof it works under cron — ssh inherits env, cron is stripped. `env -i` reproduces cron locally; logging cron's env at script entry would have answered the question in 5 minutes.
+- **Deferred:** alerting on `/api/health/sync-status` (Sprint 98 candidate); root-cause investigation of the cron env propagation quirk (self-source is the safety net); collapse dual R2-series-creation paths into one scheme. Closeout: `specs/sprint-97-closeout.md`.
+
 ### Sprint 96 — Cleanup, Performance Pass, /beta Reorg
 
 - **Three parallel streams in one release.** Single branch (`feature/sprint-96-cleanup-and-perf`) + 1 hotfix on master, 11 commits, 90+ files changed. 588 backend tests (was 581, +4 new for `last_night_pulse_service`), `npm run build` clean, `npm run lint` 0/0. Deployed end-to-end to courtvue.app + api.courtvue.app.
@@ -332,21 +342,7 @@ CourtVue Labs uses a hybrid sprint model: major feature sprints typically run as
 - **Workflow note:** First codemod pass missed bare path literals in object properties (`{href: "/teams"}`), template-literal builders (`return_to: \`/teams/...\``), and string-array entries in `sitemap.ts` — added `(?<!/api)(?<!\w)["\`]/<route>` patterns with negative lookbehind on second pass. Free-tier Cloudflare Cache Rules don't have `matches regex` — use `Edit expression` with `starts_with` OR-compounds instead.
 - **Deferred:** B5 keep-list ISR refactor (`/player-stats`, `/standings`, `/playoffs` server-component conversion). **Why:** different domain — same kind of work as the per-page `/beta` graduation pattern; deserves its own focused sprint per page. Closeout: `specs/sprint-96-closeout.md`.
 
-### Sprint 95 — Lineup Lab
-
-- **New `/lineups` page with league-wide leaderboard and interactive What-If Studio.** Single branch (`feature/sprint-95-lineup-lab`), 1 commit, 23 files changed. 581 backend tests (was 549, +32 new), `npm run build` clean, `npm run lint` 0/0.
-- **Stream A — Backend models** (`backend/models/lineups.py` NEW): 6 Pydantic models — `LineupLeaderboardEntry`, `LineupLeaderboardResult`, `LineupBuilderRequest`, `PlayerRemovalImpact`, `LineupBuilderResult`, `SublineupsResult`. `LineupArchetype` + `LineupConfidence` literal types.
-- **Stream B — Leaderboard service** (`backend/services/lineup_leaderboard_service.py` NEW): `_lineup_confidence` (poss ≥200 → high/≥80 → medium/else → low), `_classify_lineup` (Elite/Offensive Wall/Defensive Wall/Negative/Balanced/Unclassified), `_shrink` (Bayesian formula with prior=150), `build_lineup_leaderboard` (3 batch queries, zero N+1).
-- **Stream C — Builder service** (`backend/services/lineup_builder_service.py` NEW): exact match by sorted player_ids key, partial match by overlap score (top 3), WOWY player-removal impacts (LIKE + post-parse false-positive defense reused from Sprint 94), small-sample warnings (<80 poss).
-- **Stream D — Sub-lineup service** (`backend/services/lineup_sublineup_service.py` NEW): `itertools.combinations(sorted(ids), size)` over 5-man data; possession-weighted net_rating; 2-man/3-man aggregated combos per team.
-- **Stream E — Router** (`backend/routers/lineups.py` NEW): `GET /api/lineups/leaderboard`, `POST /api/lineups/builder`, `GET /api/lineups/sublineups`. Registered in `backend/main.py`. Backward compatible: `/api/advanced/lineups` untouched.
-- **Stream F — Frontend types/api/hooks**: 8 new types in `types.ts`, 3 new API functions (including `postLineupBuilder` as direct POST), 2 new SWR hooks.
-- **Stream G — Frontend UI**: `/lineups` page with Leaderboard tab (ORTG×DRTG Recharts scatter with reversed Y-axis, 12-column sortable table, team+min-poss filters) and What-If Studio tab (5 pre-allocated player slots, match quality banner, player removal impact grid). 7 new components in `components/lineups/`. NavLinks More dropdown updated. Teams page gains 2-man + 3-man sub-lineup `<details>` sections using compact `LineupLeaderboardTable`.
-- **Stream H — Tests**: 32 new tests — 18 leaderboard (confidence, shrunk formula, all 5 archetypes + unclassified, filters, sort), 8 builder (exact/partial/none, order-independent key, removal impact, delta sign, small-sample warning, false-positive filter), 6 sublineup (C(5,2)=10, C(5,3)=10, poss gate, aggregation, weighted nr, sorted output).
-- **Post-merge:** "Top Lineups" tab removed from `/player-stats` (112 lines deleted) — superseded by Lineup Lab's richer leaderboard.
-- **Deferred:** none. Closeout: `specs/sprint-95-closeout.md`.
-
-*Sprint 94 and earlier moved to `specs/sprint-history.md`.*
+*Sprint 95 and earlier moved to `specs/sprint-history.md`.*
 
 ---
 
@@ -400,6 +396,7 @@ CourtVue Labs uses a hybrid sprint model: major feature sprints typically run as
 | `feature/sprint-94-on-off-impact-revamp` | Claude | Merged to master |
 | `feature/sprint-95-lineup-lab` | Claude | Merged to master |
 | `feature/sprint-96-cleanup-and-perf` | Claude | Merged to master |
+| `feature/sprint-97-sync-hardening` | Claude | Merged to master |
 
 Sprint branches are created at kickoff and listed in `AGENTS.md`.
 

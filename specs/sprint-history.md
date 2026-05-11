@@ -7,6 +7,15 @@ For detailed per-sprint records, see the individual closeout files in this direc
 
 ---
 
+### Sprint 95 — Lineup Lab
+
+- New `/lineups` page with league-wide leaderboard and interactive What-If Studio. Single branch (`feature/sprint-95-lineup-lab`), 1 commit, 23 files changed. 581 backend tests (was 549, +32 new), `npm run build` + `npm run lint` clean.
+- Backend: 6 Pydantic models in `models/lineups.py`, 3 new services (`lineup_leaderboard_service.py`, `lineup_builder_service.py`, `lineup_sublineup_service.py`), new `routers/lineups.py` with 3 endpoints. Bayesian shrinkage prior=150, archetype classification (Elite/Offensive Wall/Defensive Wall/Negative/Balanced/Unclassified), confidence tiers (high ≥200 poss / medium ≥80 / low), batch 3-query leaderboard builder (zero N+1).
+- Frontend: new `/lineups` page with Leaderboard + What-If Studio tabs. 7 new components in `components/lineups/`. ORTG×DRTG Recharts scatter (Y-axis reversed), 12-column sortable table, 5-player builder with match quality + player-removal impact grid. NavLinks updated. Teams page gains 2-man + 3-man sub-lineup sections. "Top Lineups" tab removed from `/player-stats` (superseded by richer leaderboard).
+- 32 new tests covering Bayesian formula, all 5 archetypes, confidence levels, exact/partial/none match, removal impact delta sign, C(5,2)/C(5,3) combination generation, weighted net rating, possession floor gates.
+- Workflow patterns reused from Sprint 94: LIKE + 3× over-fetch + post-parse false-positive filter for lineup_key; Bayesian shrinkage prior from `decision_support_service.py`; batch TeamSeasonStat joins to prevent N+1.
+- Deferred: none. Closeout: `specs/sprint-95-closeout.md`.
+
 ### Sprint 94 — On/Off Impact Command Center
 
 - Complete revamp of on/off surface into a coaching-grade command center. Single branch (`feature/sprint-94-on-off-impact-revamp`), 1 commit, 18 files changed. 552 backend tests (was 513, +17 new), `npm run build` clean, `npm run lint` 0/0.
