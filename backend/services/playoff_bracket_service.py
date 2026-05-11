@@ -458,6 +458,24 @@ def _auto_advance_closed_series(
                 existing = candidate
                 break
 
+        # Sprint 97 — broader fallback: if no candidate matched the
+        # child_slot seat, accept ANY existing row in this round that
+        # already includes the winner in either seat. The placeholder
+        # slot_id (e.g. R2-BOT) and the games-derived team-pair id
+        # (e.g. R2-NYK-PHI) can disagree about which seat a winner
+        # belongs in when conference arms aren't symmetric in seed
+        # values; accepting either seat keeps `_auto_advance_closed_series`
+        # from creating duplicate placeholders alongside an already-
+        # populated team-pair row. Surfaced on 2026-05-10 production review.
+        if existing is None:
+            for candidate in sibling:
+                if winner_team_id in (
+                    candidate.top_seed_team_id,
+                    candidate.bottom_seed_team_id,
+                ):
+                    existing = candidate
+                    break
+
     if existing is None:
         existing = PlayoffSeries(
             season=season,
