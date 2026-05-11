@@ -17,6 +17,25 @@ Guidelines:
 
 ## Sprint 97 Candidates
 
+### Harden round-transition game ingest (Sprint 96 production incident)
+Why it matters:
+On 2026-05-10 production review, all four R2 series were "off by one" — their actual G1 (played 5/4 or 5/5) was missing from `game_logs`, so the bracket counted what NBA recorded as G2 as our G1, undercounting every R2 series by one win. PHI-NYK rendered as 0-3 when it was 0-4. Backfill confirmed NBA's CDN had every missing game — the gap was in our ingest, not at the upstream.
+
+Pattern observed:
+- R1 G7 BOS-PHI on 5/2 ingested correctly
+- R1 G7 DET-ORL + CLE-TOR on 5/3 ingested correctly
+- R2 G1s on 5/4 and 5/5 (4 games across 4 series) all missing
+- R2 G2s on 5/6 and 5/7 ingested correctly and (incorrectly) tagged as G1 by `_attach_series_id_to_unmatched_rows`
+
+Likely cause: when R1 closes on a weekend and R2 G1s start a day later, the post-game cron tick (`*/15 21-23,0-5 UTC`) and the 6am daily sync collide with bracket-builder timing. The post-game `sync_today_playoff_finals.py` only fetches games whose `game_date == today` from the scoreboard endpoint, so if a game finishes during a cron-window gap (or the bracket builder hasn't yet created the parent R2 series), the row never makes it into `game_logs`.
+
+Likely shape:
+- New sync step in `daily_sync.sh --post-game` that scans the last 5 days of NBA `scoreboardv2` and inserts any final game whose `game_id` isn't in `game_logs`. Idempotent.
+- OR: after `build_or_refresh_bracket`, walk every PlayoffSeries with `status="active"` and verify NBA reports the same win count; backfill via `boxscoresummaryv2` for any gap. ~3-4 hr.
+- Validation: a `pytest` regression that constructs a R1→R2 transition fixture, simulates the cron-window gap, and asserts the post-game path recovers without manual intervention.
+
+Manual backfill on 2026-05-10 documented in commit history (Sprint 96 hotfix series).
+
 ### Graduate first `/beta/*` page back to root (Sprint 96 follow-on)
 Why it matters:
 Sprint 96 moved 19 routes under `/beta/` with the explicit promise that pages graduate to root one at a time as each gets a focused rework. Pick the first candidate (likely `/beta/lineups` since it's the freshest from Sprint 95, or `/beta/teams` since it's high-traffic and central to the platform).
