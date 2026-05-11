@@ -30,12 +30,24 @@ cd "$(dirname "$0")/.."
 # data/daily_sync.sh`) silently dropped exports because the env file is in
 # `KEY=value` (no `export`) format; the python subprocesses then crashed
 # with `fe_sendauth: no password supplied` and the failure was only visible
-# in /var/log/bip-sync.log. Cron entries in infra/cron.txt now wrap the
-# source with `set -a; . /etc/bip/env; set +a` — this guard catches any
-# future regression of that pattern at the start of the run, before we
-# spend NBA API quota on calls whose results we can't persist.
+# in /var/log/bip-sync.log.
+#
+# Sprint 97 hardening — self-source /etc/bip/env if it exists and we still
+# don't have DATABASE_URL. Production cron lines have been running with
+# `set -a && . /etc/bip/env && set +a` for a while, but inspection on
+# 2026-05-10 showed every cron firing was hitting the guard anyway —
+# something about cron's invocation chain was eating the export. The
+# self-source path means the script is robust to that quirk: if the env
+# file exists, we'll get the vars regardless of how the caller arranged
+# their wrapper.
+if [ -z "${DATABASE_URL:-}" ] && [ -f /etc/bip/env ]; then
+  set -a
+  # shellcheck source=/dev/null
+  . /etc/bip/env
+  set +a
+fi
 if [ -z "${DATABASE_URL:-}" ]; then
-  echo "ERROR: DATABASE_URL not set. Source /etc/bip/env with 'set -a' wrapper before invoking." >&2
+  echo "ERROR: DATABASE_URL not set and /etc/bip/env not found. Source it before invoking." >&2
   echo "  set -a && . /etc/bip/env && set +a && bash data/daily_sync.sh" >&2
   exit 1
 fi
