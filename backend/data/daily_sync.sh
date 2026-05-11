@@ -212,6 +212,7 @@ from datetime import date
 from db.database import SessionLocal
 from db.models import GameLog
 from services.playoff_bracket_service import build_or_refresh_bracket
+from services.playoff_series_backfill import backfill_playoff_series_gaps
 from services.sync_service import (
     sync_injuries,
     sync_official_team_general_splits,
@@ -221,6 +222,7 @@ from services.sync_service import (
 season = os.environ.get("SEASON", "2024-25")
 games_refreshed = 0
 series_refreshed = 0
+backfilled_ids = []
 db = SessionLocal()
 try:
     today = date.today()
@@ -230,6 +232,21 @@ try:
     games_refreshed = todays_games_query.count()
     print("post_game: today_playoff_games=", games_refreshed)
 
+    # Sprint 97 — gap-detection backfill. Runs before bracket recompute so
+    # the bracket builder sees any newly-recovered games immediately. The
+    # service is idempotent: when no gaps exist it does a single NBA probe
+    # per active series (~14 calls, ~10s) and returns []. When gaps exist
+    # the WARN log lines surface in /var/log/bip-sync.log for monitoring.
+    try:
+        backfilled_ids = backfill_playoff_series_gaps(db, season)
+        if backfilled_ids:
+            print("BACKFILL recovered", len(backfilled_ids), "missing games:", backfilled_ids)
+        else:
+            print("backfill: no gaps found")
+    except Exception as exc:
+        # Non-fatal — log and continue so the rest of the pipeline runs.
+        print("backfill failed:", exc)
+
     series_refreshed = build_or_refresh_bracket(db, season)
     print("bracket refreshed:", series_refreshed)
 
@@ -238,7 +255,7 @@ try:
     print("sync_official_team_shooting_splits playoff:", sync_official_team_shooting_splits(db, season=season, is_playoff=True))
 finally:
     db.close()
-print("daily_sync_summary: series_refreshed=", series_refreshed, "games_refreshed=", games_refreshed)
+print("daily_sync_summary: series_refreshed=", series_refreshed, "games_refreshed=", games_refreshed, "backfilled=", len(backfilled_ids))
 PYEOF
   # Post-game also pulls box scores + Synergy/hustle for the game that just
   # finished so the MVP composite + leaderboards reflect tonight's outcome.
