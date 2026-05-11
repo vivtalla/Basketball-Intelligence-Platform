@@ -132,3 +132,20 @@ def cache_stats():
     cache hit rate during capacity planning + post-deploy validation.
     """
     return CacheManager.stats()
+
+
+@app.get("/api/health/sync-status")
+def sync_status():
+    """Sprint 97 — surface recent sync gap events for monitoring.
+
+    Returns the last playoff backfill summary written by the post-game cron.
+    An empty payload (count=0, ran_at=null) means no gaps have been detected
+    in the last 24h — the healthy steady state. A populated payload means the
+    backfill recovered missing games, which warrants a look at the upstream
+    sync path that should have caught them on the first pass.
+    """
+    last_backfill = CacheManager.peek("sync_gaps:playoff_backfill:last")
+    return {
+        "playoff_backfill_last_24h": last_backfill
+        or {"count": 0, "ran_at": None, "backfilled_ids": [], "season": None},
+    }

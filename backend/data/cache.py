@@ -90,6 +90,26 @@ class CacheManager:
         conn.close()
 
     @classmethod
+    def peek(cls, key: str) -> Optional[dict]:
+        """Sprint 97 — read a cached value WITHOUT incrementing hit/miss counters.
+
+        Used by observability endpoints that want to surface state stored in
+        cache.db (e.g. last sync-gap event) without polluting the cache
+        effectiveness metrics that `stats()` reports.
+        """
+        conn = cls._connect()
+        row = conn.execute(
+            "SELECT value, expires_at FROM cache WHERE key = ?", (key,)
+        ).fetchone()
+        conn.close()
+        if row is None:
+            return None
+        value, expires_at = row
+        if time.time() > expires_at:
+            return None
+        return json.loads(value)
+
+    @classmethod
     def clear_expired(cls) -> int:
         """Remove expired rows. Returns the number deleted (Sprint 88 instrumentation)."""
         conn = cls._connect()
