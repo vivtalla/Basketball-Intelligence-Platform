@@ -136,16 +136,32 @@ def cache_stats():
 
 @app.get("/api/health/sync-status")
 def sync_status():
-    """Sprint 97 — surface recent sync gap events for monitoring.
+    """Sprint 97/98 — surface recent sync state for monitoring.
 
-    Returns the last playoff backfill summary written by the post-game cron.
-    An empty payload (count=0, ran_at=null) means no gaps have been detected
-    in the last 24h — the healthy steady state. A populated payload means the
-    backfill recovered missing games, which warrants a look at the upstream
-    sync path that should have caught them on the first pass.
+    Three sections in the response:
+
+    - ``playoff_backfill_last_24h`` (Sprint 97, kept for back-compat): summary
+      of the last playoff backfill event, populated when gaps were recovered.
+    - ``syncs`` (Sprint 98): map of every registered sync entity → its last
+      run marker + freshness (``stale=True`` when older than 2x cadence).
+      Entities with no marker still appear with ``ran_at=null, stale=true``.
+    - ``cache_db`` (Sprint 98): size + row-count snapshot of the SQLite cache
+      that stores both API responses and freshness markers.
+
+    The healthy steady state: ``playoff_backfill_last_24h.count == 0`` and
+    every entry in ``syncs`` has ``stale: false``.
     """
+    from services.sync_freshness import read_all_syncs
+
     last_backfill = CacheManager.peek("sync_gaps:playoff_backfill:last")
+    cache_snapshot = CacheManager.stats()
     return {
         "playoff_backfill_last_24h": last_backfill
         or {"count": 0, "ran_at": None, "backfilled_ids": [], "season": None},
+        "syncs": read_all_syncs(),
+        "cache_db": {
+            "size_bytes": cache_snapshot.get("size_bytes", 0),
+            "size_kb": cache_snapshot.get("size_bytes", 0) // 1024,
+            "row_count": cache_snapshot.get("row_count", 0),
+        },
     }
