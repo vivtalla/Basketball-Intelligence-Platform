@@ -1748,6 +1748,11 @@ class AwardCaseCandidate(Base):
     modifier_momentum = Column(Float, nullable=False, default=0.0)
     modifier_signature_games = Column(Float, nullable=False, default=0.0)
     last_synced_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
+    # Sprint 98 Stream B2 — distinct created_at vs updated_at audit so the row
+    # history is debuggable independently of the sync timestamp. Migration
+    # 0026 backfills from last_synced_at for existing rows.
+    created_at = Column(DateTime, server_default=func.now())
+    updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
 
     player = relationship("Player")
 
@@ -1780,5 +1785,9 @@ class RoleExpansionObservation(Base):
     pre_age = Column(Integer, nullable=True)
     pre_role_archetype = Column(String(40), nullable=True)
     computed_at = Column(DateTime, server_default=func.now())
+    # Sprint 98 Stream B2 — explicit audit pair. Migration 0026 backfills
+    # both from computed_at on existing rows.
+    created_at = Column(DateTime, server_default=func.now())
+    updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
 
     player = relationship("Player")

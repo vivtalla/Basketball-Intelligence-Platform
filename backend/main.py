@@ -13,6 +13,7 @@ if _slowapi_available:
     from slowapi import _rate_limit_exceeded_handler  # type: ignore[import]
     from slowapi.errors import RateLimitExceeded  # type: ignore[import]
 from routers import (
+    admin,
     advanced,
     archetype,
     career,
@@ -125,6 +126,8 @@ app.include_router(free_agency.router, prefix="/api/free-agency", tags=["free-ag
 app.include_router(draft.router, prefix="/api/draft", tags=["draft"])
 app.include_router(picks.router, prefix="/api/picks", tags=["picks"])
 app.include_router(lineups.router, prefix="/api/lineups", tags=["lineups"])
+# Sprint 98 — admin/diagnostic endpoints (admin-key gated).
+app.include_router(admin.router, prefix="/api/admin", tags=["admin"])
 
 
 @app.on_event("startup")
