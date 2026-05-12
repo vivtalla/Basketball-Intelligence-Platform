@@ -32,3 +32,10 @@ except ImportError:  # pragma: no cover — only absent in local dev without pip
 # when ENABLE_RATE_LIMIT=false so the feature flag works without a redeploy.
 RATE_LIMIT_INTELLIGENCE = "30/minute" if ENABLE_RATE_LIMIT else "10000/minute"
 RATE_LIMIT_ROSTER_FIT = "20/minute" if ENABLE_RATE_LIMIT else "10000/minute"
+# Sprint 98 C3 — expensive user-facing endpoints. LLM query is the most
+# costly (compute + paid API call); trade simulation is heavy SQL +
+# scoring; both expand beyond Cloudflare's per-IP 100/10min WAF rule
+# with finer-grained per-endpoint limits.
+RATE_LIMIT_LLM_QUERY = "10/minute" if ENABLE_RATE_LIMIT else "10000/minute"
+RATE_LIMIT_TRADE_IMPACT = "20/minute" if ENABLE_RATE_LIMIT else "10000/minute"
+RATE_LIMIT_TRADE_VALIDATE = "30/minute" if ENABLE_RATE_LIMIT else "10000/minute"

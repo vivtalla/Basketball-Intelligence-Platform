@@ -8,6 +8,7 @@ from sqlalchemy.orm import Session
 
 from db.database import get_db
 from db.models import PlayerShotChart
+from dependencies import require_admin_key
 from models.shotchart import (
     ShotChartResponse,
     ShotChartShot,
@@ -746,7 +747,9 @@ def refresh_team_defense_shot_chart(
     season_type: str = Query("Regular Season", description='"Regular Season" or "Playoffs"'),
     force: bool = Query(False),
     db: Session = Depends(get_db),
+    _: None = Depends(require_admin_key),
 ):
+    """Sprint 98 C2 — admin-key gated. Queues a heavy NBA fetch."""
     if season_type not in ("Regular Season", "Playoffs"):
         raise HTTPException(status_code=422, detail='season_type must be "Regular Season" or "Playoffs"')
 
@@ -1164,7 +1167,9 @@ def refresh_player_shot_chart(
     season_type: str = Query("Regular Season", description='"Regular Season" or "Playoffs"'),
     force: bool = Query(False),
     db: Session = Depends(get_db),
+    _: None = Depends(require_admin_key),
 ):
+    """Sprint 98 C2 — admin-key gated. Queues a per-player shot-chart sync."""
     if season_type not in ("Regular Season", "Playoffs"):
         raise HTTPException(status_code=422, detail='season_type must be "Regular Season" or "Playoffs"')
     jobs = queue_player_shot_chart_sync(
@@ -1194,7 +1199,9 @@ def refresh_shot_quality_baseline(
     season: str,
     season_type: str = Query("Regular Season"),
     db: Session = Depends(get_db),
+    _: None = Depends(require_admin_key),
 ):
+    """Sprint 98 C2 — admin-key gated. Recomputes the seasonal baseline."""
     if season_type not in ("Regular Season", "Playoffs"):
         raise HTTPException(status_code=422, detail='season_type must be "Regular Season" or "Playoffs"')
     get_or_build_baseline(
@@ -1213,7 +1220,9 @@ def refresh_stale_shot_players(
     season_type: str = Query("Regular Season"),
     limit: int = Query(40, ge=1, le=200),
     db: Session = Depends(get_db),
+    _: None = Depends(require_admin_key),
 ):
+    """Sprint 98 C2 — admin-key gated. Queues stale-player refresh batch."""
     if season_type not in ("Regular Season", "Playoffs"):
         raise HTTPException(status_code=422, detail='season_type must be "Regular Season" or "Playoffs"')
     ops = build_shot_intelligence_ops(db, season=season, season_type=season_type)
