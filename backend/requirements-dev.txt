@@ -1,0 +1,14 @@
+# Sprint 98 Stream D — development / CI-only dependencies.
+# Production deploys via backend/requirements.txt skip everything here.
+#
+# Install in CI / dev:
+#     pip install -r requirements-dev.txt
+#
+# Tests use TestClient which requires httpx.
+
+# Linting
+ruff>=0.4.0
+
+# Test infrastructure
+pytest>=8.0.0
+httpx>=0.27.0
