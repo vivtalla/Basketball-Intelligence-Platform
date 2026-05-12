@@ -225,6 +225,23 @@ fi
 
 echo "[$(date -u +%Y-%m-%dT%H:%M:%SZ)] [run_id=$BIP_RUN_ID] daily_sync start season=$SEASON post_game=$POST_GAME_MODE is_playoffs=$IS_PLAYOFFS" >> "$LOG"
 
+# Sprint 98 Stream A6 — one-week env-capture instrumentation. The Sprint 97
+# closeout left the cron env-propagation root cause unidentified: the
+# self-source fallback in this script masks the symptom, but we still don't
+# know *why* the original `set -a && . /etc/bip/env && set +a` wrapper
+# wasn't exporting DATABASE_URL under cron. Capturing the env at script
+# entry for one week gives us the data to diagnose. Filename includes pid
+# so concurrent invocations don't clobber each other. Honors a per-VM
+# kill-switch via /etc/bip/no-env-capture so this can be disabled without
+# a redeploy when the data is collected. Failures are silent — env capture
+# must never break a working sync.
+if [ ! -f /etc/bip/no-env-capture ]; then
+  ENV_CAPTURE_DIR="/var/log/bip-cron-env"
+  if mkdir -p "$ENV_CAPTURE_DIR" 2>/dev/null && [ -w "$ENV_CAPTURE_DIR" ]; then
+    env > "$ENV_CAPTURE_DIR/run-$(date -u +%Y%m%dT%H%M%SZ)-$$-$BIP_RUN_ID.env" 2>/dev/null || true
+  fi
+fi
+
 # ---------------------------------------------------------------------------
 # Post-game cron path: minimal refresh after each playoff game.
 # ---------------------------------------------------------------------------
