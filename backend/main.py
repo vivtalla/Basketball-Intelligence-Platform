@@ -6,6 +6,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from config import CORS_ORIGINS
 from data.cache import CacheManager
 from rate_limiting import limiter, _slowapi_available
+from utils.logging_setup import configure_logging
+from utils.request_id_middleware import RequestIDMiddleware
 
 if _slowapi_available:
     from slowapi import _rate_limit_exceeded_handler  # type: ignore[import]
@@ -49,7 +51,12 @@ from routers import (
     warehouse,
 )
 
-logging.basicConfig(level=logging.INFO)
+# Sprint 98 Stream A3 — structured logging with run_id / request_id context
+# binding. JSON renderer in production (ENV=production), console renderer in
+# dev. Replaces the prior `logging.basicConfig(level=INFO)` which produced
+# unstructured stdout text and made cron-tick correlation impossible.
+configure_logging()
+logger = logging.getLogger(__name__)
 
 app = FastAPI(title="CourtVue Labs", version="0.2.0")
 
@@ -60,6 +67,12 @@ app.state.limiter = limiter
 if _slowapi_available:
     app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
+# Sprint 98 Stream A3 — request-ID propagation. Middleware order matters
+# for Starlette: middlewares are added outside-in, so the request-id binds
+# to the contextvars BEFORE CORS handles preflight. Honor an inbound
+# X-Request-ID header if a client sends one, else generate a fresh UUID.
+app.add_middleware(RequestIDMiddleware)
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=CORS_ORIGINS,
@@ -68,9 +81,10 @@ app.add_middleware(
     # 40 POST + 2 PATCH + 2 DELETE endpoints; PATCH/DELETE are admin-only and
     # not called from the browser, so we drop them. PUT is unused.
     allow_methods=["GET", "HEAD", "POST", "OPTIONS"],
-    # Sprint 87 — narrow from "*" to specific headers. Authorization is kept
-    # as a future-proof no-op for any auth-bearing endpoint.
-    allow_headers=["Content-Type", "Accept", "Authorization"],
+    # Sprint 87 — narrow from "*" to specific headers. Authorization +
+    # X-Request-ID are kept so clients can correlate.
+    allow_headers=["Content-Type", "Accept", "Authorization", "X-Request-ID"],
+    expose_headers=["X-Request-ID"],
 )
 
 app.include_router(players.router, prefix="/api/players", tags=["players"])

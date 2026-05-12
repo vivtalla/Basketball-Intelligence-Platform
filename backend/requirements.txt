@@ -17,3 +17,10 @@ requests==2.32.4
 beautifulsoup4==4.12.3
 playwright>=1.40.0
 slowapi>=0.1.9
+# Sprint 98 Stream A3 — structured logging with request-ID + cron RUN_ID
+# propagation so a single failing cron tick can be traced end-to-end.
+structlog>=23.1.0
+# Sprint 98 Stream A4 — error tracking for FastAPI + cron scripts. Free tier
+# (5K events/mo) is sufficient at current traffic. SENTRY_DSN gated; unset
+# means no-op so dev environments are unaffected.
+sentry-sdk[fastapi]>=2.14.0

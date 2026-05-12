@@ -58,6 +58,25 @@ fi
 # regardless of what /etc/bip/env sets globally.
 export NBA_API_USER_FETCH_DISABLED=false
 
+# Sprint 98 Stream A3 — generate a per-invocation RUN_ID so every log line
+# emitted during a single cron tick can be correlated. Python sync scripts
+# bind this to structlog context via utils.logging_setup.configure_logging();
+# shell-level echoes include it explicitly for grep'ability in
+# /var/log/bip-sync.log. Honors a caller-supplied BIP_RUN_ID if set (useful
+# when re-running a failed tick manually). Generated here with only
+# system tools so PYTHON_BIN resolution can happen later.
+if [ -z "${BIP_RUN_ID:-}" ]; then
+  if command -v uuidgen >/dev/null 2>&1; then
+    BIP_RUN_ID="$(uuidgen)"
+  elif [ -r /proc/sys/kernel/random/uuid ]; then
+    BIP_RUN_ID="$(cat /proc/sys/kernel/random/uuid)"
+  else
+    # Last-resort fallback: timestamp + pid is unique enough for log grep.
+    BIP_RUN_ID="run-$(date -u +%s)-$$"
+  fi
+fi
+export BIP_RUN_ID
+
 # ---------------------------------------------------------------------------
 # Argument parsing — `--post-game` runs the lightweight playoff-night refresh
 # (game logs, brackets, splits, injuries) and exits. `--dry-run` just prints
@@ -204,7 +223,7 @@ if [ "$DRY_RUN" = "1" ]; then
   exit 0
 fi
 
-echo "[$(date -u +%Y-%m-%dT%H:%M:%SZ)] daily_sync start season=$SEASON post_game=$POST_GAME_MODE is_playoffs=$IS_PLAYOFFS" >> "$LOG"
+echo "[$(date -u +%Y-%m-%dT%H:%M:%SZ)] [run_id=$BIP_RUN_ID] daily_sync start season=$SEASON post_game=$POST_GAME_MODE is_playoffs=$IS_PLAYOFFS" >> "$LOG"
 
 # ---------------------------------------------------------------------------
 # Post-game cron path: minimal refresh after each playoff game.
@@ -326,7 +345,7 @@ PYEOF
   # last successful snapshot if this hiccups.
   PYTHONPATH=. "$PYTHON_BIN" data/sync_streaks_milestones.py --season "$SEASON" >> "$LOG" 2>&1 || true
 
-  echo "[$(date -u +%Y-%m-%dT%H:%M:%SZ)] daily_sync post-game complete season=$SEASON" >> "$LOG"
+  echo "[$(date -u +%Y-%m-%dT%H:%M:%SZ)] [run_id=$BIP_RUN_ID] daily_sync post-game complete season=$SEASON" >> "$LOG"
   echo "daily_sync post-game complete: season=$SEASON"
   exit 0
 fi
@@ -545,7 +564,7 @@ PYEOF
 # Sprint 88 Stream A — daily syncs for hustle (player + team, single API call each)
 # and team tracking (12 calls × 0.6s ≈ 7s wall-clock). Player tracking is weekly
 # (450 calls = ~5 min) and runs from infra/cron.txt's separate Sunday entry.
-echo "[$(date -u +%Y-%m-%dT%H:%M:%SZ)] daily_sync: hustle + team tracking" >> "$LOG"
+echo "[$(date -u +%Y-%m-%dT%H:%M:%SZ)] [run_id=$BIP_RUN_ID] daily_sync: hustle + team tracking" >> "$LOG"
 "$PYTHON_BIN" - <<PYEOF >> "$LOG" 2>&1
 import os, sys
 sys.path.insert(0, os.getcwd())
@@ -594,4 +613,4 @@ except Exception:
     pass
 PYEOF
 
-echo "[$(date -u +%Y-%m-%dT%H:%M:%SZ)] daily_sync complete season=$SEASON post_game=$POST_GAME_MODE is_playoffs=$IS_PLAYOFFS" >> "$LOG"
+echo "[$(date -u +%Y-%m-%dT%H:%M:%SZ)] [run_id=$BIP_RUN_ID] daily_sync complete season=$SEASON post_game=$POST_GAME_MODE is_playoffs=$IS_PLAYOFFS" >> "$LOG"
