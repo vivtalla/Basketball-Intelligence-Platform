@@ -97,6 +97,17 @@ def configure_logging(
     if run_id:
         structlog.contextvars.bind_contextvars(run_id=run_id)
 
+    # Sprint 98 Stream A4 — initialize Sentry as part of the same boot path.
+    # No-op when SENTRY_DSN is unset (dev / tests). Coupling sentry init to
+    # configure_logging means every script that wants structured logs also
+    # gets free error capture, with no extra wiring.
+    try:
+        from utils.sentry_init import init_sentry
+
+        init_sentry()
+    except Exception:  # noqa: BLE001 — Sentry init must never block boot
+        pass
+
     _CONFIGURED = True
 
 
