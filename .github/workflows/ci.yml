@@ -20,10 +20,15 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Set up Python 3.8
+      # Production VM runs Python 3.12 (verified post-Sprint-98 deploy);
+      # pin CI to match so requirements.txt resolves identically. Sprint 98
+      # initially pinned 3.8 from a stale CLAUDE.md comment — that broke
+      # pandas>=2.2.0 install, which is 3.9+. Keep this in sync if the VM
+      # Python ever changes.
+      - name: Set up Python 3.12
         uses: actions/setup-python@v5
         with:
-          python-version: "3.8"
+          python-version: "3.12"
           cache: "pip"
 
       - name: Install backend deps
