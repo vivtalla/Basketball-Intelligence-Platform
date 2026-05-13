@@ -116,6 +116,7 @@ Before merging any sprint branch into `master`, every item below must be green. 
 - [ ] If API contract changed: every frontend caller updated in the same sprint (search for the endpoint or field name across `frontend/src/`)
 - [ ] If a new endpoint added: confirm CORS origin allows it (no change needed for `courtvue.app` / `www.courtvue.app`), confirm Cloudflare cache rule TTL is sensible (add a new rule or rely on the 2hr catch-all)
 - [ ] If a new `nba_client` wrapper added: `_block_live_fetch_if_user_mode("<method>", cache_key)` is called immediately after the cache-miss check, before any network IO. Without it, production user requests trigger live `stats.nba.com` calls that take 3-30 seconds and can OOM the worker. (Sprint 86 hotfix lesson — `1de57c5`.)
+- [ ] If the sprint added/changed/removed an API endpoint, service module, data table, external integration, or scheduled job: update the JSON catalog in `specs/architecture-flows.html` to add the new flow or update affected step notes. `backend/scripts/validate_architecture_flows.py` runs in CI as a soft check; structural failures will block. (Sprint 98 follow-on — keeps the architecture-flows doc from rotting.)
 - [ ] No secrets, passwords, or production env values in any commit (`git log -p origin/master..HEAD | grep -iE "password|secret|api[_-]key" | head`)
 - [ ] Sprint closeout artifact draft started in `specs/sprint-NN-closeout.md`
 
@@ -339,6 +340,7 @@ Sprint 99 allocation — TBD at kickoff.
 1. Stop local dev/test servers started during the sprint and confirm relevant ports/resources are free (`lsof -iTCP:8000`, `lsof -iTCP:3000`, warehouse workers, import jobs, or other long-running processes)
 2. Run the full **Pre-merge Verification Checklist** above — every box checked before proceeding
 3. **Deferral audit.** Review every "deferred" / "next sprint" / "follow-on" / "future polish" item the sprint surfaced. For each, ask: does it fit one of the 4 approved deferral reasons in the **Deferral Policy** above? If yes, list it in the closeout's "Deferred" section with a one-line "Why deferred:" justification. If no, **do not close out yet** — extend the sprint, finish the work, then come back here.
+3a. **Architecture-flows refresh.** Run `python backend/scripts/validate_architecture_flows.py`. If the sprint added or changed API surfaces / service modules / data tables / external integrations / scheduled jobs, the JSON catalog in `specs/architecture-flows.html` must reflect them — add new flows, update step notes for changed behavior, or remove references to deleted nodes. Open the file in a browser and click through any affected flow as a quick visual check. Structural failures from the validator block; coverage warnings (routers/services unreferenced) are advisory.
 4. Create or update `specs/sprint-{NN}-closeout.md` with shipped work, deferred work (each with `Why deferred:`), workflow lessons, and next-sprint seeds
 5. Refresh `specs/BACKLOG.md` so shipped items are removed or rewritten as follow-ons
 6. Reset `AGENTS.md` for the next sprint kickoff state

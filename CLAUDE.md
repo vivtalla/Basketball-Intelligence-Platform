@@ -247,6 +247,7 @@ The site is live and serves real traffic. Read this before merging anything that
 - **Simplicity first**: Make every change as simple as possible and minimize code impact.
 - **Only touch what's necessary**: Don't refactor adjacent code while fixing a bug. Scope changes tightly.
 - **No laziness**: Find root causes. Avoid temporary fixes. Maintain senior-level engineering standards.
+- **Keep `specs/architecture-flows.html` current**: The architecture-flows doc is the canonical map of how the platform's layers compose to satisfy each user/system flow. When a sprint adds, removes, or changes an API endpoint, service module, data layer table, external integration, or scheduled job, update the JSON catalog inside the file to reflect the change. The shape: new flow → add a new entry under the right category; changed behavior (caching / auth / rate-limit / sync cadence) → update the relevant step's `note`; renamed or removed node → audit every flow that references it. `backend/scripts/validate_architecture_flows.py` enforces structural integrity in CI; the rule of "is this complete enough" is judgment.
 
 ---
 

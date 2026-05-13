@@ -47,6 +47,13 @@ jobs:
         working-directory: backend
         run: pytest -q
 
+      # Sprint 98 follow-on — keep specs/architecture-flows.html honest.
+      # Structural errors (bad node refs, missing fields, malformed JSON)
+      # block. Coverage warnings (routers/services not mentioned in any
+      # flow) are informational and pass through.
+      - name: Validate architecture-flows.html
+        run: python backend/scripts/validate_architecture_flows.py
+
   frontend:
     name: Frontend (lint + build)
     runs-on: ubuntu-latest
