@@ -1,6 +1,6 @@
 # Agent Coordination
 
-Last updated: 2026-05-11 by Claude (Sprint 98 kickoff — data foundation hardening, 4 parallel streams)
+Last updated: 2026-05-12 by Claude (Sprint 98 closeout — data foundation hardening shipped end-to-end)
 
 > Both agents read this file before touching code at the start of every session.
 > The canonical source of truth is the clean `master` checkout at `/Users/viv/Documents/Basketball Intelligence Platform`.
@@ -14,15 +14,15 @@ Last updated: 2026-05-11 by Claude (Sprint 98 kickoff — data foundation harden
 
 | Field | Value |
 |-------|-------|
-| Sprint | 98 |
-| Goal | Data foundation hardening — sync reliability & alerting, data integrity & schema (surgical), API surface hardening, test coverage & CI |
-| Started | 2026-05-11 |
-| Target merge | 2026-05-24 (10-14 day window) |
-| Sprint shape | Four parallel streams (A/B/C/D), single sprint branch, Claude-owned |
-| Branch | `feature/sprint-98-data-foundation` (worktree at `/Users/viv/Documents/bip-s98`) |
-| Worker policy | Per-stream workers: Stream A (Architect + Engineer + Reviewer), Stream B (Architect + Engineer + Reviewer), Stream C (Engineer + Reviewer), Stream D (Engineer + Engineer + Reviewer). ~10 worker invocations total. |
+| Sprint | 99 |
+| Goal | TBD — awaiting Vivek's sprint kickoff |
+| Started | TBD |
+| Target merge | TBD |
+| Sprint shape | TBD |
+| Branch | `master` until Sprint 99 kickoff |
+| Worker policy | No active sprint; set at kickoff |
 
-**Production status:** CourtVue Labs is publicly live at `https://courtvue.app` (Vercel) + `https://api.courtvue.app` (Hetzner CPX11, `ubuntu@5.78.114.15`). Sprint 97 shipped sync gap hardening after Sprint 96's closeout-night incident found all 4 R2 G1s missing from `game_logs` for ~5 days: (1) new `services/playoff_series_backfill.py` walks active/closed series and pulls missing games from NBA's `boxscoresummaryv2`; (2) `daily_sync.sh` self-sources `/etc/bip/env` so cron env-propagation quirks can't silently break the post-game tick (root cause of the 5-day silent failure); (3) new `/api/health/sync-status` endpoint surfaces backfill events for monitoring; (4) `_auto_advance_closed_series` sibling fallback extended to prevent duplicate R2 placeholders alongside team-pair rows. 594 backend tests (was 588, +6 new). Cron now executing successfully end-to-end. Plus Sprint 96 still live: playoff home freshness, performance pass, /beta reorg.
+**Production status:** CourtVue Labs is publicly live at `https://courtvue.app` (Vercel) + `https://api.courtvue.app` (Hetzner CPX11, `ubuntu@5.78.114.15`). Sprint 98 shipped data foundation hardening across 4 parallel streams: (A) generalized sync-freshness markers + regular-season gap detector + structlog with `BIP_RUN_ID` propagation + Sentry init + UptimeRobot docs + one-week cron env-capture instrumentation; (B) three additive Alembic revisions (FK constraints on PlayoffSeries parent pointers, audit columns on AwardCaseCandidate + RoleExpansionObservation, playoff_series_win_truth view + admin drift detector endpoint, external-metric staleness helper); (C) `_block_live_fetch_if_user_mode` extended from 8 → 24 nba_client wrappers (0 unguarded stats.nba.com endpoints), 8 admin/sync mutations newly admin-key gated, slowapi rate limits on `/api/query/ask` + `/api/trade/{validate,impact}`; (D) shared `tests/conftest.py` + 12 smoke tests + GitHub Actions CI. 628 backend tests (was 594, +34 new). New `specs/architecture-flows.html` documents 21 workflows across 20 nodes. Plus Sprint 97 still live: playoff series backfill, cron self-source, `/api/health/sync-status` foundation that Sprint 98 generalized.
 
 ---
 
@@ -206,9 +206,9 @@ If repo state, sprint numbering, or shipped features appear to disagree across l
 ## Current Assignments
 
 ### Claude
-- Branch: `feature/sprint-98-data-foundation` (worktree at `/Users/viv/Documents/bip-s98`)
-- Scope: All 4 streams (A: Sync Reliability & Alerting, B: Data Integrity & Schema, C: API Surface Hardening, D: Test Coverage & CI)
-- Status: In progress
+- Branch: TBD at kickoff
+- Scope: No active sprint assignment
+- Status: Not started
 
 ### Codex
 - Branch: TBD at kickoff
@@ -226,15 +226,7 @@ Claim a shared file here before editing. If a file is already claimed, read that
 
 | File | Claimed by | Purpose |
 |------|------------|---------|
-| `backend/main.py` | Stream A | Sentry init, structlog setup, request-ID middleware, expanded `/api/health/sync-status` |
-| `backend/requirements.txt` | Stream A | Adds `sentry-sdk[fastapi]` + `structlog` (Stream D's dev deps go in separate `requirements-dev.txt`) |
-| `backend/db/models.py` | Stream B | FK declarations on `PlayoffSeries.parent_*`, audit columns on `AwardCaseCandidate` + `RoleExpansionObservation` |
-| `backend/data/nba_client.py` | Stream C | Add `_block_live_fetch_if_user_mode` guard to 24 unguarded endpoints |
-| `backend/data/daily_sync.sh` | Stream A | `RUN_ID` export, env-capture instrumentation, regular-season gap-detector hook, sentry preamble |
-| `backend/routers/*` | Stream C (auth/rate-limits), Stream A (`/health/sync-status` only); Stream D reads-only for tests | Coordinate via section ordering in each file |
-| `frontend/src/components/MvpRacePanel.tsx` | Stream B | Adds `metric_as_of` staleness chip |
-| `frontend/src/components/ExternalMetricsPanel.tsx` | Stream B | Adds `metric_as_of` staleness chip |
-| `frontend/src/lib/types.ts` | Stream B | Append-only addition of optional `metric_as_of` field |
+| — | — | No active claims; claim here at the next sprint kickoff before editing shared files |
 
 ---
 
@@ -261,32 +253,24 @@ Specs or review notes written by one stream for another. Check this before start
 | `specs/sprint-95-closeout.md` | Sprint 95 | Next sprint | Reference — Lineup Lab. New `/lineups` page with sortable leaderboard (Bayesian-shrunk net rating, archetype classification, vs-team-baseline delta) + interactive What-If Studio (5-player builder, exact/partial match, player-removal WOWY impacts). 32 new tests. |
 | `specs/sprint-96-closeout.md` | Sprint 96 | Next sprint | Reference — three parallel streams shipped. (A) playoff freshness: round-aware tracker (active-only), `LastNightPulse` replaces `StoryRail`, Cloudflare bypass-cache for live endpoints, 15-min cron, hotfix deriving `status="active"` from observed wins. (B) performance: N+1 fixes in `routers/teams.py`, image opt on 5 components, Recharts code-split, `@next/bundle-analyzer` behind `ANALYZE=1`. (C) /beta reorg: 19 routes moved + 308 redirects + nav restructure. Codemod patterns: `(?<!/api)(?<!\w)["\`]/<route>` with negative lookbehind catches object-property and template-literal path strings. Cloudflare free tier doesn't have `matches regex` — use `Edit expression` with `starts_with` OR-compounds. |
 | `specs/sprint-97-closeout.md` | Sprint 97 | Next sprint | Reference — sync gap hardening after a 5-day silent cron failure was found on Sprint 96 closeout night. New `services/playoff_series_backfill.py` walks active/closed series and pulls missing games from NBA `boxscoresummaryv2`. `daily_sync.sh` self-sources `/etc/bip/env` so cron env-propagation quirks can't silently break post-game ticks (root cause). New `/api/health/sync-status` endpoint for monitoring. `_auto_advance_closed_series` sibling fallback extended to prevent duplicate R2 placeholders alongside team-pair rows. 6 new tests, 594 total. Two parallel R2-series-creation paths (`R2-TOP|BOT` placeholder vs `R2-TEAM-TEAM` team-pair) is a design smell that should be collapsed in a future sprint. |
+| `specs/sprint-98-closeout.md` | Sprint 98 | Next sprint | Reference — staff-engineering data foundation pass under "Surgical" constraint. Four parallel streams: sync-freshness generalized to 22 entities with cadence-aware stale detection + regular-season gap detector; three additive Alembic revisions (FK constraints, audit cols, playoff_series_win_truth view) + admin drift detector endpoint; `_block_live_fetch_if_user_mode` extended to all 24 stats.nba.com wrappers (0 unguarded); slowapi rate limits on `/api/query/ask` + `/api/trade/*`; structlog + Sentry + UptimeRobot wiring; GitHub Actions CI; `specs/architecture-flows.html` interactive flow doc. 34 new tests, 628 total. Workflow lesson: local venv parity matters (slowapi + httpx missing locally during QA). |
+| `specs/architecture-flows.html` | Sprint 98 | Next sprint | Reference — interactive single-page flow viewer. 20 nodes × 9 layers × 21 flows × 154 steps. Open in any browser via file://. JSON catalog embedded; edit + refresh to evolve. |
 
 ---
 
 ## Merge Order
 
-Within sprint branch `feature/sprint-98-data-foundation`:
-
-1. **Stream A first** — sentry/structlog must land before B/C/D so logs and errors from their changes flow through observability infra.
-2. **Stream B second** — Alembic migrations 0025-0027 land before C/D run tests against the new schema state.
-3. **Stream C third** — admin auth + nba_client guard expansion + rate-limit decorators.
-4. **Stream D last** — conftest + smoke tests + deep service tests + GitHub Actions CI run against the fully hardened surface.
-
-Streams run in parallel against the single sprint branch; the merge order above is the order of integration commits, not the order of work.
+TBD at kickoff. Next sprint branch/worktree is created at kickoff and merges back to `master` at closeout.
 
 ---
 
 ## Sprint Work Allocation
 
-Sprint 98 — all streams owned by Claude.
+Sprint 99 allocation — TBD at kickoff.
 
-| Stream | Area | Key files | Owner |
-|--------|------|-----------|-------|
-| A | Sync reliability & alerting | `services/sync_freshness.py` (NEW), `services/regular_season_gap_detector.py` (NEW), `data/daily_sync.sh`, `main.py`, `scripts/sentry_init.py` (NEW), `scripts/analyze_cron_env.py` (NEW), `requirements.txt`, `infra/README.md` | Claude |
-| B | Data integrity & schema (surgical) | `alembic/versions/0025-0027_*.py` (NEW), `db/models.py`, `services/external_metric_staleness.py` (NEW), `services/playoff_drift_detector.py` (NEW), `routers/admin.py`, `routers/leaderboards.py`, `models/leaderboards.py`, `MvpRacePanel.tsx`, `ExternalMetricsPanel.tsx`, `types.ts` | Claude |
-| C | API surface hardening | `data/nba_client.py`, `routers/{query,players,injuries,picks,pre_read,shotchart,trade,advanced,metrics}.py`, `scripts/audit_nba_client_guards.py` (NEW) | Claude |
-| D | Test coverage & CI | `tests/conftest.py` (NEW), `tests/test_smoke_*.py` (6-8 NEW), `tests/test_<service>.py` for 10 services (NEW), `requirements-dev.txt` (NEW), `.github/workflows/ci.yml` (NEW), `ruff.toml` (NEW), optional `.pre-commit-config.yaml` | Claude |
+| Area | Files | Owner |
+|------|-------|-------|
+| — | — | — |
 
 ---
 
@@ -390,6 +374,8 @@ Sprint 98 — all streams owned by Claude.
 ## Notes
 
 *Free-form, dated, newest first. Use this for coordination and repo-state exceptions.*
+
+2026-05-12 (Claude): Sprint 98 closed. **Data foundation hardening.** Branch `feature/sprint-98-data-foundation`, 11 commits, 46 files changed (+3443 / -61). 628 backend tests (was 594, +34 new). Four parallel streams shipped end-to-end: (A) generalized sync-freshness markers across 22 entities + regular-season gap detector + structlog with `BIP_RUN_ID` propagation + per-request `X-Request-ID` middleware + Sentry init wired through `configure_logging()` + UptimeRobot keyword-monitor docs + one-week cron env-capture instrumentation + `analyze_cron_env.py` for root-cause diff; (B) three additive Alembic revisions (FK constraints on `PlayoffSeries.parent_*_series_id` with ON DELETE SET NULL + audit columns on `AwardCaseCandidate`/`RoleExpansionObservation` + `playoff_series_win_truth` view) + `services/external_metric_staleness.py` + `services/playoff_drift_detector.py` + `routers/admin.py` for `/api/admin/playoff-series-drift`; (C) `_block_live_fetch_if_user_mode` extended from 8 → 24 nba_client wrappers (0 unguarded stats.nba.com endpoints), 8 admin/sync mutations newly admin-key gated, slowapi rate limits on `/api/query/ask` 10/min + `/api/trade/{validate,impact}` 30/20 min; (D) shared `tests/conftest.py` with view-bootstrapped fixtures, 12 smoke tests across health + 11 router GETs + request-ID propagation, `.github/workflows/ci.yml` (pytest blocking + ruff informational + frontend lint informational + frontend build blocking). Plus new `specs/architecture-flows.html` — single self-contained HTML, 20 nodes × 21 flows × 154 steps with interactive flow picker. Pre-merge: backend 628 passing, frontend build clean, lint clean. Migrations 0025-0027 applied cleanly on local DB. Final guard audit: 0 unguarded concerns. **Deferred (Sprint 99+):** D3 deep service tests (different domain), frontend `metric_as_of` chip on MvpRace/ExternalMetricsPanel (different domain — needs response-shape threading), cron env-propagation root cause (data-blocked on one-week capture), Cloudflare cache bypass on `/api/admin/*` (different domain — UI step), ruff blocking (73 baseline issues to clean up). **Workflow lesson:** local venv parity matters — mid-QA discovered `slowapi` + `httpx` not installed locally, and the local DB was at 0023 (Sprint 88), not 0024. `make verify` would have caught it. Closeout: `specs/sprint-98-closeout.md`.
 
 2026-05-11 (Claude): Sprint 98 kicked off. Branch `feature/sprint-98-data-foundation` created from `461567f`; worktree at `/Users/viv/Documents/bip-s98`. Plan saved at `~/.claude/plans/lets-plan-the-next-streamed-fog.md`. **Data foundation hardening** under a "staff backend engineer review for completeness" frame. Four parallel streams, all Claude-owned. **Stream A — Sync reliability & alerting:** generalize Sprint 97's `playoff_series_backfill` freshness-marker pattern to every sync entity; new `regular_season_gap_detector` mirroring the playoff backfill; structured logging via `structlog` with RUN_ID propagation through cron + request-ID middleware in FastAPI; `sentry-sdk[fastapi]` wired in `main.py` + cron scripts; UptimeRobot free-tier polling setup documented in `infra/README.md`; one-week env-capture instrumentation in `daily_sync.sh` to chase the unresolved Sprint 97 cron env-propagation root cause. **Stream B — Data integrity & schema (surgical):** Alembic 0025 adds FK constraints to `PlayoffSeries.parent_top/bottom_series_id` (currently raw strings); 0026 adds `created_at`/`updated_at` to `AwardCaseCandidate` + `RoleExpansionObservation`; 0027 creates `playoff_series_win_truth` view (additive — does NOT replace denormalized `top_wins`/`bottom_wins`) plus diagnostic `/api/admin/playoff-series-drift` endpoint; `services/external_metric_staleness.py` surfaces LEBRON/RAPTOR/EPM as-of dates as `metric_as_of` on response models with amber chip on MvpRacePanel + ExternalMetricsPanel when >21d. **Stream C — API surface hardening:** expand `_block_live_fetch_if_user_mode` to 24 unguarded nba_client endpoints (audit script in `scripts/audit_nba_client_guards.py`); apply `Depends(require_admin_key)` to 43 unprotected mutation endpoints; rate-limit `/api/query/ask` (10/min), `/api/trade/{validate,impact}`, `/api/shotchart/refresh`. **Stream D — Test coverage & CI:** shared `tests/conftest.py` with test_db_session + TestClient fixtures; smoke test for all 37 routers; deep tests for 10 highest-risk untested services (sync_service, pbp_sync_service, advanced_metrics, game_trajectory_service, shot_lab_service, team_roster_fit_service, trade_impact_service, query_service, playoff_bracket_service, warehouse_service); GitHub Actions `.github/workflows/ci.yml` running pytest + ruff + frontend lint/build; optional pre-commit. **Surgical constraint:** no replacement of denormalized `top_wins`/`bottom_wins`; no collapse of dual R2-creation paths; no broad refactors. **Free-tier only:** Sentry free (5K errors/mo), UptimeRobot free, GitHub Actions free. Production health pre-kickoff: `/api/health` 200, `/` 307 (redirect to www). Master at `461567f`.
 

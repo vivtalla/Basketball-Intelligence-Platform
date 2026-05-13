@@ -15,26 +15,62 @@ Guidelines:
 
 ---
 
-## Sprint 98 Candidates
+## Sprint 99 Candidates
 
-### Alerting on /api/health/sync-status (Sprint 97 follow-on)
+### Cron env-propagation root cause — analyze the one-week capture (Sprint 98 A6 follow-on)
 Why it matters:
-Sprint 97 shipped the `/api/health/sync-status` endpoint that surfaces playoff backfill events (and implicitly, sync health). Without a consumer that polls it and pages on anomalies, the data drift that bit us on 2026-05-10 could still happen silently for hours/days before a human notices. The cron was failing for ~5 days before the issue was caught visually.
+Sprint 98 A6 added `env > /var/log/bip-cron-env/run-*.env` at the top of `daily_sync.sh`. After ~1 week of captures, run `backend/scripts/analyze_cron_env.py /var/log/bip-cron-env` to diff "had DATABASE_URL" vs "needed fallback" runs. The Sprint 97 self-source is the safety net but we owe ourselves the root cause.
 
 Likely shape:
-- UptimeRobot HTTP monitor on `https://api.courtvue.app/api/health/sync-status` with a keyword/JSON check that fails if `playoff_backfill_last_24h.count > 0` OR `ran_at` is older than 30 min during the playoff window. Email/SMS on incident.
-- OR: a small `scripts/check-sync-health.sh` polled from a separate uptime service.
-- ~1 hr to set up, mostly UI work in the monitoring tool.
+- ssh to the VM, run the analyzer, capture stdout
+- If the delta is a known shell var (SHELL, PATH, PAM-related), file a fix at the cron/crontab level + document
+- Once verified, `touch /etc/bip/no-env-capture` to stop the captures; clean up `/var/log/bip-cron-env/`
+- ~30-60 min including a tidy-up commit
 
-### Investigate cron env-propagation root cause (Sprint 97 follow-on)
+### Frontend `metric_as_of` chip on MvpRacePanel + ExternalMetricsPanel (Sprint 98 B3 follow-on)
 Why it matters:
-Sprint 97's self-source fallback in `daily_sync.sh` is the safety net, but I never identified why `set -a && . /etc/bip/env && set +a` in the crontab failed to export vars to the subshell. Manual ssh runs of the exact same command worked. The likely culprits (cron parsing the `&&` chain across processes, `/bin/sh` vs `/bin/bash` ambiguity, PAM session env stripping) are still unverified. If the self-source ever needs to be removed, we should understand the underlying issue first.
+Sprint 98's backend ships `metric_as_of` on `LeaderboardEntry` and the `services/external_metric_staleness.py` helpers, but the two highest-visibility consumers (MvpRacePanel, ExternalMetricsPanel) don't render the chip because their data sources (`MvpAdvancedProfile`, `SeasonStats`) don't currently carry `external_metrics_meta`. Without the chip, a user looking at an EPM ranking from 4-week-old data has no way to know it's stale.
 
 Likely shape:
-- Add `env > /tmp/cron-env-$$.txt` and `ls -la /etc/bip/env` to the top of `daily_sync.sh` for one playoff-window week. Capture state.
-- Compare cron-env to ssh-env. Identify the missing/different vars.
-- Fix at the cron/crontab level. Document the fix in `infra/README.md`.
-- ~2-3 hr including a real reproduction.
+- Thread `metric_staleness: Optional[Dict[str, MetricStaleness]]` through `MvpAdvancedProfile` and `SeasonStats` response models (additive, optional).
+- Backend: populate it in the MVP service + the player-profile assembler. Use `staleness_snapshot()` from the existing helper.
+- Frontend: add a small chip component (amber tint when >21d) and wire into MvpRacePanel candidate cards + ExternalMetricsPanel table rows.
+- ~4-6 hr.
+
+### D3 deep service tests for the 10 highest-risk untested services (Sprint 98 D follow-on)
+Why it matters:
+Sprint 98 D shipped the floor (shared `conftest.py` + 12 smoke tests + GitHub Actions CI). The ceiling — deep tests for the 10 services with the most blast radius — was deferred as "different domain — incremental." Pick the riskiest 3-5 each sprint going forward until done.
+
+Start with:
+- `sync_service.py` — mutates DB on every cron tick
+- `playoff_bracket_service.py` — recently patched (Sprint 97), pin the patched behavior
+- `pbp_sync_service.py` — PBP ingest, biggest data
+- `advanced_metrics.py` — computed metrics, easy to silently regress
+- `warehouse_service.py` — orchestration heart of the sync pipeline
+
+Likely shape:
+- 3-5 tests per service, focused on idempotency + error paths + edge cases
+- Use the conftest fixtures (`test_db_session`, `seed_basic`)
+- ~6-10 hr for 5 services depending on edge cases
+
+### Ruff baseline cleanup + flip CI to blocking (Sprint 98 D follow-on)
+Why it matters:
+Sprint 98 D wired ruff into CI but kept it informational (`continue-on-error: true`) because the existing codebase has 73 baseline issues. The grace period was meant for one week. Once cleaned up, flip the workflow step to blocking.
+
+Likely shape:
+- `ruff check . --fix` for the 55 auto-fixable
+- Manual review of the 15 unsafe-fixes + the 3 unresolved
+- Update `.github/workflows/ci.yml`: drop `continue-on-error` on the ruff step
+- ~2-3 hr.
+
+### Cloudflare cache bypass on `/api/admin/*` (Sprint 98 B/C follow-on)
+Why it matters:
+Sprint 98 B added `/api/admin/playoff-series-drift` and C added 8 admin-key gated mutation endpoints. Cache rule 5 (catch-all 2hr TTL) currently caches their responses, including 403s for unauthenticated requests. Since admin clients are rare, the pollution is small, but it's still cleaner to bypass.
+
+Likely shape:
+- Cloudflare dashboard → cache rules → expand rule 1 (bypass-cache) to include `URI starts_with /api/admin/`
+- Document the change in `infra/README.md`
+- ~5 min UI work.
 
 ### Collapse dual R2-series-creation paths (Sprint 97 follow-on)
 Why it matters:
