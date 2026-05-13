@@ -214,16 +214,19 @@ def test_query_router_exposes_examples_metrics_and_ask_response():
         assert any(metric["key"] == "net_rating" and "team" in metric["entity_types"] for metric in metrics())
 
         # Sprint 98 C3 — `ask` now takes a `Request` positional for slowapi
-        # rate-limit binding. The test exercises the route function directly
-        # (not via FastAPI) so we pass a minimal stub that satisfies what
-        # slowapi reads for keying.
-        from types import SimpleNamespace
-        fake_request = SimpleNamespace(
-            client=SimpleNamespace(host="127.0.0.1"),
-            headers={},
-            url=SimpleNamespace(path="/api/query/ask"),
-            method="POST",
-            scope={"type": "http", "client": ("127.0.0.1", 0), "headers": []},
+        # rate-limit binding. slowapi >= 0.1.9 enforces
+        # ``isinstance(request, starlette.requests.Request)``, so a duck-typed
+        # stub doesn't satisfy it — build a real Request from a synthetic scope.
+        from starlette.requests import Request as _StarletteRequest
+        fake_request = _StarletteRequest(
+            scope={
+                "type": "http",
+                "method": "POST",
+                "path": "/api/query/ask",
+                "headers": [],
+                "client": ("127.0.0.1", 0),
+                "query_string": b"",
+            }
         )
         response = ask(fake_request, QueryAskRequest(question="best teams by net rating in 2025-26"), db=session)
         assert response.status == "ready"

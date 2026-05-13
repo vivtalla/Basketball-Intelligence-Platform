@@ -44,9 +44,24 @@ from routers.playoffs import (  # noqa: E402
 )
 
 # Minimal Request stand-in for route handlers that accept request: Request
-# for slowapi rate-limit decoration.  The no-op limiter in tests doesn't
-# actually inspect the request, so a plain MagicMock is sufficient.
-_MOCK_REQUEST = MagicMock()
+# for slowapi rate-limit decoration. slowapi >= 0.1.9 calls
+# ``isinstance(request, starlette.requests.Request)`` at decoration time,
+# so a real Request — even with a synthetic scope — is required. The
+# no-op limiter path (when slowapi import fails) tolerates a MagicMock,
+# but Sprint 98 added slowapi to requirements.txt so CI gets the real
+# Limiter and a real Request must be passed.
+from starlette.requests import Request as _StarletteRequest  # noqa: E402
+
+_MOCK_REQUEST = _StarletteRequest(
+    scope={
+        "type": "http",
+        "method": "POST",
+        "path": "/api/playoffs/series/intelligence",
+        "headers": [],
+        "client": ("127.0.0.1", 0),
+        "query_string": b"",
+    }
+)
 from services.playoff_simulator_service import simulate_series  # noqa: E402
 
 
