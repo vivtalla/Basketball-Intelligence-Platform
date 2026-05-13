@@ -48,17 +48,36 @@ def get_mvp_race(
     season_type: str = Query(default="Regular Season", description='"Regular Season" or "Playoffs"'),
     db: Session = Depends(get_db),
 ) -> MvpRaceResponse:
-    """Return the top-N MVP candidates with case data and pillar scoring."""
+    """Return the top-N MVP candidates with case data and pillar scoring.
+
+    Sprint 99 — Wrapped in an in-process TTL cache (4h, matching the
+    Cloudflare ``cache-control: max-age=14400`` on the response). The
+    underlying compute costs ~10s on cold cache (PBP iteration +
+    per-candidate sub-profiles). Cloudflare's edge cache covers the warm
+    steady state; this layer covers the gunicorn-worker-cold-but-Cloudflare-
+    expired window where a user would otherwise wait 10s. The cron warmer
+    in ``scripts/warm_mvp_cache.py`` keeps Cloudflare itself warm.
+    """
+    from services.mvp_race_cache import mvp_race_cache, cache_key
+
     resolved_season = season or _active_nba_season()
     if season_type == "Playoffs":
-        # Playoff samples are tiny (3-4 games per team in round 1); use the
-        # playoff-specific composite that pulls from playoff SeasonStat rows.
         gp_floor = min_gp if min_gp is not None else 1
-        return build_mvp_race_playoff(db, season=resolved_season, top=top, min_gp=gp_floor)
-    gp_floor = min_gp if min_gp is not None else 20
-    return build_mvp_race(
-        db, season=resolved_season, top=top, min_gp=gp_floor, position=position, profile=profile
-    )
+    else:
+        gp_floor = min_gp if min_gp is not None else 20
+
+    key = cache_key(resolved_season, top, gp_floor, position, profile, season_type)
+
+    def _compute() -> MvpRaceResponse:
+        if season_type == "Playoffs":
+            # Playoff samples are tiny (3-4 games per team in round 1); use the
+            # playoff-specific composite that pulls from playoff SeasonStat rows.
+            return build_mvp_race_playoff(db, season=resolved_season, top=top, min_gp=gp_floor)
+        return build_mvp_race(
+            db, season=resolved_season, top=top, min_gp=gp_floor, position=position, profile=profile
+        )
+
+    return mvp_race_cache.get_or_compute(key, _compute)
 
 
 @router.get("/gravity", response_model=MvpGravityLeaderboardResponse)

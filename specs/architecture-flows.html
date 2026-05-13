@@ -654,6 +654,40 @@
       ]
     },
     {
+      "id": "sync-mvp-race-warmer",
+      "category": "background-sync",
+      "label": "MVP race cache warmer (every 3h, Sprint 99)",
+      "summary": "Pre-fetches /api/mvp/race so users never hit the ~10s cold compute. Runs every 3h to stay inside the 4h Cloudflare TTL, plus at the end of the 6am daily sync.",
+      "steps": [
+        { "from": "cron",       "to": "cron",       "action": "scripts/warm_mvp_cache.py", "note": "Sprint 99 — 3-hour cron entry + tail of daily_sync.sh. Two variants (Regular Season + Playoffs) × 3 passes each = 6 requests per run." },
+        { "from": "cron",       "to": "cloudflare", "action": "GET /api/mvp/race?season=…", "note": "Hits the production CDN — same path a user takes. Cloudflare typically MISSes on pass 1, MISSes on pass 2 (different gunicorn worker), HITs on pass 3." },
+        { "from": "cloudflare", "to": "middleware", "action": "forward (cache rule 5: 2hr edge TTL)", "note": "Cache-control header from origin is max-age=14400 (4h), which Cloudflare honors over the rule TTL." },
+        { "from": "middleware", "to": "routers",    "action": "mvp.get_mvp_race",         "note": "" },
+        { "from": "routers",    "to": "services",   "action": "TTLCache.get_or_compute",  "note": "Sprint 99 in-process cache (services/mvp_race_cache.py). Cold miss → builds the full MvpRaceResponse, ~10s; subsequent hits within the worker → microseconds." },
+        { "from": "services",   "to": "postgres",   "action": "PBP events + game logs + season stats + on/off + clutch + lineup", "note": "build_mvp_race composite: pulls candidate pool, computes z-scores across the full eligible pool, top-N gets deep MvpCandidate construction." },
+        { "from": "postgres",   "to": "services",   "action": "rows",                     "note": "" },
+        { "from": "services",   "to": "cloudflare", "action": "MvpRaceResponse + cache-control: max-age=14400", "note": "Cloudflare edge-caches; next 4h of users get HIT in <100ms." },
+        { "from": "cron",       "to": "freshness",  "action": "record_sync('mvp_race_warm')", "note": "Sprint 99 — cadence_min=180 in KNOWN_SYNC_ENTITIES. Stale boundary 6h; two consecutive failed warmer runs would trip it and surface on /api/health/sync-status." }
+      ]
+    },
+    {
+      "id": "page-mvp",
+      "category": "page-loads",
+      "label": "MVP race page (/beta/mvp)",
+      "summary": "MVP ranking + per-candidate case data. Sprint 99 made cold-cache invisible: the cron warmer keeps Cloudflare hot + an in-process TTL cache covers the worker-cold-but-edge-expired window.",
+      "steps": [
+        { "from": "browser",    "to": "cloudflare", "action": "GET /beta/mvp",            "note": "" },
+        { "from": "cloudflare", "to": "vercel",     "action": "forward",                  "note": "" },
+        { "from": "vercel",     "to": "react",      "action": "render + hydrate",         "note": "Client component; useMvpRace SWR hook fires after hydration." },
+        { "from": "react",      "to": "cloudflare", "action": "GET /api/mvp/race?season=…", "note": "Cloudflare edge-cached with 4h TTL. Cache-warmer cron runs every 3h to keep this hot for users (Sprint 99)." },
+        { "from": "cloudflare", "to": "middleware", "action": "HIT → return cached response", "note": "Steady state: <100ms total. If MISS: forward to origin." },
+        { "from": "middleware", "to": "routers",    "action": "mvp.get_mvp_race",         "note": "" },
+        { "from": "routers",    "to": "services",   "action": "TTLCache.get_or_compute",  "note": "Sprint 99 in-process cache. Cold miss → ~10s build_mvp_race; warm → microseconds." },
+        { "from": "services",   "to": "postgres",   "action": "z-score pool + top-N deep profile", "note": "PBP iteration (play_style + pace_points share one fetch — Sprint 99), per-candidate gravity / clutch / on-off / signature games / opponent-adjusted profiles." },
+        { "from": "postgres",   "to": "react",      "action": "MvpRaceResponse (193 KB)", "note": "10 candidates × ~30 sub-objects each. Renders into the MvpRacePanel ranked cards." }
+      ]
+    },
+    {
       "id": "ops-health",
       "category": "ops-monitoring",
       "label": "Health probe (/api/health)",

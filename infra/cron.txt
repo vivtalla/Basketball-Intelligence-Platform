@@ -64,3 +64,11 @@ PYTHON_BIN=/home/ubuntu/bip/backend/venv/bin/python
 # ~450 NBA API calls × 0.6s rate-limit ≈ 5 min. Daily would be ~64 calls/day
 # amortized; weekly cuts that to ~64 calls/day amortized too but in one batch.
 0 8 * * 0    set -a && . /etc/bip/env && set +a && bash /home/ubuntu/bip/backend/data/weekly_sync.sh
+
+# ── MVP race cache warmer (Sprint 99) ───────────────────────────────────────
+# Every 3 hours, pre-fetch /api/mvp/race so Cloudflare's 4h edge cache never
+# expires user-side. Cold compute is ~10s (PBP iteration + per-candidate
+# sub-profiles); without this, the first user after every TTL expiry waits
+# the full 10s. The script warms 2 variants (regular + playoffs) × 3 passes
+# each, totaling ~12 origin requests / 3 hours — negligible load.
+0 */3 * * *  cd /home/ubuntu/bip/backend && /home/ubuntu/bip/backend/venv/bin/python scripts/warm_mvp_cache.py --base-url https://api.courtvue.app >> /var/log/bip-sync.log 2>&1
