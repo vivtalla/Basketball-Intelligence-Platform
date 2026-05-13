@@ -24,3 +24,8 @@ structlog>=23.1.0
 # (5K events/mo) is sufficient at current traffic. SENTRY_DSN gated; unset
 # means no-op so dev environments are unaffected.
 sentry-sdk[fastapi]>=2.14.0
+# Sprint 78 CF1 — share-card rendering uses PIL (Pillow). Has been working
+# locally + on the VM as a transitive dep of something in the install graph,
+# but isn't actually declared anywhere — surfaced when Sprint 98 CI ran from
+# a clean install and couldn't import. Pinning explicitly.
+Pillow>=10.0.0
