@@ -25,6 +25,17 @@
 set -e
 cd "$(dirname "$0")/.."
 
+# Sprint 98 — detect --dry-run early so the DATABASE_URL guard below can
+# skip it. Dry-run doesn't connect to the DB; requiring DATABASE_URL just
+# to print intended actions breaks CI and clean-machine smoke tests.
+_DRY_RUN_DETECTED=0
+for _arg in "$@"; do
+  if [ "$_arg" = "--dry-run" ]; then
+    _DRY_RUN_DETECTED=1
+    break
+  fi
+done
+
 # Sprint 91 hotfix — fail fast if DATABASE_URL didn't propagate from
 # /etc/bip/env. The pre-Sprint-91 cron form (`. /etc/bip/env && bash
 # data/daily_sync.sh`) silently dropped exports because the env file is in
@@ -46,7 +57,7 @@ if [ -z "${DATABASE_URL:-}" ] && [ -f /etc/bip/env ]; then
   . /etc/bip/env
   set +a
 fi
-if [ -z "${DATABASE_URL:-}" ]; then
+if [ -z "${DATABASE_URL:-}" ] && [ "$_DRY_RUN_DETECTED" = "0" ]; then
   echo "ERROR: DATABASE_URL not set and /etc/bip/env not found. Source it before invoking." >&2
   echo "  set -a && . /etc/bip/env && set +a && bash data/daily_sync.sh" >&2
   exit 1
