@@ -57,6 +57,10 @@ KNOWN_SYNC_ENTITIES: Dict[str, int] = {
     "salaries": 10080,
     "draft_prospects": 10080,
     "player_tracking": 10080,
+    # 3-hour tier (Sprint 99 — Cloudflare cache warmer for /api/mvp/race).
+    # Cadence is 180 min; stale boundary at 2x (6h) so a single missed
+    # tick doesn't trip the alert.
+    "mvp_race_warm": 180,
 }
 
 MARKER_TTL_SECONDS = 86400  # 24h — matches Sprint 97 convention

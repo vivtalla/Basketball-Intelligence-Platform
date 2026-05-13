@@ -641,4 +641,12 @@ except Exception:
     pass
 PYEOF
 
+# Sprint 99 — warm /api/mvp/race so the first user after the daily sync
+# doesn't pay the ~10s cold-cache cost. The endpoint's compute is heavy
+# enough that even with the in-process TTL cache, a Cloudflare miss is
+# user-visible. Three passes per variant warms both gunicorn workers +
+# the Cloudflare edge. Non-fatal — a warm failure shouldn't break the
+# rest of the daily sync.
+PYTHONPATH=. "$PYTHON_BIN" scripts/warm_mvp_cache.py --season "$SEASON" >> "$LOG" 2>&1 || true
+
 echo "[$(date -u +%Y-%m-%dT%H:%M:%SZ)] [run_id=$BIP_RUN_ID] daily_sync complete season=$SEASON post_game=$POST_GAME_MODE is_playoffs=$IS_PLAYOFFS" >> "$LOG"
