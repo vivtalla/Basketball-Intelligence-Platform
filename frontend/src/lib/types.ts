@@ -155,6 +155,9 @@ export interface LeaderboardEntry {
   per: number | null;
   bpm: number | null;
   metric_values: Record<string, number | null>;
+  // Sprint 98 Stream B3 — `YYYY-MM-DD` populated only when the queried
+  // stat is an external metric (EPM / LEBRON / RAPTOR / PIPM / RAPM).
+  metric_as_of?: string | null;
 }
 
 export interface LeaderboardResponse {

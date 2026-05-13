@@ -17,12 +17,19 @@ from models.leaderboard import (
     LeaderboardResponse,
     LeaderboardTrendResponse,
 )
+from services.external_metric_staleness import metric_as_of as _metric_as_of_helper
 from services.gravity_service import build_gravity_profile
 from services.custom_metric_service import build_custom_metric_report
 from services.leaderboard_trends import compute_leaderboard_trends
 from services.sync_service import canonical_player_name
 
 router = APIRouter()
+
+# Sprint 98 Stream B3 — external metrics whose age should be surfaced on
+# leaderboard responses. When the queried `stat` is one of these, each
+# entry carries a `metric_as_of` string pulled from
+# SeasonStat.external_metrics_meta so the frontend can flag stale data.
+EXTERNAL_METRIC_STATS = {"epm", "rapm", "lebron", "raptor", "pipm"}
 
 SORTABLE_STATS = {
     "pts", "reb", "ast", "stl", "blk", "tov",
@@ -227,6 +234,9 @@ def leaderboard(
             for stat_row, player in rows
         ]
 
+    # Sprint 98 — pull `as_of` per row only when relevant. Cheap when not.
+    surface_as_of = stat in EXTERNAL_METRIC_STATS
+
     entries = [
         LeaderboardEntry(
             rank=rank,
@@ -247,6 +257,11 @@ def leaderboard(
             per=stat_row.per,
             bpm=stat_row.bpm,
             metric_values=metric_values,
+            metric_as_of=(
+                _metric_as_of_helper(stat_row.external_metrics_meta, stat)
+                if surface_as_of
+                else None
+            ),
         )
         for rank, (stat_value, metric_values, stat_row, player) in enumerate(rows_with_metrics, start=1)
     ]

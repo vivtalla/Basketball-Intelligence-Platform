@@ -931,6 +931,7 @@ def get_game_box_score_detailed(game_id: str, timeout: int = NBA_API_TIMEOUT) ->
     (pts, reb, ast, stl, blk, tov, fgm, fga, fg3m, fg3a, ftm, fta, etc.).
     Uses only the CDN endpoint — does not hit stats.nba.com.
     """
+    _block_live_fetch_if_user_mode("get_game_box_score_detailed", "game_box_score_detailed:" + str(game_id))
     _rate_limit()
     payload = _fetch_live_json(f"boxscore/boxscore_{game_id}.json", timeout=timeout)
     game = payload.get("game", payload)
@@ -1088,6 +1089,7 @@ def get_league_dash_player_stats(
     measure_type: 'Base' for traditional, 'Advanced' for advanced metrics.
     season_type: 'Regular Season' or 'Playoffs' (NBA Stats convention).
     """
+    _block_live_fetch_if_user_mode("get_league_dash_player_stats", "league_dash_player_stats:" + str(season) + ":" + str(measure_type) + ":" + str(season_type))
     _rate_limit()
     dash = leaguedashplayerstats.LeagueDashPlayerStats(
         season=season,
@@ -1116,6 +1118,7 @@ def get_season_game_ids(season: str, timeout: int = NBA_API_TIMEOUT) -> list[str
     if cached and isinstance(cached.get("ids"), list):
         return [str(game_id) for game_id in cached["ids"]]
 
+    _block_live_fetch_if_user_mode("get_season_game_ids", cache_key)
     _rate_limit()
     try:
         current_ids = _current_schedule_game_ids(season, timeout=timeout)
@@ -1179,6 +1182,7 @@ def get_playoff_game_ids(season: str, timeout: int = NBA_API_TIMEOUT) -> list[st
     if cached and isinstance(cached.get("ids"), list):
         return [str(game_id) for game_id in cached["ids"]]
 
+    _block_live_fetch_if_user_mode("get_playoff_game_ids", cache_key)
     _rate_limit()
     log = leaguegamelog.LeagueGameLog(
         season=season,
@@ -1218,6 +1222,7 @@ def get_team_season_game_ids(
     if cached and isinstance(cached.get("ids"), list):
         return [str(game_id) for game_id in cached["ids"]]
 
+    _block_live_fetch_if_user_mode("get_team_season_game_ids", cache_key)
     _rate_limit()
     try:
         ids = _current_team_schedule_game_ids(season, team_id, timeout=timeout)
@@ -1273,6 +1278,7 @@ def get_player_game_ids(
             )
             return fallback_ids
 
+    _block_live_fetch_if_user_mode("get_player_game_ids", cache_key)
     _rate_limit()
     try:
         log = playergamelog.PlayerGameLog(
@@ -1327,6 +1333,7 @@ def get_player_game_logs(
     stl, blk, tov, fgm, fga, fg_pct, fg3m, fg3a, fg3_pct, ftm, fta, ft_pct,
     oreb, dreb, pf, plus_minus.
     """
+    _block_live_fetch_if_user_mode("get_player_game_logs", cache_key)
     _rate_limit()
     log = playergamelog.PlayerGameLog(
         player_id=player_id,
@@ -1478,6 +1485,7 @@ def get_team_stats(season: str, season_type: str = "Regular Season") -> dict[str
     season_type: 'Regular Season' or 'Playoffs'.
     """
     def _fetch(measure_type: str) -> list[dict]:
+        _block_live_fetch_if_user_mode("get_team_stats", "team_stats:" + str(season) + ":" + str(season_type))
         _rate_limit()
         dash = leaguedashteamstats.LeagueDashTeamStats(
             season=season,
@@ -1684,6 +1692,7 @@ def get_player_general_splits(
     if cached and isinstance(cached.get("rows"), list):
         return cached["rows"]
 
+    _block_live_fetch_if_user_mode("get_player_general_splits", cache_key)
     _rate_limit()
     dash = playerdashboardbygeneralsplits.PlayerDashboardByGeneralSplits(
         player_id=player_id,
@@ -1716,6 +1725,10 @@ def get_team_general_splits(
     rows are tagged ``is_playoff=True`` so callers can persist them under
     the playoff slice of TeamSplitStat without further branching.
     """
+    _block_live_fetch_if_user_mode(
+        "get_team_general_splits",
+        f"team_general_splits:{season}:{team_id}:{season_type}",
+    )
     _rate_limit()
     dash = teamdashboardbygeneralsplits.TeamDashboardByGeneralSplits(
         team_id=team_id,
@@ -1777,6 +1790,10 @@ def get_team_shooting_splits(
     tagged ``is_playoff=True`` so the sync layer persists them into the
     playoff slice of TeamShootingSplitStat.
     """
+    _block_live_fetch_if_user_mode(
+        "get_team_shooting_splits",
+        f"team_shooting_splits:{season}:{team_id}:{season_type}",
+    )
     _rate_limit()
     dash = teamdashboardbyshootingsplits.TeamDashboardByShootingSplits(
         team_id=team_id,
@@ -1813,6 +1830,7 @@ def get_standings_data(
     so the parameter is accepted (and forwarded when supported) but most
     callers should leave the default.
     """
+    _block_live_fetch_if_user_mode("get_standings_data", cache_key)
     _rate_limit()
     standings = leaguestandings.LeagueStandings(
         season=season,
@@ -1871,6 +1889,7 @@ def get_shot_chart_data(
     if cached and isinstance(cached.get("shots"), list):
         return cached["shots"]
 
+    _block_live_fetch_if_user_mode("get_shot_chart_data", cache_key)
     _rate_limit()
     response = shotchartdetail.ShotChartDetail(
         player_id=player_id,
@@ -1932,6 +1951,7 @@ def get_synergy_player_play_types(
     if cached and isinstance(cached.get("rows"), list):
         return cached["rows"]
 
+    _block_live_fetch_if_user_mode("get_synergy_player_play_types", cache_key)
     _rate_limit()
     response = synergyplaytypes.SynergyPlayTypes(
         season=season,
@@ -2262,6 +2282,7 @@ def get_synergy_team_play_types(
     if cached and isinstance(cached.get("rows"), list):
         return cached["rows"]
 
+    _block_live_fetch_if_user_mode("get_synergy_team_play_types", cache_key)
     _rate_limit()
     response = synergyplaytypes.SynergyPlayTypes(
         season=season,
@@ -2288,6 +2309,7 @@ def get_team_clutch_stats(
     if cached and isinstance(cached.get("rows"), list):
         return cached["rows"]
 
+    _block_live_fetch_if_user_mode("get_team_clutch_stats", cache_key)
     _rate_limit()
     response = leaguedashteamclutch.LeagueDashTeamClutch(
         season=season,

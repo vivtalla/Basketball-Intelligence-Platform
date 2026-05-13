@@ -21,6 +21,11 @@ class LeaderboardEntry(BaseModel):
     per: Optional[float] = None
     bpm: Optional[float] = None
     metric_values: Dict[str, Optional[float]] = {}
+    # Sprint 98 Stream B3 — surfaced when the queried stat is an external
+    # metric (EPM / LEBRON / RAPTOR / PIPM / RAPM). YYYY-MM-DD string from
+    # SeasonStat.external_metrics_meta. Frontend can render a "(as of ...)"
+    # chip or apply an amber tint when the date is more than three weeks old.
+    metric_as_of: Optional[str] = None
 
 
 class LeaderboardResponse(BaseModel):

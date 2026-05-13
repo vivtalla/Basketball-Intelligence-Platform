@@ -10,6 +10,7 @@ from sqlalchemy.orm import Session
 
 from db.database import get_db
 from db.models import InjurySyncUnresolved, Player, PlayerInjury, Team
+from dependencies import require_admin_key
 from models.injury import (
     PlayerDurationEstimateResponse,
     TeamAvailabilityImpact,
@@ -192,8 +193,14 @@ def get_player_injuries(
 def trigger_injury_sync(
     season: str = Query("2024-25", description="Season to tag injury records with"),
     db: Session = Depends(get_db),
+    _: None = Depends(require_admin_key),
 ):
-    """Fetch the current CDN injury report and persist it. Idempotent."""
+    """Fetch the current CDN injury report and persist it. Idempotent.
+
+    Sprint 98 C2 — admin-key gated. The frontend doesn't call this; only
+    cron + admin scripts do. Without the gate, anyone could trigger an
+    NBA API fetch at any cadence.
+    """
     try:
         summary = sync_injuries(db, season)
     except Exception as exc:
@@ -210,8 +217,12 @@ def resolve_unresolved_injury(
     row_id: int,
     body: ResolveUnresolvedRequest,
     db: Session = Depends(get_db),
+    _: None = Depends(require_admin_key),
 ):
-    """Manually match an unresolved injury row to a player and upsert the PlayerInjury record."""
+    """Manually match an unresolved injury row to a player and upsert the PlayerInjury record.
+
+    Sprint 98 C2 — admin-key gated. Internal moderation endpoint.
+    """
     unresolved = db.query(InjurySyncUnresolved).filter(InjurySyncUnresolved.id == row_id).first()
     if not unresolved:
         raise HTTPException(status_code=404, detail="Unresolved row {0} not found.".format(row_id))
@@ -369,8 +380,12 @@ def get_team_availability_impact(
 def dismiss_unresolved_injury(
     row_id: int,
     db: Session = Depends(get_db),
+    _: None = Depends(require_admin_key),
 ):
-    """Dismiss an unresolved injury row (e.g. G-League call-up, not an NBA roster player)."""
+    """Dismiss an unresolved injury row (e.g. G-League call-up, not an NBA roster player).
+
+    Sprint 98 C2 — admin-key gated. Internal moderation endpoint.
+    """
     unresolved = db.query(InjurySyncUnresolved).filter(InjurySyncUnresolved.id == row_id).first()
     if not unresolved:
         raise HTTPException(status_code=404, detail="Unresolved row {0} not found.".format(row_id))

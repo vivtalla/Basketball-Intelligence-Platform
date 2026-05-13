@@ -288,6 +288,20 @@ def backfill_playoff_series_gaps(
         except Exception as exc:  # noqa: BLE001
             logger.warning("failed to write sync-gap marker: %s", exc)
 
+    # Sprint 98 — also record a generalized freshness marker. Runs on
+    # every invocation (not just when gaps were found) so the endpoint
+    # can distinguish "ran recently with no gaps" from "hasn't run".
+    try:
+        from services.sync_freshness import record_sync
+
+        record_sync(
+            "playoff_backfill",
+            count=len(backfilled),
+            source="post_game_cron",
+        )
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("failed to write playoff_backfill freshness marker: %s", exc)
+
     return backfilled
 
 

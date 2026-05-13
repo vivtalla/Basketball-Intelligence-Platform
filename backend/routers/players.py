@@ -8,6 +8,7 @@ from sqlalchemy.orm import Session
 from data.nba_client import _active_nba_season
 from db.database import get_db
 from db.models import PlayTypeStat, Player, PlayerSplitStat
+from dependencies import require_admin_key
 from models.mvp import MvpGravityProfile
 from models.analysis_context import (
     AnalysisContextCreate,
@@ -150,8 +151,16 @@ def get_player_gravity(
 
 
 @router.post("/{player_id}/sync")
-def resync_player(player_id: int, db: Session = Depends(get_db)):
-    """Force re-sync a player's data from NBA.com."""
+def resync_player(
+    player_id: int,
+    db: Session = Depends(get_db),
+    _: None = Depends(require_admin_key),
+):
+    """Force re-sync a player's data from NBA.com.
+
+    Sprint 98 C2 — admin-key gated. Triggers a stats.nba.com fetch that
+    can take 3-30s and is not for user paths.
+    """
     from services.sync_service import sync_player
     try:
         sync_player(db, player_id)

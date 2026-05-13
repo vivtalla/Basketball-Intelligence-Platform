@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import logging
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from sqlalchemy.orm import Session
 
 from db.database import get_db
@@ -22,6 +22,7 @@ from models.trade import (
     TradeRequest,
     TradeValidationResult,
 )
+from rate_limiting import limiter, RATE_LIMIT_TRADE_IMPACT, RATE_LIMIT_TRADE_VALIDATE
 from services.trade_impact_service import project_trade_impact
 from services.trade_machine_service import validate_trade
 
@@ -31,18 +32,26 @@ router = APIRouter()
 
 
 @router.post("/validate", response_model=TradeValidationResult)
+@limiter.limit(RATE_LIMIT_TRADE_VALIDATE)
 def post_validate_trade(
+    request: Request,
     payload: TradeRequest,
     db: Session = Depends(get_db),
 ) -> TradeValidationResult:
+    """Sprint 98 C3 — rate-limited to 30/min/IP. Validation is cheaper than
+    impact so it gets a higher allowance.
+    """
     return validate_trade(db, packages=payload.packages, season=payload.season)
 
 
 @router.post("/impact", response_model=TradeImpactResult)
+@limiter.limit(RATE_LIMIT_TRADE_IMPACT)
 def post_trade_impact(
+    request: Request,
     payload: TradeRequest,
     db: Session = Depends(get_db),
 ) -> TradeImpactResult:
+    """Sprint 98 C3 — rate-limited to 20/min/IP. Heavy SQL + scoring."""
     return project_trade_impact(db, packages=payload.packages, season=payload.season)
 
 

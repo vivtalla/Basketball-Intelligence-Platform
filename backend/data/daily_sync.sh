@@ -58,6 +58,25 @@ fi
 # regardless of what /etc/bip/env sets globally.
 export NBA_API_USER_FETCH_DISABLED=false
 
+# Sprint 98 Stream A3 — generate a per-invocation RUN_ID so every log line
+# emitted during a single cron tick can be correlated. Python sync scripts
+# bind this to structlog context via utils.logging_setup.configure_logging();
+# shell-level echoes include it explicitly for grep'ability in
+# /var/log/bip-sync.log. Honors a caller-supplied BIP_RUN_ID if set (useful
+# when re-running a failed tick manually). Generated here with only
+# system tools so PYTHON_BIN resolution can happen later.
+if [ -z "${BIP_RUN_ID:-}" ]; then
+  if command -v uuidgen >/dev/null 2>&1; then
+    BIP_RUN_ID="$(uuidgen)"
+  elif [ -r /proc/sys/kernel/random/uuid ]; then
+    BIP_RUN_ID="$(cat /proc/sys/kernel/random/uuid)"
+  else
+    # Last-resort fallback: timestamp + pid is unique enough for log grep.
+    BIP_RUN_ID="run-$(date -u +%s)-$$"
+  fi
+fi
+export BIP_RUN_ID
+
 # ---------------------------------------------------------------------------
 # Argument parsing — `--post-game` runs the lightweight playoff-night refresh
 # (game logs, brackets, splits, injuries) and exits. `--dry-run` just prints
@@ -204,7 +223,24 @@ if [ "$DRY_RUN" = "1" ]; then
   exit 0
 fi
 
-echo "[$(date -u +%Y-%m-%dT%H:%M:%SZ)] daily_sync start season=$SEASON post_game=$POST_GAME_MODE is_playoffs=$IS_PLAYOFFS" >> "$LOG"
+echo "[$(date -u +%Y-%m-%dT%H:%M:%SZ)] [run_id=$BIP_RUN_ID] daily_sync start season=$SEASON post_game=$POST_GAME_MODE is_playoffs=$IS_PLAYOFFS" >> "$LOG"
+
+# Sprint 98 Stream A6 — one-week env-capture instrumentation. The Sprint 97
+# closeout left the cron env-propagation root cause unidentified: the
+# self-source fallback in this script masks the symptom, but we still don't
+# know *why* the original `set -a && . /etc/bip/env && set +a` wrapper
+# wasn't exporting DATABASE_URL under cron. Capturing the env at script
+# entry for one week gives us the data to diagnose. Filename includes pid
+# so concurrent invocations don't clobber each other. Honors a per-VM
+# kill-switch via /etc/bip/no-env-capture so this can be disabled without
+# a redeploy when the data is collected. Failures are silent — env capture
+# must never break a working sync.
+if [ ! -f /etc/bip/no-env-capture ]; then
+  ENV_CAPTURE_DIR="/var/log/bip-cron-env"
+  if mkdir -p "$ENV_CAPTURE_DIR" 2>/dev/null && [ -w "$ENV_CAPTURE_DIR" ]; then
+    env > "$ENV_CAPTURE_DIR/run-$(date -u +%Y%m%dT%H%M%SZ)-$$-$BIP_RUN_ID.env" 2>/dev/null || true
+  fi
+fi
 
 # ---------------------------------------------------------------------------
 # Post-game cron path: minimal refresh after each playoff game.
@@ -225,6 +261,8 @@ from db.database import SessionLocal
 from db.models import GameLog
 from services.playoff_bracket_service import build_or_refresh_bracket
 from services.playoff_series_backfill import backfill_playoff_series_gaps
+from services.regular_season_gap_detector import detect_and_backfill_regular_season_gaps
+from services.sync_freshness import record_sync
 from services.sync_service import (
     sync_injuries,
     sync_official_team_general_splits,
@@ -232,9 +270,11 @@ from services.sync_service import (
 )
 
 season = os.environ.get("SEASON", "2024-25")
+is_playoffs = os.environ.get("IS_PLAYOFFS") == "1"
 games_refreshed = 0
 series_refreshed = 0
 backfilled_ids = []
+rs_backfilled_ids = []
 db = SessionLocal()
 try:
     today = date.today()
@@ -244,30 +284,72 @@ try:
     games_refreshed = todays_games_query.count()
     print("post_game: today_playoff_games=", games_refreshed)
 
-    # Sprint 97 — gap-detection backfill. Runs before bracket recompute so
-    # the bracket builder sees any newly-recovered games immediately. The
+    # Sprint 97 — playoff gap-detection backfill. Runs before bracket recompute
+    # so the bracket builder sees any newly-recovered games immediately. The
     # service is idempotent: when no gaps exist it does a single NBA probe
     # per active series (~14 calls, ~10s) and returns []. When gaps exist
     # the WARN log lines surface in /var/log/bip-sync.log for monitoring.
+    if is_playoffs:
+        try:
+            backfilled_ids = backfill_playoff_series_gaps(db, season)
+            if backfilled_ids:
+                print("PLAYOFF BACKFILL recovered", len(backfilled_ids), "missing games:", backfilled_ids)
+            else:
+                print("playoff backfill: no gaps found")
+        except Exception as exc:
+            # Non-fatal — log and continue so the rest of the pipeline runs.
+            print("playoff backfill failed:", exc)
+            try:
+                record_sync("playoff_backfill", count=0, source="post_game_cron", error=str(exc)[:200])
+            except Exception:
+                pass
+
+    # Sprint 98 — regular-season gap detector. Same pattern as the playoff
+    # version but walks the CDN season schedule, compares to game_logs, and
+    # backfills any final-status game NBA reports that we don't have. Cheap
+    # in steady state: 1 schedule fetch + 0 probes when no gaps.
     try:
-        backfilled_ids = backfill_playoff_series_gaps(db, season)
-        if backfilled_ids:
-            print("BACKFILL recovered", len(backfilled_ids), "missing games:", backfilled_ids)
+        rs_backfilled_ids = detect_and_backfill_regular_season_gaps(db, season)
+        if rs_backfilled_ids:
+            print("RS BACKFILL recovered", len(rs_backfilled_ids), "missing games:", rs_backfilled_ids)
         else:
-            print("backfill: no gaps found")
+            print("rs backfill: no gaps found")
     except Exception as exc:
-        # Non-fatal — log and continue so the rest of the pipeline runs.
-        print("backfill failed:", exc)
+        print("rs backfill failed:", exc)
+        try:
+            record_sync("regular_season_gap", count=0, source="post_game_cron", error=str(exc)[:200])
+        except Exception:
+            pass
 
     series_refreshed = build_or_refresh_bracket(db, season)
     print("bracket refreshed:", series_refreshed)
+    try:
+        record_sync("bracket_refresh", count=series_refreshed, source="post_game_cron")
+    except Exception:
+        pass
 
-    print("sync_injuries:", sync_injuries(db, season=season))
+    injuries_result = sync_injuries(db, season=season)
+    print("sync_injuries:", injuries_result)
+    try:
+        injury_count = int(injuries_result.get("count", 0)) if isinstance(injuries_result, dict) else 0
+        record_sync("injuries", count=injury_count, source="post_game_cron")
+    except Exception:
+        pass
+
     print("sync_official_team_general_splits playoff:", sync_official_team_general_splits(db, season=season, is_playoff=True))
     print("sync_official_team_shooting_splits playoff:", sync_official_team_shooting_splits(db, season=season, is_playoff=True))
+    try:
+        record_sync("team_splits_playoff", count=0, source="post_game_cron")
+    except Exception:
+        pass
 finally:
     db.close()
-print("daily_sync_summary: series_refreshed=", series_refreshed, "games_refreshed=", games_refreshed, "backfilled=", len(backfilled_ids))
+print(
+    "daily_sync_summary: series_refreshed=", series_refreshed,
+    "games_refreshed=", games_refreshed,
+    "playoff_backfilled=", len(backfilled_ids),
+    "rs_backfilled=", len(rs_backfilled_ids),
+)
 PYEOF
   # Post-game also pulls box scores + Synergy/hustle for the game that just
   # finished so the MVP composite + leaderboards reflect tonight's outcome.
@@ -280,7 +362,7 @@ PYEOF
   # last successful snapshot if this hiccups.
   PYTHONPATH=. "$PYTHON_BIN" data/sync_streaks_milestones.py --season "$SEASON" >> "$LOG" 2>&1 || true
 
-  echo "[$(date -u +%Y-%m-%dT%H:%M:%SZ)] daily_sync post-game complete season=$SEASON" >> "$LOG"
+  echo "[$(date -u +%Y-%m-%dT%H:%M:%SZ)] [run_id=$BIP_RUN_ID] daily_sync post-game complete season=$SEASON" >> "$LOG"
   echo "daily_sync post-game complete: season=$SEASON"
   exit 0
 fi
@@ -310,11 +392,17 @@ import sys, os
 sys.path.insert(0, os.getcwd())
 from db.database import SessionLocal
 from services.sync_service import sync_injuries
+from services.sync_freshness import record_sync
 season = os.environ.get("SEASON", "2024-25")
 db = SessionLocal()
 try:
     result = sync_injuries(db, season=season)
     print("sync_injuries:", result)
+    try:
+        count = int((result or {}).get("count", 0)) if isinstance(result, dict) else 0
+        record_sync("injuries", count=count, source="daily_sync.sh")
+    except Exception:
+        pass
 finally:
     db.close()
 PYEOF
@@ -335,17 +423,51 @@ finally:
     db.close()
 PYEOF
 
+# 3c. Sprint 98 — regular-season gap detector. Mirrors Sprint 97's playoff
+# backfill: walks the CDN season schedule, compares to game_logs, and
+# inserts any regular-season Final that the warehouse pipeline missed.
+# Cheap in steady state: 1 schedule fetch, 0 per-game probes when no gaps.
+"$PYTHON_BIN" - <<'PYEOF' >> "$LOG" 2>&1 || true
+import os, sys
+sys.path.insert(0, os.getcwd())
+from db.database import SessionLocal
+from services.regular_season_gap_detector import detect_and_backfill_regular_season_gaps
+from services.sync_freshness import record_sync
+season = os.environ.get("SEASON", "2024-25")
+db = SessionLocal()
+try:
+    backfilled = detect_and_backfill_regular_season_gaps(db, season)
+    if backfilled:
+        print("RS BACKFILL recovered", len(backfilled), "missing games:", backfilled)
+    else:
+        print("rs backfill: no gaps found")
+except Exception as exc:
+    print("rs backfill failed:", exc)
+    try:
+        record_sync("regular_season_gap", count=0, source="daily_sync.sh", error=str(exc)[:200])
+    except Exception:
+        pass
+finally:
+    db.close()
+PYEOF
+
 # 4. Materialize standings
 "$PYTHON_BIN" - <<'PYEOF' >> "$LOG" 2>&1
 import sys, os
 sys.path.insert(0, os.getcwd())
 from db.database import SessionLocal
 from services.standings_service import materialize_standings
+from services.sync_freshness import record_sync
 season = os.environ.get("SEASON", "2024-25")
 db = SessionLocal()
 try:
     result = materialize_standings(season=season, db=db)
     print("materialize_standings:", result)
+    try:
+        count = int((result or {}).get("count", 0)) if isinstance(result, dict) else 0
+        record_sync("standings", count=count, source="daily_sync.sh")
+    except Exception:
+        pass
 finally:
     db.close()
 PYEOF
@@ -361,13 +483,27 @@ from services.sync_service import (
     sync_official_team_season_stats,
     sync_official_team_shooting_splits,
 )
+from services.sync_freshness import record_sync
 season = os.environ.get("SEASON", "2024-25")
 db = SessionLocal()
 try:
-    print("sync_official_season_stats:", sync_official_season_stats(db, season=season))
-    print("sync_official_team_season_stats:", sync_official_team_season_stats(db, season=season))
-    print("sync_official_team_general_splits:", sync_official_team_general_splits(db, season=season))
-    print("sync_official_team_shooting_splits:", sync_official_team_shooting_splits(db, season=season))
+    season_stats = sync_official_season_stats(db, season=season)
+    print("sync_official_season_stats:", season_stats)
+    team_stats = sync_official_team_season_stats(db, season=season)
+    print("sync_official_team_season_stats:", team_stats)
+    team_general = sync_official_team_general_splits(db, season=season)
+    print("sync_official_team_general_splits:", team_general)
+    team_shooting = sync_official_team_shooting_splits(db, season=season)
+    print("sync_official_team_shooting_splits:", team_shooting)
+    try:
+        def _count(r):
+            return int((r or {}).get("count", 0)) if isinstance(r, dict) else 0
+        record_sync("season_stats", count=_count(season_stats), source="daily_sync.sh")
+        record_sync("team_season_stats", count=_count(team_stats), source="daily_sync.sh")
+        record_sync("team_general_splits", count=_count(team_general), source="daily_sync.sh")
+        record_sync("team_shooting_splits", count=_count(team_shooting), source="daily_sync.sh")
+    except Exception:
+        pass
 finally:
     db.close()
 PYEOF
@@ -445,7 +581,7 @@ PYEOF
 # Sprint 88 Stream A — daily syncs for hustle (player + team, single API call each)
 # and team tracking (12 calls × 0.6s ≈ 7s wall-clock). Player tracking is weekly
 # (450 calls = ~5 min) and runs from infra/cron.txt's separate Sunday entry.
-echo "[$(date -u +%Y-%m-%dT%H:%M:%SZ)] daily_sync: hustle + team tracking" >> "$LOG"
+echo "[$(date -u +%Y-%m-%dT%H:%M:%SZ)] [run_id=$BIP_RUN_ID] daily_sync: hustle + team tracking" >> "$LOG"
 "$PYTHON_BIN" - <<PYEOF >> "$LOG" 2>&1
 import os, sys
 sys.path.insert(0, os.getcwd())
@@ -455,13 +591,25 @@ from services.gravity_sync_service import (
     sync_team_hustle_stats,
     sync_team_tracking_stats,
 )
+from services.sync_freshness import record_sync
 season = os.environ.get("SEASON", "2024-25")
 season_type = "Playoffs" if os.environ.get("IS_PLAYOFFS") == "1" else "Regular Season"
 db = SessionLocal()
 try:
-    print("sync_player_hustle_stats:", sync_player_hustle_stats(db, season=season, season_type=season_type))
-    print("sync_team_hustle_stats:", sync_team_hustle_stats(db, season=season, season_type=season_type))
-    print("sync_team_tracking_stats:", sync_team_tracking_stats(db, season=season, season_type=season_type))
+    player_hustle = sync_player_hustle_stats(db, season=season, season_type=season_type)
+    print("sync_player_hustle_stats:", player_hustle)
+    team_hustle = sync_team_hustle_stats(db, season=season, season_type=season_type)
+    print("sync_team_hustle_stats:", team_hustle)
+    team_tracking = sync_team_tracking_stats(db, season=season, season_type=season_type)
+    print("sync_team_tracking_stats:", team_tracking)
+    try:
+        def _count(r):
+            return int((r or {}).get("count", 0)) if isinstance(r, dict) else 0
+        record_sync("hustle_player", count=_count(player_hustle), source="daily_sync.sh")
+        record_sync("hustle_team", count=_count(team_hustle), source="daily_sync.sh")
+        record_sync("team_tracking", count=_count(team_tracking), source="daily_sync.sh")
+    except Exception:
+        pass
 finally:
     db.close()
 PYEOF
@@ -473,7 +621,13 @@ PYEOF
 import os, sys
 sys.path.insert(0, os.getcwd())
 from data.cache import CacheManager
-print(f"cache cleanup: {CacheManager.clear_expired()} expired rows deleted from cache.db")
+from services.sync_freshness import record_sync
+deleted = CacheManager.clear_expired()
+print(f"cache cleanup: {deleted} expired rows deleted from cache.db")
+try:
+    record_sync("cache_db_cleanup", count=deleted, source="daily_sync.sh")
+except Exception:
+    pass
 PYEOF
 
-echo "[$(date -u +%Y-%m-%dT%H:%M:%SZ)] daily_sync complete season=$SEASON post_game=$POST_GAME_MODE is_playoffs=$IS_PLAYOFFS" >> "$LOG"
+echo "[$(date -u +%Y-%m-%dT%H:%M:%SZ)] [run_id=$BIP_RUN_ID] daily_sync complete season=$SEASON post_game=$POST_GAME_MODE is_playoffs=$IS_PLAYOFFS" >> "$LOG"

@@ -38,9 +38,18 @@ Edit `/etc/bip/env` and add these lines:
 ```
 NBA_API_USER_FETCH_DISABLED=true
 CORS_ORIGINS=https://courtvue.app,https://www.courtvue.app
+ENV=production
+# Sprint 98 — Sentry error tracking. Free tier (5K events/mo).
+# Get the DSN from https://sentry.io → Settings → Projects → CourtVue → Client Keys.
+# Unset means no-op; the platform still runs without it.
+SENTRY_DSN=https://<key>@<org>.ingest.sentry.io/<project>
 ```
 
 `NBA_API_USER_FETCH_DISABLED=true` ensures user requests never trigger live NBA API calls. Cron jobs in `daily_sync.sh` explicitly override this to `false` so nightly fetches keep working.
+
+`ENV=production` flips `utils.logging_setup` to JSON output (consumed by `journalctl -u bip-api` + `/var/log/bip-sync.log`); dev defaults to console renderer.
+
+`SENTRY_DSN` is the only thing that needs to be rotated if compromised — it gates all error reporting. To rotate: regenerate the client key in Sentry, swap the value here, `sudo systemctl restart bip-api`.
 
 ### Start services
 ```bash
@@ -199,10 +208,37 @@ sudo systemctl start bip-api caddy  # re-enable anytime
 ## Observability
 
 - Caddy access logs: `/var/log/caddy/bip-api.log` (JSON, includes real client IP via `CF-Connecting-IP`)
-- systemd logs: `sudo journalctl -u bip-api -n 100`
-- Health endpoint: `https://api.courtvue.app/api/health` (always returns 200 if alive)
-- UptimeRobot (free): add an HTTP monitor on `/api/health`, 5-min interval, alert to vivtalla@gmail.com
+- systemd logs: `sudo journalctl -u bip-api -n 100` (Sprint 98 — emits structured JSON when `ENV=production`)
+- Cron logs: `/var/log/bip-sync.log` (logrotate 14-day, includes `[run_id=...]` for cron-tick correlation since Sprint 98)
+- Health endpoints:
+  - `https://api.courtvue.app/api/health` — basic liveness (always 200 if alive)
+  - `https://api.courtvue.app/api/health/cache-stats` — SQLite cache hit/miss/expired counters (Sprint 88)
+  - `https://api.courtvue.app/api/health/sync-status` — sync freshness map + cache.db size (Sprint 97 + 98)
+- Sentry: error capture for FastAPI + cron, gated on `SENTRY_DSN` in `/etc/bip/env`
 - Cloudflare Analytics: dashboard → Analytics → Traffic — shows request volume, cache hit ratio, WAF blocks
+
+### UptimeRobot setup (Sprint 98)
+
+Free tier provides 50 HTTP monitors at a 5-minute interval. We use two monitors against the production API:
+
+1. **Liveness monitor**
+   - URL: `https://api.courtvue.app/api/health`
+   - Type: HTTP(s)
+   - Interval: 5 minutes
+   - Alert contact: `vivtalla@gmail.com`
+   - Trigger: HTTP non-200 OR response time > 30s
+
+2. **Sync freshness monitor** (the gap-detection alert)
+   - URL: `https://api.courtvue.app/api/health/sync-status`
+   - Type: HTTP(s) Keyword
+   - Interval: 5 minutes
+   - Keyword exists check: `"stale": true`
+   - Alert when keyword **is found** (i.e., any sync entity flipped stale)
+   - Alert contact: `vivtalla@gmail.com`
+
+The keyword monitor is the catch for Sprint 97's class of incident: every `record_sync()` writes a freshness marker, the endpoint reads them, and a stale flag means the cron didn't run within 2x the expected cadence. With 5-min polling, a silent cron failure surfaces within ~5 minutes instead of 5 days.
+
+To create: log in to https://uptimerobot.com → My Settings → SMTP & Email Settings → confirm vivtalla@gmail.com → Dashboard → Add New Monitor for each of the two URLs above.
 
 ## Cost summary
 

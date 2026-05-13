@@ -213,7 +213,19 @@ def test_query_router_exposes_examples_metrics_and_ask_response():
         assert any(example["prompt"].startswith("Who leads") for example in examples())
         assert any(metric["key"] == "net_rating" and "team" in metric["entity_types"] for metric in metrics())
 
-        response = ask(QueryAskRequest(question="best teams by net rating in 2025-26"), db=session)
+        # Sprint 98 C3 — `ask` now takes a `Request` positional for slowapi
+        # rate-limit binding. The test exercises the route function directly
+        # (not via FastAPI) so we pass a minimal stub that satisfies what
+        # slowapi reads for keying.
+        from types import SimpleNamespace
+        fake_request = SimpleNamespace(
+            client=SimpleNamespace(host="127.0.0.1"),
+            headers={},
+            url=SimpleNamespace(path="/api/query/ask"),
+            method="POST",
+            scope={"type": "http", "client": ("127.0.0.1", 0), "headers": []},
+        )
+        response = ask(fake_request, QueryAskRequest(question="best teams by net rating in 2025-26"), db=session)
         assert response.status == "ready"
         assert response.rows[0].abbreviation == "OKC"
     finally:

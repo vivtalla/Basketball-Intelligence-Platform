@@ -6,11 +6,14 @@ from fastapi.middleware.cors import CORSMiddleware
 from config import CORS_ORIGINS
 from data.cache import CacheManager
 from rate_limiting import limiter, _slowapi_available
+from utils.logging_setup import configure_logging
+from utils.request_id_middleware import RequestIDMiddleware
 
 if _slowapi_available:
     from slowapi import _rate_limit_exceeded_handler  # type: ignore[import]
     from slowapi.errors import RateLimitExceeded  # type: ignore[import]
 from routers import (
+    admin,
     advanced,
     archetype,
     career,
@@ -49,7 +52,12 @@ from routers import (
     warehouse,
 )
 
-logging.basicConfig(level=logging.INFO)
+# Sprint 98 Stream A3 — structured logging with run_id / request_id context
+# binding. JSON renderer in production (ENV=production), console renderer in
+# dev. Replaces the prior `logging.basicConfig(level=INFO)` which produced
+# unstructured stdout text and made cron-tick correlation impossible.
+configure_logging()
+logger = logging.getLogger(__name__)
 
 app = FastAPI(title="CourtVue Labs", version="0.2.0")
 
@@ -60,6 +68,12 @@ app.state.limiter = limiter
 if _slowapi_available:
     app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
+# Sprint 98 Stream A3 — request-ID propagation. Middleware order matters
+# for Starlette: middlewares are added outside-in, so the request-id binds
+# to the contextvars BEFORE CORS handles preflight. Honor an inbound
+# X-Request-ID header if a client sends one, else generate a fresh UUID.
+app.add_middleware(RequestIDMiddleware)
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=CORS_ORIGINS,
@@ -68,9 +82,10 @@ app.add_middleware(
     # 40 POST + 2 PATCH + 2 DELETE endpoints; PATCH/DELETE are admin-only and
     # not called from the browser, so we drop them. PUT is unused.
     allow_methods=["GET", "HEAD", "POST", "OPTIONS"],
-    # Sprint 87 — narrow from "*" to specific headers. Authorization is kept
-    # as a future-proof no-op for any auth-bearing endpoint.
-    allow_headers=["Content-Type", "Accept", "Authorization"],
+    # Sprint 87 — narrow from "*" to specific headers. Authorization +
+    # X-Request-ID are kept so clients can correlate.
+    allow_headers=["Content-Type", "Accept", "Authorization", "X-Request-ID"],
+    expose_headers=["X-Request-ID"],
 )
 
 app.include_router(players.router, prefix="/api/players", tags=["players"])
@@ -111,6 +126,8 @@ app.include_router(free_agency.router, prefix="/api/free-agency", tags=["free-ag
 app.include_router(draft.router, prefix="/api/draft", tags=["draft"])
 app.include_router(picks.router, prefix="/api/picks", tags=["picks"])
 app.include_router(lineups.router, prefix="/api/lineups", tags=["lineups"])
+# Sprint 98 — admin/diagnostic endpoints (admin-key gated).
+app.include_router(admin.router, prefix="/api/admin", tags=["admin"])
 
 
 @app.on_event("startup")
@@ -136,16 +153,32 @@ def cache_stats():
 
 @app.get("/api/health/sync-status")
 def sync_status():
-    """Sprint 97 — surface recent sync gap events for monitoring.
+    """Sprint 97/98 — surface recent sync state for monitoring.
 
-    Returns the last playoff backfill summary written by the post-game cron.
-    An empty payload (count=0, ran_at=null) means no gaps have been detected
-    in the last 24h — the healthy steady state. A populated payload means the
-    backfill recovered missing games, which warrants a look at the upstream
-    sync path that should have caught them on the first pass.
+    Three sections in the response:
+
+    - ``playoff_backfill_last_24h`` (Sprint 97, kept for back-compat): summary
+      of the last playoff backfill event, populated when gaps were recovered.
+    - ``syncs`` (Sprint 98): map of every registered sync entity → its last
+      run marker + freshness (``stale=True`` when older than 2x cadence).
+      Entities with no marker still appear with ``ran_at=null, stale=true``.
+    - ``cache_db`` (Sprint 98): size + row-count snapshot of the SQLite cache
+      that stores both API responses and freshness markers.
+
+    The healthy steady state: ``playoff_backfill_last_24h.count == 0`` and
+    every entry in ``syncs`` has ``stale: false``.
     """
+    from services.sync_freshness import read_all_syncs
+
     last_backfill = CacheManager.peek("sync_gaps:playoff_backfill:last")
+    cache_snapshot = CacheManager.stats()
     return {
         "playoff_backfill_last_24h": last_backfill
         or {"count": 0, "ran_at": None, "backfilled_ids": [], "season": None},
+        "syncs": read_all_syncs(),
+        "cache_db": {
+            "size_bytes": cache_snapshot.get("size_bytes", 0),
+            "size_kb": cache_snapshot.get("size_bytes", 0) // 1024,
+            "row_count": cache_snapshot.get("row_count", 0),
+        },
     }
