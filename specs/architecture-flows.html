@@ -1,0 +1,1101 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>CourtVue Labs — Architecture Flows</title>
+<style>
+  :root {
+    --bg: #0b0f17;
+    --bg-elev: #131a26;
+    --bg-elev-2: #1a2334;
+    --border: #2a3447;
+    --border-strong: #3b4862;
+    --text: #e2e8f0;
+    --text-dim: #9aa4b8;
+    --text-faint: #6a758f;
+    --accent: #f59e0b;
+    --accent-soft: rgba(245, 158, 11, 0.18);
+    --highlight: #60a5fa;
+    --highlight-soft: rgba(96, 165, 250, 0.18);
+    --success: #4ade80;
+    --danger: #f87171;
+    --font-mono: ui-monospace, "SF Mono", "Cascadia Code", Menlo, monospace;
+    --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0;
+    padding: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--font-sans);
+    font-size: 14px;
+    line-height: 1.5;
+    height: 100vh;
+    overflow: hidden;
+  }
+  .layout {
+    display: grid;
+    grid-template-columns: 320px 1fr 360px;
+    height: 100vh;
+  }
+  /* Sidebar */
+  .sidebar {
+    background: var(--bg-elev);
+    border-right: 1px solid var(--border);
+    overflow-y: auto;
+    padding: 16px;
+  }
+  .sidebar h1 {
+    margin: 0 0 4px 0;
+    font-size: 16px;
+    letter-spacing: -0.01em;
+  }
+  .sidebar .subtitle {
+    color: var(--text-faint);
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    margin-bottom: 16px;
+  }
+  .filter-input {
+    width: 100%;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    color: var(--text);
+    padding: 8px 10px;
+    border-radius: 6px;
+    font-family: inherit;
+    font-size: 13px;
+    margin-bottom: 12px;
+  }
+  .filter-input:focus { outline: none; border-color: var(--accent); }
+  .category {
+    margin-bottom: 14px;
+  }
+  .category-label {
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    color: var(--text-faint);
+    padding: 6px 4px;
+    margin-bottom: 2px;
+  }
+  .flow-btn {
+    display: block;
+    width: 100%;
+    background: transparent;
+    border: 1px solid transparent;
+    color: var(--text-dim);
+    text-align: left;
+    padding: 7px 10px;
+    border-radius: 5px;
+    cursor: pointer;
+    font-family: inherit;
+    font-size: 13px;
+    transition: background 0.15s, color 0.15s, border-color 0.15s;
+  }
+  .flow-btn:hover {
+    background: var(--bg-elev-2);
+    color: var(--text);
+  }
+  .flow-btn.active {
+    background: var(--accent-soft);
+    color: var(--accent);
+    border-color: rgba(245, 158, 11, 0.4);
+  }
+  /* Diagram */
+  .diagram {
+    background: var(--bg);
+    overflow: auto;
+    position: relative;
+  }
+  .diagram-header {
+    padding: 12px 24px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    background: var(--bg-elev);
+  }
+  .diagram-header h2 {
+    margin: 0;
+    font-size: 14px;
+    color: var(--text-dim);
+    font-weight: 500;
+  }
+  .diagram-header .flow-title {
+    color: var(--text);
+    font-weight: 600;
+    margin-left: auto;
+  }
+  .legend {
+    margin-left: auto;
+    display: flex;
+    gap: 16px;
+    font-size: 11px;
+    color: var(--text-faint);
+  }
+  .legend-swatch {
+    display: inline-block;
+    width: 14px;
+    height: 3px;
+    vertical-align: middle;
+    margin-right: 4px;
+  }
+  svg.diagram-svg {
+    display: block;
+    background: var(--bg);
+    width: 100%;
+    height: calc(100vh - 60px);
+  }
+  /* Node styles */
+  .node-bg {
+    fill: var(--bg-elev);
+    stroke: var(--border-strong);
+    stroke-width: 1.5;
+    transition: fill 0.2s, stroke 0.2s, opacity 0.2s;
+  }
+  .node-label {
+    fill: var(--text);
+    font-family: var(--font-sans);
+    font-size: 13px;
+    font-weight: 600;
+    text-anchor: middle;
+    pointer-events: none;
+  }
+  .node-sublabel {
+    fill: var(--text-faint);
+    font-family: var(--font-mono);
+    font-size: 9px;
+    text-anchor: middle;
+    pointer-events: none;
+  }
+  .node.dimmed .node-bg { opacity: 0.25; }
+  .node.dimmed .node-label, .node.dimmed .node-sublabel { opacity: 0.3; }
+  .node.active .node-bg {
+    fill: var(--accent-soft);
+    stroke: var(--accent);
+    stroke-width: 2;
+  }
+  .node.active .node-label { fill: var(--accent); }
+  .node.current .node-bg {
+    fill: rgba(96, 165, 250, 0.25);
+    stroke: var(--highlight);
+    stroke-width: 2.5;
+  }
+  .node.current .node-label { fill: var(--highlight); }
+  /* Layer label */
+  .layer-label {
+    fill: var(--text-faint);
+    font-family: var(--font-mono);
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+  }
+  /* Edges */
+  .edge-line {
+    stroke: var(--border);
+    stroke-width: 1;
+    fill: none;
+    opacity: 0.18;
+    transition: opacity 0.2s, stroke 0.2s, stroke-width 0.2s;
+  }
+  .edge-line.active {
+    stroke: var(--accent);
+    stroke-width: 1.5;
+    opacity: 0.85;
+  }
+  .edge-line.current {
+    stroke: var(--highlight);
+    stroke-width: 2.5;
+    opacity: 1;
+  }
+  .edge-arrow {
+    fill: var(--accent);
+    opacity: 0;
+    transition: opacity 0.2s;
+  }
+  .edge-arrow.active { opacity: 0.85; }
+  .edge-arrow.current { fill: var(--highlight); opacity: 1; }
+  .edge-num {
+    fill: var(--bg);
+    font-family: var(--font-mono);
+    font-size: 10px;
+    font-weight: 700;
+    text-anchor: middle;
+    pointer-events: none;
+  }
+  .edge-num-bg {
+    fill: var(--accent);
+    stroke: var(--bg);
+    stroke-width: 1;
+  }
+  .edge-num-bg.current { fill: var(--highlight); }
+  /* Step panel */
+  .panel {
+    background: var(--bg-elev);
+    border-left: 1px solid var(--border);
+    overflow-y: auto;
+    padding: 16px;
+  }
+  .panel h2 {
+    margin: 0 0 6px 0;
+    font-size: 15px;
+    letter-spacing: -0.01em;
+  }
+  .panel .summary {
+    color: var(--text-dim);
+    font-size: 13px;
+    margin-bottom: 16px;
+    padding-bottom: 12px;
+    border-bottom: 1px solid var(--border);
+  }
+  .panel .meta {
+    color: var(--text-faint);
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    margin-bottom: 10px;
+  }
+  .step {
+    display: grid;
+    grid-template-columns: 24px 1fr;
+    gap: 10px;
+    padding: 8px 6px;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: background 0.15s;
+    margin-bottom: 2px;
+    align-items: start;
+  }
+  .step:hover { background: var(--bg-elev-2); }
+  .step.current { background: var(--highlight-soft); }
+  .step-num {
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    background: var(--bg-elev-2);
+    color: var(--text-dim);
+    font-family: var(--font-mono);
+    font-size: 11px;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+  }
+  .step.current .step-num {
+    background: var(--highlight);
+    color: var(--bg);
+  }
+  .step-body { min-width: 0; }
+  .step-arrow {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--text-faint);
+    margin-bottom: 3px;
+  }
+  .step-arrow .from { color: var(--text); }
+  .step-arrow .to { color: var(--accent); }
+  .step.current .step-arrow .to { color: var(--highlight); }
+  .step-action {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--text);
+    margin-bottom: 2px;
+  }
+  .step-note {
+    font-size: 12px;
+    color: var(--text-dim);
+    line-height: 1.45;
+  }
+  .controls {
+    display: flex;
+    gap: 6px;
+    margin-bottom: 12px;
+  }
+  .controls button {
+    background: var(--bg-elev-2);
+    color: var(--text-dim);
+    border: 1px solid var(--border);
+    padding: 5px 10px;
+    border-radius: 5px;
+    font-family: inherit;
+    font-size: 11px;
+    cursor: pointer;
+    transition: background 0.15s, color 0.15s;
+  }
+  .controls button:hover { background: var(--bg); color: var(--text); }
+  .controls button:disabled { opacity: 0.4; cursor: not-allowed; }
+  .empty-state {
+    color: var(--text-faint);
+    font-size: 13px;
+    padding: 12px;
+    text-align: center;
+    border: 1px dashed var(--border);
+    border-radius: 6px;
+    margin-top: 12px;
+  }
+  /* Node descriptions on hover via title elements */
+  .node { cursor: default; }
+</style>
+</head>
+<body>
+<div class="layout">
+  <aside class="sidebar">
+    <h1>Architecture Flows</h1>
+    <div class="subtitle">CourtVue Labs · Sprint 98</div>
+    <input id="filter" class="filter-input" placeholder="filter flows…" type="text">
+    <div id="flow-list"></div>
+  </aside>
+
+  <main class="diagram">
+    <div class="diagram-header">
+      <h2>Layered Flow Diagram</h2>
+      <div class="legend">
+        <span><span class="legend-swatch" style="background: var(--accent)"></span>flow path</span>
+        <span><span class="legend-swatch" style="background: var(--highlight)"></span>current step</span>
+      </div>
+      <div class="flow-title" id="active-flow-title">Pick a flow →</div>
+    </div>
+    <svg id="diagram" class="diagram-svg" viewBox="0 0 1200 1000" preserveAspectRatio="xMidYMid meet">
+      <defs>
+        <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+          <path d="M0,0 L10,5 L0,10 z" class="edge-arrow"/>
+        </marker>
+        <marker id="arrow-active" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+          <path d="M0,0 L10,5 L0,10 z" class="edge-arrow active"/>
+        </marker>
+        <marker id="arrow-current" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+          <path d="M0,0 L10,5 L0,10 z" class="edge-arrow current"/>
+        </marker>
+      </defs>
+      <g id="layer-labels"></g>
+      <g id="edges"></g>
+      <g id="nodes"></g>
+    </svg>
+  </main>
+
+  <aside class="panel">
+    <div id="panel-content">
+      <h2>Pick a flow</h2>
+      <p class="summary">
+        Select a flow from the left sidebar to see how data + control move
+        between layers. Each step lights up the diagram and shows the call,
+        the payload, and any nuance (rate limits, caching, auth, etc.).
+      </p>
+      <div class="empty-state">
+        Categories: <strong>Page loads</strong> · <strong>User actions</strong> · <strong>Background sync</strong> · <strong>Ops + monitoring</strong>
+      </div>
+    </div>
+  </aside>
+</div>
+
+<script type="application/json" id="catalog">
+{
+  "nodes": [
+    { "id": "browser",       "label": "Browser",                "sub": "user",                       "layer": "Client",     "x": 60,   "y": 60,  "w": 160, "h": 56, "description": "End-user browser, fetches courtvue.app" },
+    { "id": "cloudflare",    "label": "Cloudflare",              "sub": "DNS · WAF · cache",          "layer": "Edge",       "x": 60,   "y": 160, "w": 160, "h": 56, "description": "DNS, WAF, 5 cache rules, rate limit 100/10min/IP" },
+    { "id": "vercel",        "label": "Vercel",                  "sub": "Next.js hosting",            "layer": "Edge",       "x": 240,  "y": 160, "w": 160, "h": 56, "description": "Hobby tier, auto-deploys on push to master" },
+    { "id": "nextjs",        "label": "Next.js Pages",           "sub": "app/**/page.tsx",            "layer": "Frontend",   "x": 60,   "y": 260, "w": 160, "h": 56, "description": "Server components + ISR" },
+    { "id": "react",         "label": "React + SWR",             "sub": "components · hooks",         "layer": "Frontend",   "x": 240,  "y": 260, "w": 160, "h": 56, "description": "Client components, useSWR hooks for data fetching" },
+    { "id": "middleware",    "label": "FastAPI Middleware",      "sub": "request-id · CORS",          "layer": "API",        "x": 60,   "y": 360, "w": 160, "h": 56, "description": "Sprint 98 RequestIDMiddleware + Sprint 87 CORS" },
+    { "id": "routers",       "label": "FastAPI Routers",         "sub": "37 routers · auth · slowapi", "layer": "API",        "x": 240,  "y": 360, "w": 200, "h": 56, "description": "Routes + admin-key gate + rate limiter decorators" },
+    { "id": "services",      "label": "Service Modules",         "sub": "106 services",               "layer": "Services",   "x": 100,  "y": 460, "w": 280, "h": 56, "description": "Business logic, sync orchestration, computed metrics" },
+    { "id": "freshness",     "label": "sync_freshness",          "sub": "Sprint 98 markers",          "layer": "Services",   "x": 420,  "y": 460, "w": 180, "h": 56, "description": "record_sync + read_all_syncs for /api/health/sync-status" },
+    { "id": "postgres",      "label": "PostgreSQL 16",           "sub": "primary store",              "layer": "Data",       "x": 60,   "y": 560, "w": 160, "h": 56, "description": "On VM, 50+ tables, 24 Alembic revisions" },
+    { "id": "cache_db",      "label": "cache.db (SQLite)",       "sub": "API cache · markers",        "layer": "Data",       "x": 240,  "y": 560, "w": 200, "h": 56, "description": "NBA-API response cache + sync-freshness markers" },
+    { "id": "nba_stats",     "label": "NBA Stats API",           "sub": "stats.nba.com",              "layer": "External",   "x": 800,  "y": 360, "w": 160, "h": 56, "description": "Rate-limited 0.6s/call. _block_live_fetch_if_user_mode guards all wrappers" },
+    { "id": "nba_cdn",       "label": "NBA CDN",                 "sub": "cdn.nba.com",                "layer": "External",   "x": 980,  "y": 360, "w": 160, "h": 56, "description": "Fast public JSON: scoreboard, boxscore, PBP" },
+    { "id": "scrapers",      "label": "Scrapers",                "sub": "Spotrac · PST · SR",         "layer": "External",   "x": 800,  "y": 460, "w": 160, "h": 56, "description": "Salary + injury history + draft scrapers, seed-CSV fallback" },
+    { "id": "llm",           "label": "LLM API",                 "sub": "ask backend",                "layer": "External",   "x": 980,  "y": 460, "w": 160, "h": 56, "description": "Powers /api/query/ask. Rate-limited 10/min/IP" },
+    { "id": "sentry",        "label": "Sentry",                  "sub": "Sprint 98 errors",           "layer": "Ops",        "x": 800,  "y": 560, "w": 160, "h": 56, "description": "Free tier 5K/mo. Tagged with run_id from cron" },
+    { "id": "uptimerobot",   "label": "UptimeRobot",             "sub": "Sprint 98 alerting",         "layer": "Ops",        "x": 980,  "y": 560, "w": 160, "h": 56, "description": "Polls /api/health/sync-status every 5min for 'stale: true'" },
+    { "id": "cron",          "label": "Cron · daily_sync.sh",    "sub": "6am + */15min",              "layer": "Background", "x": 800,  "y": 660, "w": 340, "h": 56, "description": "Daily full sync at 6am UTC + post-game every 15 min. RUN_ID per tick (Sprint 98)" },
+    { "id": "github",        "label": "GitHub Actions",          "sub": "Sprint 98 CI",               "layer": "Ops",        "x": 800,  "y": 760, "w": 160, "h": 56, "description": "pytest + ruff + frontend lint/build on every PR" },
+    { "id": "vm_deploy",     "label": "VM Deploy",               "sub": "infra/deploy.sh",            "layer": "Background", "x": 980,  "y": 760, "w": 160, "h": 56, "description": "Manual: git pull + pip install + alembic upgrade + restart bip-api" }
+  ],
+  "layers": [
+    { "label": "CLIENT",     "y": 80,  "x": 24 },
+    { "label": "EDGE",       "y": 180, "x": 24 },
+    { "label": "FRONTEND",   "y": 280, "x": 24 },
+    { "label": "API",        "y": 380, "x": 24 },
+    { "label": "SERVICES",   "y": 480, "x": 24 },
+    { "label": "DATA",       "y": 580, "x": 24 },
+    { "label": "EXTERNAL",   "y": 380, "x": 760 },
+    { "label": "OPS",        "y": 580, "x": 760 },
+    { "label": "BACKGROUND", "y": 680, "x": 760 }
+  ],
+  "flows": [
+    {
+      "id": "page-home",
+      "category": "page-loads",
+      "label": "Home page (/)",
+      "summary": "User visits the home page. Server-renders broadsheet hero, then client-side SWR populates the playoff freshness tiles.",
+      "steps": [
+        { "from": "browser",    "to": "cloudflare", "action": "GET courtvue.app/",       "note": "Browser hits the root. Cloudflare proxies via orange-cloud DNS." },
+        { "from": "cloudflare", "to": "vercel",     "action": "forward",                  "note": "Cache miss on the page route; Cloudflare forwards to Vercel." },
+        { "from": "vercel",     "to": "nextjs",     "action": "render /app/page.tsx",     "note": "Vercel renders the Next.js server component for the home route." },
+        { "from": "nextjs",     "to": "react",      "action": "stream HTML + hydrate",    "note": "Server-rendered HTML streams to the browser; React hydrates the client islands (LastNightPulse, SeriesTrackerStrip)." },
+        { "from": "react",      "to": "cloudflare", "action": "GET /api/playoffs/last-night-pulse", "note": "useLastNightPulse SWR hook fires after hydration. Cache rule 1 bypasses Cloudflare cache for this endpoint (Sprint 96)." },
+        { "from": "cloudflare", "to": "middleware", "action": "forward to api.courtvue.app", "note": "Cloudflare forwards; bypass-cache means origin gets every request." },
+        { "from": "middleware", "to": "routers",    "action": "bind X-Request-ID + CORS", "note": "Sprint 98 RequestIDMiddleware generates a UUID and binds it to structlog contextvars." },
+        { "from": "routers",    "to": "services",   "action": "playoffs.last_night_pulse → last_night_pulse_service", "note": "Router calls into the Sprint 96 service." },
+        { "from": "services",   "to": "postgres",   "action": "query PlayerGameLog last-36h + PlayoffSeries.updated_at", "note": "Three tile builders run in parallel: Tonight's Headliner, Last Night's Hero, Series Momentum." },
+        { "from": "postgres",   "to": "services",   "action": "rows",                     "note": "Returns games + series state." },
+        { "from": "services",   "to": "routers",    "action": "LastNightPulseResponse",   "note": "Pydantic model wraps the three tiles." },
+        { "from": "routers",    "to": "react",      "action": "200 OK + X-Request-ID",    "note": "Response flows back through middleware → Cloudflare → browser. SWR caches in the React tree." }
+      ]
+    },
+    {
+      "id": "page-player",
+      "category": "page-loads",
+      "label": "Player profile (/beta/players/[id])",
+      "summary": "Dynamic route. Server fetches the player profile, then client tabs SWR-load the rest.",
+      "steps": [
+        { "from": "browser",    "to": "cloudflare", "action": "GET /beta/players/2544",  "note": "LeBron's profile." },
+        { "from": "cloudflare", "to": "vercel",     "action": "forward",                  "note": "Vercel handles dynamic route." },
+        { "from": "vercel",     "to": "nextjs",     "action": "render [playerId]/page.tsx", "note": "Server component fetches the initial profile bundle." },
+        { "from": "nextjs",     "to": "cloudflare", "action": "GET /api/players/2544",   "note": "Server-side fetch through Cloudflare." },
+        { "from": "cloudflare", "to": "middleware", "action": "forward",                  "note": "Cache rule 5 (catch-all 2hr) applies." },
+        { "from": "middleware", "to": "routers",    "action": "players.get_player_profile", "note": "" },
+        { "from": "routers",    "to": "services",   "action": "build_player_profile",     "note": "Composes career + season stats." },
+        { "from": "services",   "to": "postgres",   "action": "JOIN players + season_stats + external_metrics_meta", "note": "Sprint 98 metric_as_of is read from external_metrics_meta JSON for surfacing staleness." },
+        { "from": "postgres",   "to": "services",   "action": "rows",                     "note": "" },
+        { "from": "services",   "to": "react",      "action": "PlayerProfile JSON",       "note": "Hydrates the page; tabs (shot lab, splits, gravity) fetch their own slices via SWR hooks." }
+      ]
+    },
+    {
+      "id": "page-standings",
+      "category": "page-loads",
+      "label": "Standings (/standings)",
+      "summary": "Materialized standings table refreshed nightly; user request just reads.",
+      "steps": [
+        { "from": "browser",    "to": "cloudflare", "action": "GET /standings",           "note": "" },
+        { "from": "cloudflare", "to": "vercel",     "action": "forward",                  "note": "" },
+        { "from": "vercel",     "to": "nextjs",     "action": "render /app/standings/page.tsx", "note": "Server component." },
+        { "from": "nextjs",     "to": "cloudflare", "action": "GET /api/standings",      "note": "" },
+        { "from": "cloudflare", "to": "middleware", "action": "forward (cache rule 5: 2hr TTL)", "note": "Standings change at most once per night, so 2hr edge cache is generous." },
+        { "from": "middleware", "to": "routers",    "action": "standings.get_standings",  "note": "" },
+        { "from": "routers",    "to": "services",   "action": "read_standings",           "note": "Reads from the materialized standings table — no on-the-fly computation." },
+        { "from": "services",   "to": "postgres",   "action": "SELECT * FROM standings WHERE season = ?", "note": "Table is rebuilt nightly by daily_sync.sh step 4." },
+        { "from": "postgres",   "to": "react",      "action": "StandingsResponse",        "note": "Renders the ladder." }
+      ]
+    },
+    {
+      "id": "page-bracket",
+      "category": "page-loads",
+      "label": "Playoff bracket (/bracket)",
+      "summary": "Bracket view with auto-advancement and series cards.",
+      "steps": [
+        { "from": "browser",    "to": "cloudflare", "action": "GET /bracket",             "note": "" },
+        { "from": "cloudflare", "to": "vercel",     "action": "forward",                  "note": "" },
+        { "from": "vercel",     "to": "nextjs",     "action": "render /app/bracket/page.tsx", "note": "" },
+        { "from": "nextjs",     "to": "react",      "action": "hydrate + useSWR",         "note": "" },
+        { "from": "react",      "to": "cloudflare", "action": "GET /api/playoffs/bracket?season=…", "note": "Cache rule 1 BYPASS — bracket must reflect game completion within minutes (Sprint 96)." },
+        { "from": "cloudflare", "to": "middleware", "action": "forward",                  "note": "" },
+        { "from": "middleware", "to": "routers",    "action": "playoffs.bracket",         "note": "" },
+        { "from": "routers",    "to": "services",   "action": "build_or_refresh_bracket", "note": "Reads PlayoffSeries; auto-advances winners via _auto_advance_closed_series." },
+        { "from": "services",   "to": "postgres",   "action": "PlayoffSeries + parent pointers (Sprint 98 FK-enforced)", "note": "Sprint 98 migration 0025 added FK constraints to parent_top/bottom_series_id." },
+        { "from": "postgres",   "to": "react",      "action": "PlayoffBracketResponse",   "note": "Renders East/West two-column tree." }
+      ]
+    },
+    {
+      "id": "page-leaderboards",
+      "category": "page-loads",
+      "label": "Leaderboards (/beta/leaderboards)",
+      "summary": "Top-N leaderboards. When an external metric is requested, Sprint 98 surfaces the as_of date.",
+      "steps": [
+        { "from": "browser",    "to": "cloudflare", "action": "GET /beta/leaderboards",   "note": "" },
+        { "from": "cloudflare", "to": "vercel",     "action": "forward",                  "note": "" },
+        { "from": "vercel",     "to": "react",      "action": "render + hydrate",         "note": "" },
+        { "from": "react",      "to": "cloudflare", "action": "GET /api/leaderboards?stat=epm&season=…", "note": "User picks EPM from the chip row." },
+        { "from": "cloudflare", "to": "middleware", "action": "cache rule 3: 6hr TTL",    "note": "Leaderboards refresh nightly; 6hr is plenty." },
+        { "from": "middleware", "to": "routers",    "action": "leaderboards.leaderboard", "note": "" },
+        { "from": "routers",    "to": "services",   "action": "rank + populate metric_as_of from external_metrics_meta", "note": "Sprint 98 B3 — when stat ∈ EXTERNAL_METRIC_STATS, metric_as_of is pulled per row." },
+        { "from": "services",   "to": "postgres",   "action": "SELECT season_stats + JSON ->> as_of", "note": "" },
+        { "from": "postgres",   "to": "react",      "action": "LeaderboardEntry[] with metric_as_of", "note": "Frontend can render an as-of chip (deferred for ExternalMetricsPanel; surface ready for any consumer)." }
+      ]
+    },
+    {
+      "id": "action-ask",
+      "category": "user-actions",
+      "label": "Ask AI (/api/query/ask)",
+      "summary": "User asks a natural-language question. LLM-backed query service answers from the database.",
+      "steps": [
+        { "from": "browser",    "to": "cloudflare", "action": "POST /api/query/ask",      "note": "" },
+        { "from": "cloudflare", "to": "middleware", "action": "forward",                  "note": "" },
+        { "from": "middleware", "to": "routers",    "action": "request-id binds, slowapi check", "note": "Sprint 98 C3: 10/min/IP rate limit. 11th request in a minute → 429." },
+        { "from": "routers",    "to": "services",   "action": "answer_query",             "note": "Query service parses intent, picks a metric, builds a SQL query." },
+        { "from": "services",   "to": "llm",        "action": "natural language → structured intent", "note": "Calls the LLM API for query understanding." },
+        { "from": "llm",        "to": "services",   "action": "intent + metric",          "note": "" },
+        { "from": "services",   "to": "postgres",   "action": "SELECT ranked players/teams", "note": "" },
+        { "from": "postgres",   "to": "services",   "action": "rows",                     "note": "" },
+        { "from": "services",   "to": "react",      "action": "QueryAskResponse",         "note": "" }
+      ]
+    },
+    {
+      "id": "action-trade-impact",
+      "category": "user-actions",
+      "label": "Trade Machine impact (/api/trade/impact)",
+      "summary": "Trade simulation. Heavy SQL + scoring; Sprint 98 rate-limits at 20/min/IP.",
+      "steps": [
+        { "from": "browser",    "to": "cloudflare", "action": "POST /api/trade/impact",  "note": "" },
+        { "from": "cloudflare", "to": "middleware", "action": "forward",                  "note": "" },
+        { "from": "middleware", "to": "routers",    "action": "slowapi 20/min check",     "note": "Sprint 98 C3 rate limit." },
+        { "from": "routers",    "to": "services",   "action": "project_trade_impact",     "note": "trade_impact_service builds the projection." },
+        { "from": "services",   "to": "postgres",   "action": "JOIN PlayerContract + SeasonStat + TeamSeasonStat", "note": "Heavy join across multiple tables." },
+        { "from": "postgres",   "to": "services",   "action": "rows",                     "note": "" },
+        { "from": "services",   "to": "react",      "action": "TradeImpactResult",        "note": "" }
+      ]
+    },
+    {
+      "id": "action-lineup-builder",
+      "category": "user-actions",
+      "label": "Lineup Builder (POST /api/lineups/builder)",
+      "summary": "User picks 5 players, gets net rating + closest-lineup match.",
+      "steps": [
+        { "from": "browser",    "to": "react",      "action": "user picks 5 players",     "note": "LineupBuilderPanel allocates 5 search slots (pre-allocated hooks pattern)." },
+        { "from": "react",      "to": "cloudflare", "action": "POST /api/lineups/builder", "note": "" },
+        { "from": "cloudflare", "to": "middleware", "action": "forward",                  "note": "" },
+        { "from": "middleware", "to": "routers",    "action": "lineups.builder",          "note": "" },
+        { "from": "routers",    "to": "services",   "action": "build_lineup_match",       "note": "lineup_builder_service runs exact + partial-match passes." },
+        { "from": "services",   "to": "postgres",   "action": "SELECT lineup_stats WHERE lineup_key LIKE …", "note": "Sprint 98 index ix_lineup_stats_season_team_playoff helps the partial-match query." },
+        { "from": "postgres",   "to": "react",      "action": "LineupBuilderResult",      "note": "Match quality banner + exact/closest cards + WOWY removal impacts." }
+      ]
+    },
+    {
+      "id": "action-pre-read-snapshot",
+      "category": "user-actions",
+      "label": "Save Pre-Read snapshot",
+      "summary": "User saves a pre-read view as a stable URL. Writes to Postgres.",
+      "steps": [
+        { "from": "browser",    "to": "cloudflare", "action": "POST /api/pre-read/snapshots", "note": "" },
+        { "from": "cloudflare", "to": "middleware", "action": "forward",                  "note": "" },
+        { "from": "middleware", "to": "routers",    "action": "pre_read.post_snapshot",   "note": "User-facing endpoint — NOT admin-key gated (Sprint 98 surgical scope)." },
+        { "from": "routers",    "to": "services",   "action": "create_pre_read_snapshot", "note": "" },
+        { "from": "services",   "to": "postgres",   "action": "INSERT pre_read_snapshots", "note": "" },
+        { "from": "postgres",   "to": "react",      "action": "PreReadSnapshotResponse with shareable id", "note": "" }
+      ]
+    },
+    {
+      "id": "action-admin-player-sync",
+      "category": "user-actions",
+      "label": "Admin: re-sync player (POST /api/players/{id}/sync)",
+      "summary": "Admin script triggers a stats.nba.com fetch. Sprint 98 C2 admin-key gated.",
+      "steps": [
+        { "from": "browser",    "to": "cloudflare", "action": "POST /api/players/2544/sync + X-Admin-Key", "note": "" },
+        { "from": "cloudflare", "to": "middleware", "action": "forward",                  "note": "" },
+        { "from": "middleware", "to": "routers",    "action": "require_admin_key dep",    "note": "Sprint 98 C2: 403 without correct X-Admin-Key. Skipped in dev when ADMIN_API_KEY unset." },
+        { "from": "routers",    "to": "services",   "action": "sync_player",              "note": "" },
+        { "from": "services",   "to": "nba_stats",  "action": "fetch commonplayerinfo + careerstats", "note": "_block_live_fetch_if_user_mode is bypassed for cron context. 0.6s rate-limited." },
+        { "from": "nba_stats",  "to": "services",   "action": "rows",                     "note": "" },
+        { "from": "services",   "to": "postgres",   "action": "UPSERT Player + SeasonStat", "note": "" },
+        { "from": "postgres",   "to": "react",      "action": "200 OK",                   "note": "" }
+      ]
+    },
+    {
+      "id": "sync-daily-full",
+      "category": "background-sync",
+      "label": "Daily cron full run (6am UTC)",
+      "summary": "Full nightly sync. Sprint 98 generates RUN_ID at entry; every step writes a freshness marker.",
+      "steps": [
+        { "from": "cron",       "to": "cron",       "action": "BIP_RUN_ID = uuidgen",     "note": "Sprint 98 A3: every cron tick gets a unique UUID. Echoed in shell log lines + bound to structlog contextvars by Python invocations." },
+        { "from": "cron",       "to": "cron",       "action": "env > /var/log/bip-cron-env-…", "note": "Sprint 98 A6: one-week env capture for root-cause analysis of the Sprint 97 cron env-propagation bug." },
+        { "from": "cron",       "to": "nba_cdn",    "action": "fetch league schedule",    "note": "warehouse_jobs.py pulls the season schedule." },
+        { "from": "cron",       "to": "nba_stats",  "action": "fetch season + team stats", "note": "leaguedashplayerstats / leaguedashteamstats etc. Rate-limited 0.6s." },
+        { "from": "cron",       "to": "postgres",   "action": "UPSERT season_stats, team_season_stats, splits, play_types, hustle, tracking, standings", "note": "Six major Python heredocs in daily_sync.sh." },
+        { "from": "cron",       "to": "scrapers",   "action": "Spotrac / PST / Sports Ref", "note": "Salary, injury history, draft scrapers. Fallback to seed CSVs on failure." },
+        { "from": "cron",       "to": "freshness",  "action": "record_sync per step",     "note": "Sprint 98 A1: each sync step writes a marker to cache.db." },
+        { "from": "freshness",  "to": "cache_db",   "action": "INSERT sync:<entity>:last", "note": "24h TTL marker, read by /api/health/sync-status." },
+        { "from": "cron",       "to": "cache_db",   "action": "clear_expired",            "note": "Sprint 88 Stream C2: prune expired cache rows." }
+      ]
+    },
+    {
+      "id": "sync-post-game",
+      "category": "background-sync",
+      "label": "Post-game cron (every 15 min)",
+      "summary": "Lightweight refresh after each game. Sprint 98 adds the regular-season gap detector + freshness markers.",
+      "steps": [
+        { "from": "cron",       "to": "cron",       "action": "self-source /etc/bip/env if DATABASE_URL missing", "note": "Sprint 97 hardening: cron env-propagation quirks can no longer silently fail." },
+        { "from": "cron",       "to": "nba_cdn",    "action": "GET todaysScoreboard_00.json", "note": "Today's finals via the live CDN (fast, no rate limit)." },
+        { "from": "cron",       "to": "postgres",   "action": "INSERT GameLog for any new finals", "note": "sync_today_playoff_finals.py." },
+        { "from": "cron",       "to": "services",   "action": "backfill_playoff_series_gaps (if IS_PLAYOFFS)", "note": "Sprint 97: walks active series, probes missing positions via boxscoresummaryv2." },
+        { "from": "cron",       "to": "services",   "action": "detect_and_backfill_regular_season_gaps", "note": "Sprint 98 A2: mirrors the playoff backfill for regular-season games. Idempotent." },
+        { "from": "services",   "to": "nba_stats",  "action": "GET boxscoresummaryv2?GameID=… (per missing game)", "note": "Probes one game at a time, 0.6s rate-limited." },
+        { "from": "services",   "to": "postgres",   "action": "INSERT recovered games",   "note": "Renumber series_game_num after any insert (playoff path)." },
+        { "from": "services",   "to": "freshness",  "action": "record_sync('playoff_backfill' / 'regular_season_gap')", "note": "Sprint 98: count=0 when no gaps; >0 when recovery happened." },
+        { "from": "cron",       "to": "services",   "action": "build_or_refresh_bracket", "note": "Recomputes top_wins / bottom_wins from game_logs." },
+        { "from": "cron",       "to": "postgres",   "action": "UPDATE PlayoffSeries",     "note": "" }
+      ]
+    },
+    {
+      "id": "sync-external-metric-import",
+      "category": "background-sync",
+      "label": "External metric CSV import",
+      "summary": "Periodic import of LEBRON / RAPTOR / EPM / PIPM / RAPM CSVs into season_stats.external_metrics_meta.",
+      "steps": [
+        { "from": "cron",       "to": "services",   "action": "epm_rapm_import.py",       "note": "CLI script, manually triggered. Reads a CSV with player_id + metric value + as_of date." },
+        { "from": "services",   "to": "postgres",   "action": "UPDATE season_stats SET epm=…, external_metrics_meta={…as_of:…}", "note": "JSON column carries the source + as_of so Sprint 98 staleness helper can surface freshness." }
+      ]
+    },
+    {
+      "id": "sync-weekly-tracking",
+      "category": "background-sync",
+      "label": "Weekly player tracking (Sunday 8am)",
+      "summary": "Player tracking dashboards take ~450 calls × 0.6s ≈ 5 min, too slow for daily; runs once a week.",
+      "steps": [
+        { "from": "cron",       "to": "services",   "action": "sync_player_tracking_stats (no player_ids = all active)", "note": "Auto-derives the active-player set from PlayerGameLog." },
+        { "from": "services",   "to": "nba_stats",  "action": "playerdashptpass etc × 450", "note": "Per-player tracking endpoints." },
+        { "from": "nba_stats",  "to": "services",   "action": "rows",                     "note": "" },
+        { "from": "services",   "to": "postgres",   "action": "UPSERT PlayerTrackingStat", "note": "" },
+        { "from": "services",   "to": "freshness",  "action": "record_sync('player_tracking')", "note": "Sprint 98: cadence_min=10080 (weekly). Stale when older than 14 days." }
+      ]
+    },
+    {
+      "id": "ops-health",
+      "category": "ops-monitoring",
+      "label": "Health probe (/api/health)",
+      "summary": "Liveness check. UptimeRobot pings every 5 min.",
+      "steps": [
+        { "from": "uptimerobot","to": "cloudflare", "action": "GET /api/health",          "note": "Polled every 5 min from UptimeRobot's free tier." },
+        { "from": "cloudflare", "to": "middleware", "action": "forward (catch-all cache 2hr)", "note": "Cache is fine — endpoint always returns 200." },
+        { "from": "middleware", "to": "routers",    "action": "request-id binds",         "note": "Sprint 98 A3 still fires even on health checks." },
+        { "from": "routers",    "to": "uptimerobot","action": "{\"status\": \"ok\"} 200", "note": "Non-200 or response >30s → email alert." }
+      ]
+    },
+    {
+      "id": "ops-sync-status",
+      "category": "ops-monitoring",
+      "label": "Sync freshness probe (/api/health/sync-status)",
+      "summary": "Sprint 98 expanded endpoint. UptimeRobot keyword-checks for 'stale: true'.",
+      "steps": [
+        { "from": "uptimerobot","to": "cloudflare", "action": "GET /api/health/sync-status", "note": "Sprint 98: UptimeRobot keyword monitor watches for '\"stale\": true'." },
+        { "from": "cloudflare", "to": "middleware", "action": "forward",                  "note": "" },
+        { "from": "middleware", "to": "routers",    "action": "sync_status",              "note": "" },
+        { "from": "routers",    "to": "freshness",  "action": "read_all_syncs",           "note": "Sprint 98 A1: iterates KNOWN_SYNC_ENTITIES, looks up each marker." },
+        { "from": "freshness",  "to": "cache_db",   "action": "peek sync:<entity>:last × 26", "note": "CacheManager.peek reads without polluting hit/miss stats." },
+        { "from": "cache_db",   "to": "freshness",  "action": "marker JSON or None",      "note": "Missing markers ⇒ stale: true." },
+        { "from": "freshness",  "to": "routers",    "action": "{syncs: {…}, cache_db: {…}}", "note": "Plus legacy playoff_backfill_last_24h for back-compat." },
+        { "from": "routers",    "to": "uptimerobot","action": "200 OK + body",            "note": "If body contains '\"stale\": true' → email alert." }
+      ]
+    },
+    {
+      "id": "ops-sentry-capture",
+      "category": "ops-monitoring",
+      "label": "Sentry error capture",
+      "summary": "Sprint 98 A4. Any FastAPI or cron exception goes to Sentry tagged with run_id / request_id.",
+      "steps": [
+        { "from": "services",   "to": "services",   "action": "exception raised",         "note": "E.g. NBA API timeout in a sync step, or DB unavailable in a request handler." },
+        { "from": "services",   "to": "sentry",     "action": "sentry-sdk auto-captures", "note": "Sprint 98: sentry-sdk auto-detects FastAPI integration. tags: run_id (from BIP_RUN_ID env)." },
+        { "from": "sentry",     "to": "sentry",     "action": "store + alert via email",  "note": "Free tier: 5K events/mo. Grouping by stack trace." }
+      ]
+    },
+    {
+      "id": "ops-drift-detector",
+      "category": "ops-monitoring",
+      "label": "Drift detector (/api/admin/playoff-series-drift)",
+      "summary": "Sprint 98 B4. Admin-key gated. Compares denormalized top_wins/bottom_wins against the view's truth.",
+      "steps": [
+        { "from": "browser",    "to": "cloudflare", "action": "GET /api/admin/playoff-series-drift + X-Admin-Key", "note": "Admin-only endpoint." },
+        { "from": "cloudflare", "to": "middleware", "action": "forward",                  "note": "" },
+        { "from": "middleware", "to": "routers",    "action": "router-level require_admin_key", "note": "Sprint 98: 403 without correct key." },
+        { "from": "routers",    "to": "services",   "action": "detect_drift",             "note": "playoff_drift_detector.py." },
+        { "from": "services",   "to": "postgres",   "action": "JOIN playoff_series ps + playoff_series_win_truth view", "note": "Sprint 98 migration 0027 view computes wins from game_logs at query time." },
+        { "from": "postgres",   "to": "services",   "action": "drift rows",               "note": "Empty list = cache is consistent." },
+        { "from": "services",   "to": "browser",    "action": "{count, drift, season}",   "note": "Non-empty list ⇒ Sprint 96 incident class is back; investigate." }
+      ]
+    },
+    {
+      "id": "ops-frontend-deploy",
+      "category": "ops-monitoring",
+      "label": "Frontend deploy (git push → Vercel)",
+      "summary": "Push to master auto-deploys the Next.js frontend within ~2 min.",
+      "steps": [
+        { "from": "browser",    "to": "github",     "action": "git push origin master",   "note": "Developer pushes." },
+        { "from": "github",     "to": "vercel",     "action": "webhook on master push",   "note": "Vercel auto-detects and builds." },
+        { "from": "vercel",     "to": "vercel",     "action": "npm ci + npm run build",   "note": "Static prerender + serverless functions." },
+        { "from": "vercel",     "to": "cloudflare", "action": "promote to production",    "note": "Cuts over via DNS-level routing." },
+        { "from": "github",     "to": "github",     "action": "CI workflow runs",         "note": "Sprint 98 D4: pytest + ruff + frontend lint/build. Non-blocking grace period for week 1." }
+      ]
+    },
+    {
+      "id": "ops-backend-deploy",
+      "category": "ops-monitoring",
+      "label": "Backend deploy (infra/deploy.sh)",
+      "summary": "Manual VM deploy. Sprint 84+. --migrate runs alembic upgrade head.",
+      "steps": [
+        { "from": "browser",    "to": "vm_deploy",  "action": "ssh ubuntu@5.78.114.15",  "note": "Developer SSHs into the Hetzner VM." },
+        { "from": "vm_deploy",  "to": "github",     "action": "git pull origin master",   "note": "" },
+        { "from": "vm_deploy",  "to": "vm_deploy",  "action": "pip install -r requirements.txt", "note": "" },
+        { "from": "vm_deploy",  "to": "postgres",   "action": "alembic upgrade head (if --migrate)", "note": "Sprint 98 deploy uses --migrate to apply 0025-0027." },
+        { "from": "vm_deploy",  "to": "vm_deploy",  "action": "systemctl restart bip-api", "note": "Gunicorn workers reload." },
+        { "from": "vm_deploy",  "to": "middleware", "action": "/api/health probe",        "note": "Health check; exit 1 if non-200." }
+      ]
+    },
+    {
+      "id": "sync-cache-warm",
+      "category": "background-sync",
+      "label": "User mode cache fill (cold-cache user request)",
+      "summary": "When a user hits a route whose cache is cold, the guard fires and the request fails fast — preventing live NBA calls from a user path.",
+      "steps": [
+        { "from": "browser",    "to": "cloudflare", "action": "GET /api/players/9999",   "note": "Some player whose stats aren't in cache.db yet." },
+        { "from": "cloudflare", "to": "middleware", "action": "forward",                  "note": "" },
+        { "from": "middleware", "to": "routers",    "action": "players.get_player_profile", "note": "" },
+        { "from": "routers",    "to": "services",   "action": "build_player_profile → nba_client.get_career_stats", "note": "" },
+        { "from": "services",   "to": "cache_db",   "action": "CacheManager.get(career_stats:9999)", "note": "" },
+        { "from": "cache_db",   "to": "services",   "action": "miss",                     "note": "" },
+        { "from": "services",   "to": "services",   "action": "_block_live_fetch_if_user_mode raises LiveFetchBlockedError", "note": "Sprint 98 C1: 24 wrappers now have this guard. Without it, user requests would trigger 3-30s stats.nba.com fetches that OOM workers." },
+        { "from": "services",   "to": "browser",    "action": "503 with explanatory message", "note": "Caller retries after the nightly cron has populated the cache." }
+      ]
+    }
+  ]
+}
+</script>
+
+<script>
+(() => {
+  const catalog = JSON.parse(document.getElementById('catalog').textContent);
+  const nodesById = Object.fromEntries(catalog.nodes.map(n => [n.id, n]));
+
+  const CATEGORY_LABEL = {
+    'page-loads':       'Page loads',
+    'user-actions':     'User actions',
+    'background-sync':  'Background sync',
+    'ops-monitoring':   'Ops + monitoring'
+  };
+  const CATEGORY_ORDER = ['page-loads', 'user-actions', 'background-sync', 'ops-monitoring'];
+
+  // ─── render nodes + layer labels ──────────────────────────────────────
+  const svg = document.getElementById('diagram');
+  const layerLabelsG = document.getElementById('layer-labels');
+  const nodesG = document.getElementById('nodes');
+  const edgesG = document.getElementById('edges');
+
+  for (const layer of catalog.layers) {
+    const t = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+    t.setAttribute('class', 'layer-label');
+    t.setAttribute('x', layer.x);
+    t.setAttribute('y', layer.y);
+    t.textContent = layer.label;
+    layerLabelsG.appendChild(t);
+  }
+
+  for (const node of catalog.nodes) {
+    const g = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+    g.setAttribute('class', 'node');
+    g.setAttribute('data-node-id', node.id);
+
+    const rect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+    rect.setAttribute('class', 'node-bg');
+    rect.setAttribute('x', node.x);
+    rect.setAttribute('y', node.y);
+    rect.setAttribute('width', node.w);
+    rect.setAttribute('height', node.h);
+    rect.setAttribute('rx', 8);
+    g.appendChild(rect);
+
+    const label = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+    label.setAttribute('class', 'node-label');
+    label.setAttribute('x', node.x + node.w / 2);
+    label.setAttribute('y', node.y + node.h / 2 + 1);
+    label.textContent = node.label;
+    g.appendChild(label);
+
+    if (node.sub) {
+      const sub = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+      sub.setAttribute('class', 'node-sublabel');
+      sub.setAttribute('x', node.x + node.w / 2);
+      sub.setAttribute('y', node.y + node.h - 8);
+      sub.textContent = node.sub;
+      g.appendChild(sub);
+    }
+
+    const title = document.createElementNS('http://www.w3.org/2000/svg', 'title');
+    title.textContent = node.description || node.label;
+    g.appendChild(title);
+
+    nodesG.appendChild(g);
+  }
+
+  // ─── render sidebar flow list ─────────────────────────────────────────
+  const flowListEl = document.getElementById('flow-list');
+  const filterInput = document.getElementById('filter');
+  let activeFlowId = null;
+  let currentStepIndex = null;
+
+  function renderFlowList(filter = '') {
+    flowListEl.innerHTML = '';
+    const lower = filter.toLowerCase().trim();
+    for (const cat of CATEGORY_ORDER) {
+      const flowsInCat = catalog.flows.filter(f => f.category === cat &&
+        (!lower || f.label.toLowerCase().includes(lower) || f.summary.toLowerCase().includes(lower)));
+      if (!flowsInCat.length) continue;
+      const catDiv = document.createElement('div');
+      catDiv.className = 'category';
+      const catLabel = document.createElement('div');
+      catLabel.className = 'category-label';
+      catLabel.textContent = CATEGORY_LABEL[cat];
+      catDiv.appendChild(catLabel);
+      for (const flow of flowsInCat) {
+        const btn = document.createElement('button');
+        btn.className = 'flow-btn' + (activeFlowId === flow.id ? ' active' : '');
+        btn.textContent = flow.label;
+        btn.dataset.flowId = flow.id;
+        btn.addEventListener('click', () => selectFlow(flow.id));
+        catDiv.appendChild(btn);
+      }
+      flowListEl.appendChild(catDiv);
+    }
+  }
+
+  filterInput.addEventListener('input', e => renderFlowList(e.target.value));
+  renderFlowList();
+
+  // ─── render edges + step panel for a chosen flow ──────────────────────
+  function selectFlow(flowId) {
+    activeFlowId = flowId;
+    currentStepIndex = null;
+    const flow = catalog.flows.find(f => f.id === flowId);
+    if (!flow) return;
+
+    // Sidebar active state
+    document.querySelectorAll('.flow-btn').forEach(b => {
+      b.classList.toggle('active', b.dataset.flowId === flowId);
+    });
+
+    // Diagram active state
+    const involvedNodes = new Set();
+    for (const step of flow.steps) {
+      involvedNodes.add(step.from);
+      involvedNodes.add(step.to);
+    }
+    document.querySelectorAll('.node').forEach(g => {
+      const id = g.dataset.nodeId;
+      g.classList.toggle('active', involvedNodes.has(id));
+      g.classList.toggle('dimmed', !involvedNodes.has(id));
+      g.classList.remove('current');
+    });
+
+    // Header
+    document.getElementById('active-flow-title').textContent = flow.label;
+
+    // Render edges
+    edgesG.innerHTML = '';
+    const seenEdges = new Map();  // key "from→to" → count for offset
+    flow.steps.forEach((step, idx) => {
+      const fromNode = nodesById[step.from];
+      const toNode = nodesById[step.to];
+      if (!fromNode || !toNode) return;
+      const key = `${step.from}→${step.to}`;
+      const occurrence = (seenEdges.get(key) || 0);
+      seenEdges.set(key, occurrence + 1);
+      drawEdge(fromNode, toNode, idx + 1, occurrence, false);
+    });
+
+    // Render step panel
+    renderStepPanel(flow);
+  }
+
+  function drawEdge(fromNode, toNode, stepNum, occurrence, isCurrent) {
+    // Compute start + end points: edge of node closest to other node.
+    const fromCx = fromNode.x + fromNode.w / 2;
+    const fromCy = fromNode.y + fromNode.h / 2;
+    const toCx = toNode.x + toNode.w / 2;
+    const toCy = toNode.y + toNode.h / 2;
+    const dx = toCx - fromCx;
+    const dy = toCy - fromCy;
+    const isSelfLoop = fromNode.id === toNode.id;
+
+    let path;
+    if (isSelfLoop) {
+      // Loop above the node.
+      const x = fromCx;
+      const y = fromNode.y;
+      path = `M ${x - 30} ${y} C ${x - 30} ${y - 35}, ${x + 30} ${y - 35}, ${x + 30} ${y}`;
+    } else {
+      // Offset slightly per occurrence so duplicate edges don't overlap.
+      const offset = occurrence * 8;
+      // Pick port on each node's perimeter.
+      const fp = portOnRect(fromNode, dx, dy);
+      const tp = portOnRect(toNode, -dx, -dy);
+      // Curve via midpoint offset perpendicular to the line.
+      const mx = (fp.x + tp.x) / 2;
+      const my = (fp.y + tp.y) / 2;
+      const len = Math.sqrt(dx * dx + dy * dy) || 1;
+      const px = -dy / len;
+      const py = dx / len;
+      const cx = mx + px * offset;
+      const cy = my + py * offset;
+      path = `M ${fp.x} ${fp.y} Q ${cx} ${cy} ${tp.x} ${tp.y}`;
+    }
+
+    const p = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+    p.setAttribute('class', 'edge-line active' + (isCurrent ? ' current' : ''));
+    p.setAttribute('d', path);
+    p.setAttribute('data-step', stepNum);
+    p.setAttribute('marker-end', isCurrent ? 'url(#arrow-current)' : 'url(#arrow-active)');
+    edgesG.appendChild(p);
+
+    // Label badge with the step number, placed near the midpoint of the curve.
+    const midX = isSelfLoop ? fromCx : (fromCx + toCx) / 2;
+    const midY = isSelfLoop ? fromNode.y - 30 : (fromCy + toCy) / 2;
+    const bg = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+    bg.setAttribute('class', 'edge-num-bg' + (isCurrent ? ' current' : ''));
+    bg.setAttribute('cx', midX);
+    bg.setAttribute('cy', midY);
+    bg.setAttribute('r', 9);
+    bg.setAttribute('data-step', stepNum);
+    edgesG.appendChild(bg);
+    const t = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+    t.setAttribute('class', 'edge-num');
+    t.setAttribute('x', midX);
+    t.setAttribute('y', midY + 3);
+    t.setAttribute('data-step', stepNum);
+    t.textContent = stepNum;
+    edgesG.appendChild(t);
+  }
+
+  function portOnRect(node, dx, dy) {
+    // Where the line from node center in direction (dx,dy) crosses the rect.
+    const cx = node.x + node.w / 2;
+    const cy = node.y + node.h / 2;
+    if (dx === 0 && dy === 0) return { x: cx, y: cy };
+    const hw = node.w / 2;
+    const hh = node.h / 2;
+    const tx = hw / Math.abs(dx || 0.0001);
+    const ty = hh / Math.abs(dy || 0.0001);
+    const t = Math.min(tx, ty);
+    return { x: cx + Math.sign(dx) * t * Math.abs(dx), y: cy + Math.sign(dy) * t * Math.abs(dy) };
+  }
+
+  function renderStepPanel(flow) {
+    const panel = document.getElementById('panel-content');
+    panel.innerHTML = '';
+    const h = document.createElement('h2');
+    h.textContent = flow.label;
+    panel.appendChild(h);
+
+    const meta = document.createElement('div');
+    meta.className = 'meta';
+    meta.textContent = CATEGORY_LABEL[flow.category] + ' · ' + flow.steps.length + ' steps';
+    panel.appendChild(meta);
+
+    const summary = document.createElement('p');
+    summary.className = 'summary';
+    summary.textContent = flow.summary;
+    panel.appendChild(summary);
+
+    const controls = document.createElement('div');
+    controls.className = 'controls';
+    const prev = document.createElement('button');
+    prev.textContent = '← prev';
+    prev.addEventListener('click', () => stepNav(-1));
+    const next = document.createElement('button');
+    next.textContent = 'next →';
+    next.addEventListener('click', () => stepNav(1));
+    const clear = document.createElement('button');
+    clear.textContent = 'show all';
+    clear.addEventListener('click', () => setCurrentStep(null));
+    controls.appendChild(prev);
+    controls.appendChild(next);
+    controls.appendChild(clear);
+    panel.appendChild(controls);
+
+    const stepList = document.createElement('div');
+    stepList.id = 'step-list';
+    flow.steps.forEach((step, idx) => {
+      const fromNode = nodesById[step.from];
+      const toNode = nodesById[step.to];
+      const div = document.createElement('div');
+      div.className = 'step';
+      div.dataset.stepIndex = idx;
+      div.addEventListener('click', () => setCurrentStep(idx));
+
+      const num = document.createElement('div');
+      num.className = 'step-num';
+      num.textContent = idx + 1;
+      div.appendChild(num);
+
+      const body = document.createElement('div');
+      body.className = 'step-body';
+      const arrow = document.createElement('div');
+      arrow.className = 'step-arrow';
+      arrow.innerHTML = `<span class="from">${fromNode ? fromNode.label : step.from}</span> → <span class="to">${toNode ? toNode.label : step.to}</span>`;
+      body.appendChild(arrow);
+      if (step.action) {
+        const act = document.createElement('div');
+        act.className = 'step-action';
+        act.textContent = step.action;
+        body.appendChild(act);
+      }
+      if (step.note) {
+        const n = document.createElement('div');
+        n.className = 'step-note';
+        n.textContent = step.note;
+        body.appendChild(n);
+      }
+      div.appendChild(body);
+      stepList.appendChild(div);
+    });
+    panel.appendChild(stepList);
+  }
+
+  function setCurrentStep(idx) {
+    currentStepIndex = idx;
+    const flow = catalog.flows.find(f => f.id === activeFlowId);
+    if (!flow) return;
+
+    // Update step panel
+    document.querySelectorAll('.step').forEach(s => {
+      s.classList.toggle('current', Number(s.dataset.stepIndex) === idx);
+    });
+    if (idx != null) {
+      const target = document.querySelector(`.step[data-step-index="${idx}"]`);
+      if (target) target.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+    }
+
+    // Update edges
+    edgesG.querySelectorAll('[data-step]').forEach(el => {
+      const step = Number(el.getAttribute('data-step'));
+      const isCurrent = (idx != null) && step === idx + 1;
+      el.classList.toggle('current', isCurrent);
+      if (el.tagName === 'path') {
+        el.setAttribute('marker-end', isCurrent ? 'url(#arrow-current)' : 'url(#arrow-active)');
+      }
+    });
+
+    // Update nodes
+    if (idx == null) {
+      document.querySelectorAll('.node').forEach(g => g.classList.remove('current'));
+    } else {
+      const step = flow.steps[idx];
+      document.querySelectorAll('.node').forEach(g => {
+        const id = g.dataset.nodeId;
+        g.classList.toggle('current', id === step.from || id === step.to);
+      });
+    }
+  }
+
+  function stepNav(delta) {
+    const flow = catalog.flows.find(f => f.id === activeFlowId);
+    if (!flow) return;
+    let idx = currentStepIndex == null ? -1 : currentStepIndex;
+    idx += delta;
+    if (idx < 0) idx = 0;
+    if (idx >= flow.steps.length) idx = flow.steps.length - 1;
+    setCurrentStep(idx);
+  }
+
+  // Keyboard navigation
+  document.addEventListener('keydown', e => {
+    if (e.target.tagName === 'INPUT') return;
+    if (e.key === 'ArrowLeft' || e.key === 'k') { stepNav(-1); e.preventDefault(); }
+    if (e.key === 'ArrowRight' || e.key === 'j') { stepNav(1); e.preventDefault(); }
+    if (e.key === 'Escape') { setCurrentStep(null); }
+  });
+})();
+</script>
+</body>
+</html>
