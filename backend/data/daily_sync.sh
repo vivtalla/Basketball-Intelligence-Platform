@@ -25,6 +25,31 @@
 set -e
 cd "$(dirname "$0")/.."
 
+# Sprint 100 (Stream D) — single-instance guard. Prevents the heavy
+# weekly draft-data backfill (Stream B) from stacking on top of the
+# next morning's 06:00 UTC main sync if it overruns. Also protects
+# against accidental double-invocation during ops. The lock is held
+# for the lifetime of the script; if another instance is running we
+# exit 0 (not an error — a running sync is what we wanted to ensure).
+# Dry-run skips the lock so plan-only invocations never block.
+_LOCKFILE="${BIP_SYNC_LOCKFILE:-/tmp/bip_daily_sync.lock}"
+_SKIP_LOCK=0
+for _arg in "$@"; do
+  if [ "$_arg" = "--dry-run" ]; then
+    _SKIP_LOCK=1
+    break
+  fi
+done
+if [ "$_SKIP_LOCK" = "0" ] && [ "${BIP_SKIP_LOCK:-0}" != "1" ]; then
+  if command -v flock >/dev/null 2>&1; then
+    exec 200>"$_LOCKFILE"
+    if ! flock -n 200; then
+      echo "[daily_sync] another invocation holds $_LOCKFILE; exiting." >&2
+      exit 0
+    fi
+  fi
+fi
+
 # Sprint 98 — detect --dry-run early so the DATABASE_URL guard below can
 # skip it. Dry-run doesn't connect to the DB; requiring DATABASE_URL just
 # to print intended actions breaks CI and clean-machine smoke tests.

@@ -14,7 +14,7 @@ EnvironmentFile=/etc/bip/env
 ExecStartPre=+/usr/bin/install -d -o ubuntu -g ubuntu -m 0755 /var/log/bip-api
 ExecStart=/home/ubuntu/bip/backend/venv/bin/gunicorn \
     main:app \
-    --workers 2 \
+    --workers 1 \
     --worker-class uvicorn.workers.UvicornWorker \
     --bind 127.0.0.1:8000 \
     --timeout 120 \
@@ -34,6 +34,19 @@ StandardError=journal
 SyslogIdentifier=bip-api
 NoNewPrivileges=true
 PrivateTmp=true
+
+# Sprint 100 (Stream D) — OOM defense after the 2026-05-16 17:15 UTC
+# incident.  The Hetzner CPX11 has 2 GB RAM + 2 GB swap; running two
+# gunicorn workers + Postgres + Caddy meant swap routinely sat at 90 %,
+# which is what tipped over today.  Workers reduced 2 → 1: FastAPI's
+# async worker handles concurrent I/O on a single uvicorn loop, and the
+# per-worker mvp_race_cache from Sprint 99 now covers 100 % of traffic
+# instead of 50 %.  MemoryHigh triggers kernel reclamation; MemoryMax
+# OOM-kills bip-api before it drags Postgres into swap thrash.  TasksMax
+# caps thread/process explosion from scrapers.
+MemoryHigh=1500M
+MemoryMax=1700M
+TasksMax=128
 
 [Install]
 WantedBy=multi-user.target

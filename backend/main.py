@@ -137,7 +137,33 @@ def startup():
 
 @app.get("/api/health")
 def health_check():
-    return {"status": "ok"}
+    # Sprint 100 (Stream D) — expose memory snapshot so UptimeRobot can see
+    # RAM/swap pressure trending up before the kernel OOM-kills a worker.
+    # The 17:15 UTC 2026-05-16 incident was invisible to /api/health because
+    # the endpoint only said "ok"; swap was at 90% with no surfaced signal.
+    from utils.memory_stats import get_memory_snapshot
+
+    return {
+        "status": "ok",
+        "memory": get_memory_snapshot(),
+        "workers": 1,
+    }
+
+
+@app.get("/api/health/memory")
+def health_memory():
+    """Sprint 100 (Stream D) — dedicated memory snapshot for threshold alerts.
+
+    Returns ``status: ok|warning|critical|unknown``.  UptimeRobot watches for
+    ``"status": "critical"`` to page; ``warning`` is a yellow indicator.
+    Endpoint stays 200 even when psutil is unavailable so the monitor can
+    distinguish "API down" (network/5xx) from "memory probe unavailable"
+    (200 with ``status: unknown``).
+    """
+    from utils.memory_stats import classify_memory_status, get_memory_snapshot
+
+    snapshot = get_memory_snapshot()
+    return {"status": classify_memory_status(snapshot), **snapshot}
 
 
 @app.get("/api/health/cache-stats")
