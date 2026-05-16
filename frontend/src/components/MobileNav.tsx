@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { useSeasonPhase } from "@/hooks/useSeasonPhase";
 
@@ -11,8 +12,12 @@ import { useSeasonPhase } from "@/hooks/useSeasonPhase";
  */
 export default function MobileNav() {
   const { isPlayoffs } = useSeasonPhase();
+  const pathname = usePathname() ?? "/";
   const [open, setOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement | null>(null);
+
+  const isActive = (href: string) =>
+    pathname === href || pathname.startsWith(href + "/");
 
   useEffect(() => {
     if (!open) return;
@@ -34,8 +39,12 @@ export default function MobileNav() {
 
   const close = () => setOpen(false);
 
-  const linkClass =
-    "block rounded-md px-3 py-2 text-sm text-[var(--muted-strong)] hover:bg-[var(--surface-alt)] hover:text-[var(--foreground)] transition-colors";
+  const linkBase =
+    "block rounded-md px-3 py-2 text-sm hover:bg-[var(--surface-alt)] hover:text-[var(--foreground)] transition-colors";
+  const itemClass = (href: string) =>
+    isActive(href)
+      ? `${linkBase} text-[var(--accent)] font-medium`
+      : `${linkBase} text-[var(--muted-strong)]`;
 
   return (
     <div ref={containerRef} className="relative sm:hidden">
@@ -66,61 +75,61 @@ export default function MobileNav() {
           aria-label="Site navigation"
           className="absolute right-0 top-full mt-2 w-56 max-h-[80vh] overflow-y-auto rounded-xl border border-[var(--border)] bg-[var(--surface)] shadow-lg p-2 z-50"
         >
-          <Link href="/playoffs" onClick={close} className={`${linkClass} text-[var(--accent)] font-medium`}>
+          <Link href="/playoffs" onClick={close} className={itemClass("/playoffs")}>
             Playoffs
           </Link>
-          <Link href="/player-stats" onClick={close} className={linkClass}>
+          <Link href="/player-stats" onClick={close} className={itemClass("/player-stats")}>
             Player Stats
           </Link>
-          <Link href="/standings" onClick={close} className={linkClass}>
+          <Link href="/standings" onClick={close} className={itemClass("/standings")}>
             Standings
           </Link>
-          <Link href="/beta/compare" onClick={close} className={linkClass}>
+          <Link href="/beta/compare" onClick={close} className={itemClass("/beta/compare")}>
             Compare
           </Link>
-          <Link href="/beta/learn" onClick={close} className={linkClass}>
+          <Link href="/beta/learn" onClick={close} className={itemClass("/beta/learn")}>
             Learn
           </Link>
           <div className="my-1 border-t border-[var(--border)]" />
-          <Link href="/beta/ask" onClick={close} className={linkClass}>
+          <Link href="/beta/ask" onClick={close} className={itemClass("/beta/ask")}>
             Ask
           </Link>
-          <Link href="/beta/mvp" onClick={close} className={linkClass}>
+          <Link href="/beta/mvp" onClick={close} className={itemClass("/beta/mvp")}>
             MVP Race
           </Link>
-          <Link href="/beta/insights" onClick={close} className={linkClass}>
+          <Link href="/beta/insights" onClick={close} className={itemClass("/beta/insights")}>
             Insights
           </Link>
-          <Link href="/beta/metrics" onClick={close} className={linkClass}>
+          <Link href="/beta/metrics" onClick={close} className={itemClass("/beta/metrics")}>
             Metrics
           </Link>
-          <Link href="/beta/pre-read" onClick={close} className={linkClass}>
+          <Link href="/beta/pre-read" onClick={close} className={itemClass("/beta/pre-read")}>
             Pre-Read
           </Link>
-          <Link href="/beta/teams" onClick={close} className={linkClass}>
+          <Link href="/beta/teams" onClick={close} className={itemClass("/beta/teams")}>
             Teams
           </Link>
-          <Link href="/beta/trade-machine" onClick={close} className={linkClass}>
+          <Link href="/beta/trade-machine" onClick={close} className={itemClass("/beta/trade-machine")}>
             Trade Machine
           </Link>
-          <Link href="/beta/free-agency" onClick={close} className={linkClass}>
+          <Link href="/beta/free-agency" onClick={close} className={itemClass("/beta/free-agency")}>
             Free Agency
           </Link>
-          <Link href="/beta/draft" onClick={close} className={linkClass}>
+          <Link href="/beta/draft" onClick={close} className={itemClass("/beta/draft")}>
             Draft
           </Link>
           {isPlayoffs && (
-            <Link href="/bracket" onClick={close} className={linkClass}>
+            <Link href="/bracket" onClick={close} className={itemClass("/bracket")}>
               Bracket
             </Link>
           )}
-          <Link href="/beta/picks" onClick={close} className={linkClass}>
+          <Link href="/beta/picks" onClick={close} className={itemClass("/beta/picks")}>
             Picks
           </Link>
-          <Link href="/beta/coverage" onClick={close} className={linkClass}>
+          <Link href="/beta/coverage" onClick={close} className={itemClass("/beta/coverage")}>
             Coverage
           </Link>
-          <Link href="/beta/milestones" onClick={close} className={linkClass}>
+          <Link href="/beta/milestones" onClick={close} className={itemClass("/beta/milestones")}>
             Milestones
           </Link>
         </div>
