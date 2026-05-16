@@ -783,6 +783,88 @@
         { "from": "services",   "to": "services",   "action": "_block_live_fetch_if_user_mode raises LiveFetchBlockedError", "note": "Sprint 98 C1: 24 wrappers now have this guard. Without it, user requests would trigger 3-30s stats.nba.com fetches that OOM workers." },
         { "from": "services",   "to": "browser",    "action": "503 with explanatory message", "note": "Caller retries after the nightly cron has populated the cache." }
       ]
+    },
+    {
+      "id": "page-draft-board",
+      "category": "page-loads",
+      "label": "Draft board (/beta/draft)",
+      "summary": "Sprint 100 — board renders prospects ordered by mock-draft consensus_rank_float (denormalized from draft_mock_rankings). Each row shows projected_tier (computed at request time) + mock_sources_count.",
+      "steps": [
+        { "from": "browser",    "to": "cloudflare", "action": "GET /beta/draft",          "note": "Static prerender; React hydrates and calls getDraftBoard()." },
+        { "from": "cloudflare", "to": "vercel",     "action": "cache miss → origin",       "note": "Page is statically prerendered." },
+        { "from": "react",      "to": "cloudflare", "action": "GET /api/draft/board?year=2026", "note": "" },
+        { "from": "cloudflare", "to": "middleware", "action": "forward",                   "note": "" },
+        { "from": "middleware", "to": "routers",    "action": "draft.get_board",           "note": "Filters is_historical=False; sorts by consensus_rank_float (NULLs trail)." },
+        { "from": "routers",    "to": "services",   "action": "compute_projected_tier per prospect", "note": "Sprint 100 — cheap per-row computation." },
+        { "from": "routers",    "to": "postgres",   "action": "SELECT DraftProspect + mock_rankings", "note": "ORM relationship: mock_sources_count derived from distinct sources." },
+        { "from": "routers",    "to": "browser",    "action": "ProspectBoardResponse JSON", "note": "Sprint 100 additive fields: consensus_rank_float, consensus_variance, projected_tier, mock_sources_count." }
+      ]
+    },
+    {
+      "id": "page-draft-prospect-detail",
+      "category": "page-loads",
+      "label": "Prospect detail (/beta/draft/[id])",
+      "summary": "Sprint 100 — enriched detail with mock rankings, combine measurements, international stats, outcome-aware comps, risk indicators, historical baseline, and translation v2 alongside v1.",
+      "steps": [
+        { "from": "browser",    "to": "cloudflare", "action": "GET /beta/draft/123",       "note": "" },
+        { "from": "react",      "to": "cloudflare", "action": "GET /api/draft/prospects/123", "note": "" },
+        { "from": "routers",    "to": "postgres",   "action": "SELECT DraftProspect + relationships", "note": "stats + measurements + mock_rankings + international_stats." },
+        { "from": "routers",    "to": "services",   "action": "translate_prospect_to_nba (v1)", "note": "Existing Sprint 78 service kept for back-compat." },
+        { "from": "routers",    "to": "services",   "action": "translate_prospect_v2",      "note": "Sprint 100 — shooting haircut + league strength + age curve + 95% CIs." },
+        { "from": "routers",    "to": "services",   "action": "find_nba_comps_v2",         "note": "Sprint 100 — outcome-weighted distance + neighbourhood confidence + career_summary per comp." },
+        { "from": "routers",    "to": "services",   "action": "compute_risk_indicators + compute_historical_baseline", "note": "Sprint 100 — 5 risk axes + comp-neighbourhood outcome distribution." },
+        { "from": "routers",    "to": "browser",    "action": "ProspectDetail JSON",        "note": "Additive Sprint 100 keys: mock_rankings[], combine_measurements, international_stats[], historical_comps[], risk_indicators, historical_baseline, translation_v2." }
+      ]
+    },
+    {
+      "id": "page-draft-historical",
+      "category": "page-loads",
+      "label": "Historical draft class (/api/draft/historical/{year})",
+      "summary": "Sprint 100 — new endpoint serving past classes (2016-2025) with NBA career outcomes for ML validation and the Sprint 101 analyzer UI.",
+      "steps": [
+        { "from": "browser",    "to": "cloudflare", "action": "GET /api/draft/historical/2018", "note": "" },
+        { "from": "routers",    "to": "postgres",   "action": "SELECT DraftProspect WHERE is_historical=True AND draft_year=2018", "note": "" },
+        { "from": "routers",    "to": "postgres",   "action": "Per prospect: LEFT JOIN draft_outcomes + teams", "note": "Career aggregates + draft_team abbreviation." },
+        { "from": "routers",    "to": "browser",    "action": "HistoricalClassResponse JSON", "note": "Returns 404 for years outside [2016, 2025]. Empty prospects[] until backfill seed CSV is populated." }
+      ]
+    },
+    {
+      "id": "sync-draft-mock-drafts",
+      "category": "background-sync",
+      "label": "Weekly mock-draft consensus ingest",
+      "summary": "Sprint 100 — Mondays only: scrape ESPN + NBADraft.net + CBS public boards, upsert draft_mock_rankings, recompute consensus_rank_float + consensus_variance on DraftProspect.",
+      "steps": [
+        { "from": "cron",       "to": "scrapers",   "action": "ingest_mock_drafts → ESPN/NBADraft.net/CBS scrapers", "note": "Each raises ScraperError if <20 prospects parsed (selector likely changed). Per-source failure non-fatal." },
+        { "from": "scrapers",   "to": "services",   "action": "compute_consensus aggregator", "note": "Unranked-by-some-sources prospects get deepest+1 fill so variance reflects spread." },
+        { "from": "services",   "to": "postgres",   "action": "UPSERT draft_mock_rankings ON (prospect_id, source, as_of)", "note": "" },
+        { "from": "services",   "to": "postgres",   "action": "UPDATE draft_prospects.consensus_rank_float / consensus_variance", "note": "Denormalized for cheap board sort." },
+        { "from": "services",   "to": "freshness",  "action": "record_sync('draft_mock_rankings')", "note": "Stale flag at >2× weekly cadence so /api/health/sync-status alerts on missing data." }
+      ]
+    },
+    {
+      "id": "sync-draft-combine-international",
+      "category": "background-sync",
+      "label": "Weekly NBA Combine + international stats ingest",
+      "summary": "Sprint 100 — Mondays only: scrape NBA Combine measurements + RealGM/G-League stats, upsert into draft_prospect_measurements + draft_international_stats.",
+      "steps": [
+        { "from": "cron",       "to": "scrapers",   "action": "ingest_combine → NBACombineScraper", "note": "stats.nba.com/stats/draftcombinestats with Referer/Origin headers." },
+        { "from": "scrapers",   "to": "postgres",   "action": "UPSERT draft_prospect_measurements ON (prospect_id, combine_year)", "note": "" },
+        { "from": "cron",       "to": "scrapers",   "action": "ingest_international → RealGMInternationalScraper + NBAGLeagueScraper", "note": "Euroleague / EuroCup / Adriatic / French LNB / G League." },
+        { "from": "scrapers",   "to": "postgres",   "action": "UPSERT draft_international_stats ON (prospect_id, season, league)", "note": "" },
+        { "from": "scrapers",   "to": "freshness",  "action": "record_sync('draft_combine') + record_sync('draft_international')", "note": "" }
+      ]
+    },
+    {
+      "id": "ops-memory-pressure",
+      "category": "background-sync",
+      "label": "Memory-pressure alert (Sprint 100)",
+      "summary": "Sprint 100 OOM defense: UptimeRobot polls /api/health/memory; when swap > 85% or system memory > 95%, status flips to 'critical' and pages.",
+      "steps": [
+        { "from": "uptimerobot", "to": "cloudflare", "action": "GET /api/health/memory every 5 min", "note": "" },
+        { "from": "cloudflare",  "to": "routers",    "action": "forward (bypassed cache, no-cache headers)", "note": "" },
+        { "from": "routers",     "to": "services",   "action": "get_memory_snapshot via psutil → classify_memory_status", "note": "ok | warning | critical | unknown. Critical fires above swap > 85% OR system > 95%." },
+        { "from": "routers",     "to": "uptimerobot", "action": "200 with status field",       "note": "UptimeRobot keyword-monitors for '\"status\": \"critical\"' and pages on match. Even when psutil fails, endpoint returns 200 with status: unknown so 'API down' (5xx) and 'memory probe unavailable' are distinguishable." }
+      ]
     }
   ]
 }
