@@ -1844,13 +1844,24 @@ export async function getLineupsForSeasonType(
 
 // Sprint 73 (EB3): today's playoff slate. `date` is optional; when omitted, the
 // backend defaults to "today" in US/Pacific.
+//
+// Filters out games whose series has already been decided (one side has 4
+// wins). The backend can return scheduled-but-never-played games for a series
+// that ended early (e.g. a sweep where G5 was on the books but cancelled), and
+// those should not appear in tonight's slate or tickers.
 export async function getPlayoffsToday(
   date?: string
 ): Promise<import("./types").PlayoffTodayResponse> {
   const path = date
     ? `/api/playoffs/today?date=${encodeURIComponent(date)}`
     : "/api/playoffs/today";
-  return fetchApi<import("./types").PlayoffTodayResponse>(path);
+  const res = await fetchApi<import("./types").PlayoffTodayResponse>(path);
+  return {
+    ...res,
+    games: res.games.filter(
+      (g) => (g.top_wins ?? 0) < 4 && (g.bottom_wins ?? 0) < 4
+    ),
+  };
 }
 
 // Sprint 75 — Playoff Command Center intelligence payload.
