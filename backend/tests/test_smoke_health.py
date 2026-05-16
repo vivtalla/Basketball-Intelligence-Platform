@@ -10,7 +10,13 @@ from __future__ import annotations
 def test_health_returns_ok(client):
     resp = client.get("/api/health")
     assert resp.status_code == 200
-    assert resp.json() == {"status": "ok"}
+    body = resp.json()
+    # Sprint 88: status: ok was the entire shape.
+    # Sprint 100 (Stream D): /api/health additively returns memory + workers
+    # so UptimeRobot can spot RAM/swap pressure trending up.
+    assert body["status"] == "ok"
+    assert "memory" in body
+    assert body.get("workers") == 1
 
 
 def test_health_cache_stats_returns_counters(client):

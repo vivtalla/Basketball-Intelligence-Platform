@@ -81,7 +81,7 @@ def test_resolve_player_id_exact_match(test_db_session):
     """Exact normalized-name match returns the player with auto_name_year confidence."""
     from db.models import Player
 
-    p = Player(id=999_001, full_name="P.J. Washington", primary_position="F")
+    p = Player(id=999_001, full_name="P.J. Washington", position="F")
     test_db_session.add(p)
     test_db_session.commit()
 
@@ -115,7 +115,8 @@ def test_resolve_player_id_ambiguous_returns_unmatched(test_db_session, caplog):
         pid, method, conf = resolve_player_id(test_db_session, "Marcus Williams")
     assert pid is None
     assert method == "unmatched"
-    assert any("multiple exact-name matches" in rec.message for rec in caplog.records)
+    # logging-format-string + args → rec.getMessage() does the interpolation.
+    assert any("multiple exact-name matches" in rec.getMessage() for rec in caplog.records)
 
 
 def test_resolve_player_id_empty_name(test_db_session):

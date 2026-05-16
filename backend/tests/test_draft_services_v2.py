@@ -115,9 +115,10 @@ def test_translate_v2_returns_point_intervals(test_db_session):
     assert isinstance(pts, dict)
     assert "point" in pts and "lower" in pts and "upper" in pts
     assert pts["lower"] < pts["point"] < pts["upper"]
-    # TS% should reflect the shooting haircut.
+    # TS% should reflect the shooting haircut. Tolerance is 1e-2 because
+    # _ci() rounds to 2 decimal places.
     ts = result["ts_pct"]
-    assert ts["point"] == pytest.approx(0.62 * SHOOTING_HAIRCUTS_NCAA["ts_pct"], rel=1e-3)
+    assert ts["point"] == pytest.approx(0.62 * SHOOTING_HAIRCUTS_NCAA["ts_pct"], abs=0.01)
 
 
 def test_translate_v2_widens_intervals_for_small_sample(test_db_session):

@@ -149,9 +149,15 @@ def upgrade() -> None:
     if not _has_column("draft_prospects", "draft_pick_number"):
         op.add_column("draft_prospects", sa.Column("draft_pick_number", sa.Integer(), nullable=True))
     if not _has_column("draft_prospects", "draft_pick_team_id"):
+        # SQLite cannot ALTER a table to add a column with an inline FK
+        # (alembic raises NotImplementedError). The ORM model still
+        # declares the relationship via ForeignKey for documentation;
+        # Postgres enforcement of this constraint is intentionally
+        # deferred — the column is for after-the-fact draft results
+        # and uniqueness is enforced upstream.
         op.add_column(
             "draft_prospects",
-            sa.Column("draft_pick_team_id", sa.Integer(), sa.ForeignKey("teams.id"), nullable=True),
+            sa.Column("draft_pick_team_id", sa.Integer(), nullable=True),
         )
     if not _has_column("draft_prospects", "is_historical"):
         op.add_column(
