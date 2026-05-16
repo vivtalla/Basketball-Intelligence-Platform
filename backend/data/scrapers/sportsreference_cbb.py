@@ -78,6 +78,8 @@ class SportsReferenceCBBScraper(HttpScraper):
 
     BASE_URL = "https://www.sports-reference.com"
     DELAY_SECONDS = 3.0  # Sports Reference is strict about scraper rate
+    # Sprint 100 (Stream B) — fixture mode for tests.
+    FIXTURE_PREFIX = "sportsreference_cbb"
 
     def fetch_top_prospects(
         self,

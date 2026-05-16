@@ -589,6 +589,15 @@ PYTHONPATH=. "$PYTHON_BIN" data/sync_injury_history.py --source prosportstransac
 # Falls back to seed CSV on any failure.
 PYTHONPATH=. "$PYTHON_BIN" data/sync_draft_prospects.py --source sportsreference --year 2026 --season "$SEASON" >> "$LOG" 2>&1 || true
 
+# Sprint 100 (Stream B) — weekly only: mock-draft consensus + NBA combine
+# measurements + international/G-League stats. Heaviest of the draft jobs;
+# Mondays-only to avoid stacking with other syncs.
+if [ "$(date +%u)" = "1" ]; then
+  PYTHONPATH=. "$PYTHON_BIN" data/sync_draft_prospects.py --source mock_drafts --year 2026 >> "$LOG" 2>&1 || true
+  PYTHONPATH=. "$PYTHON_BIN" data/sync_draft_prospects.py --source combine --year 2026 >> "$LOG" 2>&1 || true
+  PYTHONPATH=. "$PYTHON_BIN" data/sync_draft_prospects.py --source international --year 2026 >> "$LOG" 2>&1 || true
+fi
+
 # Sprint 81 B2 — materialize Basketball Value + 5-modifier vectors per
 # (player, season) referenced by award_voting. Activates mvp_case_v5
 # calibrated weights once the cohort is large enough (>= 5 seasons).
