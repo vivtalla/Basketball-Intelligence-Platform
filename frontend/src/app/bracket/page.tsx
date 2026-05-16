@@ -39,12 +39,17 @@ function BracketPageInner() {
   const searchParams = useSearchParams();
   const initialSeriesId = searchParams?.get("series_id") ?? null;
 
-  // Only fetch when we know we're in playoffs. Off-season renders empty state.
-  const swrKey =
-    !phase.isLoading && phase.isPlayoffs ? `bracket-${season}` : null;
+  // Fetch the bracket as soon as we know the season. Don't gate on
+  // `phase.isPlayoffs` — if `/api/season-phase` hiccups, we still want the
+  // bracket to load so the page doesn't fall back to the "Playoffs aren't
+  // active" empty state while the postseason is live.
+  const swrKey = !phase.isLoading ? `bracket-${season}` : null;
   const { data, error, isLoading, mutate } = useSWR<PlayoffBracketResponse>(
     swrKey,
     () => getBracket(season)
+  );
+  const hasBracketData = Boolean(
+    data && (data.east.length || data.west.length || data.finals)
   );
 
   return (
@@ -80,29 +85,13 @@ function BracketPageInner() {
         {/* Phase still loading — show skeleton until we know the phase */}
         {phase.isLoading && <BracketSkeleton />}
 
-        {/* Off-season / regular-season empty state */}
-        {!phase.isLoading && !phase.isPlayoffs && (
-          <div className="bip-empty rounded-3xl p-10 text-center">
-            <h2 className="text-xl font-semibold text-[var(--foreground)]">
-              Playoffs aren&apos;t active right now.
-            </h2>
-            <p className="mt-2 text-[var(--muted)]">Check back in April.</p>
-            <Link
-              href="/"
-              className="mt-6 inline-flex items-center px-4 py-2 rounded-xl bg-[var(--accent)] text-white text-sm font-semibold"
-            >
-              Back to Home
-            </Link>
-          </div>
-        )}
-
-        {/* Bracket loading */}
-        {!phase.isLoading && phase.isPlayoffs && (isLoading || (!data && !error)) && (
+        {/* Bracket loading (data still in flight) */}
+        {!phase.isLoading && !hasBracketData && (isLoading || (!data && !error)) && (
           <BracketSkeleton />
         )}
 
-        {/* Error */}
-        {phase.isPlayoffs && error && (
+        {/* Error fetching the bracket — only when we have no data to show */}
+        {!phase.isLoading && error && !hasBracketData && (
           <div className="bip-panel rounded-2xl p-6 text-center space-y-3">
             <p className="text-[var(--foreground)] font-medium">
               Could not load the playoff bracket.
@@ -119,8 +108,25 @@ function BracketPageInner() {
           </div>
         )}
 
+        {/* Off-season / regular-season empty state — only when there is
+            genuinely no bracket data to show. */}
+        {!phase.isLoading && !isLoading && !error && !hasBracketData && (
+          <div className="bip-empty rounded-3xl p-10 text-center">
+            <h2 className="text-xl font-semibold text-[var(--foreground)]">
+              Playoffs aren&apos;t active right now.
+            </h2>
+            <p className="mt-2 text-[var(--muted)]">Check back in April.</p>
+            <Link
+              href="/"
+              className="mt-6 inline-flex items-center px-4 py-2 rounded-xl bg-[var(--accent)] text-white text-sm font-semibold"
+            >
+              Back to Home
+            </Link>
+          </div>
+        )}
+
         {/* Live bracket */}
-        {phase.isPlayoffs && data && (
+        {hasBracketData && data && (
           <Reveal>
             <PlayoffCommandCenter bracket={data} initialSeriesId={initialSeriesId} />
           </Reveal>
