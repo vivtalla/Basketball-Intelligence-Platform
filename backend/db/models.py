@@ -2,7 +2,7 @@ from sqlalchemy import (
     Column, Date, Index, Integer, String, Float, Boolean, ForeignKey, DateTime, UniqueConstraint, JSON, Text
 )
 from sqlalchemy.orm import relationship
-from sqlalchemy.sql import func
+from sqlalchemy.sql import func, text
 
 from db.database import Base
 
@@ -1495,16 +1495,25 @@ class DraftProspect(Base):
     primary_position = Column(String(10), nullable=True)  # PG, SG, SF, PF, C, F, G
     school = Column(String(120), nullable=True)        # last team (college / G League / international)
     school_type = Column(String(20), nullable=True)    # "ncaa" | "g_league" | "international" | "high_school"
-    consensus_rank = Column(Integer, nullable=True)    # avg of major mocks (1..60)
+    consensus_rank = Column(Integer, nullable=True)    # legacy single-source rank (kept for back-compat)
     consensus_sources = Column(JSON)                   # {"espn": 5, "ringer": 7, ...}
     nba_player_id = Column(Integer, ForeignKey("players.id"), nullable=True)  # populated post-draft once linked
     headshot_url = Column(String(300))
     bio = Column(Text)
+    # Sprint 100 (Stream A) — additive fields for analyzer foundation.
+    draft_pick_number = Column(Integer, nullable=True)       # set after the draft occurs
+    draft_pick_team_id = Column(Integer, ForeignKey("teams.id"), nullable=True)
+    is_historical = Column(Boolean, nullable=False, server_default=text("false"))  # excludes from live board
+    consensus_rank_float = Column(Float, nullable=True)      # denormalized avg of mock ranks
+    consensus_variance = Column(Float, nullable=True)        # stddev across mock sources
     created_at = Column(DateTime, server_default=func.now())
     updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
 
     stats = relationship("DraftProspectStat", back_populates="prospect", cascade="all, delete-orphan")
     measurements = relationship("DraftProspectMeasurement", back_populates="prospect", cascade="all, delete-orphan")
+    mock_rankings = relationship("DraftMockRanking", back_populates="prospect", cascade="all, delete-orphan")
+    international_stats = relationship("DraftInternationalStat", back_populates="prospect", cascade="all, delete-orphan")
+    linkages = relationship("DraftProspectLinkage", back_populates="prospect", cascade="all, delete-orphan")
 
 
 class DraftProspectStat(Base):
@@ -1565,9 +1574,145 @@ class DraftProspectMeasurement(Base):
     bench_press_135 = Column(Integer)
     measured_on = Column(Date)
     source = Column(String(40), default="nba_combine")
+    # Sprint 100 (Stream A) — attribution metadata for the combine data.
+    combine_year = Column(Integer, nullable=True)
+    source_url = Column(Text, nullable=True)
+    as_of = Column(DateTime, nullable=True)
     created_at = Column(DateTime, server_default=func.now())
 
     prospect = relationship("DraftProspect", back_populates="measurements")
+
+
+class DraftMockRanking(Base):
+    """Sprint 100 (Stream A) — per-source mock-draft ranking.
+
+    Each row captures one (source, as_of) snapshot of a prospect's mock
+    position. The (prospect, source, as_of) tuple is unique so re-running
+    the ingester for the same snapshot is idempotent. Consensus rank +
+    variance are denormalized onto ``DraftProspect`` for cheap board sort.
+    """
+    __tablename__ = "draft_mock_rankings"
+    __table_args__ = (
+        UniqueConstraint("prospect_id", "source", "as_of", name="uq_mock_prospect_source_asof"),
+        Index("ix_mock_source_asof", "source", "as_of"),
+    )
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    prospect_id = Column(Integer, ForeignKey("draft_prospects.id"), nullable=False)
+    source = Column(String(32), nullable=False)       # "espn" | "nbadraft_net" | "cbs"
+    source_url = Column(Text)
+    as_of = Column(DateTime, nullable=False)
+    rank = Column(Integer, nullable=False)
+    tier = Column(String(16))                          # "lottery" | "first_round" | "second_round" | "undrafted"
+    position_projected = Column(String(8))
+    comp_player_name = Column(String(120))
+    notes = Column(Text)
+    created_at = Column(DateTime, server_default=func.now())
+    updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
+
+    prospect = relationship("DraftProspect", back_populates="mock_rankings")
+
+
+class DraftOutcome(Base):
+    """Sprint 100 (Stream A) — historical career outcome for a draft prospect.
+
+    Backs the 2016-2025 baseline that powers outcome-weighted comps + the
+    tier classifier's empirical priors. ``outcome_tier`` is derived from
+    deterministic thresholds documented in
+    ``services/draft_outcome_classifier.py``.
+    """
+    __tablename__ = "draft_outcomes"
+    __table_args__ = (
+        Index("ix_outcomes_draft_year", "draft_year"),
+        Index("ix_outcomes_player", "player_id"),
+        Index("ix_outcomes_tier", "outcome_tier"),
+    )
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    prospect_id = Column(Integer, ForeignKey("draft_prospects.id"), nullable=True)
+    player_id = Column(Integer, ForeignKey("players.id"), nullable=True)
+    draft_year = Column(Integer, nullable=False)
+    draft_pick = Column(Integer, nullable=True)
+    draft_team_id = Column(Integer, ForeignKey("teams.id"), nullable=True)
+    # Career aggregates (cumulative through ``as_of_season``).
+    career_games = Column(Integer, nullable=True)
+    career_minutes = Column(Float, nullable=True)
+    career_ppg = Column(Float, nullable=True)
+    career_ws = Column(Float, nullable=True)            # Basketball-Reference Win Shares
+    career_vorp = Column(Float, nullable=True)
+    peak_per = Column(Float, nullable=True)
+    all_star_selections = Column(Integer, server_default="0")
+    all_nba_selections = Column(Integer, server_default="0")
+    outcome_tier = Column(String(16), nullable=True)    # bust | role_player | starter | star | superstar
+    as_of_season = Column(Integer, nullable=True)
+    external_metrics_meta = Column(JSON, nullable=True) # {source, as_of, note} attribution
+    created_at = Column(DateTime, server_default=func.now())
+    updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
+
+
+class DraftProspectLinkage(Base):
+    """Sprint 100 (Stream A) — fuzzy-match override layer for prospect → player.
+
+    Linkage rows write the result of auto-name matching during backfill;
+    admins can override via direct INSERTs with ``match_method='manual'``
+    and ``confidence=1.0``. The (prospect, player) pair is unique so
+    multiple ambiguous matches surface as conflicts rather than silent
+    duplicates.
+    """
+    __tablename__ = "draft_prospect_linkage"
+    __table_args__ = (
+        UniqueConstraint("prospect_id", "player_id", name="uq_linkage_prospect_player"),
+        Index("ix_linkage_prospect", "prospect_id"),
+        Index("ix_linkage_player", "player_id"),
+    )
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    prospect_id = Column(Integer, ForeignKey("draft_prospects.id"), nullable=False)
+    player_id = Column(Integer, ForeignKey("players.id"), nullable=False)
+    match_method = Column(String(16), nullable=False)   # "auto_name" | "auto_name_year" | "manual"
+    confidence = Column(Float, nullable=False)
+    verified_by = Column(String(64), nullable=True)
+    created_at = Column(DateTime, server_default=func.now())
+
+    prospect = relationship("DraftProspect", back_populates="linkages")
+
+
+class DraftInternationalStat(Base):
+    """Sprint 100 (Stream A) — per-season international / G-League stat line.
+
+    Covers Euroleague, EuroCup, ABA/Adriatic, French LNB, and the NBA
+    G League. Schema mirrors ``DraftProspectStat`` but with international-
+    specific fields (e.g. usage_rate is RealGM-style rather than NBA-style).
+    """
+    __tablename__ = "draft_international_stats"
+    __table_args__ = (
+        UniqueConstraint("prospect_id", "season", "league", name="uq_intl_prospect_season_league"),
+        Index("ix_intl_prospect", "prospect_id"),
+    )
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    prospect_id = Column(Integer, ForeignKey("draft_prospects.id"), nullable=False)
+    season = Column(String(16), nullable=False)        # "2025-26"
+    league = Column(String(32), nullable=False)        # "Euroleague" | "G League" | "Adriatic" | ...
+    team_name = Column(String(120))
+    games = Column(Integer)
+    minutes_per_game = Column(Float)
+    ppg = Column(Float)
+    rpg = Column(Float)
+    apg = Column(Float)
+    spg = Column(Float)
+    bpg = Column(Float)
+    fg_pct = Column(Float)
+    three_pct = Column(Float)
+    ft_pct = Column(Float)
+    usage_rate = Column(Float)
+    ts_pct = Column(Float)
+    source = Column(String(32), nullable=False, server_default="realgm")
+    source_url = Column(Text)
+    as_of = Column(DateTime, nullable=False, server_default=func.now())
+    created_at = Column(DateTime, server_default=func.now())
+
+    prospect = relationship("DraftProspect", back_populates="international_stats")
 
 
 class DraftPickAsset(Base):

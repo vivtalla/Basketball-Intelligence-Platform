@@ -2061,6 +2061,17 @@ export async function getProspectDetail(
   );
 }
 
+// Sprint 100 (Stream C) — historical class endpoint for ML-validation views.
+// Returns 404 outside [2016, 2025]; the analyzer UI (Sprint 101) will gate
+// year selection to that range.
+export async function getHistoricalDraftClass(
+  draftYear: number
+): Promise<import("./types").HistoricalClassResponse> {
+  return fetchApi<import("./types").HistoricalClassResponse>(
+    `/api/draft/historical/${draftYear}`
+  );
+}
+
 // ── Sprint 78 FO4 — Multi-Year Team Arc + Aging Curves ───────────────────────
 export async function getTeamArc(
   abbr: string,

@@ -7,33 +7,66 @@ Routes:
 - ``GET /api/draft/prospects/{prospect_id}`` — full prospect detail with
   per-game stats, NBA-translated per-100 line, NBA comps, and combine
   measurements.
+- ``GET /api/draft/historical/{draft_year}`` — Sprint 100 new endpoint:
+  past prospects with NBA career outcomes (2016-2025) for ML validation
+  views.
 
-Both routes are read-only and live entirely in the prospect tables; the
-upstream sync responsibility belongs to ``data/sync_draft_prospects.py``.
+Sprint 100 (Stream C) — the existing routes carry additive enrichment
+(consensus rank + variance, projected tier, mock rankings, combine
+panel, international stats, outcome-aware comps, risk indicators,
+historical baseline, translation v2). All additive: existing clients
+keep working.
+
+Read-only routes; sync responsibility lives in ``data/sync_draft_prospects``.
 """
 from __future__ import annotations
 
 import logging
+import os
+from datetime import date
 from typing import List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 
 from db.database import get_db
-from db.models import DraftProspect, DraftProspectMeasurement, DraftProspectStat
+from db.models import (
+    DraftMockRanking, DraftOutcome, DraftProspect, DraftProspectMeasurement,
+    DraftProspectStat, DraftInternationalStat, Player, Team,
+)
 from models.draft import (
     CollegeStatLine,
+    CombineMeasurement,
     DraftProspectSummary,
+    HistoricalBaseline,
+    HistoricalClassResponse,
+    HistoricalComp,
+    HistoricalProspectEntry,
+    InternationalStatLine,
     MeasurementPanel,
+    MockRanking,
+    NbaTranslationV2,
     ProspectBoardResponse,
     ProspectDetail,
+    RiskIndicators,
+)
+from services.draft_analysis_service import (
+    compute_historical_baseline,
+    compute_projected_tier,
+    compute_risk_indicators,
 )
 from services.draft_prospect_comp_service import find_nba_comps
+from services.draft_prospect_comp_service_v2 import find_nba_comps_v2
 from services.draft_translation_service import translate_prospect_to_nba
+from services.draft_translation_service_v2 import translate_prospect_v2
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter()
+
+DRAFT_USE_TRANSLATION_V2 = os.environ.get("DRAFT_USE_TRANSLATION_V2", "true").lower() == "true"
+HISTORICAL_YEAR_MIN = 2016
+HISTORICAL_YEAR_MAX = 2025
 
 
 def _latest_stat(prospect: DraftProspect) -> Optional[DraftProspectStat]:
@@ -44,8 +77,28 @@ def _latest_stat(prospect: DraftProspect) -> Optional[DraftProspectStat]:
     return rows[0]
 
 
-def _summary_from_prospect(prospect: DraftProspect) -> DraftProspectSummary:
+def _summary_from_prospect(
+    prospect: DraftProspect,
+    db: Optional[Session] = None,
+    *,
+    include_projected_tier: bool = False,
+) -> DraftProspectSummary:
+    """Build the board-row summary.
+
+    The board endpoint hands in ``db`` and ``include_projected_tier=True``
+    because tier projection is cheap (just reads denormalized fields).
+    Other call sites can skip ``db`` and tier remains None.
+    """
     latest = _latest_stat(prospect)
+    mock_sources_count = (
+        len({m.source for m in (prospect.mock_rankings or [])}) or None
+    )
+    tier: Optional[str] = None
+    if include_projected_tier and db is not None:
+        try:
+            tier = compute_projected_tier(db, prospect)
+        except Exception as exc:  # noqa: BLE001 - defensive
+            logger.warning("compute_projected_tier failed for prospect=%s: %s", prospect.id, exc)
     return DraftProspectSummary(
         prospect_id=prospect.id,
         external_id=prospect.external_id,
@@ -58,6 +111,11 @@ def _summary_from_prospect(prospect: DraftProspect) -> DraftProspectSummary:
         school=prospect.school,
         school_type=prospect.school_type,
         consensus_rank=prospect.consensus_rank,
+        # Sprint 100 (Stream C) — additive enrichment.
+        consensus_rank_float=prospect.consensus_rank_float,
+        consensus_variance=prospect.consensus_variance,
+        projected_tier=tier,
+        mock_sources_count=mock_sources_count,
         headshot_url=prospect.headshot_url,
         archetype_label=None,  # archetype only resolved on detail (cheaper board)
         pts_pg=getattr(latest, "pts_pg", None),
@@ -82,25 +140,39 @@ def get_board(
     to be cheap — no archetype classification or comp computation here; that
     happens on the detail route.
     """
-    query = db.query(DraftProspect).filter(DraftProspect.draft_year == year)
+    query = (
+        db.query(DraftProspect)
+        .filter(DraftProspect.draft_year == year)
+        # Sprint 100 (Stream C) — exclude historical backfill rows from
+        # the live board. They're for training, not for display.
+        .filter(DraftProspect.is_historical.is_(False))
+    )
     if position:
         query = query.filter(DraftProspect.primary_position == position)
     if school_type:
         query = query.filter(DraftProspect.school_type == school_type)
     prospects = query.all()
 
-    # Sort with NULL consensus ranks pushed to the end, then alpha by name as
+    # Sort by mock-draft consensus rank (Sprint 100) when present, falling
+    # back to the legacy integer ``consensus_rank``, then alpha by name as
     # a deterministic tiebreaker.
-    prospects.sort(key=lambda p: (
-        p.consensus_rank if p.consensus_rank is not None else 9999,
-        p.full_name or "",
-    ))
+    def _sort_key(p: DraftProspect):
+        if p.consensus_rank_float is not None:
+            return (0, p.consensus_rank_float, p.full_name or "")
+        if p.consensus_rank is not None:
+            return (1, float(p.consensus_rank), p.full_name or "")
+        return (2, 9999.0, p.full_name or "")
+
+    prospects.sort(key=_sort_key)
     prospects = prospects[:limit]
 
     return ProspectBoardResponse(
         draft_year=year,
         count=len(prospects),
-        prospects=[_summary_from_prospect(p) for p in prospects],
+        prospects=[
+            _summary_from_prospect(p, db=db, include_projected_tier=True)
+            for p in prospects
+        ],
     )
 
 
@@ -160,6 +232,7 @@ def get_prospect_detail(
         .first()
     )
     measurement: Optional[MeasurementPanel] = None
+    combine_measurements: Optional[CombineMeasurement] = None
     if measurement_row is not None:
         measurement = MeasurementPanel(
             height_no_shoes=measurement_row.height_no_shoes,
@@ -173,6 +246,102 @@ def get_prospect_detail(
             three_quarter_sprint_seconds=measurement_row.three_quarter_sprint_seconds,
             source=measurement_row.source,
         )
+        combine_measurements = CombineMeasurement(
+            combine_year=measurement_row.combine_year,
+            height_no_shoes=measurement_row.height_no_shoes,
+            height_with_shoes=measurement_row.height_with_shoes,
+            weight=measurement_row.weight,
+            wingspan=measurement_row.wingspan,
+            standing_reach=measurement_row.standing_reach,
+            body_fat_pct=measurement_row.body_fat_pct,
+            hand_length=measurement_row.hand_length,
+            hand_width=measurement_row.hand_width,
+            standing_vert=measurement_row.standing_vert,
+            max_vert=measurement_row.max_vert,
+            lane_agility_seconds=measurement_row.lane_agility_seconds,
+            three_quarter_sprint_seconds=measurement_row.three_quarter_sprint_seconds,
+            bench_press_135=measurement_row.bench_press_135,
+            source=measurement_row.source,
+            source_url=measurement_row.source_url,
+            as_of=measurement_row.as_of.isoformat() if measurement_row.as_of else None,
+        )
+
+    # ── Sprint 100 (Stream C) — additive enriched fields ──────────────
+    mock_rankings: List[MockRanking] = []
+    try:
+        for r in (prospect.mock_rankings or []):
+            mock_rankings.append(MockRanking(
+                source=r.source,
+                source_url=r.source_url,
+                as_of=r.as_of.isoformat() if r.as_of else None,
+                rank=r.rank,
+                tier=r.tier,
+                position_projected=r.position_projected,
+                comp_player_name=r.comp_player_name,
+            ))
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("mock_rankings assembly failed for prospect=%s: %s", prospect_id, exc)
+
+    international_stats: List[InternationalStatLine] = []
+    try:
+        intl_rows = (
+            db.query(DraftInternationalStat)
+            .filter(DraftInternationalStat.prospect_id == prospect_id)
+            .order_by(DraftInternationalStat.season.desc())
+            .all()
+        )
+        for row in intl_rows:
+            international_stats.append(InternationalStatLine(
+                season=row.season,
+                league=row.league,
+                team_name=row.team_name,
+                games=row.games,
+                minutes_per_game=row.minutes_per_game,
+                ppg=row.ppg,
+                rpg=row.rpg,
+                apg=row.apg,
+                spg=row.spg,
+                bpg=row.bpg,
+                fg_pct=row.fg_pct,
+                three_pct=row.three_pct,
+                ft_pct=row.ft_pct,
+                usage_rate=row.usage_rate,
+                ts_pct=row.ts_pct,
+                source=row.source,
+                source_url=row.source_url,
+                as_of=row.as_of.isoformat() if row.as_of else None,
+            ))
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("international_stats assembly failed for prospect=%s: %s", prospect_id, exc)
+
+    historical_comps: List[HistoricalComp] = []
+    try:
+        for c in find_nba_comps_v2(db, prospect_id, top_k=5):
+            historical_comps.append(HistoricalComp(**c))
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("find_nba_comps_v2 failed for prospect=%s: %s", prospect_id, exc)
+
+    risk_indicators: Optional[RiskIndicators] = None
+    try:
+        risk_indicators = RiskIndicators(**compute_risk_indicators(db, prospect))
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("compute_risk_indicators failed for prospect=%s: %s", prospect_id, exc)
+
+    historical_baseline: Optional[HistoricalBaseline] = None
+    try:
+        baseline = compute_historical_baseline(db, prospect, top_k=10)
+        historical_baseline = HistoricalBaseline(**baseline)
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("compute_historical_baseline failed for prospect=%s: %s", prospect_id, exc)
+
+    translation_v2: Optional[NbaTranslationV2] = None
+    if DRAFT_USE_TRANSLATION_V2:
+        try:
+            v2_payload = translate_prospect_v2(db, prospect_id)
+            if v2_payload is not None:
+                translation_v2 = NbaTranslationV2(**v2_payload)
+        except Exception as exc:  # noqa: BLE001
+            logger.warning("translate_prospect_v2 failed for prospect=%s: %s", prospect_id, exc)
 
     return ProspectDetail(
         summary=summary,
@@ -181,4 +350,88 @@ def get_prospect_detail(
         translation=translation,
         measurement=measurement,
         nba_comps=comps,
+        mock_rankings=mock_rankings,
+        combine_measurements=combine_measurements,
+        international_stats=international_stats,
+        historical_comps=historical_comps,
+        risk_indicators=risk_indicators,
+        historical_baseline=historical_baseline,
+        translation_v2=translation_v2,
+    )
+
+
+# ── Sprint 100 (Stream C) — historical class endpoint ─────────────────
+
+
+@router.get("/historical/{draft_year}", response_model=HistoricalClassResponse)
+def get_historical_class(
+    draft_year: int,
+    db: Session = Depends(get_db),
+) -> HistoricalClassResponse:
+    """Return the historical draft class with NBA career outcomes.
+
+    Years 2016-2025 are supported; outside that range returns 404.
+    Built for the ML-validation / calibration view in Sprint 101 — the
+    response is intentionally compact (one row per prospect) so it can
+    feed a comparison table without further joins.
+    """
+    if not (HISTORICAL_YEAR_MIN <= draft_year <= HISTORICAL_YEAR_MAX):
+        raise HTTPException(
+            status_code=404,
+            detail=f"historical draft year {draft_year} out of supported range "
+                   f"[{HISTORICAL_YEAR_MIN}, {HISTORICAL_YEAR_MAX}]",
+        )
+
+    prospects = (
+        db.query(DraftProspect)
+        .filter(
+            DraftProspect.draft_year == draft_year,
+            DraftProspect.is_historical.is_(True),
+        )
+        .all()
+    )
+
+    rows: List[HistoricalProspectEntry] = []
+    for p in prospects:
+        outcome = (
+            db.query(DraftOutcome)
+            .filter(
+                DraftOutcome.draft_year == draft_year,
+                DraftOutcome.prospect_id == p.id,
+            )
+            .order_by(DraftOutcome.id.desc())
+            .first()
+        )
+        # Resolve team abbreviation if a draft pick team is known.
+        team_abbr: Optional[str] = None
+        team_id = (outcome.draft_team_id if outcome else None) or p.draft_pick_team_id
+        if team_id is not None:
+            team = db.query(Team).filter(Team.id == team_id).one_or_none()
+            if team is not None:
+                team_abbr = team.abbreviation if hasattr(team, "abbreviation") else None
+        career_summary = None
+        if outcome is not None:
+            career_summary = {
+                "games": outcome.career_games,
+                "minutes": outcome.career_minutes,
+                "ppg": outcome.career_ppg,
+                "career_ws": outcome.career_ws,
+                "all_star": outcome.all_star_selections,
+                "all_nba": outcome.all_nba_selections,
+            }
+        rows.append(HistoricalProspectEntry(
+            prospect_id=p.id,
+            name=p.full_name,
+            draft_pick=(outcome.draft_pick if outcome else None) or p.draft_pick_number,
+            draft_team=team_abbr,
+            predicted_tier_at_time=None,  # populated once analyzer-UI rerun lands
+            outcome_tier=outcome.outcome_tier if outcome else None,
+            career_summary=career_summary,
+        ))
+
+    rows.sort(key=lambda r: (r.draft_pick if r.draft_pick is not None else 9999, r.name))
+    return HistoricalClassResponse(
+        draft_year=draft_year,
+        prospects=rows,
+        as_of=date.today().isoformat(),
     )

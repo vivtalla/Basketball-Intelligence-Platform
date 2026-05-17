@@ -103,6 +103,11 @@ class DraftProspectSummary(BaseModel):
     school: Optional[str] = None
     school_type: Optional[str] = None
     consensus_rank: Optional[int] = None
+    # Sprint 100 (Stream C) — additive board enrichment.
+    consensus_rank_float: Optional[float] = None
+    consensus_variance: Optional[float] = None
+    projected_tier: Optional[str] = None
+    mock_sources_count: Optional[int] = None
     headshot_url: Optional[str] = None
     archetype_label: Optional[str] = None
     pts_pg: Optional[float] = None
@@ -118,6 +123,136 @@ class ProspectBoardResponse(BaseModel):
     prospects: List[DraftProspectSummary] = []
 
 
+# ── Sprint 100 (Stream C) — new response shapes for enriched detail ──
+
+
+class MockRanking(BaseModel):
+    """One mock-draft ranking entry on a prospect's detail."""
+    source: str
+    source_url: Optional[str] = None
+    as_of: Optional[str] = None
+    rank: int
+    tier: Optional[str] = None
+    position_projected: Optional[str] = None
+    comp_player_name: Optional[str] = None
+
+
+class CombineMeasurement(BaseModel):
+    """Sprint 100 combine measurement panel with explicit attribution."""
+    combine_year: Optional[int] = None
+    height_no_shoes: Optional[float] = None
+    height_with_shoes: Optional[float] = None
+    weight: Optional[float] = None
+    wingspan: Optional[float] = None
+    standing_reach: Optional[float] = None
+    body_fat_pct: Optional[float] = None
+    hand_length: Optional[float] = None
+    hand_width: Optional[float] = None
+    standing_vert: Optional[float] = None
+    max_vert: Optional[float] = None
+    lane_agility_seconds: Optional[float] = None
+    three_quarter_sprint_seconds: Optional[float] = None
+    bench_press_135: Optional[int] = None
+    source: Optional[str] = None
+    source_url: Optional[str] = None
+    as_of: Optional[str] = None
+
+
+class InternationalStatLine(BaseModel):
+    season: str
+    league: str
+    team_name: Optional[str] = None
+    games: Optional[int] = None
+    minutes_per_game: Optional[float] = None
+    ppg: Optional[float] = None
+    rpg: Optional[float] = None
+    apg: Optional[float] = None
+    spg: Optional[float] = None
+    bpg: Optional[float] = None
+    fg_pct: Optional[float] = None
+    three_pct: Optional[float] = None
+    ft_pct: Optional[float] = None
+    usage_rate: Optional[float] = None
+    ts_pct: Optional[float] = None
+    source: Optional[str] = None
+    source_url: Optional[str] = None
+    as_of: Optional[str] = None
+
+
+class HistoricalComp(BaseModel):
+    """Sprint 100 outcome-aware NBA comp."""
+    player_id: int
+    player_name: str
+    season: Optional[str] = None
+    similarity: float
+    outcome_tier: Optional[str] = None
+    career_summary: Optional[dict] = None
+    neighbourhood_confidence: Optional[str] = None
+    pts_pg: Optional[float] = None
+    reb_pg: Optional[float] = None
+    ast_pg: Optional[float] = None
+    ts_pct: Optional[float] = None
+    usg_pct: Optional[float] = None
+
+
+class RiskIndicators(BaseModel):
+    age_risk: float = Field(..., ge=0.0, le=1.0)
+    sample_risk: float = Field(..., ge=0.0, le=1.0)
+    level_risk: float = Field(..., ge=0.0, le=1.0)
+    athleticism_risk: float = Field(..., ge=0.0, le=1.0)
+    shooting_risk: float = Field(..., ge=0.0, le=1.0)
+
+
+class HistoricalBaseline(BaseModel):
+    n_comps: int
+    n_with_outcome: int
+    insufficient: bool = False
+    star_pct: float = 0.0
+    starter_pct: float = 0.0
+    role_player_pct: float = 0.0
+    bust_pct: float = 0.0
+
+
+class NbaTranslationV2(BaseModel):
+    """Sprint 100 translation v2 — point + 95% CIs for the primary metrics."""
+    source_season: Optional[str] = None
+    source_league: Optional[str] = None
+    league_strength_key: Optional[str] = None
+    college_pace: Optional[float] = None
+    nba_pace: Optional[float] = None
+    pace_multiplier: Optional[float] = None
+    league_strength_multiplier: Optional[float] = None
+    age_multiplier: Optional[float] = None
+    combined_volume_multiplier: Optional[float] = None
+    pts_per100: Optional[dict] = None    # {point, lower, upper}
+    reb_per100: Optional[dict] = None
+    ast_per100: Optional[dict] = None
+    stl_per100: Optional[float] = None
+    blk_per100: Optional[float] = None
+    tov_per100: Optional[float] = None
+    ts_pct: Optional[dict] = None         # {point, lower, upper}
+    three_pct: Optional[float] = None
+    usg_pct: Optional[float] = None
+    confidence_factors: List[str] = []
+
+
+class HistoricalProspectEntry(BaseModel):
+    """One row in the historical-class endpoint (Sprint 100 new endpoint)."""
+    prospect_id: int
+    name: str
+    draft_pick: Optional[int] = None
+    draft_team: Optional[str] = None
+    predicted_tier_at_time: Optional[str] = None
+    outcome_tier: Optional[str] = None
+    career_summary: Optional[dict] = None
+
+
+class HistoricalClassResponse(BaseModel):
+    draft_year: int
+    prospects: List[HistoricalProspectEntry] = []
+    as_of: str
+
+
 class ProspectDetail(BaseModel):
     summary: DraftProspectSummary
     bio: Optional[str] = None
@@ -125,3 +260,12 @@ class ProspectDetail(BaseModel):
     translation: Optional[NbaTranslation] = None
     measurement: Optional[MeasurementPanel] = None
     nba_comps: List[NbaComp] = []
+    # Sprint 100 (Stream C) — additive enriched fields. v1 callers see no
+    # breaking change; v2-aware callers consume these new top-level keys.
+    mock_rankings: List[MockRanking] = []
+    combine_measurements: Optional[CombineMeasurement] = None
+    international_stats: List[InternationalStatLine] = []
+    historical_comps: List[HistoricalComp] = []
+    risk_indicators: Optional[RiskIndicators] = None
+    historical_baseline: Optional[HistoricalBaseline] = None
+    translation_v2: Optional[NbaTranslationV2] = None

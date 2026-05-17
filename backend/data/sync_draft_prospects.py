@@ -261,9 +261,16 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
         "--source",
-        choices=["seed_csv", "sportsreference"],
+        choices=[
+            "seed_csv", "sportsreference",
+            # Sprint 100 (Stream B) — additional sources.
+            "mock_drafts", "combine", "international", "all",
+        ],
         default="sportsreference",
-        help="Ingestion source. Defaults to live SR scrape (falls back to seed_csv on error).",
+        help=(
+            "Ingestion source. Defaults to live SR scrape (falls back to "
+            "seed_csv on error). ``all`` runs every source sequentially."
+        ),
     )
     parser.add_argument("--csv-path", default=DEFAULT_CSV_PATH,
                         help="Path to seed CSV (relative to backend/).")
@@ -281,7 +288,7 @@ def main() -> int:
     try:
         if args.source == "seed_csv":
             counts = sync_seed_csv(db, args.csv_path, args.year, args.season)
-        else:
+        elif args.source == "sportsreference":
             counts = sync_sportsreference(
                 db,
                 draft_year=args.year,
@@ -289,6 +296,50 @@ def main() -> int:
                 top_n=args.top_n,
                 fallback_csv_path=args.csv_path,
             )
+        elif args.source == "mock_drafts":
+            # Sprint 100 (Stream B) — delegate to ingest_mock_drafts.
+            from data.ingest_mock_drafts import ingest_mock_drafts
+            counts = ingest_mock_drafts(args.year)
+        elif args.source == "combine":
+            from data.ingest_combine import ingest_combine
+            counts = ingest_combine(args.year)
+        elif args.source == "international":
+            from data.ingest_international import ingest_international
+            counts = ingest_international(args.year)
+        elif args.source == "all":
+            # Run every source sequentially. Each one swallows its own
+            # errors via ScraperError → fallback / record_sync(error=...),
+            # so partial failure here is non-fatal.
+            from data.ingest_combine import ingest_combine
+            from data.ingest_international import ingest_international
+            from data.ingest_mock_drafts import ingest_mock_drafts
+
+            counts = {
+                "sportsreference": sync_sportsreference(
+                    db,
+                    draft_year=args.year,
+                    season=args.season,
+                    top_n=args.top_n,
+                    fallback_csv_path=args.csv_path,
+                ),
+            }
+            try:
+                counts["mock_drafts"] = ingest_mock_drafts(args.year)
+            except Exception as exc:  # pragma: no cover - top-level guard
+                logger.warning("sync_draft_prospects (all): mock_drafts failed: %s", exc)
+                counts["mock_drafts"] = {"error": str(exc)}
+            try:
+                counts["combine"] = ingest_combine(args.year)
+            except Exception as exc:  # pragma: no cover - top-level guard
+                logger.warning("sync_draft_prospects (all): combine failed: %s", exc)
+                counts["combine"] = {"error": str(exc)}
+            try:
+                counts["international"] = ingest_international(args.year)
+            except Exception as exc:  # pragma: no cover - top-level guard
+                logger.warning("sync_draft_prospects (all): international failed: %s", exc)
+                counts["international"] = {"error": str(exc)}
+        else:
+            raise ValueError("unknown source: {0}".format(args.source))
         logger.info("draft prospect sync complete: %s", counts)
         print(f"sync_draft_prospects: {counts}")
         return 0

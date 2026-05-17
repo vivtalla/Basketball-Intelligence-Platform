@@ -57,6 +57,12 @@ KNOWN_SYNC_ENTITIES: Dict[str, int] = {
     "salaries": 10080,
     "draft_prospects": 10080,
     "player_tracking": 10080,
+    # Sprint 100 (Stream A/B) — draft analyzer data foundation. Each new
+    # source has its own freshness marker so /api/health/sync-status can
+    # spot a single failing scraper without masking the others.
+    "draft_mock_rankings": 10080,    # ESPN / NBADraft.net / CBS aggregated
+    "draft_combine": 10080,          # NBA Draft Combine anthropometrics
+    "draft_international": 10080,    # RealGM + G League per-season stats
     # 3-hour tier (Sprint 99 — Cloudflare cache warmer for /api/mvp/race).
     # Cadence is 180 min; stale boundary at 2x (6h) so a single missed
     # tick doesn't trip the alert.

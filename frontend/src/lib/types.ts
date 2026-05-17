@@ -4943,6 +4943,11 @@ export interface DraftProspectSummary {
   school: string | null;
   school_type: string | null;
   consensus_rank: number | null;
+  // Sprint 100 (Stream C) — additive enrichment from the mock-draft + analysis layer.
+  consensus_rank_float?: number | null;
+  consensus_variance?: number | null;
+  projected_tier?: string | null;       // lottery | first_round | second_round | undrafted | unknown
+  mock_sources_count?: number | null;
   headshot_url: string | null;
   archetype_label: string | null;
   pts_pg: number | null;
@@ -5025,6 +5030,148 @@ export interface MeasurementPanel {
   source: string | null;
 }
 
+// Sprint 100 (Stream C) — types for the enriched prospect detail surface.
+// All fields are optional/nullable so existing v1 callers continue to work
+// even before Sprint 101 ships the analyzer UI.
+
+export interface MockRanking {
+  source: string;
+  source_url?: string | null;
+  as_of?: string | null;
+  rank: number;
+  tier?: string | null;
+  position_projected?: string | null;
+  comp_player_name?: string | null;
+}
+
+export interface CombineMeasurement {
+  combine_year?: number | null;
+  height_no_shoes?: number | null;
+  height_with_shoes?: number | null;
+  weight?: number | null;
+  wingspan?: number | null;
+  standing_reach?: number | null;
+  body_fat_pct?: number | null;
+  hand_length?: number | null;
+  hand_width?: number | null;
+  standing_vert?: number | null;
+  max_vert?: number | null;
+  lane_agility_seconds?: number | null;
+  three_quarter_sprint_seconds?: number | null;
+  bench_press_135?: number | null;
+  source?: string | null;
+  source_url?: string | null;
+  as_of?: string | null;
+}
+
+export interface InternationalStatLine {
+  season: string;
+  league: string;
+  team_name?: string | null;
+  games?: number | null;
+  minutes_per_game?: number | null;
+  ppg?: number | null;
+  rpg?: number | null;
+  apg?: number | null;
+  spg?: number | null;
+  bpg?: number | null;
+  fg_pct?: number | null;
+  three_pct?: number | null;
+  ft_pct?: number | null;
+  usage_rate?: number | null;
+  ts_pct?: number | null;
+  source?: string | null;
+  source_url?: string | null;
+  as_of?: string | null;
+}
+
+export interface HistoricalCareerSummary {
+  games?: number | null;
+  minutes?: number | null;
+  ppg?: number | null;
+  career_ws?: number | null;
+  all_star?: number | null;
+  all_nba?: number | null;
+  tier?: string | null;
+}
+
+export interface HistoricalComp {
+  player_id: number;
+  player_name: string;
+  season?: string | null;
+  similarity: number;
+  outcome_tier?: string | null;
+  career_summary?: HistoricalCareerSummary | null;
+  neighbourhood_confidence?: string | null;
+  pts_pg?: number | null;
+  reb_pg?: number | null;
+  ast_pg?: number | null;
+  ts_pct?: number | null;
+  usg_pct?: number | null;
+}
+
+export interface RiskIndicators {
+  age_risk: number;
+  sample_risk: number;
+  level_risk: number;
+  athleticism_risk: number;
+  shooting_risk: number;
+}
+
+export interface HistoricalBaseline {
+  n_comps: number;
+  n_with_outcome: number;
+  insufficient: boolean;
+  star_pct: number;
+  starter_pct: number;
+  role_player_pct: number;
+  bust_pct: number;
+}
+
+export interface PointInterval {
+  point: number;
+  lower: number;
+  upper: number;
+}
+
+export interface NbaTranslationV2 {
+  source_season?: string | null;
+  source_league?: string | null;
+  league_strength_key?: string | null;
+  college_pace?: number | null;
+  nba_pace?: number | null;
+  pace_multiplier?: number | null;
+  league_strength_multiplier?: number | null;
+  age_multiplier?: number | null;
+  combined_volume_multiplier?: number | null;
+  pts_per100?: PointInterval | null;
+  reb_per100?: PointInterval | null;
+  ast_per100?: PointInterval | null;
+  stl_per100?: number | null;
+  blk_per100?: number | null;
+  tov_per100?: number | null;
+  ts_pct?: PointInterval | null;
+  three_pct?: number | null;
+  usg_pct?: number | null;
+  confidence_factors: string[];
+}
+
+export interface HistoricalProspectEntry {
+  prospect_id: number;
+  name: string;
+  draft_pick?: number | null;
+  draft_team?: string | null;
+  predicted_tier_at_time?: string | null;
+  outcome_tier?: string | null;
+  career_summary?: HistoricalCareerSummary | null;
+}
+
+export interface HistoricalClassResponse {
+  draft_year: number;
+  prospects: HistoricalProspectEntry[];
+  as_of: string;
+}
+
 export interface ProspectDetail {
   summary: DraftProspectSummary;
   bio: string | null;
@@ -5032,6 +5179,15 @@ export interface ProspectDetail {
   translation: NbaTranslation | null;
   measurement: MeasurementPanel | null;
   nba_comps: NbaComp[];
+  // Sprint 100 (Stream C) — additive enriched fields. Optional so existing
+  // v1 callers compile unchanged.
+  mock_rankings?: MockRanking[];
+  combine_measurements?: CombineMeasurement | null;
+  international_stats?: InternationalStatLine[];
+  historical_comps?: HistoricalComp[];
+  risk_indicators?: RiskIndicators | null;
+  historical_baseline?: HistoricalBaseline | null;
+  translation_v2?: NbaTranslationV2 | null;
 }
 // ── Sprint 78 FO4 — Multi-Year Team Trajectory + Aging Curves ────────────────
 export interface TeamArcRosterSummary {

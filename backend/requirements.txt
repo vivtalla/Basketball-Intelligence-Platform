@@ -29,3 +29,7 @@ sentry-sdk[fastapi]>=2.14.0
 # but isn't actually declared anywhere — surfaced when Sprint 98 CI ran from
 # a clean install and couldn't import. Pinning explicitly.
 Pillow>=10.0.0
+# Sprint 100 (Stream D) — process + system memory snapshot for /api/health.
+# Wrapped behind utils/memory_stats.py so an unavailable psutil degrades
+# gracefully to ``{"error": "unavailable"}`` rather than 500.
+psutil>=5.9.0
