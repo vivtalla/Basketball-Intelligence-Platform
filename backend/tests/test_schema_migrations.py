@@ -143,7 +143,8 @@ def test_upgrade_database_stamps_legacy_sqlite_schema_and_applies_drift_columns(
             assert "context_type" in context_columns
             assert "applies_to" in context_columns
 
-            assert alembic_revision == "0027_sprint98_view"
+            # Sprint 100 (Stream A) added migration 0028 → head moves forward.
+            assert alembic_revision == "0028_sprint100_draft_fd"
             assert snapshot_date == "2025-12-01"
 
             # Sprint 85 — bracket auto-advancement parent pointers + relaxed
