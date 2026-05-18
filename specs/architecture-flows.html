@@ -813,7 +813,8 @@
         { "from": "routers",    "to": "services",   "action": "translate_prospect_v2",      "note": "Sprint 100 — shooting haircut + league strength + age curve + 95% CIs; rendered by Sprint 101 TranslationV2Ranges." },
         { "from": "routers",    "to": "services",   "action": "find_nba_comps_v2",         "note": "Sprint 100 — outcome-weighted distance + neighbourhood confidence; rendered by Sprint 101 HistoricalCompsGrid." },
         { "from": "routers",    "to": "services",   "action": "compute_risk_indicators + compute_historical_baseline", "note": "Sprint 100 — 5 risk axes (rendered by RiskIndicatorsBars) + comp-neighbourhood outcome distribution (rendered by HistoricalBaselineChart)." },
-        { "from": "routers",    "to": "browser",    "action": "ProspectDetail JSON",        "note": "Sprint 101 components consume each additive Sprint 100 key gracefully (each section hides when its data is null)." }
+        { "from": "routers",    "to": "services",   "action": "compute_team_fit_for_prospect", "note": "Sprint 102 — draft_team_fit_service bridges to team_fit_service v3. Builds a synthetic NBA SeasonStat from the prospect's translated profile and scores against all 30 NBA team rosters via _score_team_fit. Returns top-5 ProspectTeamFit results; rendered by Sprint 102 TeamFitPanel." },
+        { "from": "routers",    "to": "browser",    "action": "ProspectDetail JSON",        "note": "Sprint 101 + 102 components consume each additive Sprint 100/102 key gracefully (each section hides when its data is null)." }
       ]
     },
     {

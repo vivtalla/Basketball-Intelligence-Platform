@@ -11,6 +11,9 @@ import { useEffect, useState } from "react";
 import { getHistoricalDraftClass } from "@/lib/api";
 import type { HistoricalClassResponse } from "@/lib/types";
 import HistoricalClassTable from "@/components/draft/HistoricalClassTable";
+// Sprint 102 (Stream A) — design-system primitives.
+import HeroHardwood from "@/components/HeroHardwood";
+import Reveal from "@/components/Reveal";
 
 interface Props {
   year: number;
@@ -93,9 +96,13 @@ export default function HistoricalClassClient({ year }: Props) {
           ← All historical classes
         </Link>
       </div>
-      <header className="rounded-lg border border-[var(--border)] bg-[var(--surface)] p-5">
+      <Reveal>
+      <header className="bip-panel-strong relative overflow-hidden rounded-[2.2rem] p-6 sm:p-8">
+        <div aria-hidden className="pointer-events-none absolute inset-0 -z-10 rounded-[2.2rem] overflow-hidden">
+          <HeroHardwood opacity={0.10} seed={year} />
+        </div>
         <p className="bip-kicker">Historical draft class</p>
-        <h1 className="bip-display mt-2 text-3xl font-bold tracking-tight text-[var(--foreground)]">
+        <h1 className="bip-display mt-2 text-3xl sm:text-4xl font-bold tracking-tight text-[var(--foreground)]">
           {year} Draft outcomes
         </h1>
         <p className="mt-2 max-w-3xl text-sm leading-6 text-[var(--muted)]">
@@ -114,13 +121,16 @@ export default function HistoricalClassClient({ year }: Props) {
           </p>
         ) : null}
       </header>
+      </Reveal>
 
       {state.isLoading ? (
-        <div className="rounded-lg border border-[var(--border)] bg-[var(--surface)] p-8 text-center text-[var(--muted)]">
+        <div className="bip-panel rounded-[1.5rem] p-8 text-center text-[var(--muted)]">
           Loading…
         </div>
       ) : (
-        <HistoricalClassTable prospects={state.data?.prospects ?? []} />
+        <Reveal>
+          <HistoricalClassTable prospects={state.data?.prospects ?? []} />
+        </Reveal>
       )}
     </div>
   );

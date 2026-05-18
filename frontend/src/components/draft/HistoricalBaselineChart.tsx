@@ -35,7 +35,7 @@ export default function HistoricalBaselineChart({ baseline }: Props) {
   // Insufficient data → render the caveat instead of a misleading bar.
   if (baseline.insufficient) {
     return (
-      <section className="rounded-lg border border-[var(--border)] bg-[var(--surface)] p-5">
+      <section className="bip-panel rounded-[1.85rem] p-5 sm:p-6">
         <p className="bip-kicker">Historical baseline</p>
         <h2 className="bip-display mt-1 text-xl font-bold text-[var(--foreground)]">
           Outcome distribution
@@ -53,7 +53,7 @@ export default function HistoricalBaselineChart({ baseline }: Props) {
   const segments = buildSegments(baseline);
 
   return (
-    <section className="rounded-lg border border-[var(--border)] bg-[var(--surface)] p-5">
+    <section className="bip-panel rounded-[1.85rem] p-5 sm:p-6">
       <p className="bip-kicker">Historical baseline</p>
       <h2 className="bip-display mt-1 text-xl font-bold text-[var(--foreground)]">
         Comp-neighbourhood outcome distribution

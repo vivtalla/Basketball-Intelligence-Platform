@@ -7,6 +7,9 @@ import type { DraftProspectSummary, ProspectBoardResponse } from "@/lib/types";
 import ConsensusRankCell from "@/components/draft/ConsensusRankCell";
 import MockSourcesPill from "@/components/draft/MockSourcesPill";
 import TierBadge from "@/components/draft/TierBadge";
+// Sprint 102 (Stream A) — design-system primitives.
+import HeroHardwood from "@/components/HeroHardwood";
+import Reveal from "@/components/Reveal";
 
 const POSITION_OPTIONS = [
   { label: "All positions", value: "" },
@@ -118,9 +121,13 @@ export default function DraftWorkspacePage() {
 
   return (
     <div className="space-y-6">
-      <header className="rounded-lg border border-[var(--border)] bg-[var(--surface)] p-5">
+      <Reveal>
+      <header className="bip-panel-strong relative overflow-hidden rounded-[2.2rem] p-6 sm:p-8">
+        <div aria-hidden className="pointer-events-none absolute inset-0 -z-10 rounded-[2.2rem] overflow-hidden">
+          <HeroHardwood opacity={0.10} />
+        </div>
         <p className="bip-kicker">Draft prospect workspace</p>
-        <h1 className="bip-display mt-2 text-3xl font-bold tracking-tight text-[var(--foreground)]">
+        <h1 className="bip-display mt-2 text-3xl sm:text-4xl font-bold tracking-tight text-[var(--foreground)]">
           {year} Draft Board
         </h1>
         <p className="mt-2 max-w-3xl text-sm leading-6 text-[var(--muted)]">
@@ -208,14 +215,17 @@ export default function DraftWorkspacePage() {
           </label>
         </div>
       </header>
+      </Reveal>
 
       {error ? (
-        <div className="rounded-lg border border-[var(--border)] bg-[var(--surface)] p-6 text-sm text-[var(--danger-ink)]">
+        <div className="bip-panel rounded-[1.5rem] border border-[var(--border)] p-6 text-sm text-[var(--danger-ink)]">
           Could not load draft board: {error}
         </div>
       ) : null}
 
-      <section className="rounded-lg border border-[var(--border)] bg-[var(--surface)] overflow-hidden">
+      <Reveal>
+      <section className="bip-panel rounded-[1.85rem] overflow-hidden">
+        <div className="overflow-x-auto">
         <table className="w-full text-sm">
           <thead className="bg-[var(--surface-alt)] text-[var(--muted)]">
             <tr>
@@ -298,7 +308,9 @@ export default function DraftWorkspacePage() {
             ))}
           </tbody>
         </table>
+        </div>
       </section>
+      </Reveal>
     </div>
   );
 }

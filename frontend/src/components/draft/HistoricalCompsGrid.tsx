@@ -51,7 +51,7 @@ export default function HistoricalCompsGrid({ comps }: Props) {
   const sharedConfidence = sorted[0]?.neighbourhood_confidence ?? null;
 
   return (
-    <section className="rounded-lg border border-[var(--border)] bg-[var(--surface)] p-5">
+    <section className="bip-panel rounded-[1.85rem] p-5 sm:p-6">
       <div className="flex items-baseline justify-between gap-3 flex-wrap">
         <div>
           <p className="bip-kicker">Historical comps</p>

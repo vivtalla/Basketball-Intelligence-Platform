@@ -36,11 +36,12 @@ export default function InternationalStatsPanel({ rows }: Props) {
   const attr = leagueAttribution(rows);
 
   return (
-    <section className="rounded-lg border border-[var(--border)] bg-[var(--surface)] overflow-hidden">
+    <section className="bip-panel rounded-[1.85rem] overflow-hidden">
       <div className="px-5 pt-5 pb-3">
         <p className="bip-kicker">International &amp; G League</p>
         <h2 className="bip-display mt-1 text-xl font-bold text-[var(--foreground)]">Pre-NBA seasons abroad</h2>
       </div>
+      <div className="overflow-x-auto">
       <table className="w-full text-sm">
         <thead className="bg-[var(--surface-alt)] text-[var(--muted)]">
           <tr>
@@ -75,6 +76,7 @@ export default function InternationalStatsPanel({ rows }: Props) {
           ))}
         </tbody>
       </table>
+      </div>
       {attr ? (
         <div className="px-5 py-3 text-[10px] text-[var(--muted)] border-t border-[var(--border)]">
           Source:{" "}

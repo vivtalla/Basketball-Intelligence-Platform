@@ -41,7 +41,7 @@ export default function MockDraftConsensusPanel({
   if (!rankings || rankings.length === 0) return null;
 
   return (
-    <section className="rounded-lg border border-[var(--border)] bg-[var(--surface)] p-5">
+    <section className="bip-panel rounded-[1.85rem] p-5 sm:p-6">
       <div className="flex items-baseline justify-between gap-3">
         <div>
           <p className="bip-kicker">Mock-draft consensus</p>

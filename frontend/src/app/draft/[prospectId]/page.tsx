@@ -5,6 +5,9 @@ import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import { getProspectDetail } from "@/lib/api";
 import type { ProspectDetail, NbaComp } from "@/lib/types";
+// Sprint 102 (Stream A) — design-system primitives.
+import HeroHardwood from "@/components/HeroHardwood";
+import Reveal from "@/components/Reveal";
 // Sprint 101 (Stream B) — analyzer-enrichment components.
 import CombineMeasurementsCard from "@/components/draft/CombineMeasurementsCard";
 import HistoricalBaselineChart from "@/components/draft/HistoricalBaselineChart";
@@ -12,6 +15,7 @@ import HistoricalCompsGrid from "@/components/draft/HistoricalCompsGrid";
 import InternationalStatsPanel from "@/components/draft/InternationalStatsPanel";
 import MockDraftConsensusPanel from "@/components/draft/MockDraftConsensusPanel";
 import RiskIndicatorsBars from "@/components/draft/RiskIndicatorsBars";
+import TeamFitPanel from "@/components/draft/TeamFitPanel";
 import TierBadge from "@/components/draft/TierBadge";
 import TranslationV2Ranges from "@/components/draft/TranslationV2Ranges";
 
@@ -170,7 +174,11 @@ export default function ProspectDetailPage() {
         </Link>
       </nav>
 
-      <header className="rounded-lg border border-[var(--border)] bg-[var(--surface)] p-6">
+      <Reveal>
+      <header className="bip-panel-strong relative overflow-hidden rounded-[2.2rem] p-6 sm:p-8">
+        <div aria-hidden className="pointer-events-none absolute inset-0 -z-10 rounded-[2.2rem] overflow-hidden">
+          <HeroHardwood opacity={0.10} seed={summary.prospect_id ?? 1} />
+        </div>
         <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
           <div className="flex items-start gap-4">
             {summary.headshot_url ? (
@@ -187,7 +195,7 @@ export default function ProspectDetailPage() {
             )}
             <div>
               <p className="bip-kicker">Draft prospect</p>
-              <h1 className="bip-display mt-1 text-3xl font-bold tracking-tight text-[var(--foreground)]">
+              <h1 className="bip-display mt-1 text-3xl sm:text-4xl font-bold tracking-tight text-[var(--foreground)]">
                 {summary.full_name}
               </h1>
               <p className="mt-1 text-sm text-[var(--muted)]">
@@ -238,6 +246,7 @@ export default function ProspectDetailPage() {
           ) : null}
         </div>
       </header>
+      </Reveal>
 
       {perGameStrip.length ? (
         <StatStrip label={`Per-game · ${latest?.season ?? ""} · ${latest?.league ?? ""}`} items={perGameStrip} />
@@ -324,6 +333,9 @@ export default function ProspectDetailPage() {
           ) : null}
         </div>
       ) : null}
+
+      {/* Sprint 102 (Stream B) — best NBA destinations grid */}
+      <TeamFitPanel teams={detail.team_fit_top} />
 
       <MockDraftConsensusPanel
         rankings={detail.mock_rankings}
