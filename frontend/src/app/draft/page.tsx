@@ -4,6 +4,9 @@ import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { getDraftBoard } from "@/lib/api";
 import type { DraftProspectSummary, ProspectBoardResponse } from "@/lib/types";
+import ConsensusRankCell from "@/components/draft/ConsensusRankCell";
+import MockSourcesPill from "@/components/draft/MockSourcesPill";
+import TierBadge from "@/components/draft/TierBadge";
 
 const POSITION_OPTIONS = [
   { label: "All positions", value: "" },
@@ -25,6 +28,19 @@ const SORT_OPTIONS = [
   { label: "Points (per game)", value: "ppg" },
 ] as const;
 
+// Sprint 101 — projected_tier filter; matches the analysis service output.
+const TIER_OPTIONS = [
+  { label: "All tiers", value: "" },
+  { label: "Lottery (1-14)", value: "lottery" },
+  { label: "1st Round (15-30)", value: "first_round" },
+  { label: "2nd Round (31-60)", value: "second_round" },
+] as const;
+
+// "Polarizing" filter — prospects whose mock-draft rank stddev exceeds this
+// threshold. Empirically σ > 5 captures genuinely-contested evaluations
+// without surfacing every partially-ranked outlier.
+const POLARIZING_VARIANCE_THRESHOLD = 5;
+
 type SortKey = (typeof SORT_OPTIONS)[number]["value"];
 
 function compareProspects(a: DraftProspectSummary, b: DraftProspectSummary, key: SortKey): number {
@@ -34,7 +50,11 @@ function compareProspects(a: DraftProspectSummary, b: DraftProspectSummary, key:
   if (key === "age") {
     return (a.age_on_draft_day ?? Infinity) - (b.age_on_draft_day ?? Infinity);
   }
-  return (a.consensus_rank ?? 9999) - (b.consensus_rank ?? 9999);
+  // Prefer consensus_rank_float (Sprint 100 mock aggregate); fall back to
+  // legacy integer; then push unranked to the bottom.
+  const aRank = a.consensus_rank_float ?? a.consensus_rank ?? 9999;
+  const bRank = b.consensus_rank_float ?? b.consensus_rank ?? 9999;
+  return aRank - bRank;
 }
 
 function PositionPill({ pos }: { pos: string | null }) {
@@ -56,6 +76,9 @@ export default function DraftWorkspacePage() {
   const [position, setPosition] = useState<string>("");
   const [schoolType, setSchoolType] = useState<string>("");
   const [sortKey, setSortKey] = useState<SortKey>("consensus_rank");
+  // Sprint 101 — client-side filters on the new analysis-service fields.
+  const [tier, setTier] = useState<string>("");
+  const [polarizingOnly, setPolarizingOnly] = useState<boolean>(false);
   const [state, setState] = useState<{
     board: ProspectBoardResponse | null;
     error: string | null;
@@ -82,8 +105,16 @@ export default function DraftWorkspacePage() {
 
   const sorted = useMemo(() => {
     if (!board?.prospects) return [];
-    return [...board.prospects].sort((a, b) => compareProspects(a, b, sortKey));
-  }, [board, sortKey]);
+    // Apply Sprint 101 client-side filters, then sort.
+    const filtered = board.prospects.filter((p) => {
+      if (tier && p.projected_tier !== tier) return false;
+      if (polarizingOnly && (p.consensus_variance ?? 0) <= POLARIZING_VARIANCE_THRESHOLD) {
+        return false;
+      }
+      return true;
+    });
+    return filtered.sort((a, b) => compareProspects(a, b, sortKey));
+  }, [board, sortKey, tier, polarizingOnly]);
 
   return (
     <div className="space-y-6">
@@ -151,6 +182,31 @@ export default function DraftWorkspacePage() {
             </select>
           </label>
         </div>
+
+        {/* Sprint 101 — analyzer-fields filter row */}
+        <div className="mt-4 flex flex-wrap items-end gap-3">
+          <label className="text-xs text-[var(--muted)]">
+            Projected tier
+            <select
+              value={tier}
+              onChange={(e) => setTier(e.target.value)}
+              className="mt-1 block rounded-lg border border-[var(--border)] bg-[var(--surface)] px-3 py-2 text-sm text-[var(--foreground)]"
+            >
+              {TIER_OPTIONS.map((opt) => (
+                <option key={opt.value || "all"} value={opt.value}>{opt.label}</option>
+              ))}
+            </select>
+          </label>
+          <label className="inline-flex items-center gap-2 self-end text-xs text-[var(--muted)]">
+            <input
+              type="checkbox"
+              checked={polarizingOnly}
+              onChange={(e) => setPolarizingOnly(e.target.checked)}
+              className="h-4 w-4 rounded border-[var(--border)]"
+            />
+            <span>Polarizing only (σ &gt; {POLARIZING_VARIANCE_THRESHOLD})</span>
+          </label>
+        </div>
       </header>
 
       {error ? (
@@ -164,6 +220,7 @@ export default function DraftWorkspacePage() {
           <thead className="bg-[var(--surface-alt)] text-[var(--muted)]">
             <tr>
               <th className="px-4 py-3 text-left font-semibold uppercase tracking-wide text-[11px]">Rank</th>
+              <th className="px-4 py-3 text-left font-semibold uppercase tracking-wide text-[11px]">Tier</th>
               <th className="px-4 py-3 text-left font-semibold uppercase tracking-wide text-[11px]">Prospect</th>
               <th className="px-4 py-3 text-left font-semibold uppercase tracking-wide text-[11px]">Pos</th>
               <th className="px-4 py-3 text-left font-semibold uppercase tracking-wide text-[11px]">School / League</th>
@@ -179,20 +236,31 @@ export default function DraftWorkspacePage() {
           <tbody>
             {isLoading && !sorted.length ? (
               <tr>
-                <td colSpan={11} className="px-4 py-12 text-center text-[var(--muted)]">Loading prospects…</td>
+                <td colSpan={12} className="px-4 py-12 text-center text-[var(--muted)]">Loading prospects…</td>
               </tr>
             ) : null}
             {!isLoading && !sorted.length ? (
               <tr>
-                <td colSpan={11} className="px-4 py-12 text-center text-[var(--muted)]">
+                <td colSpan={12} className="px-4 py-12 text-center text-[var(--muted)]">
                   No prospects match the current filter set.
                 </td>
               </tr>
             ) : null}
             {sorted.map((p) => (
               <tr key={p.prospect_id} className="border-t border-[var(--border)] hover:bg-[var(--surface-alt)] transition">
-                <td className="px-4 py-3 text-[var(--muted)] tabular-nums">
-                  {p.consensus_rank ?? "—"}
+                <td className="px-4 py-3">
+                  {/* Sprint 101 — show consensus aggregate + N-of-3 source pill. */}
+                  <div className="flex items-center gap-2">
+                    <ConsensusRankCell
+                      consensusRankFloat={p.consensus_rank_float}
+                      consensusVariance={p.consensus_variance}
+                      consensusRank={p.consensus_rank}
+                    />
+                    <MockSourcesPill count={p.mock_sources_count} />
+                  </div>
+                </td>
+                <td className="px-4 py-3">
+                  <TierBadge tier={p.projected_tier} />
                 </td>
                 <td className="px-4 py-3">
                   <Link

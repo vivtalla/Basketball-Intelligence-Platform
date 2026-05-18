@@ -74,6 +74,10 @@ export default function NavLinks() {
       <Link href="/standings" className={linkClass("/standings")}>
         Standings
       </Link>
+      {/* Sprint 101 — Draft analyzer graduated from /beta/draft to top-level. */}
+      <Link href="/draft" className={linkClass("/draft")}>
+        Draft
+      </Link>
 
       <div ref={moreRef} className="relative">
         <button
@@ -102,9 +106,6 @@ export default function NavLinks() {
             </Link>
             <Link href="/beta/coverage" onClick={closeMore} className={moreItemClass("/beta/coverage")}>
               Coverage
-            </Link>
-            <Link href="/beta/draft" onClick={closeMore} className={moreItemClass("/beta/draft")}>
-              Draft
             </Link>
             <Link href="/beta/free-agency" onClick={closeMore} className={moreItemClass("/beta/free-agency")}>
               Free Agency
