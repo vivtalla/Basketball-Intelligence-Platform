@@ -30,7 +30,7 @@ export default function RiskIndicatorsBars({ risk }: Props) {
   if (!risk) return null;
 
   return (
-    <section className="rounded-lg border border-[var(--border)] bg-[var(--surface)] p-5">
+    <section className="bip-panel rounded-[1.85rem] p-5 sm:p-6">
       <p className="bip-kicker">Risk indicators</p>
       <h2 className="bip-display mt-1 text-xl font-bold text-[var(--foreground)]">
         Where this prospect could break

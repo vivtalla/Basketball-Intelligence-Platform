@@ -48,6 +48,7 @@ from models.draft import (
     NbaTranslationV2,
     ProspectBoardResponse,
     ProspectDetail,
+    ProspectTeamFit,
     RiskIndicators,
 )
 from services.draft_analysis_service import (
@@ -343,6 +344,16 @@ def get_prospect_detail(
         except Exception as exc:  # noqa: BLE001
             logger.warning("translate_prospect_v2 failed for prospect=%s: %s", prospect_id, exc)
 
+    # Sprint 102 (Stream B) — team-fit top-5 against current NBA rosters.
+    team_fit_top: Optional[List[ProspectTeamFit]] = None
+    try:
+        from services.draft_team_fit_service import compute_team_fit_for_prospect
+
+        top = compute_team_fit_for_prospect(db, prospect, limit=5)
+        team_fit_top = top if top else None
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("compute_team_fit_for_prospect failed for prospect=%s: %s", prospect_id, exc)
+
     return ProspectDetail(
         summary=summary,
         bio=prospect.bio,
@@ -357,6 +368,7 @@ def get_prospect_detail(
         risk_indicators=risk_indicators,
         historical_baseline=historical_baseline,
         translation_v2=translation_v2,
+        team_fit_top=team_fit_top,
     )
 
 
@@ -419,6 +431,25 @@ def get_historical_class(
                 "all_star": outcome.all_star_selections,
                 "all_nba": outcome.all_nba_selections,
             }
+        # Sprint 102 (Stream B) — denormalize top-1 team-fit per row. Scored
+        # against the prospect's draft-season NBA rosters so the "best fit"
+        # reflects era-appropriate teammates, not 2025-26 rosters.
+        best_team_fit_abbr: Optional[str] = None
+        best_team_fit_score: Optional[float] = None
+        try:
+            from services.draft_team_fit_service import compute_best_team_fit_for_prospect
+
+            historical_season = "{0}-{1}".format(draft_year - 1, str(draft_year)[-2:])
+            best_fit = compute_best_team_fit_for_prospect(db, p, season=historical_season)
+            if best_fit is not None:
+                best_team_fit_abbr = best_fit.team_abbreviation
+                best_team_fit_score = best_fit.fit_score
+        except Exception as exc:  # noqa: BLE001
+            logger.warning(
+                "best_team_fit failed for historical prospect=%s year=%s: %s",
+                p.id, draft_year, exc,
+            )
+
         rows.append(HistoricalProspectEntry(
             prospect_id=p.id,
             name=p.full_name,
@@ -427,6 +458,8 @@ def get_historical_class(
             predicted_tier_at_time=None,  # populated once analyzer-UI rerun lands
             outcome_tier=outcome.outcome_tier if outcome else None,
             career_summary=career_summary,
+            best_team_fit_abbr=best_team_fit_abbr,
+            best_team_fit_score=best_team_fit_score,
         ))
 
     rows.sort(key=lambda r: (r.draft_pick if r.draft_pick is not None else 9999, r.name))

@@ -87,7 +87,7 @@ export default function CombineMeasurementsCard({ measurement }: Props) {
   const asOfLabel = formatAsOf(measurement.as_of);
 
   return (
-    <section className="rounded-lg border border-[var(--border)] bg-[var(--surface)] p-5">
+    <section className="bip-panel rounded-[1.85rem] p-5 sm:p-6">
       <p className="bip-kicker">NBA Draft Combine</p>
       <h2 className="bip-display mt-1 text-xl font-bold text-[var(--foreground)]">Anthropometrics &amp; athletic testing</h2>
 

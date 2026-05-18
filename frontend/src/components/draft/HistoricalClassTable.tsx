@@ -6,13 +6,15 @@
 
 import { useMemo, useState } from "react";
 import type { HistoricalProspectEntry } from "@/lib/types";
+import FitRankBadge from "./FitRankBadge";
 import TierBadge from "./TierBadge";
 
 interface Props {
   prospects: HistoricalProspectEntry[];
 }
 
-type SortKey = "pick" | "outcome";
+// Sprint 102 (Stream B) — added "fit" sort option for the new Best Fit column.
+type SortKey = "pick" | "outcome" | "fit";
 
 const OUTCOME_RANK: Record<string, number> = {
   superstar: 5,
@@ -34,6 +36,13 @@ export default function HistoricalClassTable({ prospects }: Props) {
         if (rb !== ra) return rb - ra; // best outcome first
         return (a.draft_pick ?? 9999) - (b.draft_pick ?? 9999);
       });
+    } else if (sortKey === "fit") {
+      copy.sort((a, b) => {
+        const fa = a.best_team_fit_score ?? -Infinity;
+        const fb = b.best_team_fit_score ?? -Infinity;
+        if (fb !== fa) return fb - fa; // best fit first
+        return (a.draft_pick ?? 9999) - (b.draft_pick ?? 9999);
+      });
     } else {
       copy.sort((a, b) => (a.draft_pick ?? 9999) - (b.draft_pick ?? 9999));
     }
@@ -42,7 +51,7 @@ export default function HistoricalClassTable({ prospects }: Props) {
 
   if (prospects.length === 0) {
     return (
-      <div className="rounded-lg border border-[var(--border)] bg-[var(--surface)] p-8 text-center text-[var(--muted)]">
+      <div className="bip-panel rounded-[1.85rem] p-8 text-center text-[var(--muted)]">
         No historical prospects loaded for this class yet. Backfill from
         Basketball-Reference is in progress; check back after the next
         deploy.
@@ -51,7 +60,7 @@ export default function HistoricalClassTable({ prospects }: Props) {
   }
 
   return (
-    <div className="rounded-lg border border-[var(--border)] bg-[var(--surface)] overflow-hidden">
+    <div className="bip-panel rounded-[1.85rem] overflow-hidden">
       <div className="flex items-center justify-between px-4 py-3 border-b border-[var(--border)] bg-[var(--surface-alt)]">
         <span className="text-[12px] font-semibold uppercase tracking-wide text-[var(--muted)]">
           {prospects.length} prospects
@@ -65,9 +74,11 @@ export default function HistoricalClassTable({ prospects }: Props) {
           >
             <option value="pick">Draft pick</option>
             <option value="outcome">Outcome tier</option>
+            <option value="fit">Best team fit</option>
           </select>
         </label>
       </div>
+      <div className="overflow-x-auto">
       <table className="w-full text-sm">
         <thead className="bg-[var(--surface-alt)] text-[var(--muted)]">
           <tr>
@@ -75,6 +86,8 @@ export default function HistoricalClassTable({ prospects }: Props) {
             <th className="px-4 py-3 text-left font-semibold uppercase tracking-wide text-[11px]">Prospect</th>
             <th className="px-4 py-3 text-left font-semibold uppercase tracking-wide text-[11px]">Team</th>
             <th className="px-4 py-3 text-left font-semibold uppercase tracking-wide text-[11px]">NBA Outcome</th>
+            {/* Sprint 102 (Stream B) — best-fit NBA destination (era-aware). */}
+            <th className="px-4 py-3 text-left font-semibold uppercase tracking-wide text-[11px]">Best Fit</th>
             <th className="px-4 py-3 text-right font-semibold uppercase tracking-wide text-[11px]">GP</th>
             <th className="px-4 py-3 text-right font-semibold uppercase tracking-wide text-[11px]">PPG</th>
             <th className="px-4 py-3 text-right font-semibold uppercase tracking-wide text-[11px]">All-Star</th>
@@ -94,6 +107,9 @@ export default function HistoricalClassTable({ prospects }: Props) {
                 <td className="px-4 py-2.5">
                   <TierBadge tier={p.outcome_tier} />
                 </td>
+                <td className="px-4 py-2.5">
+                  <FitRankBadge abbr={p.best_team_fit_abbr} score={p.best_team_fit_score} />
+                </td>
                 <td className="px-4 py-2.5 text-right tabular-nums">
                   {cs?.games != null ? cs.games : <span className="text-[var(--muted)]">—</span>}
                 </td>
@@ -111,6 +127,7 @@ export default function HistoricalClassTable({ prospects }: Props) {
           })}
         </tbody>
       </table>
+      </div>
     </div>
   );
 }

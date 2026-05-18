@@ -5164,6 +5164,40 @@ export interface HistoricalProspectEntry {
   predicted_tier_at_time?: string | null;
   outcome_tier?: string | null;
   career_summary?: HistoricalCareerSummary | null;
+  // Sprint 102 (Stream B) — denormalized top-1 team-fit pin.
+  best_team_fit_abbr?: string | null;
+  best_team_fit_score?: number | null;
+}
+
+// ── Sprint 102 (Stream B) — team-fit for draft prospects ─────────────
+
+export interface FitDriverLite {
+  feature_key: string;
+  label: string;
+  prospect_z: number;
+  team_need_z: number;
+  contribution: number;
+}
+
+export interface OverlapFlagLite {
+  feature_key: string;
+  teammate_name: string;
+  teammate_id?: number | null;
+  gap: number;
+}
+
+export type ProspectTeamFitLabel = "better_fit" | "similar_fit" | "different_fit";
+
+export interface ProspectTeamFit {
+  team_abbreviation: string;
+  team_id?: number | null;
+  fit_score: number;
+  fit_label: ProspectTeamFitLabel;
+  summary: string;
+  value_drivers: FitDriverLite[];
+  overlap_flags: OverlapFlagLite[];
+  role_runway_note?: string | null;
+  methodology_version: string;
 }
 
 export interface HistoricalClassResponse {
@@ -5188,6 +5222,8 @@ export interface ProspectDetail {
   risk_indicators?: RiskIndicators | null;
   historical_baseline?: HistoricalBaseline | null;
   translation_v2?: NbaTranslationV2 | null;
+  // Sprint 102 (Stream B) — top-N teams ranked by fit_score desc.
+  team_fit_top?: ProspectTeamFit[] | null;
 }
 // ── Sprint 78 FO4 — Multi-Year Team Trajectory + Aging Curves ────────────────
 export interface TeamArcRosterSummary {

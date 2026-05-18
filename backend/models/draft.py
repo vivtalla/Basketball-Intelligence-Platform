@@ -236,6 +236,48 @@ class NbaTranslationV2(BaseModel):
     confidence_factors: List[str] = []
 
 
+# ── Sprint 102 (Stream B) — team-fit for draft prospects ─────────────
+
+
+class FitDriverLite(BaseModel):
+    """One feature contribution on a ProspectTeamFit.
+
+    Lighter than the player-side FitDriver so the prospect-detail API
+    stays compact when 5 teams × 3-4 drivers each are serialized.
+    """
+    feature_key: str
+    label: str
+    prospect_z: float
+    team_need_z: float
+    contribution: float
+
+
+class OverlapFlagLite(BaseModel):
+    """One teammate overlap flag on a ProspectTeamFit."""
+    feature_key: str
+    teammate_name: str
+    teammate_id: Optional[int] = None
+    gap: float
+
+
+class ProspectTeamFit(BaseModel):
+    """One team's fit profile for a draft prospect.
+
+    Surfaced as ``team_fit_top: List[ProspectTeamFit]`` on ProspectDetail
+    (top-N teams ranked by fit_score desc). Also drives the
+    ``best_team_fit_*`` denormalized fields on HistoricalProspectEntry.
+    """
+    team_abbreviation: str
+    team_id: Optional[int] = None
+    fit_score: float = Field(..., ge=0.0, le=100.0)
+    fit_label: str  # "better_fit" | "similar_fit" | "different_fit"
+    summary: str
+    value_drivers: List[FitDriverLite] = []
+    overlap_flags: List[OverlapFlagLite] = []
+    role_runway_note: Optional[str] = None
+    methodology_version: str = "team_fit_v3_draft_adapter"
+
+
 class HistoricalProspectEntry(BaseModel):
     """One row in the historical-class endpoint (Sprint 100 new endpoint)."""
     prospect_id: int
@@ -245,6 +287,11 @@ class HistoricalProspectEntry(BaseModel):
     predicted_tier_at_time: Optional[str] = None
     outcome_tier: Optional[str] = None
     career_summary: Optional[dict] = None
+    # Sprint 102 (Stream B) — denormalized top-1 team-fit pin for sortable
+    # table column. Computed on demand from the prospect's translated NBA
+    # profile vs the rosters of the prospect's draft season.
+    best_team_fit_abbr: Optional[str] = None
+    best_team_fit_score: Optional[float] = None
 
 
 class HistoricalClassResponse(BaseModel):
@@ -269,3 +316,7 @@ class ProspectDetail(BaseModel):
     risk_indicators: Optional[RiskIndicators] = None
     historical_baseline: Optional[HistoricalBaseline] = None
     translation_v2: Optional[NbaTranslationV2] = None
+    # Sprint 102 (Stream B) — top-N teams ranked by fit_score desc. Computed
+    # from the prospect's translated NBA stat profile against current
+    # NBA team rosters via the team_fit_v3 algorithm (adapted).
+    team_fit_top: Optional[List[ProspectTeamFit]] = None

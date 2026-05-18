@@ -238,5 +238,16 @@ def compute_historical_baseline(
 
 
 def compute_team_fit(db: Session, prospect: DraftProspect) -> Optional[Dict[str, Any]]:
-    """Deferred to Sprint 101 — needs team-archetype service integration."""
-    return None
+    """Sprint 102 (Stream B) — delegate to the dedicated draft team-fit service.
+
+    Returns the top-5 best-fit NBA teams as a list of ProspectTeamFit dicts.
+    Kept on this analysis service for callers that want the full prospect
+    analysis bundle; routers can call the service directly when they need
+    finer control (limit, historical season).
+    """
+    from services.draft_team_fit_service import compute_team_fit_for_prospect
+
+    top = compute_team_fit_for_prospect(db, prospect, limit=5)
+    if not top:
+        return None
+    return {"team_fit_top": [t.model_dump() for t in top]}
