@@ -787,45 +787,46 @@
     {
       "id": "page-draft-board",
       "category": "page-loads",
-      "label": "Draft board (/beta/draft)",
-      "summary": "Sprint 100 — board renders prospects ordered by mock-draft consensus_rank_float (denormalized from draft_mock_rankings). Each row shows projected_tier (computed at request time) + mock_sources_count.",
+      "label": "Draft board (/draft)",
+      "summary": "Sprint 100 backend + Sprint 101 UI — board renders prospects ordered by mock-draft consensus_rank_float (denormalized from draft_mock_rankings). Each row shows projected_tier badge + mock-sources pill + variance. Sprint 101 added tier and polarizing-variance filters; graduated route from /beta/draft to top-level /draft.",
       "steps": [
-        { "from": "browser",    "to": "cloudflare", "action": "GET /beta/draft",          "note": "Static prerender; React hydrates and calls getDraftBoard()." },
+        { "from": "browser",    "to": "cloudflare", "action": "GET /draft",                "note": "Sprint 101 — graduated from /beta/draft; old URL 308-redirects via GRADUATED_ROUTES in next.config.ts." },
         { "from": "cloudflare", "to": "vercel",     "action": "cache miss → origin",       "note": "Page is statically prerendered." },
         { "from": "react",      "to": "cloudflare", "action": "GET /api/draft/board?year=2026", "note": "" },
         { "from": "cloudflare", "to": "middleware", "action": "forward",                   "note": "" },
         { "from": "middleware", "to": "routers",    "action": "draft.get_board",           "note": "Filters is_historical=False; sorts by consensus_rank_float (NULLs trail)." },
         { "from": "routers",    "to": "services",   "action": "compute_projected_tier per prospect", "note": "Sprint 100 — cheap per-row computation." },
         { "from": "routers",    "to": "postgres",   "action": "SELECT DraftProspect + mock_rankings", "note": "ORM relationship: mock_sources_count derived from distinct sources." },
-        { "from": "routers",    "to": "browser",    "action": "ProspectBoardResponse JSON", "note": "Sprint 100 additive fields: consensus_rank_float, consensus_variance, projected_tier, mock_sources_count." }
+        { "from": "routers",    "to": "browser",    "action": "ProspectBoardResponse JSON", "note": "Sprint 100 additive fields consumed by Sprint 101 components: TierBadge (projected_tier), ConsensusRankCell (consensus_rank_float + variance), MockSourcesPill (mock_sources_count)." }
       ]
     },
     {
       "id": "page-draft-prospect-detail",
       "category": "page-loads",
-      "label": "Prospect detail (/beta/draft/[id])",
-      "summary": "Sprint 100 — enriched detail with mock rankings, combine measurements, international stats, outcome-aware comps, risk indicators, historical baseline, and translation v2 alongside v1.",
+      "label": "Prospect detail (/draft/[id])",
+      "summary": "Sprint 100 backend + Sprint 101 UI — detail page renders mock-draft consensus panel, combine measurements card, international stats, outcome-aware historical comps grid, risk indicators bars, historical baseline distribution chart, and translation v2 range bars alongside v1 sections.",
       "steps": [
-        { "from": "browser",    "to": "cloudflare", "action": "GET /beta/draft/123",       "note": "" },
+        { "from": "browser",    "to": "cloudflare", "action": "GET /draft/123",            "note": "Graduated route." },
         { "from": "react",      "to": "cloudflare", "action": "GET /api/draft/prospects/123", "note": "" },
         { "from": "routers",    "to": "postgres",   "action": "SELECT DraftProspect + relationships", "note": "stats + measurements + mock_rankings + international_stats." },
         { "from": "routers",    "to": "services",   "action": "translate_prospect_to_nba (v1)", "note": "Existing Sprint 78 service kept for back-compat." },
-        { "from": "routers",    "to": "services",   "action": "translate_prospect_v2",      "note": "Sprint 100 — shooting haircut + league strength + age curve + 95% CIs." },
-        { "from": "routers",    "to": "services",   "action": "find_nba_comps_v2",         "note": "Sprint 100 — outcome-weighted distance + neighbourhood confidence + career_summary per comp." },
-        { "from": "routers",    "to": "services",   "action": "compute_risk_indicators + compute_historical_baseline", "note": "Sprint 100 — 5 risk axes + comp-neighbourhood outcome distribution." },
-        { "from": "routers",    "to": "browser",    "action": "ProspectDetail JSON",        "note": "Additive Sprint 100 keys: mock_rankings[], combine_measurements, international_stats[], historical_comps[], risk_indicators, historical_baseline, translation_v2." }
+        { "from": "routers",    "to": "services",   "action": "translate_prospect_v2",      "note": "Sprint 100 — shooting haircut + league strength + age curve + 95% CIs; rendered by Sprint 101 TranslationV2Ranges." },
+        { "from": "routers",    "to": "services",   "action": "find_nba_comps_v2",         "note": "Sprint 100 — outcome-weighted distance + neighbourhood confidence; rendered by Sprint 101 HistoricalCompsGrid." },
+        { "from": "routers",    "to": "services",   "action": "compute_risk_indicators + compute_historical_baseline", "note": "Sprint 100 — 5 risk axes (rendered by RiskIndicatorsBars) + comp-neighbourhood outcome distribution (rendered by HistoricalBaselineChart)." },
+        { "from": "routers",    "to": "browser",    "action": "ProspectDetail JSON",        "note": "Sprint 101 components consume each additive Sprint 100 key gracefully (each section hides when its data is null)." }
       ]
     },
     {
       "id": "page-draft-historical",
       "category": "page-loads",
-      "label": "Historical draft class (/api/draft/historical/{year})",
-      "summary": "Sprint 100 — new endpoint serving past classes (2016-2025) with NBA career outcomes for ML validation and the Sprint 101 analyzer UI.",
+      "label": "Historical draft class (/draft/historical/[year])",
+      "summary": "Sprint 100 endpoint + Sprint 101 UI — analyst-facing view of past draft classes (2016-2025) with NBA career outcomes. Sprint 101 added /draft/historical year-picker landing and the /draft/historical/[year] dynamic-rendered detail page.",
       "steps": [
-        { "from": "browser",    "to": "cloudflare", "action": "GET /api/draft/historical/2018", "note": "" },
+        { "from": "browser",    "to": "cloudflare", "action": "GET /draft/historical/2018", "note": "Sprint 101 server-component wrapper exports dynamic = \"force-dynamic\"." },
+        { "from": "react",      "to": "cloudflare", "action": "GET /api/draft/historical/2018", "note": "Via getHistoricalDraftClass()." },
         { "from": "routers",    "to": "postgres",   "action": "SELECT DraftProspect WHERE is_historical=True AND draft_year=2018", "note": "" },
         { "from": "routers",    "to": "postgres",   "action": "Per prospect: LEFT JOIN draft_outcomes + teams", "note": "Career aggregates + draft_team abbreviation." },
-        { "from": "routers",    "to": "browser",    "action": "HistoricalClassResponse JSON", "note": "Returns 404 for years outside [2016, 2025]. Empty prospects[] until backfill seed CSV is populated." }
+        { "from": "routers",    "to": "browser",    "action": "HistoricalClassResponse JSON", "note": "Sprint 101 HistoricalClassTable renders rows with outcome_tier badges + career_summary chips. Returns 404 for years outside [2016, 2025]; client renders friendly 'Out of range' panel." }
       ]
     },
     {

@@ -12,7 +12,6 @@ const BETA_ROUTES = [
   "ask",
   "compare",
   "coverage",
-  "draft",
   "free-agency",
   "games",
   "insights",
@@ -30,6 +29,12 @@ const BETA_ROUTES = [
   "trade-machine",
 ];
 
+// Sprint 101: routes graduated from /beta/ back to root. Reverse redirect
+// preserves external bookmarks pointing at the old /beta/<route>/* URLs.
+const GRADUATED_ROUTES = [
+  "draft",
+];
+
 const nextConfig: NextConfig = {
   allowedDevOrigins: ["127.0.0.1", "localhost"],
   images: {
@@ -41,7 +46,7 @@ const nextConfig: NextConfig = {
     ],
   },
   async redirects() {
-    return BETA_ROUTES.flatMap((route) => [
+    const betaIn = BETA_ROUTES.flatMap((route) => [
       {
         source: `/${route}`,
         destination: `/beta/${route}`,
@@ -53,6 +58,19 @@ const nextConfig: NextConfig = {
         permanent: true,
       },
     ]);
+    const graduatedOut = GRADUATED_ROUTES.flatMap((route) => [
+      {
+        source: `/beta/${route}`,
+        destination: `/${route}`,
+        permanent: true,
+      },
+      {
+        source: `/beta/${route}/:path*`,
+        destination: `/${route}/:path*`,
+        permanent: true,
+      },
+    ]);
+    return [...betaIn, ...graduatedOut];
   },
 };
 

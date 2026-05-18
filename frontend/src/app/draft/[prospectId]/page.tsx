@@ -5,6 +5,15 @@ import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import { getProspectDetail } from "@/lib/api";
 import type { ProspectDetail, NbaComp } from "@/lib/types";
+// Sprint 101 (Stream B) — analyzer-enrichment components.
+import CombineMeasurementsCard from "@/components/draft/CombineMeasurementsCard";
+import HistoricalBaselineChart from "@/components/draft/HistoricalBaselineChart";
+import HistoricalCompsGrid from "@/components/draft/HistoricalCompsGrid";
+import InternationalStatsPanel from "@/components/draft/InternationalStatsPanel";
+import MockDraftConsensusPanel from "@/components/draft/MockDraftConsensusPanel";
+import RiskIndicatorsBars from "@/components/draft/RiskIndicatorsBars";
+import TierBadge from "@/components/draft/TierBadge";
+import TranslationV2Ranges from "@/components/draft/TranslationV2Ranges";
 
 function formatHeight(inches: number | null): string {
   if (inches === null || inches === undefined) return "—";
@@ -294,6 +303,45 @@ export default function ProspectDetailPage() {
           <p className="mt-3 text-[11px] text-[var(--muted)]">Source: {measurement.source ?? "n/a"}</p>
         </section>
       ) : null}
+
+      {/* ─── Sprint 101 (Stream B) — analyzer enrichment ─────────────── */}
+
+      {/* Projected tier headline — small banner anchored above the new */}
+      {/* sections so the projected-tier signal isn't buried. */}
+      {detail.summary.projected_tier && detail.summary.projected_tier !== "unknown" ? (
+        <div className="rounded-lg border border-[var(--border)] bg-[var(--surface)] p-4 flex items-center gap-3">
+          <span className="text-[11px] font-semibold uppercase tracking-wide text-[var(--muted)]">
+            Projected tier
+          </span>
+          <TierBadge tier={detail.summary.projected_tier} size="md" />
+          {detail.summary.consensus_rank_float != null ? (
+            <span className="ml-auto text-[12px] tabular-nums text-[var(--muted-strong)]">
+              Consensus rank {detail.summary.consensus_rank_float.toFixed(1)}
+              {detail.summary.consensus_variance != null && detail.summary.consensus_variance > 0 ? (
+                <span className="ml-1 text-[var(--muted)]">σ {detail.summary.consensus_variance.toFixed(1)}</span>
+              ) : null}
+            </span>
+          ) : null}
+        </div>
+      ) : null}
+
+      <MockDraftConsensusPanel
+        rankings={detail.mock_rankings}
+        consensusRank={detail.summary.consensus_rank_float}
+        consensusVariance={detail.summary.consensus_variance}
+      />
+
+      <TranslationV2Ranges translation={detail.translation_v2} />
+
+      <HistoricalCompsGrid comps={detail.historical_comps} />
+
+      <HistoricalBaselineChart baseline={detail.historical_baseline} />
+
+      <RiskIndicatorsBars risk={detail.risk_indicators} />
+
+      <CombineMeasurementsCard measurement={detail.combine_measurements} />
+
+      <InternationalStatsPanel rows={detail.international_stats} />
     </div>
   );
 }

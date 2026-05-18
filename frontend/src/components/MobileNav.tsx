@@ -84,6 +84,10 @@ export default function MobileNav() {
           <Link href="/standings" onClick={close} className={itemClass("/standings")}>
             Standings
           </Link>
+          {/* Sprint 101 — Draft analyzer graduated from /beta/draft to top-level. */}
+          <Link href="/draft" onClick={close} className={itemClass("/draft")}>
+            Draft
+          </Link>
           <Link href="/beta/compare" onClick={close} className={itemClass("/beta/compare")}>
             Compare
           </Link>
@@ -114,9 +118,6 @@ export default function MobileNav() {
           </Link>
           <Link href="/beta/free-agency" onClick={close} className={itemClass("/beta/free-agency")}>
             Free Agency
-          </Link>
-          <Link href="/beta/draft" onClick={close} className={itemClass("/beta/draft")}>
-            Draft
           </Link>
           {isPlayoffs && (
             <Link href="/bracket" onClick={close} className={itemClass("/bracket")}>
