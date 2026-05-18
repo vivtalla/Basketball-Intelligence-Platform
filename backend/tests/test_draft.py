@@ -133,11 +133,11 @@ def test_translation_returns_per100_and_confidence():
     assert 0.0 <= translation.translation_confidence <= 1.0
     # NCAA pace ≈ 70 → multiplier ≈ 100/70 ≈ 1.43
     assert 1.3 <= translation.pace_multiplier <= 1.5
-    # 18.4 ppg * ~1.43 ≈ 26.3 per-100
+    # 19.1 ppg * ~1.43 ≈ 27.3 per-100
     assert translation.projected_pts_per100 is not None
     assert translation.projected_pts_per100 > translation.projected_reb_per100
-    # rate stats carry through
-    assert translation.projected_ts_pct == 0.612
+    # rate stats carry through (matches ncaa-2026-001 ts_pct in seed CSV)
+    assert translation.projected_ts_pct == 0.591
     assert translation.confidence_factors  # at least one factor narrative
 
 
