@@ -53,14 +53,13 @@ jobs:
         run: |
           set +e
           if [ -z "$ANTHROPIC_API_KEY" ]; then
-            cat > /tmp/review.md <<'EOF'
-⚠️ **Slop-review skipped — `ANTHROPIC_API_KEY` repo secret not configured.**
-
-To enable automated slop-review on every PR:
-1. Generate a key at https://console.anthropic.com.
-2. Settings → Secrets and variables → Actions → New repository secret. Name: `ANTHROPIC_API_KEY`.
-3. Re-run this workflow or push any commit.
-EOF
+            {
+              printf '⚠️ **Slop-review skipped — `ANTHROPIC_API_KEY` repo secret not configured.**\n\n'
+              printf 'To enable automated slop-review on every PR:\n'
+              printf '1. Generate a key at https://console.anthropic.com.\n'
+              printf '2. Settings → Secrets and variables → Actions → New repository secret. Name: `ANTHROPIC_API_KEY`.\n'
+              printf '3. Re-run this workflow or push any commit.\n'
+            } > /tmp/review.md
             exit 0
           fi
           python qa/run_slop_review.py \
