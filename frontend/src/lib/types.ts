@@ -5103,6 +5103,10 @@ export interface HistoricalComp {
   outcome_tier?: string | null;
   career_summary?: HistoricalCareerSummary | null;
   neighbourhood_confidence?: string | null;
+  // Sprint 104 (Stream B) — position-aware comp metadata.
+  position_bucket?: string | null;
+  position_match?: boolean | null;
+  rationale?: string | null;
   pts_pg?: number | null;
   reb_pg?: number | null;
   ast_pg?: number | null;
@@ -5154,6 +5158,38 @@ export interface NbaTranslationV2 {
   three_pct?: number | null;
   usg_pct?: number | null;
   confidence_factors: string[];
+  // Sprint 104 (Stream B) — alternate-league projections.
+  alternate_paths?: CrossLeagueProjection[] | null;
+}
+
+// Sprint 104 (Stream B) — algorithmic prospect profile + cross-league paths.
+
+export interface ProspectFeatureNote {
+  feature_key: string;
+  label: string;
+  z_score: number;
+}
+
+export interface ProspectProfile {
+  archetype_label: string;
+  archetype_distance: number;
+  strengths: ProspectFeatureNote[];
+  weaknesses: ProspectFeatureNote[];
+  pool_size: number;
+  pool_bucket?: string | null;
+  insufficient_pool: boolean;
+  methodology_version: string;
+}
+
+export interface CrossLeagueProjection {
+  league: string;
+  league_strength_key: string;
+  league_strength_multiplier: number;
+  projected_pts_per100?: number | null;
+  projected_reb_per100?: number | null;
+  projected_ast_per100?: number | null;
+  projected_ts_pct?: number | null;
+  projected_usg_pct?: number | null;
 }
 
 export interface HistoricalProspectEntry {
@@ -5224,6 +5260,8 @@ export interface ProspectDetail {
   translation_v2?: NbaTranslationV2 | null;
   // Sprint 102 (Stream B) — top-N teams ranked by fit_score desc.
   team_fit_top?: ProspectTeamFit[] | null;
+  // Sprint 104 (Stream B) — algorithmic strengths/weaknesses + archetype.
+  profile?: ProspectProfile | null;
 }
 // ── Sprint 78 FO4 — Multi-Year Team Trajectory + Aging Curves ────────────────
 export interface TeamArcRosterSummary {

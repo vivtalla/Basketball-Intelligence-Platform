@@ -52,6 +52,25 @@ FEATURE_WEIGHTS: Dict[str, float] = {
 COMP_POOL_SEASONS: Tuple[str, ...] = ("2025-26", "2024-25")
 MIN_GP = 30
 
+# Sprint 104 (Stream B) — position-aware comp weighting. When a candidate
+# shares the prospect's position bucket, similarity gets a +5 additive
+# boost (capped at 99). Bucketing collapses NBA positions into the three
+# coarse families G/F/C so a PG prospect treats SG comps as same-bucket
+# but PF comps as different-bucket.
+_POSITION_BUCKETS: Dict[str, str] = {
+    "PG": "G", "SG": "G", "G": "G",
+    "SF": "F", "PF": "F", "F": "F",
+    "C": "C",
+}
+POSITION_MATCH_BONUS = 5.0
+SIMILARITY_CAP = 99.0
+
+
+def _position_bucket(pos: Optional[str]) -> Optional[str]:
+    if not pos:
+        return None
+    return _POSITION_BUCKETS.get(pos.strip().upper())
+
 
 # ── Feature extraction ───────────────────────────────────────────────
 
@@ -71,12 +90,14 @@ def _player_features(stat: SeasonStat) -> Optional[Dict[str, float]]:
     }
 
 
-def _build_pool(db: Session) -> List[Tuple[int, str, str, Dict[str, float]]]:
-    """Return ``[(player_id, player_name, season, features), ...]``.
+def _build_pool(db: Session) -> List[Tuple[int, str, str, Dict[str, float], Optional[str]]]:
+    """Return ``[(player_id, player_name, season, features, position_bucket), ...]``.
 
     Filtered to ``MIN_GP`` games and the two most-recent NBA seasons.
+    Position bucket is derived from ``Player.position`` and may be None
+    for players with unknown position.
     """
-    pool: List[Tuple[int, str, str, Dict[str, float]]] = []
+    pool: List[Tuple[int, str, str, Dict[str, float], Optional[str]]] = []
     rows = (
         db.query(SeasonStat, Player)
         .join(Player, SeasonStat.player_id == Player.id)
@@ -88,7 +109,7 @@ def _build_pool(db: Session) -> List[Tuple[int, str, str, Dict[str, float]]]:
         feats = _player_features(stat)
         if feats is None:
             continue
-        pool.append((player.id, player.full_name, stat.season, feats))
+        pool.append((player.id, player.full_name, stat.season, feats, _position_bucket(player.position)))
     return pool
 
 
@@ -169,6 +190,10 @@ def find_nba_comps_v2(
     if translation is None:
         return []
 
+    # Sprint 104 (Stream B) — pull prospect position for position-aware boost.
+    prospect = db.query(DraftProspect).filter(DraftProspect.id == prospect_id).first()
+    prospect_bucket = _position_bucket(prospect.primary_position) if prospect else None
+
     target = {
         "pts": float(translation.projected_pts_per100 or 0.0),
         "reb": float(translation.projected_reb_per100 or 0.0),
@@ -183,14 +208,14 @@ def find_nba_comps_v2(
     pool = _build_pool(db)
     if not pool:
         return []
-    stats = _zscore_pool([f for _, _, _, f in pool])
+    stats = _zscore_pool([f for _, _, _, f, _ in pool])
 
-    scored: List[Tuple[float, int, str, str, Dict[str, float], Optional[DraftOutcome]]] = []
-    for player_id, player_name, season, feats in pool:
+    scored: List[Tuple[float, int, str, str, Dict[str, float], Optional[DraftOutcome], Optional[str]]] = []
+    for player_id, player_name, season, feats, candidate_bucket in pool:
         d = _weighted_z_distance(target, feats, stats)
         outcome = _outcome_for_player(db, player_id)
         adjusted = d * _outcome_weight(outcome)
-        scored.append((adjusted, player_id, player_name, season, feats, outcome))
+        scored.append((adjusted, player_id, player_name, season, feats, outcome, candidate_bucket))
 
     scored.sort(key=lambda r: r[0])
     top = scored[:top_k]
@@ -208,7 +233,7 @@ def find_nba_comps_v2(
         return round(60.0 + 35.0 * norm, 2)
 
     # Confidence — based on neighbourhood tier homogeneity.
-    tiers_in_top = [o.outcome_tier for _, _, _, _, _, o in top if o is not None]
+    tiers_in_top = [o.outcome_tier for _, _, _, _, _, o, _ in top if o is not None]
     if len(tiers_in_top) >= 3 and len(set(tiers_in_top)) <= 2:
         neighbourhood_confidence = "high"
     elif len(tiers_in_top) >= 2:
@@ -217,15 +242,32 @@ def find_nba_comps_v2(
         neighbourhood_confidence = "low"
 
     results: List[Dict[str, Any]] = []
-    for d, pid, name, season, feats, outcome in top:
+    for d, pid, name, season, feats, outcome, candidate_bucket in top:
+        base_similarity = _sim(d)
+        # Sprint 104 (Stream B) — additive position-bucket bonus (capped).
+        position_match = (
+            prospect_bucket is not None
+            and candidate_bucket is not None
+            and prospect_bucket == candidate_bucket
+        )
+        if position_match:
+            similarity = min(SIMILARITY_CAP, base_similarity + POSITION_MATCH_BONUS)
+            rationale = "matched on position + skill profile"
+        else:
+            similarity = base_similarity
+            rationale = "matched on skill profile"
+
         results.append({
             "player_id": pid,
             "player_name": name,
             "season": season,
-            "similarity": _sim(d),
+            "similarity": round(similarity, 2),
             "outcome_tier": outcome.outcome_tier if outcome else None,
             "career_summary": _career_summary(outcome),
             "neighbourhood_confidence": neighbourhood_confidence,
+            "position_bucket": candidate_bucket,
+            "position_match": position_match,
+            "rationale": rationale,
             "pts_pg": round(feats["pts"], 2),
             "reb_pg": round(feats["reb"], 2),
             "ast_pg": round(feats["ast"], 2),

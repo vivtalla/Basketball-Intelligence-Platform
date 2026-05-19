@@ -188,6 +188,12 @@ class HistoricalComp(BaseModel):
     outcome_tier: Optional[str] = None
     career_summary: Optional[dict] = None
     neighbourhood_confidence: Optional[str] = None
+    # Sprint 104 (Stream B) — position-aware comp metadata. Surfaced on
+    # NbaComp cards so users see whether the match included a positional
+    # boost ("matched on position + skill profile") vs raw distance only.
+    position_bucket: Optional[str] = None
+    position_match: Optional[bool] = None
+    rationale: Optional[str] = None
     pts_pg: Optional[float] = None
     reb_pg: Optional[float] = None
     ast_pg: Optional[float] = None
@@ -234,6 +240,9 @@ class NbaTranslationV2(BaseModel):
     three_pct: Optional[float] = None
     usg_pct: Optional[float] = None
     confidence_factors: List[str] = []
+    # Sprint 104 (Stream B) — alternate-league projections. None when the
+    # caller doesn't request them or pool data is missing.
+    alternate_paths: Optional[List["CrossLeagueProjection"]] = None
 
 
 # ── Sprint 102 (Stream B) — team-fit for draft prospects ─────────────
@@ -278,6 +287,49 @@ class ProspectTeamFit(BaseModel):
     methodology_version: str = "team_fit_v3_draft_adapter"
 
 
+# ── Sprint 104 (Stream B) — strengths/weaknesses synthesis + cross-league ──
+
+
+class ProspectFeatureNote(BaseModel):
+    """One strength or weakness highlight derived from feature z-score."""
+    feature_key: str
+    label: str
+    z_score: float
+
+
+class ProspectProfile(BaseModel):
+    """Algorithmic synthesis of a prospect's profile vs same-year same-bucket pool.
+
+    Sprint 104 (Stream B). Derived on demand from existing
+    DraftProspectStat rows — no new data source required. Drives the
+    StrengthsWeaknessesPanel on the prospect-detail page.
+    """
+    archetype_label: str
+    archetype_distance: float
+    strengths: List[ProspectFeatureNote] = []
+    weaknesses: List[ProspectFeatureNote] = []
+    pool_size: int
+    pool_bucket: Optional[str] = None
+    insufficient_pool: bool = False
+    methodology_version: str = "synthesis_v1"
+
+
+class CrossLeagueProjection(BaseModel):
+    """Alternate-path per-100 projection (if-G-League, if-Euroleague).
+
+    Compact; just the primary per-100 metrics so response size stays
+    manageable. Surfaced as ``alternate_paths`` on NbaTranslationV2.
+    """
+    league: str
+    league_strength_key: str
+    league_strength_multiplier: float
+    projected_pts_per100: Optional[float] = None
+    projected_reb_per100: Optional[float] = None
+    projected_ast_per100: Optional[float] = None
+    projected_ts_pct: Optional[float] = None
+    projected_usg_pct: Optional[float] = None
+
+
 class HistoricalProspectEntry(BaseModel):
     """One row in the historical-class endpoint (Sprint 100 new endpoint)."""
     prospect_id: int
@@ -320,3 +372,5 @@ class ProspectDetail(BaseModel):
     # from the prospect's translated NBA stat profile against current
     # NBA team rosters via the team_fit_v3 algorithm (adapted).
     team_fit_top: Optional[List[ProspectTeamFit]] = None
+    # Sprint 104 (Stream B) — algorithmic strengths/weaknesses + archetype.
+    profile: Optional[ProspectProfile] = None

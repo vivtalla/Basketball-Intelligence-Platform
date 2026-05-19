@@ -48,6 +48,7 @@ from models.draft import (
     NbaTranslationV2,
     ProspectBoardResponse,
     ProspectDetail,
+    ProspectProfile,
     ProspectTeamFit,
     RiskIndicators,
 )
@@ -354,6 +355,15 @@ def get_prospect_detail(
     except Exception as exc:  # noqa: BLE001
         logger.warning("compute_team_fit_for_prospect failed for prospect=%s: %s", prospect_id, exc)
 
+    # Sprint 104 (Stream B) — algorithmic strengths/weaknesses + archetype.
+    profile: Optional[ProspectProfile] = None
+    try:
+        from services.draft_prospect_profile_service import synthesize_profile
+
+        profile = synthesize_profile(db, prospect)
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("synthesize_profile failed for prospect=%s: %s", prospect_id, exc)
+
     return ProspectDetail(
         summary=summary,
         bio=prospect.bio,
@@ -369,6 +379,7 @@ def get_prospect_detail(
         historical_baseline=historical_baseline,
         translation_v2=translation_v2,
         team_fit_top=team_fit_top,
+        profile=profile,
     )
 
 
