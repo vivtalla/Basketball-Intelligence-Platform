@@ -54,13 +54,18 @@ MIN_GP = 30
 
 # Sprint 104 (Stream B) — position-aware comp weighting. When a candidate
 # shares the prospect's position bucket, similarity gets a +5 additive
-# boost (capped at 99). Bucketing collapses NBA positions into the three
-# coarse families G/F/C so a PG prospect treats SG comps as same-bucket
-# but PF comps as different-bucket.
+# boost (capped at 99). Bucketing collapses positions into the three
+# coarse families G/F/C.
+#
+# Handles two formats coexisting in the platform:
+#   - Abbreviated (DraftProspect.primary_position): "PG"/"SG"/"SF"/"PF"/"C".
+#   - NBA-API style (Player.position):              "Guard"/"Forward"/"Center"
+#     and hyphenated combos like "Guard-Forward". We take the first word
+#     (left of the hyphen) as the primary bucket.
 _POSITION_BUCKETS: Dict[str, str] = {
-    "PG": "G", "SG": "G", "G": "G",
-    "SF": "F", "PF": "F", "F": "F",
-    "C": "C",
+    "PG": "G", "SG": "G", "G": "G", "GUARD": "G",
+    "SF": "F", "PF": "F", "F": "F", "FORWARD": "F",
+    "C": "C", "CENTER": "C",
 }
 POSITION_MATCH_BONUS = 5.0
 SIMILARITY_CAP = 99.0
@@ -69,7 +74,10 @@ SIMILARITY_CAP = 99.0
 def _position_bucket(pos: Optional[str]) -> Optional[str]:
     if not pos:
         return None
-    return _POSITION_BUCKETS.get(pos.strip().upper())
+    # Strip hyphenated combos to the primary (leftmost) position so
+    # "Guard-Forward" → "GUARD" → G.
+    primary = pos.strip().upper().split("-")[0].strip()
+    return _POSITION_BUCKETS.get(primary)
 
 
 # ── Feature extraction ───────────────────────────────────────────────
