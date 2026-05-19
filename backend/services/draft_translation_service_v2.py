@@ -176,6 +176,45 @@ def _select_primary_stat(prospect: DraftProspect) -> Optional[DraftProspectStat]
     return rows[0]
 
 
+# Sprint 104 (Stream B) — alternate-league paths to surface "what if this
+# same per-game line came from a different developmental league". Keeps
+# the same stats but swaps league_strength + haircut. Useful for the
+# "should this prospect go G League vs Europe vs straight to NBA" decision.
+_ALTERNATE_PATH_KEYS: Tuple[str, ...] = ("g_league", "euroleague")
+_ALTERNATE_PATH_LABELS: Dict[str, str] = {
+    "g_league": "G League",
+    "euroleague": "Euroleague",
+}
+
+
+def _alternate_path(
+    stat: DraftProspectStat,
+    age_mult: float,
+    pace_multiplier: float,
+    target_key: str,
+) -> Dict[str, object]:
+    strength = LEAGUE_STRENGTH.get(target_key, 1.0)
+    combined_mult = pace_multiplier * strength * age_mult
+    haircuts = _haircut_for(target_key)
+    projected_ts = (stat.ts_pct or 0.0) * haircuts["ts_pct"] if stat.ts_pct is not None else None
+
+    def vol(per_game: Optional[float]) -> Optional[float]:
+        if per_game is None:
+            return None
+        return round(float(per_game) * combined_mult, 2)
+
+    return {
+        "league": _ALTERNATE_PATH_LABELS.get(target_key, target_key),
+        "league_strength_key": target_key,
+        "league_strength_multiplier": strength,
+        "projected_pts_per100": vol(stat.pts_pg),
+        "projected_reb_per100": vol(stat.reb_pg),
+        "projected_ast_per100": vol(stat.ast_pg),
+        "projected_ts_pct": round(projected_ts, 4) if projected_ts is not None else None,
+        "projected_usg_pct": stat.usg_pct,
+    }
+
+
 def translate_prospect_v2(db: Session, prospect_id: int) -> Optional[Dict[str, object]]:
     """v2 NBA translation with shooting haircut + league strength + age curve.
 
@@ -225,6 +264,15 @@ def translate_prospect_v2(db: Session, prospect_id: int) -> Optional[Dict[str, o
         "sample widening={0:.2f}x (gp={1})".format(widen, gp),
     ]
 
+    # Sprint 104 (Stream B) — alternate-league projections. Only emit
+    # when the prospect's source league differs from the alternate (no
+    # point showing "if G League" for a G League prospect).
+    alternate_paths: List[Dict[str, object]] = []
+    for target_key in _ALTERNATE_PATH_KEYS:
+        if target_key == league_key:
+            continue
+        alternate_paths.append(_alternate_path(stat, age_mult, pace_multiplier, target_key))
+
     return {
         "source_season": stat.season,
         "source_league": stat.league,
@@ -247,6 +295,7 @@ def translate_prospect_v2(db: Session, prospect_id: int) -> Optional[Dict[str, o
         "three_pct": projected_three,
         "usg_pct": stat.usg_pct,
         "confidence_factors": factors,
+        "alternate_paths": alternate_paths,
     }
 
 

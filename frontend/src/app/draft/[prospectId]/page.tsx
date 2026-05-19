@@ -10,11 +10,13 @@ import HeroHardwood from "@/components/HeroHardwood";
 import Reveal from "@/components/Reveal";
 // Sprint 101 (Stream B) — analyzer-enrichment components.
 import CombineMeasurementsCard from "@/components/draft/CombineMeasurementsCard";
+import CrossLeagueProjections from "@/components/draft/CrossLeagueProjections";
 import HistoricalBaselineChart from "@/components/draft/HistoricalBaselineChart";
 import HistoricalCompsGrid from "@/components/draft/HistoricalCompsGrid";
 import InternationalStatsPanel from "@/components/draft/InternationalStatsPanel";
 import MockDraftConsensusPanel from "@/components/draft/MockDraftConsensusPanel";
 import RiskIndicatorsBars from "@/components/draft/RiskIndicatorsBars";
+import StrengthsWeaknessesPanel from "@/components/draft/StrengthsWeaknessesPanel";
 import TeamFitPanel from "@/components/draft/TeamFitPanel";
 import TierBadge from "@/components/draft/TierBadge";
 import TranslationV2Ranges from "@/components/draft/TranslationV2Ranges";
@@ -344,6 +346,12 @@ export default function ProspectDetailPage() {
       />
 
       <TranslationV2Ranges translation={detail.translation_v2} />
+
+      {/* Sprint 104 (Stream B) — algorithmic strengths/weaknesses + archetype. */}
+      <StrengthsWeaknessesPanel profile={detail.profile} />
+
+      {/* Sprint 104 (Stream B) — cross-league projection variants. */}
+      <CrossLeagueProjections translation={detail.translation_v2} />
 
       <HistoricalCompsGrid comps={detail.historical_comps} />
 

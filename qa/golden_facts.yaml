@@ -128,6 +128,31 @@ facts:
     source: production incident, 2026-05-17
     review_by: 2030-01-01
 
+  # ─── Sprint 104 — prospect-detail analytics fields ───────────────────
+  # These check the new analytical surfaces (strengths/weaknesses
+  # profile, alternate-league projections) introduced in Sprint 104.
+  # Catches regressions on the prospect-detail response shape.
+  - id: draft-2026-prospect-detail-has-profile
+    description: Prospect-detail response carries the Sprint 104 algorithmic profile field
+    endpoint: /api/draft/prospects/1
+    jq_filter: '.profile.archetype_label'
+    # Archetype label is always a string of length >= 5 ("Rim Big" minimum).
+    # min_length on a JSON null fails (non-iterable), which is exactly the
+    # regression we want to surface.
+    operator: min_length
+    value: 5
+    source: backend/services/draft_prospect_profile_service.py
+    review_by: 2027-01-01
+
+  - id: draft-2026-prospect-detail-has-alternate-paths
+    description: Prospect-detail translation_v2 surfaces cross-league projection variants
+    endpoint: /api/draft/prospects/1
+    jq_filter: '.translation_v2.alternate_paths | length'
+    operator: in_range
+    value: [1, 5]
+    source: backend/services/draft_translation_service_v2.py
+    review_by: 2027-01-01
+
   # ─── Draft (historical) — anti-regression for past classes ───────────
   - id: draft-2017-pick-1
     description: Markelle Fultz was the 2017 #1 pick

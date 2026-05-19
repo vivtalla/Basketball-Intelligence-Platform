@@ -82,6 +82,10 @@ export default function DraftWorkspacePage() {
   // Sprint 101 — client-side filters on the new analysis-service fields.
   const [tier, setTier] = useState<string>("");
   const [polarizingOnly, setPolarizingOnly] = useState<boolean>(false);
+  // Sprint 104 (Stream A) — second-round toggle. Default off so the
+  // front-page board stays focused on the top-30 consensus; analysts
+  // who want deeper coverage flip the switch.
+  const [showSecondRound, setShowSecondRound] = useState<boolean>(false);
   const [state, setState] = useState<{
     board: ProspectBoardResponse | null;
     error: string | null;
@@ -91,7 +95,10 @@ export default function DraftWorkspacePage() {
 
   useEffect(() => {
     let cancelled = false;
-    getDraftBoard(year, { limit: 60, position: position || undefined, schoolType: schoolType || undefined })
+    // Sprint 104 (Stream A) — board now requests up to 90 so ranks 31-90
+    // are available client-side; the "Show second round" toggle gates
+    // their visibility.
+    getDraftBoard(year, { limit: 90, position: position || undefined, schoolType: schoolType || undefined })
       .then((data) => {
         if (!cancelled) setState({ board: data, error: null, isLoading: false });
       })
@@ -114,10 +121,17 @@ export default function DraftWorkspacePage() {
       if (polarizingOnly && (p.consensus_variance ?? 0) <= POLARIZING_VARIANCE_THRESHOLD) {
         return false;
       }
+      // Sprint 104 (Stream A) — hide ranks past the top 30 unless the
+      // analyst flips the toggle. Prospects with no consensus_rank fall
+      // back to top-30 visibility (treated as borderline).
+      if (!showSecondRound) {
+        const rank = p.consensus_rank_float ?? p.consensus_rank ?? 0;
+        if (rank > 30) return false;
+      }
       return true;
     });
     return filtered.sort((a, b) => compareProspects(a, b, sortKey));
-  }, [board, sortKey, tier, polarizingOnly]);
+  }, [board, sortKey, tier, polarizingOnly, showSecondRound]);
 
   return (
     <div className="space-y-6">
@@ -212,6 +226,16 @@ export default function DraftWorkspacePage() {
               className="h-4 w-4 rounded border-[var(--border)]"
             />
             <span>Polarizing only (σ &gt; {POLARIZING_VARIANCE_THRESHOLD})</span>
+          </label>
+          {/* Sprint 104 (Stream A) — second-round visibility toggle. */}
+          <label className="inline-flex items-center gap-2 self-end text-xs text-[var(--muted)]">
+            <input
+              type="checkbox"
+              checked={showSecondRound}
+              onChange={(e) => setShowSecondRound(e.target.checked)}
+              className="h-4 w-4 rounded border-[var(--border)]"
+            />
+            <span>Show second round (ranks 31-60)</span>
           </label>
         </div>
       </header>
