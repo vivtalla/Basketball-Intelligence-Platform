@@ -401,6 +401,12 @@ CourtVue Labs uses a hybrid sprint model: major feature sprints typically run as
 | `feature/sprint-96-cleanup-and-perf` | Claude | Merged to master |
 | `feature/sprint-97-sync-hardening` | Claude | Merged to master |
 | `feature/sprint-98-data-foundation` | Claude | Merged to master |
+| `feature/sprint-100-draft-data-foundation` | Claude | Merged to master |
+| `feature/sprint-101-draft-analyzer-ui` | Claude | Merged to master |
+| `feature/sprint-102-analyzer-polish-and-team-fit` | Claude | Merged to master |
+| `fix/real-2026-prospects` | Claude | Merged to master |
+| `fix/real-2026-prospects-cleanup` | Claude | Merged to master |
+| `fix/edwards-ppg-and-career-chart-order` | Claude | Merged to master |
 
 Sprint branches are created at kickoff and listed in `AGENTS.md`.
 
