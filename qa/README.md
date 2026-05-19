@@ -108,3 +108,61 @@ The issue auto-closes when the canary passes again.
 For UI-only regressions, a future iteration could add screenshot-based
 visual regression. For now the canary catches the API-level class of bugs,
 which is where the Edwards-style and draft-prospect-style failures live.
+
+---
+
+# Slop review
+
+A second layer that runs *before* merge, not after. The canary catches things that ship; slop-review catches things before they ship.
+
+## Two ways to invoke
+
+**1. Manually via the `/slop-review` Claude Code skill** (local).
+The skill at `.claude/commands/slop-review.md` walks 11 checkpoints against the current branch diff. Has access to bash for grepping consumers, checking test files, etc. Use for ad-hoc reviews or during sprint-closeout.
+
+**2. Automatically via GitHub Action** (every PR).
+`.github/workflows/slop-review.yml` runs `qa/run_slop_review.py` on every non-draft PR. Calls the Anthropic API with the canonical prompt in `qa/slop-review-prompt.md`, posts a sticky comment on the PR. Updates the same comment on subsequent pushes.
+
+The two prompts are intentionally near-identical but adapted: the local skill uses bash (`grep`, `gh pr diff`), the API version receives the diff as context since it can't shell out.
+
+## Setup for the GitHub Action
+
+One-time, manual:
+
+1. Generate an Anthropic API key at https://console.anthropic.com.
+2. Add it to the repo: Settings → Secrets and variables → Actions → New repository secret. Name: `ANTHROPIC_API_KEY`.
+3. Push any PR — the action runs automatically and posts a comment.
+
+Cost: ~$0.04/PR using `claude-sonnet-4-6` with prompt caching on the system prompt. Adjust via `SLOP_REVIEW_MODEL` env var if you want haiku (cheaper, less rigorous) or opus (more rigorous, ~3x cost).
+
+## What gets sent to the API
+
+- The PR diff (`gh pr diff <N>`), truncated at 80KB.
+- The changed-file list.
+- The commit messages.
+
+Anything else in the repo stays local. Production `DATABASE_URL`, `/etc/bip/env`, and other secrets are not in the repo so they cannot be sent.
+
+## When to update the prompt
+
+When you fix a new class of bug, add a checkpoint to both:
+- `.claude/commands/slop-review.md` (local skill, bash version)
+- `qa/slop-review-prompt.md` (API version, context-only)
+
+The two files have a "keep in sync" note at the top. They will drift over time — that's fine as long as the checkpoint *list* stays parallel. The wording of each checkpoint can be optimized for its execution context.
+
+## What this catches that the canary doesn't
+
+The canary asks "does the platform agree with reality?" — it catches output errors after they ship. Slop-review asks "does this diff follow CourtVue's known rules?" — it catches *patterns* that produce output errors, before they ship. Different layers, different failure modes:
+
+| Failure mode | Canary | Slop-review |
+|---|---|---|
+| Stale sync (Edwards 2024-25 row never updated) | ✅ | ❌ |
+| Backend ordering contract drift | ✅ (post-deploy) | ✅ (pre-merge) |
+| Fabricated seed data | ✅ | ✅ |
+| New endpoint without frontend types | ❌ | ✅ |
+| Direct DB writes in routers | ❌ | ✅ |
+| Schema change without migration | ❌ | ✅ |
+| Live nba_api outside the wrapper | ❌ | ✅ |
+| Cosmetic UI bug | ❌ | ❌ |
+
