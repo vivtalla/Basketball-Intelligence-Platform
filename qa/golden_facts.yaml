@@ -1,0 +1,176 @@
+# Golden facts — production canary
+#
+# Each fact pins one true statement about real-world basketball that the
+# platform MUST agree with. A nightly GitHub Action curls production and
+# asserts every fact; failures open a 🚨 issue.
+#
+# When to add a fact:
+#   - A user-reported regression slipped past tests (e.g. the Ant PPG bug).
+#     Add a fact that would have caught it.
+#   - You ship a feature whose correctness depends on a real-world claim.
+#
+# When to update a fact:
+#   - At the start of each NBA season — most player-stat facts need new
+#     season strings + ranges. Search this file for `review_by` dates.
+#   - When a prospect class settles (draft night) — pin actual picks, not
+#     pre-draft consensus.
+#
+# Schema per fact:
+#   id            — kebab-case unique key
+#   description   — one-line human description
+#   endpoint      — path under https://api.courtvue.app
+#   jq_filter     — jq expression run against the response
+#   operator      — one of: equals | in_range | min_length | contains_all
+#                          | contains_none | ascending | descending
+#   value         — value to compare against (shape depends on operator)
+#   source        — where the ground truth lives (URL or NBA.com page)
+#   review_by     — ISO date; canary warns if this is in the past
+
+facts:
+
+  # ─── Player season stats ─────────────────────────────────────────────
+  - id: ant-2024-25-ppg
+    description: Anthony Edwards 2024-25 regular season PPG
+    endpoint: /api/stats/1630162/career
+    jq_filter: '.seasons[] | select(.season == "2024-25") | .pts_pg'
+    operator: in_range
+    value: [27.0, 28.0]
+    source: https://www.nba.com/stats/player/1630162
+    review_by: 2027-01-01
+
+  - id: ant-2024-25-gp
+    description: Anthony Edwards 2024-25 games played (catches partial-season stale row)
+    endpoint: /api/stats/1630162/career
+    jq_filter: '.seasons[] | select(.season == "2024-25") | .gp'
+    operator: in_range
+    value: [75, 82]
+    source: https://www.nba.com/stats/player/1630162
+    review_by: 2027-01-01
+
+  - id: sga-2024-25-scoring-title
+    description: Shai Gilgeous-Alexander was the 2024-25 scoring leader
+    endpoint: /api/leaderboards?metric=pts&season=2024-25&limit=1
+    jq_filter: '.entries[0].player_name'
+    operator: equals
+    value: Shai Gilgeous-Alexander
+    source: https://www.nba.com/stats/leaders?Season=2024-25&SeasonType=Regular+Season&StatCategory=PTS
+    review_by: 2027-09-01
+
+  # ─── Career-stats ordering invariants (the Ant bug class) ────────────
+  - id: ant-regular-seasons-ascending
+    description: Edwards' regular seasons returned in ASC order (frontend assumes this)
+    endpoint: /api/stats/1630162/career
+    jq_filter: '[.seasons[].season]'
+    operator: ascending
+    source: backend/routers/stats.py:357-361 contract
+    review_by: 2027-01-01
+
+  - id: ant-playoff-seasons-descending
+    description: Edwards' playoff seasons returned in DESC order (Sprint 73 table-UX contract)
+    endpoint: /api/stats/1630162/career
+    jq_filter: '[.playoff_seasons[].season]'
+    operator: descending
+    source: backend/routers/stats.py:394-399 contract
+    review_by: 2027-01-01
+
+  # ─── Draft (current class) ───────────────────────────────────────────
+  - id: draft-2026-pick-1
+    description: AJ Dybantsa is the 2026 consensus #1 prospect
+    endpoint: /api/draft/board?year=2026&limit=1
+    jq_filter: '.prospects[0].full_name'
+    operator: equals
+    value: AJ Dybantsa
+    source: ESPN / Ringer 2026 boards
+    review_by: 2026-06-25  # update after 2026 draft night
+
+  - id: draft-2026-pick-2
+    description: Darryn Peterson is the 2026 consensus #2 prospect
+    endpoint: /api/draft/board?year=2026&limit=2
+    jq_filter: '.prospects[1].full_name'
+    operator: equals
+    value: Darryn Peterson
+    source: ESPN / Ringer 2026 boards
+    review_by: 2026-06-25
+
+  - id: draft-2026-pick-3
+    description: Cameron Boozer is the 2026 consensus #3 prospect
+    endpoint: /api/draft/board?year=2026&limit=3
+    jq_filter: '.prospects[2].full_name'
+    operator: equals
+    value: Cameron Boozer
+    source: ESPN / Ringer 2026 boards
+    review_by: 2026-06-25
+
+  - id: draft-2026-board-size
+    description: 2026 board has 30 entries (no fabricated extras, no missing curated names)
+    endpoint: /api/draft/board?year=2026&limit=60
+    jq_filter: '[.prospects[] | select(.consensus_rank != null)] | length'
+    operator: equals
+    value: 30
+    source: backend/data/seed/draft_prospects_2026.csv
+    review_by: 2026-06-25
+
+  - id: draft-2026-no-fabricated-names
+    description: None of the original Sprint 78 placeholder names appear on the 2026 board
+    endpoint: /api/draft/board?year=2026&limit=60
+    jq_filter: '[.prospects[].full_name]'
+    operator: contains_none
+    value:
+      - Cooper Castellan
+      - Jaden Roussel
+      - Marcus Adigwe
+      - Tyrese Wilkerson
+      - Devon Arokoyu
+      - Luca Ferraro
+      - Khalil Bashir
+      - Brayden Esposito
+      - Saul Berkovich
+    source: production incident, 2026-05-17
+    review_by: 2030-01-01
+
+  # ─── Draft (historical) — anti-regression for past classes ───────────
+  - id: draft-2017-pick-1
+    description: Markelle Fultz was the 2017 #1 pick
+    endpoint: /api/draft/historical/2017
+    jq_filter: '.prospects[] | select(.draft_pick == 1) | .name'
+    operator: equals
+    value: Markelle Fultz
+    source: https://www.basketball-reference.com/draft/NBA_2017.html
+    review_by: 2030-01-01
+
+  - id: draft-2017-pick-3
+    description: Jayson Tatum was the 2017 #3 pick
+    endpoint: /api/draft/historical/2017
+    jq_filter: '.prospects[] | select(.draft_pick == 3) | .name'
+    operator: equals
+    value: Jayson Tatum
+    source: https://www.basketball-reference.com/draft/NBA_2017.html
+    review_by: 2030-01-01
+
+  # ─── Existence / structure ───────────────────────────────────────────
+  - id: health-endpoint-ok
+    description: /api/health returns status=ok
+    endpoint: /api/health
+    jq_filter: '.status'
+    operator: equals
+    value: ok
+    source: backend/routers/health.py
+    review_by: 2030-01-01
+
+  - id: leaderboard-returns-rows
+    description: Leaderboard endpoint returns at least 10 entries
+    endpoint: /api/leaderboards?metric=pts&season=2024-25&limit=10
+    jq_filter: '.entries | length'
+    operator: in_range
+    value: [10, 10]
+    source: backend/routers/leaderboards.py
+    review_by: 2030-01-01
+
+  - id: player-search-finds-tatum
+    description: Player search resolves "Tatum" to a real player
+    endpoint: /api/players/search?q=Tatum
+    jq_filter: '[.[] | select(.full_name | contains("Tatum"))] | length'
+    operator: in_range
+    value: [1, 5]
+    source: backend/routers/players.py
+    review_by: 2030-01-01
