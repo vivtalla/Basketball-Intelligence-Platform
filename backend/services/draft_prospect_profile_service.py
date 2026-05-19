@@ -56,11 +56,12 @@ _LABELS: Dict[Tuple[str, str], str] = {
     ("usg_pct", "low"): "Off-ball role player",
 }
 
-# Position bucketing (mirrors comp_service_v2._POSITION_BUCKETS).
+# Position bucketing (mirrors comp_service_v2._POSITION_BUCKETS). Same
+# handling for NBA-API "Guard-Forward" style strings via leftmost split.
 _POSITION_BUCKETS: Dict[str, str] = {
-    "PG": "G", "SG": "G", "G": "G",
-    "SF": "F", "PF": "F", "F": "F",
-    "C": "C",
+    "PG": "G", "SG": "G", "G": "G", "GUARD": "G",
+    "SF": "F", "PF": "F", "F": "F", "FORWARD": "F",
+    "C": "C", "CENTER": "C",
 }
 
 # Archetype centroids in feature z-space. Each value is the z-score the
@@ -79,7 +80,8 @@ _ARCHETYPES: Dict[str, Dict[str, float]] = {
 def _position_bucket(pos: Optional[str]) -> Optional[str]:
     if not pos:
         return None
-    return _POSITION_BUCKETS.get(pos.strip().upper())
+    primary = pos.strip().upper().split("-")[0].strip()
+    return _POSITION_BUCKETS.get(primary)
 
 
 def _latest_stat_row(db: Session, prospect_id: int) -> Optional[DraftProspectStat]:
