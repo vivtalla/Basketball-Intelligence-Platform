@@ -57,9 +57,14 @@ export default function PlayerDashboard({ playerId }: PlayerDashboardProps) {
     playerId,
     percentileSeason
   );
+  // Backend returns playoff_seasons sorted DESC (Sprint 73 contract for table UX).
+  // Compute the newest playoff season via explicit sort, not array index, so we
+  // don't depend on response order.
   const latestPlayoffSeason =
     careerStats && careerStats.playoff_seasons.length > 0
-      ? careerStats.playoff_seasons[careerStats.playoff_seasons.length - 1].season
+      ? [...careerStats.playoff_seasons]
+          .sort((a, b) => a.season.localeCompare(b.season))
+          [careerStats.playoff_seasons.length - 1].season
       : null;
   const gravitySeason =
     mode === "regular"
@@ -94,7 +99,14 @@ export default function PlayerDashboard({ playerId }: PlayerDashboardProps) {
 
   const isPlayoffs = mode === "playoffs";
   const hasPlayoffs = careerStats.playoff_seasons.length > 0;
-  const activeSeasonsArr = isPlayoffs ? careerStats.playoff_seasons : careerStats.seasons;
+  // Backend returns playoff_seasons DESC (newest first) for the table UI;
+  // every downstream consumer here (PlayerHeader's currentSeason via [length-1],
+  // priorSeason, CareerArcChart, ExternalMetricsPanel) expects chronological
+  // ASC order. Sort defensively at the source so every consumer is correct
+  // regardless of backend response order.
+  const activeSeasonsArr = [
+    ...(isPlayoffs ? careerStats.playoff_seasons : careerStats.seasons),
+  ].sort((a, b) => a.season.localeCompare(b.season));
 
   const latestSeason = activeSeasonsArr.length > 0
     ? activeSeasonsArr[activeSeasonsArr.length - 1]

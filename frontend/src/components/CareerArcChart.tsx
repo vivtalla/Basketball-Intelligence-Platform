@@ -62,11 +62,16 @@ export default function CareerArcChart({ seasons, birthDate }: CareerArcChartPro
 
   if (seasons.length === 0) return null;
 
+  // Self-sort: never trust caller order. Some upstream callers (e.g. the
+  // backend's playoff_seasons response) ship DESC for table UX; this chart
+  // needs chronological ASC so the x-axis renders oldest-to-newest.
+  const sortedSeasons = [...seasons].sort((a, b) => a.season.localeCompare(b.season));
+
   const birthYear = birthDate ? parseBirthYear(birthDate) : null;
   const canShowAging = birthYear != null;
 
   // Build chart data — include age when we have birth year
-  const data = seasons.map((s) => {
+  const data = sortedSeasons.map((s) => {
     const point: Record<string, string | number | null> = { season: s.season };
     for (const opt of STAT_OPTIONS) {
       const raw = s[opt.key] as number | null;
@@ -84,10 +89,10 @@ export default function CareerArcChart({ seasons, birthDate }: CareerArcChartPro
   const peakSeason       = birthYear ? seasonForAge(birthYear, 26) : null;
 
   // Check if reference seasons fall within the player's career data range
-  const seasonSet = new Set(seasons.map(s => s.season));
+  const seasonSet = new Set(sortedSeasons.map(s => s.season));
   const primeOverlaps =
     primeStartSeason && primeEndSeason &&
-    seasons.some(s => {
+    sortedSeasons.some(s => {
       const y = seasonStartYear(s.season);
       const ps = seasonStartYear(primeStartSeason);
       const pe = seasonStartYear(primeEndSeason);
