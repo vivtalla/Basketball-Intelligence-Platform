@@ -1,0 +1,96 @@
+name: Slop review
+
+# Runs the slop-review prompt against every PR diff via the Anthropic
+# API and posts the result as a sticky PR comment. Doesn't block merge —
+# the comment is informational, sits at the top of the PR for the
+# author to act on.
+#
+# Requires repo secret: ANTHROPIC_API_KEY
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+permissions:
+  pull-requests: write
+  contents: read
+
+jobs:
+  slop-review:
+    runs-on: ubuntu-latest
+    # Skip on bot-authored or draft PRs to control cost.
+    if: github.event.pull_request.draft == false && github.event.pull_request.user.type != 'Bot'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install deps
+        run: pip install -q -r qa/requirements.txt
+
+      - name: Collect PR context
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: |
+          gh pr diff "$PR_NUMBER" > /tmp/pr.diff
+          gh pr view "$PR_NUMBER" --json files --jq '.files[].path' > /tmp/pr.files
+          gh pr view "$PR_NUMBER" --json commits --jq '.commits[] | "\(.oid[0:8])  \(.messageHeadline)\n\(.messageBody)"' > /tmp/pr.commits
+
+          echo "Diff size: $(wc -c < /tmp/pr.diff) chars, $(wc -l < /tmp/pr.files) files"
+
+      - name: Run slop-review
+        id: review
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: |
+          python qa/run_slop_review.py \
+            --diff-file /tmp/pr.diff \
+            --files-file /tmp/pr.files \
+            --commits-file /tmp/pr.commits \
+            > /tmp/review.md 2> /tmp/review.stderr
+          cat /tmp/review.stderr
+
+      - name: Post or update PR comment
+        if: always()
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: |
+          set -e
+
+          # Build the comment body. Use a hidden marker so we can find
+          # and update the same comment on subsequent pushes.
+          MARKER="<!-- slop-review-bot -->"
+          if [ -s /tmp/review.md ]; then
+            BODY=$(printf '%s\n\n%s\n\n---\n_Run %s — [view logs](%s/%s/actions/runs/%s)_' \
+              "$MARKER" \
+              "$(cat /tmp/review.md)" \
+              "${{ github.run_id }}" \
+              "${{ github.server_url }}" \
+              "${{ github.repository }}" \
+              "${{ github.run_id }}")
+          else
+            BODY=$(printf '%s\n\n⚠️ Slop-review runner failed. [View logs](%s/%s/actions/runs/%s).' \
+              "$MARKER" \
+              "${{ github.server_url }}" \
+              "${{ github.repository }}" \
+              "${{ github.run_id }}")
+          fi
+
+          # Find existing comment with our marker.
+          EXISTING=$(gh api "repos/${{ github.repository }}/issues/$PR_NUMBER/comments" \
+            --jq ".[] | select(.body | contains(\"$MARKER\")) | .id" | head -1)
+
+          if [ -n "$EXISTING" ]; then
+            gh api --method PATCH "repos/${{ github.repository }}/issues/comments/$EXISTING" \
+              -f body="$BODY" > /dev/null
+            echo "Updated comment $EXISTING"
+          else
+            gh pr comment "$PR_NUMBER" --body "$BODY"
+            echo "Posted new comment"
+          fi
