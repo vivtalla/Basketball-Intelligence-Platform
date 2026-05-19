@@ -47,13 +47,33 @@ jobs:
         id: review
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        # Never fail the job — slop-review is informational. Any error
+        # gets a fallback message written to /tmp/review.md so the
+        # comment step still posts something useful.
         run: |
+          set +e
+          if [ -z "$ANTHROPIC_API_KEY" ]; then
+            cat > /tmp/review.md <<'EOF'
+⚠️ **Slop-review skipped — `ANTHROPIC_API_KEY` repo secret not configured.**
+
+To enable automated slop-review on every PR:
+1. Generate a key at https://console.anthropic.com.
+2. Settings → Secrets and variables → Actions → New repository secret. Name: `ANTHROPIC_API_KEY`.
+3. Re-run this workflow or push any commit.
+EOF
+            exit 0
+          fi
           python qa/run_slop_review.py \
             --diff-file /tmp/pr.diff \
             --files-file /tmp/pr.files \
             --commits-file /tmp/pr.commits \
             > /tmp/review.md 2> /tmp/review.stderr
+          rc=$?
           cat /tmp/review.stderr
+          if [ $rc -ne 0 ]; then
+            echo "⚠️ **Slop-review runner crashed.** Check the workflow logs." > /tmp/review.md
+          fi
+          exit 0
 
       - name: Post or update PR comment
         if: always()
