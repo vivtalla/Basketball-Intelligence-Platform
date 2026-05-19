@@ -1,0 +1,149 @@
+name: Golden facts canary
+
+# Runs every day at 08:00 UTC (~04:00 ET) and on-demand. Asserts every
+# fact in qa/golden_facts.yaml against production. On failure, opens or
+# updates a single issue titled "🚨 Golden-facts canary failure".
+
+on:
+  schedule:
+    - cron: "0 8 * * *"
+  workflow_dispatch:
+  pull_request:
+    # Run on PRs that touch the canary itself so you don't ship a broken runner.
+    paths:
+      - "qa/**"
+      - ".github/workflows/golden-facts.yml"
+
+permissions:
+  issues: write
+  contents: read
+
+jobs:
+  canary:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install deps
+        run: |
+          sudo apt-get update -qq && sudo apt-get install -y -qq jq
+          pip install pyyaml
+
+      - name: Run canary
+        id: canary
+        run: |
+          set +e
+          python qa/check_golden_facts.py
+          echo "exit_code=$?" >> "$GITHUB_OUTPUT"
+        env:
+          BASE_URL: https://api.courtvue.app
+
+      - name: Upload failure summary
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: golden-facts-summary
+          path: golden_facts_failures.json
+          if-no-files-found: ignore
+
+      - name: Open or update issue on failure
+        if: steps.canary.outputs.exit_code != '0' && github.event_name == 'schedule'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            let summary;
+            try {
+              summary = JSON.parse(fs.readFileSync('golden_facts_failures.json', 'utf8'));
+            } catch (e) {
+              summary = { failures: [{ id: 'unknown', detail: 'runner crashed before writing summary' }] };
+            }
+
+            const title = "🚨 Golden-facts canary failure";
+            const failureLines = summary.failures.map(f =>
+              `- **${f.id}** — ${f.description || ''}\n  ${f.detail}`
+            ).join("\n");
+            const staleLine = (summary.stale && summary.stale.length)
+              ? `\n\n**Stale review_by:** ${summary.stale.join(", ")}`
+              : "";
+            const body = [
+              `The golden-facts canary failed against ${summary.base_url || 'production'} at \`${new Date().toISOString()}\`.`,
+              "",
+              "## Failing facts",
+              failureLines || "_(see workflow log)_",
+              staleLine,
+              "",
+              "## What to do",
+              "1. Open the [workflow run](" + `${process.env.GITHUB_SERVER_URL}/${process.env.GITHUB_REPOSITORY}/actions/runs/${process.env.GITHUB_RUN_ID}` + ") to inspect details.",
+              "2. Decide: is this a real regression (fix and redeploy), or has the underlying truth changed (update `qa/golden_facts.yaml`)?",
+              "3. This issue will auto-close once the canary passes again.",
+            ].join("\n");
+
+            const { data: existing } = await github.rest.issues.listForRepo({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              state: 'open',
+              labels: 'canary',
+              per_page: 50,
+            });
+            const open = existing.find(i => i.title === title);
+
+            if (open) {
+              await github.rest.issues.update({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: open.number,
+                body,
+              });
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: open.number,
+                body: `Canary still failing as of ${new Date().toISOString()}. ${summary.failures.length} fact(s) red.`,
+              });
+            } else {
+              await github.rest.issues.create({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                title,
+                body,
+                labels: ['canary', 'urgent'],
+              });
+            }
+
+      - name: Auto-close issue on recovery
+        if: steps.canary.outputs.exit_code == '0' && github.event_name == 'schedule'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const title = "🚨 Golden-facts canary failure";
+            const { data: existing } = await github.rest.issues.listForRepo({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              state: 'open',
+              labels: 'canary',
+              per_page: 50,
+            });
+            const open = existing.find(i => i.title === title);
+            if (open) {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: open.number,
+                body: `✅ Canary recovered at ${new Date().toISOString()}. Closing.`,
+              });
+              await github.rest.issues.update({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: open.number,
+                state: 'closed',
+              });
+            }
+
+      - name: Fail the job if canary failed
+        if: steps.canary.outputs.exit_code != '0'
+        run: exit 1
