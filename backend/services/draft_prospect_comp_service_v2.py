@@ -76,15 +76,19 @@ def _position_bucket(pos: Optional[str]) -> Optional[str]:
 
 
 def _player_features(stat: SeasonStat) -> Optional[Dict[str, float]]:
-    if (stat.games_played or 0) < MIN_GP:
+    # SeasonStat ORM uses `gp` / `*_pg` (Sprint 80+ canonical names);
+    # earlier comp v2 code referenced `games_played` / `*_per_game` which
+    # don't exist on the model — that made historical_comps silently
+    # come back empty in production. Pull from the right columns.
+    if (stat.gp or 0) < MIN_GP:
         return None
     return {
-        "pts": float(stat.pts_per_game or 0.0),
-        "reb": float(stat.reb_per_game or 0.0),
-        "ast": float(stat.ast_per_game or 0.0),
-        "stl": float(stat.stl_per_game or 0.0),
-        "blk": float(stat.blk_per_game or 0.0),
-        "tov": float(stat.tov_per_game or 0.0),
+        "pts": float(stat.pts_pg or 0.0),
+        "reb": float(stat.reb_pg or 0.0),
+        "ast": float(stat.ast_pg or 0.0),
+        "stl": float(stat.stl_pg or 0.0),
+        "blk": float(stat.blk_pg or 0.0),
+        "tov": float(stat.tov_pg or 0.0),
         "ts_pct": float(stat.ts_pct or 0.0),
         "usg_pct": float(stat.usg_pct or 0.0),
     }
