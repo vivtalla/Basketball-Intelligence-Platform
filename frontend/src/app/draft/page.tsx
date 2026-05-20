@@ -8,6 +8,8 @@ import ConsensusRankCell from "@/components/draft/ConsensusRankCell";
 import MockSourcesPill from "@/components/draft/MockSourcesPill";
 import TierBadge from "@/components/draft/TierBadge";
 // Sprint 102 (Stream A) — design-system primitives.
+// Sprint 105 (Stream B) — FloatingBall decoration on the hero panel.
+import FloatingBall from "@/components/FloatingBall";
 import HeroHardwood from "@/components/HeroHardwood";
 import Reveal from "@/components/Reveal";
 
@@ -140,10 +142,25 @@ export default function DraftWorkspacePage() {
         <div aria-hidden className="pointer-events-none absolute inset-0 -z-10 rounded-[2.2rem] overflow-hidden">
           <HeroHardwood opacity={0.10} />
         </div>
-        <p className="bip-kicker">Draft prospect workspace</p>
-        <h1 className="bip-display mt-2 text-3xl sm:text-4xl font-bold tracking-tight text-[var(--foreground)]">
-          {year} Draft Board
-        </h1>
+        {/* Sprint 105 (Stream B) — subtle FloatingBall decoration top-right. */}
+        <div aria-hidden className="pointer-events-none absolute top-4 right-6 opacity-40 hidden sm:block">
+          <FloatingBall size={56} />
+        </div>
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <p className="bip-kicker">Draft prospect workspace</p>
+            <h1 className="bip-display mt-2 text-3xl sm:text-4xl font-bold tracking-tight text-[var(--foreground)]">
+              {year} Draft Board
+            </h1>
+          </div>
+          {/* Sprint 105 (Stream A) — entry point to compare view. */}
+          <Link
+            href="/draft/compare"
+            className="shrink-0 rounded-lg border border-[var(--border)] bg-[var(--surface)] px-3 py-2 text-xs font-medium text-[var(--muted-strong)] hover:border-[var(--accent)] hover:text-[var(--accent)] transition-colors"
+          >
+            Compare prospects →
+          </Link>
+        </div>
         <p className="mt-2 max-w-3xl text-sm leading-6 text-[var(--muted)]">
           Pre-NBA prospects with pace-adjusted NBA translations and veteran comp matches. Per-game
           numbers come from the prospect&apos;s most-recent league season; the per-100 line projects

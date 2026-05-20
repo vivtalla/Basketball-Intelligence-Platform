@@ -6,6 +6,8 @@ import { useParams } from "next/navigation";
 import { getProspectDetail } from "@/lib/api";
 import type { ProspectDetail, NbaComp } from "@/lib/types";
 // Sprint 102 (Stream A) — design-system primitives.
+// Sprint 105 (Stream B) — FloatingBall decoration on the hero panel.
+import FloatingBall from "@/components/FloatingBall";
 import HeroHardwood from "@/components/HeroHardwood";
 import Reveal from "@/components/Reveal";
 // Sprint 101 (Stream B) — analyzer-enrichment components.
@@ -50,11 +52,13 @@ function StatStrip({ label, items }: { label: string; items: { key: string; valu
   return (
     <div className="rounded-lg border border-[var(--border)] bg-[var(--surface-alt)] p-4">
       <p className="text-[11px] font-semibold uppercase tracking-wide text-[var(--muted)]">{label}</p>
+      {/* Sprint 105 (Stream B) — min-w-0 + truncate-friendly cells so a long */}
+      {/* stat value (e.g. "100.0%") doesn't push the grid wider than the viewport. */}
       <div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-4 lg:grid-cols-7">
         {items.map((it) => (
-          <div key={it.key}>
+          <div key={it.key} className="min-w-0">
             <p className="text-[10px] uppercase tracking-wide text-[var(--muted)]">{it.key}</p>
-            <p className="mt-1 text-lg font-semibold tabular-nums text-[var(--foreground)]">{it.value}</p>
+            <p className="mt-1 text-lg font-semibold tabular-nums text-[var(--foreground)] truncate">{it.value}</p>
           </div>
         ))}
       </div>
@@ -181,6 +185,10 @@ export default function ProspectDetailPage() {
         <div aria-hidden className="pointer-events-none absolute inset-0 -z-10 rounded-[2.2rem] overflow-hidden">
           <HeroHardwood opacity={0.10} seed={summary.prospect_id ?? 1} />
         </div>
+        {/* Sprint 105 (Stream B) — subtle FloatingBall decoration top-right. */}
+        <div aria-hidden className="pointer-events-none absolute -top-2 -right-2 sm:top-3 sm:right-4 opacity-40 hidden sm:block">
+          <FloatingBall size={56} />
+        </div>
         <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
           <div className="flex items-start gap-4">
             {summary.headshot_url ? (
@@ -230,6 +238,14 @@ export default function ProspectDetailPage() {
             </div>
           </div>
 
+          {/* Sprint 105 (Stream A) — compare button rail. Always visible. */}
+          <div className="flex flex-col gap-3 lg:items-end">
+            <Link
+              href={`/draft/compare?a=${summary.prospect_id}`}
+              className="self-start rounded-lg border border-[var(--border)] bg-[var(--surface)] px-3 py-1.5 text-xs font-medium text-[var(--muted-strong)] hover:border-[var(--accent)] hover:text-[var(--accent)] transition-colors lg:self-end"
+            >
+              Compare to… →
+            </Link>
           {translation ? (
             <div className="flex flex-col items-start gap-2 rounded-lg border border-[var(--border)] bg-[var(--surface-alt)] p-3 text-[11px] text-[var(--muted)] lg:max-w-xs">
               <ConfidencePill confidence={translation.translation_confidence} />
@@ -246,25 +262,36 @@ export default function ProspectDetailPage() {
               ) : null}
             </div>
           ) : null}
+          </div>
         </div>
       </header>
       </Reveal>
 
+      {/* Sprint 105 (Stream B) — Reveal stagger: each section animates in as */}
+      {/* the user scrolls, ~60ms apart, mirroring the home-page polish pattern. */}
+      <Reveal delay={60}>
       {perGameStrip.length ? (
         <StatStrip label={`Per-game · ${latest?.season ?? ""} · ${latest?.league ?? ""}`} items={perGameStrip} />
       ) : null}
+      </Reveal>
 
+      <Reveal delay={120}>
       {per100Strip.length ? (
         <StatStrip label="Translated NBA per-100 projection" items={per100Strip} />
       ) : null}
+      </Reveal>
 
+      <Reveal delay={180}>
       <section>
         <h2 className="text-sm font-semibold uppercase tracking-wide text-[var(--muted)]">NBA comps</h2>
         <p className="mt-1 text-xs text-[var(--muted)]">
           Top 5 NBA player-seasons closest to the prospect&apos;s translated z-vector. Score on a 0–100 scale.
         </p>
         {detail.nba_comps.length ? (
-          <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
+          // Sprint 105 (Stream B) — dropped xl:grid-cols-5 to xl:grid-cols-4 so
+          // each CompCard has comfortable breathing room on desktop. 5 cards in
+          // one row was overflow-prone at narrow desktop widths.
+          <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
             {detail.nba_comps.map((c) => (
               <CompCard key={`${c.player_id}-${c.season}`} comp={c} />
             ))}
@@ -275,38 +302,42 @@ export default function ProspectDetailPage() {
           </div>
         )}
       </section>
+      </Reveal>
 
+      <Reveal delay={240}>
       {measurement ? (
         <section className="rounded-lg border border-[var(--border)] bg-[var(--surface)] p-5">
           <p className="text-[11px] font-semibold uppercase tracking-wide text-[var(--muted)]">Measurements</p>
+          {/* Sprint 105 (Stream B) — min-w-0 on each cell so long values truncate */}
+          {/* instead of expanding the grid past the viewport on xs. */}
           <div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
-            <div>
+            <div className="min-w-0">
               <p className="text-[10px] uppercase tracking-wide text-[var(--muted)]">Height (no shoes)</p>
-              <p className="text-lg font-semibold tabular-nums text-[var(--foreground)]">
+              <p className="text-lg font-semibold tabular-nums text-[var(--foreground)] truncate">
                 {formatHeight(measurement.height_no_shoes)}
               </p>
             </div>
-            <div>
+            <div className="min-w-0">
               <p className="text-[10px] uppercase tracking-wide text-[var(--muted)]">Height (shoes)</p>
-              <p className="text-lg font-semibold tabular-nums text-[var(--foreground)]">
+              <p className="text-lg font-semibold tabular-nums text-[var(--foreground)] truncate">
                 {formatHeight(measurement.height_with_shoes)}
               </p>
             </div>
-            <div>
+            <div className="min-w-0">
               <p className="text-[10px] uppercase tracking-wide text-[var(--muted)]">Wingspan</p>
-              <p className="text-lg font-semibold tabular-nums text-[var(--foreground)]">
+              <p className="text-lg font-semibold tabular-nums text-[var(--foreground)] truncate">
                 {formatHeight(measurement.wingspan)}
               </p>
             </div>
-            <div>
+            <div className="min-w-0">
               <p className="text-[10px] uppercase tracking-wide text-[var(--muted)]">Standing reach</p>
-              <p className="text-lg font-semibold tabular-nums text-[var(--foreground)]">
+              <p className="text-lg font-semibold tabular-nums text-[var(--foreground)] truncate">
                 {formatHeight(measurement.standing_reach)}
               </p>
             </div>
-            <div>
+            <div className="min-w-0">
               <p className="text-[10px] uppercase tracking-wide text-[var(--muted)]">Weight</p>
-              <p className="text-lg font-semibold tabular-nums text-[var(--foreground)]">
+              <p className="text-lg font-semibold tabular-nums text-[var(--foreground)] truncate">
                 {measurement.weight ? `${measurement.weight.toFixed(0)} lbs` : "—"}
               </p>
             </div>
@@ -314,11 +345,13 @@ export default function ProspectDetailPage() {
           <p className="mt-3 text-[11px] text-[var(--muted)]">Source: {measurement.source ?? "n/a"}</p>
         </section>
       ) : null}
+      </Reveal>
 
       {/* ─── Sprint 101 (Stream B) — analyzer enrichment ─────────────── */}
 
       {/* Projected tier headline — small banner anchored above the new */}
       {/* sections so the projected-tier signal isn't buried. */}
+      <Reveal delay={300}>
       {detail.summary.projected_tier && detail.summary.projected_tier !== "unknown" ? (
         <div className="rounded-lg border border-[var(--border)] bg-[var(--surface)] p-4 flex items-center gap-3">
           <span className="text-[11px] font-semibold uppercase tracking-wide text-[var(--muted)]">
@@ -335,33 +368,54 @@ export default function ProspectDetailPage() {
           ) : null}
         </div>
       ) : null}
+      </Reveal>
 
       {/* Sprint 102 (Stream B) — best NBA destinations grid */}
-      <TeamFitPanel teams={detail.team_fit_top} />
+      <Reveal delay={360}>
+        <TeamFitPanel teams={detail.team_fit_top} />
+      </Reveal>
 
-      <MockDraftConsensusPanel
-        rankings={detail.mock_rankings}
-        consensusRank={detail.summary.consensus_rank_float}
-        consensusVariance={detail.summary.consensus_variance}
-      />
+      <Reveal delay={420}>
+        <MockDraftConsensusPanel
+          rankings={detail.mock_rankings}
+          consensusRank={detail.summary.consensus_rank_float}
+          consensusVariance={detail.summary.consensus_variance}
+        />
+      </Reveal>
 
-      <TranslationV2Ranges translation={detail.translation_v2} />
+      <Reveal delay={480}>
+        <TranslationV2Ranges translation={detail.translation_v2} />
+      </Reveal>
 
       {/* Sprint 104 (Stream B) — algorithmic strengths/weaknesses + archetype. */}
-      <StrengthsWeaknessesPanel profile={detail.profile} />
+      <Reveal delay={540}>
+        <StrengthsWeaknessesPanel profile={detail.profile} />
+      </Reveal>
 
       {/* Sprint 104 (Stream B) — cross-league projection variants. */}
-      <CrossLeagueProjections translation={detail.translation_v2} />
+      <Reveal delay={600}>
+        <CrossLeagueProjections translation={detail.translation_v2} />
+      </Reveal>
 
-      <HistoricalCompsGrid comps={detail.historical_comps} />
+      <Reveal delay={660}>
+        <HistoricalCompsGrid comps={detail.historical_comps} />
+      </Reveal>
 
-      <HistoricalBaselineChart baseline={detail.historical_baseline} />
+      <Reveal delay={720}>
+        <HistoricalBaselineChart baseline={detail.historical_baseline} />
+      </Reveal>
 
-      <RiskIndicatorsBars risk={detail.risk_indicators} />
+      <Reveal delay={780}>
+        <RiskIndicatorsBars risk={detail.risk_indicators} />
+      </Reveal>
 
-      <CombineMeasurementsCard measurement={detail.combine_measurements} />
+      <Reveal delay={840}>
+        <CombineMeasurementsCard measurement={detail.combine_measurements} />
+      </Reveal>
 
-      <InternationalStatsPanel rows={detail.international_stats} />
+      <Reveal delay={900}>
+        <InternationalStatsPanel rows={detail.international_stats} />
+      </Reveal>
     </div>
   );
 }
