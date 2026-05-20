@@ -153,6 +153,21 @@ facts:
     source: backend/services/draft_translation_service_v2.py
     review_by: 2027-01-01
 
+  # ─── Sprint 105 — compare page data foundation ──────────────────────
+  # The /draft/compare page renders by fetching getProspectDetail twice.
+  # We pin that prospect_id=2's response has the same shape needed for
+  # compare (full_name + at least one stat row) so the page can't
+  # silently regress to "Choose two prospects" forever even when both
+  # IDs are valid in the URL.
+  - id: draft-2026-prospect-2-renders-for-compare
+    description: Prospect ID 2 returns a populated detail shape for /draft/compare
+    endpoint: /api/draft/prospects/2
+    jq_filter: '.summary.full_name'
+    operator: min_length
+    value: 3
+    source: frontend/src/app/draft/compare/page.tsx
+    review_by: 2027-01-01
+
   # ─── Draft (historical) — anti-regression for past classes ───────────
   - id: draft-2017-pick-1
     description: Markelle Fultz was the 2017 #1 pick
